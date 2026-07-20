@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>사용 기간 만료 모달 — 미리보기</title>
+<style>
+  :root{
+    --card:#ffffff;
+    --bg1:#f8fafc;
+    --bg2:#f1f5f9;
+    --bdr:rgba(15,23,42,0.10);
+    --t1:#0f172a;
+    --t2:#334155;
+    --t3:#64748b;
+    --f:"Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  }
+  html,body{margin:0;padding:0;height:100%;font-family:var(--f);background:#0f172a;color:#fff;-webkit-font-smoothing:antialiased}
+  .stage{position:fixed;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="%231e293b"/><path d="M0 0H40M0 20H40" stroke="%23334155" stroke-width="0.5"/></svg>')}
+  .preview-note{position:fixed;top:14px;left:50%;transform:translateX(-50%);font-size:11px;color:#cbd5e1;background:rgba(0,0,0,0.55);padding:6px 12px;border-radius:999px;font-weight:600;z-index:10}
+
+  /* ── 실제 모달 (그대로 복붙해서 쓸 수 있는 마크업) ── */
+  .beta-expired-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.55);
+    backdrop-filter:blur(4px);
+    z-index:2147483646;
+    display:flex;align-items:center;justify-content:center;
+    animation:bxFadeIn .18s ease-out;
+  }
+  @keyframes bxFadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes bxPopIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+
+  .beta-expired-modal{
+    background:var(--card);
+    border:1px solid var(--bdr);
+    border-radius:16px;
+    width:480px;max-width:92vw;
+    box-shadow:0 28px 70px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.10);
+    overflow:hidden;
+    animation:bxPopIn .22s cubic-bezier(.2,.9,.3,1.1);
+    font-family:var(--f);
+  }
+
+  .bxe-head{
+    padding:20px 24px 16px;
+    border-bottom:1px solid var(--bdr);
+    display:flex;align-items:center;gap:14px;
+    background:linear-gradient(180deg,rgba(239,68,68,0.07),transparent);
+  }
+  .bxe-icon{
+    width:36px;height:36px;border-radius:10px;flex-shrink:0;
+    background:linear-gradient(135deg,#dc2626,#b91c1c);
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:20px;line-height:1;
+    box-shadow:0 4px 12px rgba(220,38,38,0.30);
+  }
+  .bxe-title{
+    font-size:16px;font-weight:800;color:var(--t1);letter-spacing:-0.2px;
+  }
+
+  .bxe-body{
+    padding:22px 26px 8px;
+    font-size:13.5px;color:var(--t1);
+    line-height:1.85;
+    font-weight:500;
+  }
+  .bxe-body b{font-weight:800;color:#0f172a}
+  .bxe-body .hl{color:#0891b2;font-weight:800}
+
+  .bxe-foot{
+    padding:18px 24px 22px;
+    display:flex;justify-content:flex-end;
+  }
+  .bxe-btn{
+    font-family:var(--f);
+    font-size:13.5px;
+    padding:12px 26px;
+    border-radius:11px;
+    background:linear-gradient(135deg,#f97316,#ea580c);
+    color:#fff;border:none;
+    font-weight:800;letter-spacing:0.2px;
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(249,115,22,0.32),inset 0 1px 0 rgba(255,255,255,0.20);
+    transition:transform .12s ease,box-shadow .12s ease;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .bxe-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(249,115,22,0.40),inset 0 1px 0 rgba(255,255,255,0.20)}
+  .bxe-btn:active{transform:none;box-shadow:0 3px 8px rgba(249,115,22,0.30)}
+
+  /* 다크 테마 변형 — 앱 다크모드일 때 자동 적용되도록 */
+  @media (prefers-color-scheme: dark){
+    :root{--card:#1a1a1a;--bg1:#0f172a;--bg2:#1e293b;--bdr:rgba(255,255,255,0.10);--t1:#f1f5f9;--t2:#cbd5e1;--t3:#94a3b8}
+    .bxe-body b{color:#fff}
+  }
+</style>
+</head>
+<body>
+  <div class="stage"></div>
+  <div class="preview-note">미리보기 — 실제 앱에서는 일지 화면 위에 띄워집니다</div>
+
+  <div class="beta-expired-overlay" id="ov">
+    <div class="beta-expired-modal" role="dialog" aria-modal="true" aria-labelledby="bxeTitle">
+      <div class="bxe-head">
+        <div class="bxe-icon">!</div>
+        <div class="bxe-title" id="bxeTitle">사용 기간 만료</div>
+      </div>
+      <div class="bxe-body">
+        사용 기간이 만료되었습니다.<br>
+        오렌지팜 홈페이지에서 새 프로그램을 다운로드 후 그대로 설치하여 <b>'설정'</b> 의 <b>'오렌지톡 인증코드'</b> 탭에서 인증코드를 넣어주세요. <span class="hl">즉시 사용 가능</span>합니다.
+      </div>
+      <div class="bxe-foot">
+        <button class="bxe-btn" id="goSite">오렌지팜 홈페이지로 이동 →</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  document.getElementById('goSite').addEventListener('click',function(){
+    alert('실제 앱에서는 window.electronAPI.openExternal(\\'https://school114.org\\') 호출 후 모달이 닫힙니다.');
+  });
+</script>
+</body>
+</html>

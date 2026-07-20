@@ -1,0 +1,468 @@
+{
+  "languages": [],
+  "sections": [
+    {
+      "id": "s_personal",
+      "headerName": "인적사항",
+      "type": "personal_info",
+      "depth": 0,
+      "parentId": null,
+      "enabled": true,
+      "isDefault": true,
+      "allowStaff": false
+    },
+    {
+      "id": "s_purpose",
+      "headerName": "방문 목적 선택",
+      "type": "choice",
+      "depth": 0,
+      "parentId": null,
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        {
+          "id": "o_p1",
+          "label": "불편한 곳이 있어요.",
+          "emoji": "🤕",
+          "tag": "진료/처치",
+          "target": "s_discomfort",
+          "enabled": true,
+          "isDefault": true
+        },
+        {
+          "id": "o_p2",
+          "label": "물건을 빌리러 왔어요.",
+          "emoji": "🛒",
+          "tag": "물품 대여",
+          "target": "s_borrow",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true
+        },
+        {
+          "id": "o_p3",
+          "label": "물건을 반납하러 왔어요.",
+          "emoji": "📦",
+          "tag": "물품 반납",
+          "target": "s_return",
+          "enabled": true,
+          "isDefault": true
+        },
+        {
+          "id": "o_p5",
+          "label": "선생님과 상담을 하고 싶어요.",
+          "emoji": "🗣️",
+          "tag": "상담",
+          "target": "s_counsel",
+          "enabled": true,
+          "isDefault": true
+        }
+      ]
+    },
+    {
+      "id": "s_discomfort",
+      "headerName": "불편한 곳이 있어요.",
+      "type": "choice",
+      "depth": 1,
+      "parentId": "s_purpose",
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        {
+          "id": "o_d1",
+          "label": "혼자 처치할 수 있어요.",
+          "emoji": "🩹",
+          "target": "s_self_treat",
+          "enabled": true,
+          "isDefault": true,
+          "diaryRegister": true,
+          "waitMode": "direct",
+          "hasBodymapInsert": true,
+          "bodymapMode": "check"
+        },
+        {
+          "id": "o_d3",
+          "label": "보건 선생님의 처치가 필요합니다.",
+          "emoji": "🧑‍⚕️",
+          "target": "__nurse",
+          "enabled": true,
+          "isDefault": true,
+          "diaryRegister": true,
+          "waitMode": "wait",
+          "hasWaitQueueInsert": true,
+          "hasBodymapInsert": true,
+          "hasConfirmBtnInsert": true,
+          "bodymapMode": "nrs"
+        }
+      ]
+    },
+    {
+      "id": "s_self_treat",
+      "headerName": "혼자 처치할 수 있어요.",
+      "type": "choice",
+      "depth": 2,
+      "parentId": "s_discomfort",
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        {
+          "id": "o_st1",
+          "label": "가벼운 찰과상 소독 후 밴드 붙이기",
+          "emoji": "🩹",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "hasSymTreatInsert": true,
+          "symptomTreat": {
+            "symptoms": [
+              "찰과상"
+            ],
+            "treatments": [
+              "소독 드레싱[에스로반연고(티트리오일) (0.1mg), 밴드, 애니클린]"
+            ]
+          },
+          "diaryRegister": true,
+          "waitMode": "direct",
+          "guideMsg": "① 흐르는 물로 상처를 충분히 씻어 흙·이물질을 제거하세요.\n② 멸균 거즈로 가볍게 눌러 물기를 제거합니다.\n③ 소독액을 묻힌 드레싱 거즈로 상처를 덮고, 연고를 얇게 바른 뒤 밴드를 붙이세요.\n④ 출혈이 계속되거나 상처가 크다면 보건 선생님을 호출해 주세요.",
+          "guideEmoji": "🩹"
+        },
+        {
+          "id": "o_st2",
+          "label": "안구 건조로 인공눈물 넣기",
+          "emoji": "👁️",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "symptomTreat": {
+            "symptoms": [
+              "안구건조"
+            ],
+            "treatments": [
+              "투약[루핑점안액 (1개)]",
+              "보건교육"
+            ]
+          },
+          "hasSymTreatInsert": true,
+          "diaryRegister": true,
+          "waitMode": "direct",
+          "guideMsg": "① 손을 깨끗이 씻으세요.\n② 인공눈물 용기를 흔들고 뚜껑을 엽니다.\n③ 고개를 살짝 뒤로 젖히고 아래 눈꺼풀을 당겨 한 방울씩 넣으세요.\n④ 눈을 감고 눈물점(눈 안쪽 모서리)을 가볍게 눌러 흡수시킵니다.\n⑤ 자극·가려움이 심해지면 사용을 중단하고 알려주세요.",
+          "guideEmoji": "👁️"
+        },
+        {
+          "id": "o_st3",
+          "label": "코피 시 고개 숙이고 코 눌러주기 + 코튼볼 넣기",
+          "emoji": "🩸",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "symptomTreat": {
+            "symptoms": [
+              "코피"
+            ],
+            "treatments": [
+              "지혈, 코튼볼 삽입",
+              "보건교육"
+            ]
+          },
+          "hasSymTreatInsert": true,
+          "diaryRegister": true,
+          "waitMode": "direct",
+          "guideMsg": "① 고개를 살짝 앞으로 숙이세요. (뒤로 젖히면 피가 삼켜져 구역질을 유발할 수 있습니다.)\n② 엄지와 검지로 콧방울 부분을 5~10분간 지속해서 눌러주세요.\n③ 필요 시 콧구멍에 코튼볼을 가볍게 넣고 다시 눌러줍니다.\n④ 10분이 지나도 멈추지 않거나 하루에 반복되면 보건 선생님께 알리세요.",
+          "guideEmoji": "🩸"
+        },
+        {
+          "id": "o_st4",
+          "label": "에어파스 갖고 밖에 나가서 뿌리고 오기",
+          "emoji": "💨",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "diaryRegister": true,
+          "waitMode": "direct",
+          "hasSymTreatInsert": true,
+          "symptomTreat": {
+            "symptoms": [
+              "근육통"
+            ],
+            "treatments": [
+              "투약[신신에어파스]"
+            ]
+          },
+          "guideMsg": "① 실내에서는 절대 뿌리지 않고, 복도 창가나 바깥으로 나가 사용하세요.\n② 통증 부위에서 15~20cm 거리를 두고 짧게 분사합니다.\n③ 눈·얼굴·점막에는 절대 뿌리지 마세요.\n④ 사용 후 통증이 계속되거나 피부가 붉어지면 보건 선생님을 호출하세요.",
+          "guideEmoji": "💨",
+          "hasConfirmBtnInsert": true
+        }
+      ]
+    },
+    {
+      "id": "s_borrow",
+      "headerName": "물건을 빌리러 왔어요.",
+      "type": "choice",
+      "depth": 1,
+      "parentId": "s_purpose",
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        {
+          "id": "o_b1",
+          "label": "생리대",
+          "emoji": "🌸",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true,
+          "returnNeeded": false,
+          "waitMode": "direct",
+          "guideMsg": "보건실 선반에서 본인 사이즈의 생리대 1개를 가져가세요.\n사용 후 반납 의무는 없습니다.\n추가로 필요하면 언제든 다시 방문해도 괜찮아요.",
+          "guideEmoji": "🌸"
+        },
+        {
+          "id": "o_b2",
+          "label": "마스크",
+          "emoji": "😷",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true,
+          "returnNeeded": false,
+          "waitMode": "direct",
+          "guideMsg": "마스크 1개를 가져가세요.\n코·입을 모두 덮도록 착용하고, 젖거나 오염되면 새 마스크로 교체하세요.\n반납은 하지 않아도 됩니다.",
+          "guideEmoji": "😷"
+        },
+        {
+          "id": "o_b3",
+          "label": "면봉",
+          "emoji": "🧹",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true,
+          "returnNeeded": false,
+          "waitMode": "direct",
+          "guideMsg": "필요 수량만 가져가세요 (1~2개).\n귀 안쪽·콧속 깊은 곳에는 넣지 마세요.\n사용한 면봉은 꼭 쓰레기통에 버려주세요.",
+          "guideEmoji": "🧹"
+        },
+        {
+          "id": "o_b4",
+          "label": "밴드",
+          "emoji": "🩹",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true,
+          "returnNeeded": false,
+          "waitMode": "direct",
+          "guideMsg": "상처에 맞는 크기의 밴드를 1개 가져가세요.\n상처 부위를 먼저 깨끗이 씻고 물기를 제거한 뒤 붙이면 좋습니다.\n젖거나 떨어지면 새 밴드로 교체하세요.",
+          "guideEmoji": "🩹"
+        },
+        {
+          "id": "o_b5",
+          "label": "손 소독제",
+          "emoji": "🧴",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true,
+          "returnNeeded": false,
+          "waitMode": "direct",
+          "guideMsg": "손에 500원 동전 크기만큼 덜어 양 손바닥·손등·손가락 사이를 골고루 문지르세요.\n약 20초간 충분히 말리면 됩니다.\n눈·입에 들어가지 않도록 주의하세요.",
+          "guideEmoji": "🧴"
+        },
+        {
+          "id": "o_b6",
+          "label": "핫팩",
+          "emoji": "🔥",
+          "target": "__deadline",
+          "enabled": true,
+          "isDefault": true,
+          "hasReceptionInsert": true,
+          "returnNeeded": true,
+          "rentalItem": "핫팩",
+          "waitMode": "wait",
+          "returnDays": 1
+        },
+        {
+          "id": "o_b7",
+          "label": "아이스팩",
+          "emoji": "🧊",
+          "target": "__deadline",
+          "returnNeeded": true,
+          "rentalItem": "아이스팩",
+          "waitMode": "wait",
+          "enabled": true,
+          "isDefault": true,
+          "hasConfirmBtnInsert": true,
+          "returnDays": 1
+        }
+      ]
+    },
+    {
+      "id": "s_return",
+      "headerName": "물건을 반납하러 왔어요.",
+      "type": "choice",
+      "depth": 1,
+      "parentId": "s_purpose",
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        {
+          "id": "o_r1",
+          "label": "핫팩 반납",
+          "emoji": "🔥",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "rentalItem": "핫팩",
+          "waitMode": "wait",
+          "guideMsg": "원래 가져간 곳에 다시 넣어두세요.",
+          "guideEmoji": "📦"
+        },
+        {
+          "id": "o_r2",
+          "label": "아이스팩 반납",
+          "emoji": "🧊",
+          "target": "__self_reset",
+          "enabled": true,
+          "isDefault": true,
+          "rentalItem": "아이스팩",
+          "waitMode": "wait",
+          "guideMsg": "원래 가져간 곳에 다시 넣어두세요.",
+          "guideEmoji": "📦",
+          "hasConfirmBtnInsert": true
+        }
+      ]
+    },
+    {
+      "id": "s_counsel",
+      "headerName": "선생님과 상담을 하고 싶어요.",
+      "type": "choice",
+      "depth": 1,
+      "parentId": "s_purpose",
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        {
+          "id": "o_c1",
+          "label": "친구 관계에 관한 상담",
+          "emoji": "🤝",
+          "target": "__done",
+          "enabled": true,
+          "isDefault": true,
+          "counselTopic": "친구관계",
+          "waitMode": "wait"
+        },
+        {
+          "id": "o_c2",
+          "label": "건강에 대한 상담",
+          "emoji": "❤️",
+          "target": "__done",
+          "enabled": true,
+          "isDefault": true,
+          "counselTopic": "건강",
+          "waitMode": "wait"
+        },
+        {
+          "id": "o_i1",
+          "label": "동아리 관련 상담",
+          "emoji": "🎨",
+          "target": "__done",
+          "enabled": true,
+          "isDefault": true,
+          "counselTopic": "동아리",
+          "waitMode": "wait"
+        },
+        {
+          "id": "o_i2",
+          "label": "수업 관련 상담",
+          "emoji": "📚",
+          "target": "__done",
+          "enabled": true,
+          "isDefault": true,
+          "counselTopic": "수업",
+          "waitMode": "wait"
+        },
+        {
+          "id": "o_i3",
+          "label": "약품 사용 관련 상담",
+          "emoji": "💊",
+          "target": "__done",
+          "enabled": true,
+          "isDefault": true,
+          "counselTopic": "약품사용",
+          "waitMode": "wait"
+        },
+        {
+          "id": "o_c3",
+          "label": "학업, 진로 관련 상담",
+          "emoji": "📖",
+          "target": "__done",
+          "enabled": true,
+          "isDefault": true,
+          "counselTopic": "학업/진로",
+          "waitMode": "wait",
+          "hasConfirmBtnInsert": true
+        }
+      ]
+    }
+  ],
+  "defaultRules": {
+    "title": "보건실 이용 수칙 안내",
+    "timeTitle": "운영 시간",
+    "mannerTitle": "지켜야 할 예절과 절차",
+    "time": [
+      "월~금요일 08:30 ~ 16:30",
+      {
+        "text": "보건 선생님의 출장/조퇴 등이 있는 시간에는 이용할 수 없습니다.",
+        "sub": true,
+        "marker": "▸"
+      },
+      "쉬는 시간에 보건실 이용이 원칙",
+      {
+        "text": "수업 시간은 쉬는 시간까지 기다리기 어려운 경우에 이용을 허용",
+        "sub": true,
+        "marker": "▸"
+      }
+    ],
+    "manners": [
+      {
+        "text": "들어갈 때: 노크 후 문 열기"
+      },
+      {
+        "text": "키오스크에 본인의 인적사항, 방문 목적을 입력하고 안내 따르기"
+      },
+      {
+        "text": "방문 목적이 있는 경우에만 들어오고 동행한 친구는 복도에서 대기"
+      },
+      {
+        "text": "실내화 착용이 의무이며 실외화 착용 금지"
+      },
+      {
+        "text": "침상 이용 제한: 최대 1시간까지 이용 가능"
+      },
+      {
+        "text": "이후에는 조퇴 또는 병원 진료를 권장",
+        "sub": true,
+        "marker": "▸"
+      }
+    ]
+  },
+  "defaultRuleMeta": {
+    "titleIcon": "🩺",
+    "timeIcon": "①",
+    "mannerIcon": "②"
+  },
+  "_migIceReturn": true,
+  "_migRmPeriod": true,
+  "_migNurseTreatLabel": true,
+  "_migTagV2": true,
+  "_migInquiryToCounsel": true,
+  "_migTagBorrowNoReturn": true,
+  "_migFnMeta1": true,
+  "_migGuideMsg": true,
+  "_migNurseDirect": true,
+  "_migNurseDirect2": true,
+  "_migBmMove1": true,
+  "_migBmMode1": true,
+  "_migCounselTopic2": true,
+  "_migEmoji1": true
+}

@@ -1,0 +1,21 @@
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+  <div id="view-story" class="view">
+    <div style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
+      <div class="magic-index-tab active" id="storySubTab2" data-story-tab="tutorial" style="z-index:2;cursor:pointer">튜토리얼 영상</div>
+      <div class="magic-index-tab" id="storySubTab4" data-story-tab="feedback" style="display:none;cursor:pointer">의견 & 제보</div>
+    </div>
+    <div class="magic-chart-body" style="padding:16px">
+      <!-- 탭1(소개)는 설정 → 버전·업데이트 의 "개발 이야기" 아코디언으로 이동했습니다. -->
+      <!-- 탭2: 튜토리얼 영상 (4x10 = 40슬롯) -->
+      <div id="storySubTutorial" class="magic-sub-content active" style="display:block">
+        <div class="cc" style="margin-bottom:14px">
+          <div class="st">🎬 튜토리얼 영상</div>
+          <div id="storyTutorialGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-height:calc(100vh - 200px);overflow-y:auto;padding:8px 0;scrollbar-width:thin"></div>
+        </div>
+      </div>
+      <!-- 탭4: 의견 & 제보 -->
+      <div id="storySubFeedback" class="magic-sub-content" style="display:none">
+        <div id="feedbackContent"></div>
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<!--
+  바디맵 왼쪽/오른쪽 라벨 편집기 (독립 도구)
+  - 사용자가 각 바디맵 이미지에 "왼쪽"·"오른쪽" 라벨을 드래그로 위치 잡는 용도
+  - 좌표는 표시 X (사용자 요청)
+  - 기존 좌표 데이터·앱 코드와 완전 무관 — 이 HTML 은 standalone
+  - 맑은 고딕체로 라벨 표시
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>바디맵 왼쪽/오른쪽 라벨 편집기 (독립)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 14px;
+    font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+    background: #f5f5f5;
+    color: #333;
+  }
+  h1 {
+    font-size: 15px;
+    margin: 0 0 6px;
+    color: #1a1a1a;
+  }
+  .help {
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #666;
+    margin: 0 0 14px;
+    background: #fff;
+    padding: 9px 12px;
+    border-left: 3px solid #f97316;
+    border-radius: 4px;
+  }
+  .help b { color: #f97316; }
+  /* 세로 1열 배치 — 카드를 위에서 아래로 차곡차곡 */
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0 auto;
+    width: fit-content;
+  }
+  .img-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .img-card h2 {
+    font-size: 12px;
+    color: #333;
+    margin: 0 0 6px;
+    font-weight: 700;
+  }
+  .img-card .filename {
+    font-size: 9px;
+    color: #999;
+    font-family: monospace;
+    margin-bottom: 6px;
+  }
+  /* wrap 크기는 JS 가 사용자 PC 모달 zone 크기와 정확히 동일하게 설정 (사용자 결정 2026-05-27 옵션 A).
+   *  · 편집기 wrap 비율 = 프로그램 bm-zone 비율 → 라벨 % 위치 100% 일치 */
+  .img-wrap {
+    position: relative;
+    display: block;
+    user-select: none;
+    background: #fafafa; /* letterbox 영역 시각 구분 */
+    border: 1px solid #e5e5e5;
+    line-height: 0;
+    /* width/height 는 JS 에서 동적 설정 */
+  }
+  .img-wrap img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* 프로그램과 동일 — letterbox 발생 */
+    pointer-events: none;
+  }
+  /* emergency-view 의 실제 라벨과 동일한 외형 (사용자 요청 2026-05-27) — 회색 글자 + 반투명 회색 테두리 + 투명 배경 */
+  .drag-label {
+    position: absolute;
+    padding: 1px 5px;
+    background: transparent;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #888;
+    cursor: grab;
+    user-select: none;
+    font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+    line-height: 1.2;
+    white-space: nowrap;
+    z-index: 5;
+  }
+  /* 호버·드래그 시 시각 강조 — 편집기에서 라벨 잡기 쉽게 (실제 앱과는 무관) */
+  .drag-label:hover {
+    outline: 1px dashed #06b6d4;
+    outline-offset: 2px;
+  }
+  .drag-label:active,
+  .drag-label.grabbing {
+    cursor: grabbing;
+    outline: 1px solid #06b6d4;
+    outline-offset: 2px;
+  }
+  /* .l, .r 색 분리 제거 — 모두 회색 통일 (사용자 요청) */
+  .toolbar {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 1000;
+  }
+  .toolbar button {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #fff;
+    border: 1px solid #d4d4d4;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  .toolbar button:hover { background: #f5f5f5; }
+  .toolbar button.primary {
+    background: #f97316;
+    color: #fff;
+    border-color: #ea580c;
+  }
+  .toolbar button.primary:hover { background: #ea580c; }
+</style>
+</head>
+<body>
+
+<h1>바디맵 왼쪽/오른쪽 라벨 편집기</h1>
+<div class="help">
+  · 각 이미지의 <b>왼쪽</b>·<b>오른쪽</b> 라벨을 마우스로 드래그해서 원하는 위치에 놓으세요.<br>
+  · 마우스 커서가 손바닥 모양 → 클릭 시 움켜쥔 손 모양으로 바뀝니다.<br>
+  · 좌표는 표시되지 않습니다. 시각적 배치만을 위한 도구입니다.<br>
+  · <b>기존 바디맵 좌표 데이터에 영향 없음</b> — 이 편집기는 완전히 독립된 도구입니다.<br>
+  · 위치 저장: 하단 우측 "위치 저장" 클릭 시 브라우저 localStorage 에 저장되어 다음 방문 시 그대로 복원.
+</div>
+
+<div class="grid">
+
+  <!-- 전신 — 앞·뒤 한 이미지에 같이 있으므로 4개 라벨 -->
+  <div class="img-card">
+    <h2>전신</h2>
+    <div class="filename">assets/bodymap/adult_body.png</div>
+    <div class="img-wrap" data-key="adult_body">
+      <img src="assets/bodymap/adult_body.png" alt="전신">
+      <div class="drag-label l" data-id="adult_body__l_front" style="left:8%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="adult_body__r_front" style="left:32%;top:10%">오른쪽</div>
+      <div class="drag-label l" data-id="adult_body__l_back"  style="left:58%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="adult_body__r_back"  style="left:82%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+  <!-- 얼굴 -->
+  <div class="img-card">
+    <h2>얼굴</h2>
+    <div class="filename">assets/bodymap/face_adult.png</div>
+    <div class="img-wrap" data-key="face_adult">
+      <img src="assets/bodymap/face_adult.png" alt="얼굴">
+      <div class="drag-label l" data-id="face_adult__l" style="left:10%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="face_adult__r" style="right:10%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+  <!-- 구강 -->
+  <div class="img-card">
+    <h2>구강 (치아)</h2>
+    <div class="filename">assets/bodymap/adult_teeth.png</div>
+    <div class="img-wrap" data-key="adult_teeth">
+      <img src="assets/bodymap/adult_teeth.png" alt="구강">
+      <div class="drag-label l" data-id="adult_teeth__l" style="left:10%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="adult_teeth__r" style="right:10%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+  <!-- 손바닥 -->
+  <div class="img-card">
+    <h2>손바닥</h2>
+    <div class="filename">assets/bodymap/palm.png</div>
+    <div class="img-wrap" data-key="palm">
+      <img src="assets/bodymap/palm.png" alt="손바닥">
+      <div class="drag-label l" data-id="palm__l" style="left:10%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="palm__r" style="right:10%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+  <!-- 손등 -->
+  <div class="img-card">
+    <h2>손등</h2>
+    <div class="filename">assets/bodymap/hands-top.png</div>
+    <div class="img-wrap" data-key="hands_top">
+      <img src="assets/bodymap/hands-top.png" alt="손등">
+      <div class="drag-label l" data-id="hands_top__l" style="left:10%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="hands_top__r" style="right:10%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+  <!-- 발바닥 -->
+  <div class="img-card">
+    <h2>발바닥</h2>
+    <div class="filename">assets/bodymap/foot_bottom.png</div>
+    <div class="img-wrap" data-key="foot_bottom">
+      <img src="assets/bodymap/foot_bottom.png" alt="발바닥">
+      <div class="drag-label l" data-id="foot_bottom__l" style="left:10%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="foot_bottom__r" style="right:10%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+  <!-- 발등 -->
+  <div class="img-card">
+    <h2>발등</h2>
+    <div class="filename">assets/bodymap/foot_top.png</div>
+    <div class="img-wrap" data-key="foot_top">
+      <img src="assets/bodymap/foot_top.png" alt="발등">
+      <div class="drag-label l" data-id="foot_top__l" style="left:10%;top:10%">왼쪽</div>
+      <div class="drag-label r" data-id="foot_top__r" style="right:10%;top:10%">오른쪽</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toolbar">
+  <button id="resetBtn" title="모든 라벨 위치를 초기 위치로 되돌립니다">↺ 초기화</button>
+  <button id="copyBtn" title="현재 라벨 위치를 JSON 으로 클립보드에 복사 (채팅에 바로 붙여넣기 가능)">📋 좌표 복사</button>
+  <button id="saveBtn" class="primary" title="현재 위치를 브라우저에 저장 (다음 방문 시 복원)">💾 위치 저장</button>
+</div>
+
+<script>
+  /* localStorage 키 — 이 편집기 전용. 앱의 다른 키와 절대 충돌 없는 별도 네임스페이스. */
+  var LS_KEY = '__bodymap_label_editor_positions__';
+
+  /* ── 편집기 wrap 크기 = 프로그램 bm-zone 크기 (사용자 PC 모달 기준 자동 계산) ──
+   *  프로그램의 모달 layout (96vh × min(98vw,1200px), 좌측 520px 패널, flex 1 : 0.55 : 0.7) 을
+   *  사용자 PC window 크기 기반으로 시뮬레이션 → 편집기 카드 wrap 사이즈를 정확히 같게.
+   *  그러면 wrap 기준 % = bm-zone 기준 % → 라벨 위치 100% 일치. */
+  var EDITOR_KEY_TO_ZONE = {
+    adult_body:  'body',
+    face_adult:  'face',
+    adult_teeth: 'teeth',
+    palm:        'palm',
+    hands_top:   'handTop',
+    foot_bottom: 'footBottom',
+    foot_top:    'footTop'
+  };
+  function _computeZoneSizes(){
+    var winW = window.innerWidth;
+    var winH = window.innerHeight;
+    var modalW = Math.min(winW * 0.98, 1200);
+    var modalH = winH * 0.96;
+    var headerH = 65;            /* 모달 헤더 대략 — 패딩 10×2 + 타이틀·서브 두 줄 */
+    var leftPanelH = modalH - headerH;
+    var leftPanelW = 520;
+    /* 좌측 패널: padding 4×2=8, pair 사이 gap 3×2=6 → 사용 height = leftPanelH - 14 */
+    var pairTotalH = leftPanelH - 14;
+    var facePairH = pairTotalH * (1    / 2.25);
+    var handPairH = pairTotalH * (0.55 / 2.25);
+    var footPairH = pairTotalH * (0.7  / 2.25);
+    /* 좌측 zone width — usable=520-8=512, pair 안 gap 4(face) or 2(hands/feet) */
+    var usableW = leftPanelW - 8;
+    var faceZoneW = (usableW - 4) / 2;
+    var handZoneW = (usableW - 2) / 2;
+    var footZoneW = (usableW - 2) / 2;
+    /* 우측 body: modal_w - 520 - padding 6 = right_panel_w, body height = leftPanelH * 0.98 */
+    var rightPanelW = modalW - leftPanelW - 6;
+    var bodyZoneH = leftPanelH * 0.98;
+    return {
+      face:       { w: faceZoneW, h: facePairH },
+      teeth:      { w: faceZoneW, h: facePairH },
+      handTop:    { w: handZoneW, h: handPairH },
+      palm:       { w: handZoneW, h: handPairH },
+      footTop:    { w: footZoneW, h: footPairH },
+      footBottom: { w: footZoneW, h: footPairH },
+      body:       { w: rightPanelW, h: bodyZoneH }
+    };
+  }
+  function applyZoneSizes(){
+    var sizes = _computeZoneSizes();
+    document.querySelectorAll('.img-wrap[data-key]').forEach(function(wrap){
+      var editorKey = wrap.dataset.key;
+      var zoneKey = EDITOR_KEY_TO_ZONE[editorKey];
+      if(!zoneKey || !sizes[zoneKey]) return;
+      var s = sizes[zoneKey];
+      wrap.style.width  = Math.round(s.w) + 'px';
+      wrap.style.height = Math.round(s.h) + 'px';
+    });
+  }
+  /* 페이지 로드 + window 리사이즈 시 자동 갱신 */
+  applyZoneSizes();
+  window.addEventListener('resize', applyZoneSizes);
+
+  /* 저장된 위치 복원 (페이지 로드 시) */
+  (function restorePositions(){
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if(!raw) return;
+      var saved = JSON.parse(raw);
+      if(!saved || typeof saved !== 'object') return;
+      document.querySelectorAll('.drag-label').forEach(function(el){
+        var id = el.dataset.id;
+        if(saved[id]){
+          var pos = saved[id];
+          /* 퍼센트(%) 단위로 저장 → 이미지 크기 바뀌어도 상대 위치 유지 */
+          if(typeof pos.leftPct === 'number') {
+            el.style.left = pos.leftPct + '%';
+            el.style.right = 'auto';
+          }
+          if(typeof pos.topPct === 'number') {
+            el.style.top = pos.topPct + '%';
+            el.style.bottom = 'auto';
+          }
+        }
+      });
+    } catch(e){
+      console.warn('위치 복원 실패:', e);
+    }
+  })();
+
+  /* 드래그 진행 중인 라벨 1개만 추적 — 다중 라벨 동시 드래그 차단 */
+  var _activeDragLabel = null;
+
+  /* 드래그 핸들러 부착 */
+  document.querySelectorAll('.drag-label').forEach(function(el){
+    el.addEventListener('mousedown', function(e){
+      /* 이미 다른 라벨 드래그 중이면 무시 (다중 드래그 방지) */
+      if(_activeDragLabel) return;
+      e.preventDefault();
+      /* 이미지 자체 click·드래그 등 다른 이벤트로 전파 차단 */
+      e.stopPropagation();
+
+      _activeDragLabel = el;
+      el.classList.add('grabbing');
+
+      var wrap = el.parentElement;
+      var wrapRect = wrap.getBoundingClientRect();
+      var elRect = el.getBoundingClientRect();
+
+      /* wrap 의 크기가 0 이면 (이미지 로드 실패 등) 드래그 진행 불가 — 안전 가드 */
+      if(wrapRect.width <= 0 || wrapRect.height <= 0){
+        _activeDragLabel = null;
+        el.classList.remove('grabbing');
+        return;
+      }
+
+      /* 현재 위치를 px 로 고정 (right/bottom 해제 — % 와 혼합 시 위치 계산 꼬임 방지) */
+      var startLeft = elRect.left - wrapRect.left;
+      var startTop = elRect.top - wrapRect.top;
+      el.style.left = startLeft + 'px';
+      el.style.top = startTop + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+
+      var startX = e.clientX, startY = e.clientY;
+      /* 라벨 자체 크기 — clamping 계산에 사용 (라벨이 wrap 영역 밖으로 빠지지 않도록) */
+      var elW = el.offsetWidth, elH = el.offsetHeight;
+      var maxLeft = Math.max(0, wrapRect.width - elW);
+      var maxTop  = Math.max(0, wrapRect.height - elH);
+
+      function onMove(ev){
+        var newLeft = startLeft + (ev.clientX - startX);
+        var newTop  = startTop  + (ev.clientY - startY);
+        /* 이미지 영역 안으로 clamping — 라벨이 wrap 밖으로 절대 안 나감 */
+        if(newLeft < 0) newLeft = 0;
+        else if(newLeft > maxLeft) newLeft = maxLeft;
+        if(newTop < 0) newTop = 0;
+        else if(newTop > maxTop) newTop = maxTop;
+        el.style.left = newLeft + 'px';
+        el.style.top  = newTop + 'px';
+      }
+      function onUp(){
+        el.classList.remove('grabbing');
+        _activeDragLabel = null;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  /* 이미지 로드 실패 시 시각 피드백 — 사용자가 broken 이미지를 인지하도록 */
+  document.querySelectorAll('.img-wrap img').forEach(function(img){
+    img.addEventListener('error', function(){
+      var wrap = img.parentElement;
+      if(!wrap) return;
+      /* 이미지 자리에 안내 박스 표시 */
+      var placeholder = document.createElement('div');
+      placeholder.style.cssText = 'min-width:200px;min-height:120px;display:flex;align-items:center;justify-content:center;background:#fee;border:1px dashed #c00;color:#900;font-size:11px;padding:20px;text-align:center';
+      placeholder.textContent = '⚠ 이미지 로드 실패: ' + img.getAttribute('src');
+      img.style.display = 'none';
+      wrap.insertBefore(placeholder, img);
+    });
+  });
+
+  /* 저장 — 퍼센트(%) 단위로 변환해서 저장 (이미지 리사이즈 호환) */
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    var data = {};
+    var skipped = 0;
+    document.querySelectorAll('.drag-label').forEach(function(el){
+      var wrap = el.parentElement;
+      var wrapRect = wrap.getBoundingClientRect();
+      /* wrap.width/height 가 0 이면 (이미지 로드 실패 등) NaN 방지 — skip */
+      if(wrapRect.width <= 0 || wrapRect.height <= 0){
+        skipped++;
+        return;
+      }
+      var elRect = el.getBoundingClientRect();
+      var leftPx = elRect.left - wrapRect.left;
+      var topPx  = elRect.top - wrapRect.top;
+      data[el.dataset.id] = {
+        leftPct: (leftPx / wrapRect.width) * 100,
+        topPct:  (topPx / wrapRect.height) * 100
+      };
+    });
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+      var msg = '위치가 저장되었습니다.\n다음 방문 시 자동 복원됩니다.\n(이 편집기 전용 저장소 — 앱의 다른 데이터에 영향 없음)';
+      if(skipped > 0) msg += '\n\n※ ' + skipped + '개 라벨은 이미지 로드 실패 등으로 저장에서 제외되었습니다.';
+      alert(msg);
+    } catch(e){
+      alert('저장 실패: ' + e.message);
+    }
+  });
+
+  /* 초기화 — 라벨을 처음 인라인 style 위치로 되돌림 */
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    if(!confirm('모든 라벨을 초기 위치로 되돌리시겠습니까?\n저장된 위치도 함께 삭제됩니다.')) return;
+    try { localStorage.removeItem(LS_KEY); } catch(e){}
+    location.reload();
+  });
+
+  /* 클립보드 복사 — 현재 라벨 위치를 JSON 으로 즉시 복사. 콘솔 명령 불필요 (사용자 요청 2026-05-27). */
+  document.getElementById('copyBtn').addEventListener('click', function(){
+    var data = {};
+    var skipped = 0;
+    document.querySelectorAll('.drag-label').forEach(function(el){
+      var wrap = el.parentElement;
+      var wrapRect = wrap.getBoundingClientRect();
+      if(wrapRect.width <= 0 || wrapRect.height <= 0){ skipped++; return; }
+      var elRect = el.getBoundingClientRect();
+      var leftPx = elRect.left - wrapRect.left;
+      var topPx  = elRect.top - wrapRect.top;
+      data[el.dataset.id] = {
+        leftPct: (leftPx / wrapRect.width) * 100,
+        topPct:  (topPx / wrapRect.height) * 100
+      };
+    });
+    var json = JSON.stringify(data);
+    /* navigator.clipboard 우선, 실패 시 textarea 폴백 */
+    function _fallback(){
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = json;
+        ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        return true;
+      } catch(e){ return false; }
+    }
+    function _toast(ok){
+      var t = document.createElement('div');
+      t.style.cssText = 'position:fixed;bottom:60px;right:16px;padding:10px 16px;background:'+(ok?'#16a34a':'#dc2626')+';color:#fff;font-size:12px;font-weight:700;border-radius:6px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:\'맑은 고딕\',\'Malgun Gothic\',sans-serif';
+      t.textContent = ok ? ('✅ 좌표 JSON 복사 완료 — 채팅에 붙여넣기 가능' + (skipped ? ' (' + skipped + '개 skip)' : '')) : '❌ 복사 실패';
+      document.body.appendChild(t);
+      setTimeout(function(){ t.style.transition = 'opacity 0.3s'; t.style.opacity = '0'; }, 2500);
+      setTimeout(function(){ if(t.parentElement) t.remove(); }, 2900);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(json).then(function(){ _toast(true); }, function(){ _toast(_fallback()); });
+    } else {
+      _toast(_fallback());
+    }
+  });
+</script>
+
+</body>
+</html>

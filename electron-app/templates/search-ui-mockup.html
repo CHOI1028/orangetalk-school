@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>상세 검색 UI 시안 v2 — 반영본</title>
+<style>
+  :root{
+    --bg:#0c1220; --bg2:#111a2a; --card:#172135; --hover:#1e2d42;
+    --bdr:#2a3a52; --bdrl:#1e2d42; --t1:#f1f5f9; --t2:#b0bec5; --t3:#8ea4b8;
+    --cyan:#06b6d4; --gs:#22c55e; --yl:#eab308; --rs:#ef4444;
+    --caut:#f97316; --watch:#eab308; --noEmg:#dc2626; --noMed:#a855f7;
+    --glass:rgba(23,33,53,0.88); --glass-border:rgba(255,255,255,0.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:'Pretendard Variable','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    font-feature-settings:'palt' on,'kern' on;
+    background:linear-gradient(135deg,#0c1220 0%,#1e2d42 100%);
+    min-height:100vh;color:var(--t1);
+    padding:40px 20px;display:flex;align-items:flex-start;justify-content:center;
+  }
+  body.light{
+    --bg:#f5f7fa; --bg2:#e8ecf1; --card:#ffffff; --hover:#f0f2f5;
+    --bdr:#d1d5db; --bdrl:#e5e7eb; --t1:#1a1a2e; --t2:#4a5568; --t3:#718096;
+    --glass:rgba(255,255,255,0.92); --glass-border:rgba(0,0,0,0.06);
+    background:linear-gradient(135deg,#e8ecf1,#c7d2dc);
+  }
+
+  .search-overlay{
+    background:var(--glass);
+    backdrop-filter:saturate(180%) blur(24px);
+    -webkit-backdrop-filter:saturate(180%) blur(24px);
+    border:1px solid var(--glass-border);
+    border-radius:18px; width:860px; max-height:92vh;
+    box-shadow:0 32px 80px rgba(0,0,0,0.45), 0 12px 32px rgba(0,0,0,0.25);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  /* ═══ 헤더 — 검색창 제거. 제목 + 닫기만 ═══ */
+  .sh-head{
+    padding:14px 16px;display:flex;gap:10px;align-items:center;
+    border-bottom:1px solid var(--glass-border);
+    background:var(--bg2);
+  }
+  .sh-title{font-size:14px;font-weight:700;color:var(--t2);flex:1}
+  /* 우상단 닫기 X 버튼 제거 — 외부 클릭으로만 닫힘 */
+
+  /* ═══ 탭 (학생/교직원) ═══ */
+  .sh-tabs{padding:0 16px;display:flex;gap:2px;border-bottom:1px solid var(--glass-border)}
+  .sh-tab{
+    padding:10px 16px;font-size:12px;font-weight:700;color:var(--t3);
+    background:transparent;border:none;cursor:pointer;
+    border-bottom:2px solid transparent;font-family:inherit;transition:all .12s;
+  }
+  .sh-tab.active{color:var(--t1);border-bottom-color:var(--cyan)}
+  .sh-tab:hover:not(.active){color:var(--t2)}
+
+  /* ═══ 세그먼트(학교급·학과) ═══ */
+  .sh-segs{padding:10px 16px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--glass-border)}
+  .sh-seg-row{display:flex;align-items:center;gap:10px}
+  .sh-seg-label{
+    font-size:10px;font-weight:700;color:var(--t3);
+    min-width:56px;letter-spacing:0.3px;text-transform:uppercase;
+  }
+  .sh-seg{display:inline-flex;padding:3px;background:var(--bg2);border-radius:8px;border:1px solid var(--bdr);gap:2px}
+  .sh-seg-btn{
+    padding:5px 14px;font-size:11px;font-weight:600;
+    border:none;background:transparent;color:var(--t2);
+    border-radius:6px;cursor:pointer;font-family:inherit;
+    transition:all .14s cubic-bezier(.4,0,.2,1);
+  }
+  /* 세그먼트 활성 — 학년 칩과 동일한 cyan 채움 + glow */
+  .sh-seg-btn.active{background:var(--cyan);color:#fff;box-shadow:0 0 12px rgba(6,182,212,0.35);font-weight:700}
+  .sh-seg-btn.active-dept{background:var(--cyan);color:#fff;box-shadow:0 0 12px rgba(6,182,212,0.35);font-weight:700}
+  .sh-seg-btn:disabled{opacity:0.35;cursor:not-allowed}
+  .sh-seg.disabled{opacity:0.4;pointer-events:none}
+  .sh-seg-hint{font-size:9.5px;color:var(--t3);font-style:italic}
+
+  /* ═══ 학년 영역 — "학년" 레이블 + 칩 ═══ */
+  .sh-grades-row{
+    padding:10px 16px;display:flex;align-items:center;gap:10px;
+    border-bottom:1px solid var(--glass-border);min-height:54px;flex-wrap:wrap;
+  }
+  .sh-grade-label{
+    font-size:10px;font-weight:700;color:var(--t3);
+    min-width:56px;letter-spacing:0.3px;text-transform:uppercase;
+  }
+  .sh-grade-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .sh-grade{
+    padding:6px 14px;border-radius:8px;border:1.5px solid var(--bdr);
+    background:var(--bg2);color:var(--t2);font-size:11px;font-weight:700;
+    cursor:pointer;transition:all .14s;font-family:inherit;
+    min-width:62px;text-align:center;
+  }
+  .sh-grade:hover{border-color:var(--cyan);color:var(--t1);background:rgba(6,182,212,0.08)}
+  .sh-grade.active{border-color:var(--cyan);background:var(--cyan);color:#fff;box-shadow:0 0 16px rgba(6,182,212,0.25)}
+
+  /* ═══ 벤다이어그램 영역 ═══ */
+  .sh-body{flex:1;padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+
+  .sh-class{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:14px 16px;transition:all .15s}
+  .sh-class-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .sh-class-title{font-size:13px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px}
+  .sh-class-title .emoji{font-size:16px}
+  .sh-class-count{font-size:10px;color:var(--t3);font-weight:600;padding:2px 8px;border-radius:10px;background:var(--card);border:1px solid var(--bdrl)}
+
+  /* 학생 번호 + 이름 카드 (일반 학교) */
+  .sh-num-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px}
+  .sh-num{
+    position:relative;display:flex;flex-direction:row;align-items:center;gap:6px;
+    padding:8px 10px;border-radius:10px;background:var(--card);
+    border:1.5px solid var(--bdr);
+    font-size:12px;font-weight:700;color:var(--t1);cursor:pointer;transition:all .14s;
+    font-family:inherit;
+  }
+  .sh-num:hover{border-color:var(--cyan);transform:translateY(-1px);box-shadow:0 4px 12px rgba(6,182,212,0.18);background:rgba(6,182,212,0.05)}
+  .sh-num.selected{border-color:var(--cyan);background:var(--cyan);color:#fff;box-shadow:0 2px 8px rgba(6,182,212,0.4)}
+  .sh-num .num{
+    flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+    min-width:22px;height:22px;border-radius:6px;
+    background:rgba(6,182,212,0.12);color:var(--cyan);font-size:11px;font-weight:800;
+  }
+  .sh-num.selected .num{background:rgba(255,255,255,0.25);color:#fff}
+  .sh-num .name{flex:1;font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  /* 외국인 이름 대응 — 짧은 표시를 위한 강제 줄바꿈 없음, hover 시 title 로 전체 */
+  /* 4종 상태 도트 — 세로 스트립 */
+  .sh-dots{position:absolute;top:3px;right:3px;display:flex;flex-direction:column;gap:2px}
+  .sh-dots span{width:6px;height:6px;border-radius:50%}
+  .sh-dot-care{background:var(--caut);box-shadow:0 0 4px var(--caut)}
+  .sh-dot-watch{background:var(--watch);box-shadow:0 0 4px var(--watch)}
+  .sh-dot-noemg{background:var(--noEmg);box-shadow:0 0 4px var(--noEmg)}
+  .sh-dot-nomed{background:var(--noMed);box-shadow:0 0 4px var(--noMed)}
+  .sh-num.absent{opacity:0.4;text-decoration:line-through}
+
+  /* 유치원 — 이름만 카드 (번호 없음) */
+  .sh-name-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:6px}
+  .sh-name-card{
+    position:relative;padding:10px;border-radius:10px;background:var(--card);
+    border:1.5px solid var(--bdr);font-size:12px;font-weight:700;color:var(--t1);
+    cursor:pointer;transition:all .14s;font-family:inherit;text-align:center;
+  }
+  .sh-name-card:hover{border-color:var(--cyan);transform:translateY(-1px);box-shadow:0 4px 12px rgba(6,182,212,0.18)}
+
+  /* 교직원 — 이름+직위 카드 */
+  .sh-staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+  .sh-staff{
+    padding:10px 12px;border-radius:10px;background:var(--bg2);
+    border:1.5px solid var(--bdr);font-size:12px;font-weight:600;color:var(--t1);
+    cursor:pointer;transition:all .14s;font-family:inherit;
+    display:flex;flex-direction:column;gap:3px;position:relative;
+  }
+  .sh-staff:hover{border-color:var(--cyan);transform:translateY(-1px);box-shadow:0 4px 12px rgba(6,182,212,0.18)}
+  .sh-staff.selected{border-color:var(--cyan);background:var(--cyan);color:#fff;box-shadow:0 2px 8px rgba(6,182,212,0.4)}
+  .sh-staff.selected .staff-pos{color:rgba(255,255,255,0.85)}
+  .sh-staff .staff-name{font-weight:700}
+  .sh-staff .staff-pos{font-size:10px;color:var(--t3);font-weight:600}
+  /* 학교 관리자 — 기본은 다른 교직원과 동일. 직위 텍스트에만 살짝 강조만 줌. */
+  .sh-staff.leader .staff-pos{color:var(--cyan);font-weight:700}
+  .sh-staff-section-title{
+    grid-column:1/-1;font-size:10px;font-weight:800;color:var(--t3);
+    padding:8px 2px 4px;border-bottom:1px dashed var(--bdr);margin-bottom:4px;
+    letter-spacing:0.3px;text-transform:uppercase;
+  }
+
+  /* 범례 */
+  .sh-legend{display:flex;gap:14px;padding:8px 16px 12px;font-size:9.5px;color:var(--t3);flex-wrap:wrap;border-top:1px solid var(--glass-border);align-items:center}
+  .sh-legend-item{display:inline-flex;align-items:center;gap:5px}
+  .sh-legend-dot{width:8px;height:8px;border-radius:50%}
+  .sh-legend-dot.care{background:var(--caut);box-shadow:0 0 4px var(--caut)}
+  .sh-legend-dot.watch{background:var(--watch);box-shadow:0 0 4px var(--watch)}
+
+  /* 테마 토글 */
+  .theme-toggle{position:fixed;top:16px;right:16px;z-index:100;padding:6px 14px;border-radius:20px;font-size:11px;border:1px solid var(--bdr);background:var(--card);color:var(--t1);cursor:pointer;font-family:inherit}
+
+  .demos{display:flex;flex-direction:column;gap:60px;align-items:center}
+  .demo-label{font-size:14px;font-weight:800;color:var(--t1);margin-bottom:14px;letter-spacing:-0.3px;text-align:center}
+
+  /* Hover 미니 팝업 */
+  .hover-pop{
+    position:fixed;z-index:14000;pointer-events:none;
+    background:var(--card);border:1px solid var(--bdr);border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);padding:10px 12px;
+    font-family:inherit;min-width:200px;max-width:260px;font-size:11px;color:var(--t1);line-height:1.7;
+    opacity:0;transform:translateY(4px);transition:opacity .12s ease, transform .12s ease;
+  }
+  .hover-pop.visible{opacity:1;transform:translateY(0)}
+  .hover-pop .hp-head{font-size:13px;font-weight:800;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .hover-pop .hp-meta{font-size:10px;color:var(--t3);font-weight:600}
+  .hover-pop .hp-row{color:var(--t2)}
+  .hover-pop .hp-row b{color:var(--t1)}
+  .hover-pop .hp-visits b{color:var(--cyan)}
+  .hover-pop .hp-flags{margin-top:6px;padding-top:6px;border-top:1px dashed var(--bdrl);display:flex;flex-wrap:wrap;gap:4px}
+  .hover-pop .hp-flag{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;background:rgba(255,255,255,0.05);border-radius:10px;padding:2px 7px;font-weight:700}
+  .hover-pop .hp-flag span.dot{width:6px;height:6px;border-radius:50%}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.body.classList.toggle('light')">🌓 라이트/다크</button>
+<div class="demos">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- 시나리오 A — 전문계 고등학교, 학과 "전체" 선택 (학과명-학년-반 제목) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="demo-label">시나리오 A · 전문계 고등학교 (학과 전체 선택 시)</div>
+    <div class="search-overlay">
+      <div class="sh-head">
+        <span class="sh-title">🛡 요보호 대상 학생 등록/변경</span>
+        
+      </div>
+      <div class="sh-tabs">
+        <button class="sh-tab active">👨‍🎓 학생</button>
+        <button class="sh-tab">👨‍🏫 교직원</button>
+      </div>
+      <div class="sh-segs">
+        <div class="sh-seg-row">
+          <span class="sh-seg-label">학교급</span>
+          <div class="sh-seg disabled"><button class="sh-seg-btn active" disabled>고</button></div>
+          <span class="sh-seg-hint">· 등록된 학교급이 하나뿐이라 자동 선택됨</span>
+        </div>
+        <div class="sh-seg-row">
+          <span class="sh-seg-label">학과</span>
+          <div class="sh-seg">
+            <button class="sh-seg-btn">전체</button>
+            <button class="sh-seg-btn active-dept">항공전자</button>
+            <button class="sh-seg-btn">항공기계</button>
+            <button class="sh-seg-btn">국방기술</button>
+          </div>
+          <span class="sh-seg-hint">· 특정 학과 선택 시 학년 칩처럼 강조</span>
+        </div>
+      </div>
+      <div class="sh-grades-row">
+        <span class="sh-grade-label">학년</span>
+        <div class="sh-grade-chips">
+          <button class="sh-grade">1학년</button>
+          <button class="sh-grade active">2학년</button>
+          <button class="sh-grade">3학년</button>
+        </div>
+      </div>
+      <div class="sh-body">
+        <!-- 고-항공전자-2학년-1반 -->
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🎓</span>고-항공전자-2학년-1반</div>
+            <span class="sh-class-count">24명</span>
+          </div>
+          <div class="sh-num-grid">
+            <button class="sh-num" data-s='{"name":"김민준","gender":"남","birth":"2008-03-15","visits":4}'><span class="num">1</span><span class="name">김민준</span></button>
+            <button class="sh-num" data-s='{"name":"김서연","gender":"여","birth":"2008-07-22","visits":12,"flags":["care"]}'><span class="num">2</span><span class="name">김서연</span><span class="sh-dots"><span class="sh-dot-care"></span></span></button>
+            <button class="sh-num" data-s='{"name":"김지호","gender":"남","birth":"2008-11-03","visits":1}'><span class="num">3</span><span class="name">김지호</span></button>
+            <button class="sh-num selected" data-s='{"name":"박서준","gender":"남","birth":"2008-01-18","visits":7}'><span class="num">4</span><span class="name">박서준</span></button>
+            <button class="sh-num" data-s='{"name":"박지유","gender":"여","birth":"2008-09-30","visits":25,"flags":["watch"]}'><span class="num">5</span><span class="name">박지유</span><span class="sh-dots"><span class="sh-dot-watch"></span></span></button>
+            <button class="sh-num" data-s='{"name":"이도윤","gender":"남","birth":"2008-04-12","visits":2}'><span class="num">6</span><span class="name">이도윤</span></button>
+            <button class="sh-num" data-s='{"name":"이서아","gender":"여","birth":"2008-06-08","visits":3,"flags":["noEmg"]}'><span class="num">7</span><span class="name">이서아</span><span class="sh-dots"><span class="sh-dot-noemg"></span></span></button>
+            <button class="sh-num" data-s='{"name":"Michael Lee","gender":"남","birth":"2008-02-14","visits":0}'><span class="num">8</span><span class="name">Michael Lee</span></button>
+            <button class="sh-num" data-s='{"name":"임유나","gender":"여","birth":"2008-10-25","visits":18,"flags":["noMed"]}'><span class="num">9</span><span class="name">임유나</span><span class="sh-dots"><span class="sh-dot-nomed"></span></span></button>
+            <button class="sh-num" data-s='{"name":"장예준","gender":"남","birth":"2008-05-19","visits":31,"flags":["care","noEmg"]}'><span class="num">10</span><span class="name">장예준</span><span class="sh-dots"><span class="sh-dot-care"></span><span class="sh-dot-noemg"></span></span></button>
+            <button class="sh-num" data-s='{"name":"Alexander Petrov","gender":"남","birth":"2008-12-01","visits":5}'><span class="num">11</span><span class="name">Alexander P.</span></button>
+            <button class="sh-num" data-s='{"name":"Nguyen Van Minh","gender":"남","birth":"2008-08-11","visits":47,"flags":["care","watch","noEmg","noMed"]}'><span class="num">12</span><span class="name">Nguyen Van Minh</span><span class="sh-dots"><span class="sh-dot-care"></span><span class="sh-dot-watch"></span><span class="sh-dot-noemg"></span><span class="sh-dot-nomed"></span></span></button>
+            <button class="sh-num" data-s='{"name":"최하린","gender":"여","birth":"2008-03-07","visits":9}'><span class="num">13</span><span class="name">최하린</span></button>
+            <button class="sh-num" data-s='{"name":"Jose Santos","gender":"남","birth":"2008-06-29","visits":14,"flags":["watch","noMed"]}'><span class="num">14</span><span class="name">Jose Santos</span><span class="sh-dots"><span class="sh-dot-watch"></span><span class="sh-dot-nomed"></span></span></button>
+            <button class="sh-num absent" data-s='{"name":"홍건우","gender":"남","birth":"2008-11-14","visits":8}'><span class="num">15</span><span class="name">홍건우</span></button>
+            <button class="sh-num" data-s='{"name":"Muhammad Ali","gender":"남","birth":"2008-07-03","visits":2}'><span class="num">16</span><span class="name">Muhammad Ali</span></button>
+          </div>
+        </div>
+        <!-- 고-항공기계-2학년-1반 -->
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🎓</span>고-항공기계-2학년-1반</div>
+            <span class="sh-class-count">22명</span>
+          </div>
+          <div class="sh-num-grid">
+            <button class="sh-num"><span class="num">1</span><span class="name">강민재</span></button>
+            <button class="sh-num"><span class="num">2</span><span class="name">고태준</span></button>
+            <button class="sh-num care"><span class="num">3</span><span class="name">김도윤</span></button>
+            <button class="sh-num"><span class="num">4</span><span class="name">김서진</span></button>
+            <button class="sh-num"><span class="num">5</span><span class="name">김준혁</span></button>
+            <button class="sh-num"><span class="num">6</span><span class="name">박지환</span></button>
+            <button class="sh-num watch"><span class="num">7</span><span class="name">서강민</span></button>
+            <button class="sh-num"><span class="num">8</span><span class="name">신태영</span></button>
+          </div>
+        </div>
+        <!-- 고-국방기술-2학년-1반 -->
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🎓</span>고-국방기술-2학년-1반</div>
+            <span class="sh-class-count">18명</span>
+          </div>
+          <div class="sh-num-grid">
+            <button class="sh-num"><span class="num">1</span><span class="name">권우진</span></button>
+            <button class="sh-num"><span class="num">2</span><span class="name">김현호</span></button>
+            <button class="sh-num"><span class="num">3</span><span class="name">노준영</span></button>
+            <button class="sh-num"><span class="num">4</span><span class="name">문지훈</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="sh-legend">
+        <span class="sh-legend-item"><span class="sh-legend-dot care"></span>요보호</span>
+        <span class="sh-legend-item"><span class="sh-legend-dot watch"></span>미세먼지 기저질환</span>
+        <span class="sh-legend-item"><span class="sh-legend-dot" style="background:var(--noEmg);box-shadow:0 0 4px var(--noEmg)"></span>응급처치 비동의</span>
+        <span class="sh-legend-item"><span class="sh-legend-dot" style="background:var(--noMed);box-shadow:0 0 4px var(--noMed)"></span>일반의약품 비동의</span>
+        <span class="sh-legend-item" style="opacity:0.6">· 전학/자퇴 — 회색 취소선</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- 시나리오 B — 유치원 (번호 없음 · 이름만) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="demo-label">시나리오 B · 유치원 (번호 없음 · 이름만 표시)</div>
+    <div class="search-overlay">
+      <div class="sh-head">
+        <span class="sh-title">🛡 요보호 원아 등록/변경</span>
+        
+      </div>
+      <div class="sh-tabs">
+        <button class="sh-tab active">👶 원아</button>
+        <button class="sh-tab">👨‍🏫 교직원</button>
+      </div>
+      <div class="sh-segs">
+        <div class="sh-seg-row">
+          <span class="sh-seg-label">학교급</span>
+          <div class="sh-seg disabled"><button class="sh-seg-btn active" disabled>유</button></div>
+          <span class="sh-seg-hint">· 유치원 단일</span>
+        </div>
+      </div>
+      <div class="sh-grades-row">
+        <span class="sh-grade-label">연령</span>
+        <div class="sh-grade-chips">
+          <button class="sh-grade">만3세</button>
+          <button class="sh-grade">만4세</button>
+          <button class="sh-grade active">만5세</button>
+        </div>
+      </div>
+      <div class="sh-body">
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🌸</span>유-만5세-딸기반</div>
+            <span class="sh-class-count">17명</span>
+          </div>
+          <div class="sh-name-grid">
+            <button class="sh-name-card">김가은</button>
+            <button class="sh-name-card care">박서준</button>
+            <button class="sh-name-card">이루하</button>
+            <button class="sh-name-card">장민서</button>
+            <button class="sh-name-card">정도현</button>
+            <button class="sh-name-card watch">조유나</button>
+            <button class="sh-name-card">최예린</button>
+            <button class="sh-name-card">한지우</button>
+            <button class="sh-name-card">홍서아</button>
+          </div>
+        </div>
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🌸</span>유-만5세-사과반</div>
+            <span class="sh-class-count">15명</span>
+          </div>
+          <div class="sh-name-grid">
+            <button class="sh-name-card">권소율</button>
+            <button class="sh-name-card">김서우</button>
+            <button class="sh-name-card care">박태오</button>
+            <button class="sh-name-card">송예진</button>
+            <button class="sh-name-card">윤하람</button>
+            <button class="sh-name-card">이서윤</button>
+            <button class="sh-name-card">최시온</button>
+          </div>
+        </div>
+      </div>
+      <div class="sh-legend">
+        <span class="sh-legend-item"><span class="sh-legend-dot care"></span>요보호</span>
+        <span class="sh-legend-item"><span class="sh-legend-dot watch"></span>미세먼지 기저질환</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- 시나리오 C — 교직원 탭 (교장·교감·행정실장 상단 → 가나다순) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="demo-label">시나리오 C · 교직원 탭 (리더 상단 고정 + 가나다순)</div>
+    <div class="search-overlay">
+      <div class="sh-head">
+        <span class="sh-title">👨‍🏫 교직원 검색</span>
+        
+      </div>
+      <div class="sh-tabs">
+        <button class="sh-tab">👨‍🎓 학생</button>
+        <button class="sh-tab active">👨‍🏫 교직원</button>
+      </div>
+      <!-- 교직원 탭에선 학교급·학과·학년 섹션 비표시 -->
+      <div class="sh-body">
+        <div class="sh-staff-grid">
+          <div class="sh-staff-section-title">🏛 학교 관리자</div>
+          <button class="sh-staff leader">
+            <span class="staff-name">김영수</span>
+            <span class="staff-pos">교장</span>
+          </button>
+          <button class="sh-staff leader">
+            <span class="staff-name">박현주</span>
+            <span class="staff-pos">교감</span>
+          </button>
+          <button class="sh-staff leader">
+            <span class="staff-name">이민호</span>
+            <span class="staff-pos">행정실장</span>
+          </button>
+          <div class="sh-staff-section-title">가나다순 (교원·직원 통합) · 직위는 등록된 값 그대로 표시</div>
+          <button class="sh-staff"><span class="staff-name">강서연</span><span class="staff-pos">국어교사</span></button>
+          <button class="sh-staff"><span class="staff-name">권도훈</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">김가영</span><span class="staff-pos">영어교사</span></button>
+          <button class="sh-staff"><span class="staff-name">김동준</span><span class="staff-pos">수학교사</span></button>
+          <button class="sh-staff"><span class="staff-name">김미영</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">김선주</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">문정훈</span><span class="staff-pos">사회교사</span></button>
+          <button class="sh-staff"><span class="staff-name">박시영</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">백하은</span><span class="staff-pos">보건교사</span></button>
+          <button class="sh-staff"><span class="staff-name">서미경</span><span class="staff-pos">사서</span></button>
+          <button class="sh-staff"><span class="staff-name">송재민</span><span class="staff-pos">기술교사</span></button>
+          <button class="sh-staff"><span class="staff-name">안지수</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">오태영</span><span class="staff-pos">물리교사</span></button>
+          <button class="sh-staff"><span class="staff-name">윤서희</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">이재홍</span><span class="staff-pos">음악교사</span></button>
+          <button class="sh-staff"><span class="staff-name">장호진</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">정하림</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">조민철</span><span class="staff-pos">지리교사</span></button>
+          <button class="sh-staff"><span class="staff-name">최나영</span><span class="staff-pos">화학교사</span></button>
+          <button class="sh-staff"><span class="staff-name">한승우</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">홍지민</span><span class="staff-pos">생물교사</span></button>
+        </div>
+      </div>
+      <div class="sh-legend">
+        <span class="sh-legend-item" style="opacity:0.8">💡 교장·교감·행정실장 먼저, 이후 교원·직원 통합 가나다순</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- 시나리오 C2 — 교직원 데이터에 교원·직원 구분만 있는 경우 (관리자 섹션 없음) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="demo-label">시나리오 C2 · 교직원 (교원·직원만 등록된 경우 — 관리자 섹션 미표시)</div>
+    <div class="search-overlay">
+      <div class="sh-head">
+        <span class="sh-title">👨‍🏫 교직원 검색</span>
+      </div>
+      <div class="sh-tabs">
+        <button class="sh-tab">👨‍🎓 학생</button>
+        <button class="sh-tab active">👨‍🏫 교직원</button>
+      </div>
+      <div class="sh-body">
+        <div class="sh-staff-grid">
+          <!-- 관리자 섹션 없이 바로 가나다순 -->
+          <button class="sh-staff"><span class="staff-name">강서연</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">권도훈</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">김가영</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">김미영</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">김선주</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">박시영</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">백하은</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">윤서희</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">이재홍</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">장호진</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">최나영</span><span class="staff-pos">교원</span></button>
+          <button class="sh-staff"><span class="staff-name">한승우</span><span class="staff-pos">직원</span></button>
+          <button class="sh-staff"><span class="staff-name">홍지민</span><span class="staff-pos">교원</span></button>
+        </div>
+      </div>
+      <div class="sh-legend">
+        <span class="sh-legend-item" style="opacity:0.8">💡 교장·교감·행정실장 직위가 등록된 데이터가 없으면 관리자 섹션 생략, 가나다순만 표시</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- 시나리오 D — 특수학교 (유·초·중·고·대 공존, 대는 학과 미지정 포함) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div>
+    <div class="demo-label">시나리오 D · 특수학교 (대 선택 + 학과 미지정 학생 포함)</div>
+    <div class="search-overlay">
+      <div class="sh-head">
+        <span class="sh-title">🛡 요보호 학생 등록/변경</span>
+        
+      </div>
+      <div class="sh-tabs">
+        <button class="sh-tab active">👨‍🎓 학생</button>
+        <button class="sh-tab">👨‍🏫 교직원</button>
+      </div>
+      <div class="sh-segs">
+        <div class="sh-seg-row">
+          <span class="sh-seg-label">학교급</span>
+          <div class="sh-seg">
+            <button class="sh-seg-btn">전체</button>
+            <button class="sh-seg-btn">유</button>
+            <button class="sh-seg-btn">초</button>
+            <button class="sh-seg-btn">중</button>
+            <button class="sh-seg-btn">고</button>
+            <button class="sh-seg-btn active">대</button>
+          </div>
+        </div>
+        <div class="sh-seg-row">
+          <span class="sh-seg-label">학과</span>
+          <div class="sh-seg">
+            <button class="sh-seg-btn active">전체</button>
+            <button class="sh-seg-btn">바리스타</button>
+            <button class="sh-seg-btn">제과제빵</button>
+            <button class="sh-seg-btn">학과 미지정</button>
+          </div>
+        </div>
+      </div>
+      <div class="sh-grades-row">
+        <span class="sh-grade-label">학년</span>
+        <div class="sh-grade-chips">
+          <button class="sh-grade active">1학년</button>
+          <button class="sh-grade">2학년</button>
+        </div>
+      </div>
+      <div class="sh-body">
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🎓</span>대-바리스타-1학년-1반</div>
+            <span class="sh-class-count">8명</span>
+          </div>
+          <div class="sh-num-grid">
+            <button class="sh-num"><span class="num">1</span><span class="name">김정훈</span></button>
+            <button class="sh-num care"><span class="num">2</span><span class="name">박민성</span></button>
+            <button class="sh-num"><span class="num">3</span><span class="name">이서연</span></button>
+            <button class="sh-num watch"><span class="num">4</span><span class="name">장유진</span></button>
+            <button class="sh-num"><span class="num">5</span><span class="name">정하윤</span></button>
+          </div>
+        </div>
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🎓</span>대-제과제빵-1학년-1반</div>
+            <span class="sh-class-count">6명</span>
+          </div>
+          <div class="sh-num-grid">
+            <button class="sh-num"><span class="num">1</span><span class="name">강우진</span></button>
+            <button class="sh-num"><span class="num">2</span><span class="name">김도현</span></button>
+            <button class="sh-num care"><span class="num">3</span><span class="name">문지연</span></button>
+          </div>
+        </div>
+        <div class="sh-class">
+          <div class="sh-class-head">
+            <div class="sh-class-title"><span class="emoji">🎓</span>대-학과 미지정-1학년-1반</div>
+            <span class="sh-class-count">3명</span>
+          </div>
+          <div class="sh-num-grid">
+            <button class="sh-num"><span class="num">1</span><span class="name">박민우</span></button>
+            <button class="sh-num"><span class="num">2</span><span class="name">이성호</span></button>
+            <button class="sh-num"><span class="num">3</span><span class="name">조수아</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="sh-legend">
+        <span class="sh-legend-item"><span class="sh-legend-dot care"></span>요보호</span>
+        <span class="sh-legend-item"><span class="sh-legend-dot watch"></span>미세먼지 기저질환</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* 데모 인터랙션 */
+document.querySelectorAll('.sh-seg-btn:not(:disabled), .sh-grade, .sh-tab').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    const parent=btn.parentElement;
+    parent.querySelectorAll(btn.className.split(' ')[0]==='sh-seg-btn'?'.sh-seg-btn':btn.className.split(' ')[0]==='sh-grade'?'.sh-grade':'.sh-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+document.querySelectorAll('.sh-num, .sh-name-card, .sh-staff').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.sh-num, .sh-name-card, .sh-staff').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+
+/* ═══ Hover 미니 팝업 — 학생 카드 위에 풀네임·성별·생년월일·범례·과거방문 ═══ */
+const FLAG_META = {
+  care:  { color:'#f97316', label:'요보호' },
+  watch: { color:'#eab308', label:'미세먼지 기저질환' },
+  noEmg: { color:'#dc2626', label:'응급처치 비동의' },
+  noMed: { color:'#a855f7', label:'일반의약품 비동의' }
+};
+let __popEl=null;
+function showHoverPop(anchor, dataStr){
+  hideHoverPop();
+  let data; try{ data=JSON.parse(dataStr); }catch(e){ return; }
+  const birth=data.birth||'';
+  let birthFmt=birth;
+  try{ const d=new Date(birth); if(!isNaN(d.getTime())) birthFmt=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일'; }catch(e){}
+  const pop=document.createElement('div');
+  pop.className='hover-pop';
+  let h='<div class="hp-head"><span>'+data.name+'</span>';
+  if(data.grade) h+='<span class="hp-meta">'+data.grade+'학년 '+data.cls+'반'+(data.num?' '+data.num+'번':'')+'</span>';
+  h+='</div>';
+  if(data.gender) h+='<div class="hp-row">성별: <b>'+data.gender+'</b></div>';
+  if(birthFmt) h+='<div class="hp-row">생년월일: <b>'+birthFmt+'</b></div>';
+  h+='<div class="hp-row hp-visits">과거 방문: <b>'+(data.visits||0)+'</b>건</div>';
+  if(data.flags && data.flags.length){
+    h+='<div class="hp-flags">';
+    data.flags.forEach(function(f){
+      const m=FLAG_META[f]; if(!m) return;
+      h+='<span class="hp-flag" style="color:'+m.color+';border:1px solid '+m.color+'44"><span class="dot" style="background:'+m.color+';box-shadow:0 0 4px '+m.color+'"></span>'+m.label+'</span>';
+    });
+    h+='</div>';
+  }
+  pop.innerHTML=h;
+  document.body.appendChild(pop);
+  __popEl=pop;
+  const r=anchor.getBoundingClientRect();
+  const pw=pop.offsetWidth||220, ph=pop.offsetHeight||80;
+  const vw=window.innerWidth, vh=window.innerHeight;
+  let left=r.left + r.width/2 - pw/2;
+  if(left<8) left=8;
+  if(left+pw>vw-8) left=vw-pw-8;
+  let top=r.bottom+6;
+  if(top+ph>vh-8) top=r.top-ph-6;
+  if(top<8) top=8;
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+  requestAnimationFrame(()=>pop.classList.add('visible'));
+}
+function hideHoverPop(){
+  if(__popEl){ __popEl.remove(); __popEl=null; }
+}
+document.querySelectorAll('.sh-num, .sh-name-card').forEach(function(el){
+  if(!el.dataset.s) return;
+  el.addEventListener('mouseenter',function(){ showHoverPop(this, this.dataset.s); });
+  el.addEventListener('mouseleave', hideHoverPop);
+});
+</script>
+</body>
+</html>

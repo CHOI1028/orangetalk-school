@@ -1,0 +1,41 @@
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+  <div id="view-dashboard" class="view fade-in">
+    <div class="stats-period-tabs" id="dashPeriodTabs">
+      <div class="stats-period-tab active" data-period="today">오늘</div>
+      <div class="stats-period-tab" data-period="week">주간</div>
+      <div class="stats-period-tab" data-period="month">월간</div>
+      <div class="stats-period-tab" data-period="semester">학기</div>
+      <div class="stats-period-tab" data-period="year">연도</div>
+      <div class="stats-period-tab" data-period="custom">기간 선택</div>
+      <!-- 방문 순위 / 상담실적 — 기간 선택 탭에서 약 3cm 간격 (사용자 요청 2026-06-12) -->
+      <div style="margin-left:0.7cm;display:flex;align-items:flex-end">
+        <div class="stats-period-tab" data-dash-view="rank">방문 순위</div>
+        <div class="stats-period-tab" data-dash-view="counsel">상담실적</div>
+      </div>
+    </div>
+    <div style="position:relative">
+    <div class="canvas-vscroll" id="dashVScroll"><div class="canvas-vscroll-thumb" id="dashVScrollThumb"></div></div>
+    <div class="magic-chart-body" id="dashCanvas" style="padding:0">
+    <div id="dashSubTabArea" style="padding:8px 12px 6px;border-bottom:1px solid var(--bdr);display:none"><div class="tr-sub-tab-wrap" id="dashSubTabs"></div></div>
+    <div style="padding:16px" id="dashContentArea">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;position:sticky;top:0;z-index:50;background:var(--card);padding:8px 0;margin:-8px 0 12px">
+        <p style="font-size:12px;color:var(--t3);margin:0" id="dashDate"></p>
+        <div id="dashDateRange" style="display:flex;align-items:center;gap:6px">
+          <button id="dashPdfBtn" class="btn-pdf" style="margin-right:6px" data-tooltip="현재 대시보드의 통계·차트를 A4 PDF로 저장합니다.">📄 해당 기간 통계 PDF 저장</button>
+          <button class="dash-nav-arrow" id="dashNavPrev" title="이전 기간">◀</button>
+          <span id="dashRangeLabel" style="font-size:11px;font-weight:600;color:var(--t2);white-space:nowrap"></span>
+          <button class="dash-nav-arrow" id="dashNavNext" title="다음 기간">▶</button>
+        </div>
+      </div>
+      <!-- 기간 합계 (한줄 요약 바) -->
+      <div id="dashPanelSummary" class="dash-panel dash-section"></div>
+      <!-- 진료과별 상세 통계 (바로 표시) -->
+      <div id="dashPanelDeptStats" class="dash-panel dash-section" style="margin-top:14px"></div>
+      <!-- 진료과별 시각화 차트 -->
+      <div id="dashPanelDeptChart" class="dash-panel dash-section" style="margin-top:14px"></div>
+    </div>
+    <!-- 방문 순위 / 상담실적 패널 (우측 탭 전용 — 기간 통계 영역과 토글) -->
+    <div id="dashRankPanel" style="display:none;padding:16px"></div>
+    </div>
+    </div><!-- wrapper 끝 -->
+  </div>

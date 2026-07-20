@@ -1,0 +1,130 @@
+{
+  "name": "my-health-diary",
+  "version": "1.0.18",
+  "description": "오렌지톡 - 보건교사를 위한 보건실 업무 도구",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "obfuscate": "node scripts/obfuscate.js",
+    "build": "npm run bundle-credentials && npm run bundle-api-keys && npm run obfuscate && electron-builder --win",
+    "build:mac": "npm run bundle-credentials && npm run bundle-api-keys && npm run obfuscate && electron-builder --mac --arm64",
+    "build:mac:intel": "npm run bundle-credentials && npm run bundle-api-keys && npm run obfuscate && electron-builder --mac --x64",
+    "build:dev": "npm run bundle-api-keys && electron-builder --win",
+    "bundle-credentials": "node scripts/bundle-credentials.js",
+    "bundle-api-keys": "node scripts/bundle-api-keys.js",
+    "seed": "electron scripts/seed-dev-data.js",
+    "web": "node web-server/server.js",
+    "web:build": "node web-server/build-dist.js"
+  },
+  "author": {
+    "name": "오렌지팜 주식회사",
+    "email": "jwkim2353@gmail.com"
+  },
+  "license": "SEE LICENSE IN LICENSE-KO",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jwkim2353/my-health-diary-src.git"
+  },
+  "homepage": "https://github.com/jwkim2353/my-health-diary",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^24.9.1",
+    "javascript-obfuscator": "^4.1.1"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "compression": "^1.8.1",
+    "electron-updater": "^6.8.3",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "googleapis": "^129.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "multer": "^2.1.1",
+    "pdfjs-dist": "^3.11.174",
+    "qrcode-generator": "^2.0.4",
+    "ws": "^8.20.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz"
+  },
+  "build": {
+    "appId": "com.my.healthdiary",
+    "productName": "OrangeTalk",
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://school114.org/data/Board/B11/"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.png",
+      "publisherName": [
+        "오렌지팜 주식회사",
+        "Orangepharm Co., Ltd"
+      ],
+      "certificateSha1": "E328B615C9837FAB5033B3195BBC2E95E3E96ACB",
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "signAndEditExecutable": true
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "mac": {
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "hardenedRuntime": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName} Setup ${version} Roma.${ext}",
+      "oneClick": true,
+      "runAfterFinish": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "오렌지톡",
+      "uninstallDisplayName": "오렌지톡",
+      "include": "build/installer.nsh",
+      "installerLanguages": [
+        "ko-KR"
+      ],
+      "language": "1042"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "web-server/**/*",
+      "login.html",
+      "splash.html",
+      "health_diary.html",
+      "med-facility.html",
+      "med-facility-list.html",
+      "assets/**/*",
+      "templates/**/*",
+      "kiosk/**/*",
+      "data/templates/**/*",
+      "oauth-client.example.json",
+      "package.json"
+    ]
+  }
+}

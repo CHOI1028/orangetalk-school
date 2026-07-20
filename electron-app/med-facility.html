@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+<html lang="ko"><head>
+<meta charset="UTF-8">
+<title>의료기관 탐색</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR','Apple SD Gothic Neo','맑은 고딕',sans-serif;display:flex;flex-direction:column;height:100vh;background:#f5f7fa;color:#1a1a2e;overflow:hidden}
+.header{padding:10px 16px;background:linear-gradient(180deg,#f5f7fa,#ebeef4);border-bottom:1px solid #d1d5db;display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:grab;user-select:none}
+.header:active{cursor:grabbing}
+.tab-bar{display:flex;gap:0;border-bottom:1px solid #d1d5db;flex-shrink:0;background:linear-gradient(180deg,#ebeef4,#e3e7ed)}
+.tab{flex:1;text-align:center;padding:9px;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;color:#718096;border-bottom:2px solid transparent}
+.tab.active{color:#0e7490;border-bottom-color:#0e7490;background:rgba(14,116,144,0.04)}
+.toolbar{padding:8px 16px;border-bottom:1px solid #d1d5db;display:flex;gap:8px;align-items:center;flex-shrink:0;background:#fff}
+.toolbar select{font-size:11px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#1a1a2e;font-family:inherit;outline:none}
+.body-wrap{flex:1;display:flex;overflow:hidden}
+.list{width:360px;overflow-y:auto;padding:8px;border-right:1px solid #d1d5db;scrollbar-width:thin;background:#fff}
+.list-item{padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.list-item:hover,.list-item.hl{background:#e8ecf1;border-color:#0e7490;transform:translateX(2px)}
+.list-item .name{font-size:12px;font-weight:700;color:#1a1a2e}
+.list-item .cat{font-size:9px;color:#0e7490;margin-top:1px}
+.list-item .addr{font-size:10px;color:#718096;margin-top:2px}
+.list-item .tel{font-size:10px;color:#4a5568;margin-top:1px}
+.list-item .dist{font-size:9px;color:#0e7490;font-weight:600}
+.map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+.footer{padding:5px 16px;font-size:9px;color:#718096;text-align:center;border-top:1px solid #d1d5db;flex-shrink:0;background:#ebeef4}
+.legend{position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,0.95);padding:6px 14px;border-radius:8px;font-size:10px;z-index:500;border:1px solid #d1d5db;display:flex;gap:12px;align-items:center}
+.count{font-size:10px;color:#718096;padding:4px 10px}
+.loading{text-align:center;padding:40px;color:#718096;font-size:12px}
+.ac-drop{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e2e8f0;border-radius:12px;max-height:240px;overflow-y:auto;z-index:100;display:none;box-shadow:0 8px 28px rgba(0,0,0,0.15);animation:popIn .15s ease;scrollbar-width:thin}
+.ac-item{padding:10px 14px;cursor:pointer;font-size:11px;border-bottom:1px solid #f0f2f5;transition:all .12s}
+.ac-item:last-child{border-bottom:none;border-radius:0 0 12px 12px}
+.ac-item:first-child{border-radius:12px 12px 0 0}
+.ac-item:hover{background:linear-gradient(135deg,#f0f8ff,#e8f4fd)}
+.ac-item .ac-name{font-weight:700;color:#1a1a2e;margin-bottom:2px}
+.ac-item .ac-addr{font-size:9px;color:#718096}
+.ac-item .ac-icon{font-size:14px;margin-right:6px}
+@keyframes popIn{from{opacity:0;transform:translateY(6px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes popOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(4px) scale(0.95)}}
+/* ── 의료기관 인쇄 영역 (3인치/A4) — 화면에선 풀스크린 미리보기처럼, 인쇄 시 이 영역만 출력 ── */
+/* 인쇄 원본 — 3인치=풀스크린 silent 직행 원본 / A4=자체 미리보기 모달에서 A4 종이로 표시 */
+#medPrintArea{position:fixed;inset:0;background:#fff;z-index:30000;overflow:auto;color:#000;box-sizing:border-box}
+#medPrintArea.mp-rc{width:72mm;padding:4mm;font-size:12px;line-height:1.5}
+#medPrintArea.mp-a4{width:210mm;min-height:297mm;padding:12mm;font-size:13px;line-height:1.6}   /* A4 1장 + 사방 여백 12mm (padding 이 인쇄 여백) */
+#medPrintArea .mp-nm{font-weight:800;margin-bottom:6px}
+#medPrintArea.mp-rc .mp-nm{font-size:15px}
+#medPrintArea.mp-a4 .mp-nm{font-size:20px}
+#medPrintArea .mp-dist{color:#444;margin:0 0 7px;font-weight:600}
+#medPrintArea.mp-rc .mp-dist{font-size:11px}
+#medPrintArea.mp-a4 .mp-dist{font-size:13px}
+#medPrintArea .mp-row{margin:2px 0}
+#medPrintArea .mp-row b{display:inline-block;min-width:44px;color:#333;font-weight:700}
+#medPrintMap{width:100%;height:95mm;margin-top:10px;border:1px solid #999}
+#medPrintArea.mp-rc #medPrintMap{height:40mm}
+#medPrintArea .mp-scale{margin-top:4px;font-size:11px;display:flex;align-items:center;gap:6px}
+#medPrintArea .mp-scbar{display:inline-block;height:6px;border:1px solid #000;border-top:none;min-width:2px}
+/* ── 인쇄 다이얼로그 (위: 컨트롤 두 줄 / 아래: A4·3인치 미리보기 나란히). (2026-06-02) ── */
+#medPvBackdrop{position:fixed;inset:0;background:rgba(15,23,42,0.62);z-index:30400}
+#medPvBar{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:32000;display:flex;flex-direction:column;gap:7px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.35);font-family:'Malgun Gothic','맑은 고딕',sans-serif;max-width:94vw}
+#medPvBar .pv-ttl{font-size:13px;font-weight:800;color:#1a1a2e;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:560px}
+#medPvBar .pv-row{display:flex;align-items:center;gap:7px;font-size:12px;color:#334155}
+#medPvBar .pv-row .pv-tag{font-weight:800;min-width:58px}
+#medPvBar select{font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;max-width:200px;flex:1}
+#medPvBar .pv-go{font-size:12px;font-weight:700;padding:5px 14px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:#2563eb;color:#fff;white-space:nowrap}
+#medPvBar .pv-cl{font-size:12px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer;border:1px solid #cbd5e1;background:#f1f5f9;color:#334155;white-space:nowrap}
+/* 미리보기 카드 — 각자 자기 자신만 scale(조상 transform 금지 → fixed 격리 안전). 인쇄 시 원복. */
+#medPrintArea.mp-card,#medRcPreview.mp-card{inset:auto;overflow:hidden;background:#fff;box-shadow:0 14px 50px rgba(0,0,0,0.5);border:1px solid #94a3b8;z-index:31000}
+.med-pv-cap{position:fixed;z-index:31050;font-family:'Malgun Gothic',sans-serif;font-size:11px;font-weight:800;color:#fff;background:rgba(15,23,42,0.82);border-radius:6px;padding:2px 9px;pointer-events:none}
+/* 3인치 미리보기 전용(mp-rc 와 동일 톤) */
+#medRcPreview{position:fixed;color:#000;box-sizing:border-box}
+#medRcPreview.mp-rc{width:72mm;padding:4mm;font-size:12px;line-height:1.5}
+#medRcPreview .mp-nm{font-weight:800;font-size:15px;margin-bottom:6px}
+#medRcPreview .mp-dist{color:#444;font-size:11px;font-weight:600;margin:0 0 7px}
+#medRcPreview .mp-row{margin:2px 0}
+#medRcPreview .mp-row b{display:inline-block;min-width:44px;color:#333;font-weight:700}
+@media print{
+  @page{margin:0}
+  /* body 의 flex·height·overflow·기본 margin 이 인쇄에 새어들지 않게 깨끗한 블록으로 리셋. */
+  html,body{margin:0 !important;padding:0 !important;display:block !important;height:auto !important;min-height:0 !important;overflow:visible !important;background:#fff !important}
+  body.printing > *:not(#medPrintArea){display:none !important}
+  #medPrintArea{position:static !important;z-index:auto;overflow:visible;margin:0 !important}
+  #medPrintArea.mp-a4{min-height:0 !important}   /* 297mm 정확히 채우면 빈 2페이지 → 콘텐츠 높이로 */
+  /* 미리보기 카드 축소/위치는 인쇄에선 원복(실측 A4). */
+  #medPrintArea.mp-card{transform:none !important;left:auto !important;top:auto !important;overflow:visible !important;box-shadow:none !important;border:none !important}
+}
+</style>
+<script>
+/* document.write 가로채기 — 카카오 SDK 가 sub-chunk 로드에 document.write 를 사용하는데,
+   페이지 로드 후 호출되면 body 가 wipe 된다. src 속성이 있는 script 태그 형식이면
+   동일한 src 로 안전하게 appendChild 로 로드하도록 변환. */
+(function(){
+  var origWrite = document.write.bind(document);
+  /* 정규식 리터럴 — \u003c 가 < 의 유니코드 escape. HTML 파서가 "script" 를 진짜 태그로 보지 않음. */
+  var SCRIPT_TAG_RE = /\u003cscript[^>]*?src=["']([^"']+)["'][^>]*>/i;
+  document.write = function(html){
+    try{
+      var s=String(html||'');
+      var m=s.match(SCRIPT_TAG_RE);
+      if(m && m[1]){
+        var sc=document.createElement('script');
+        sc.src=m[1];
+        sc.async=false;  /* 순차 실행 보장 */
+        (document.head||document.documentElement).appendChild(sc);
+        console.info('[document.write 가로채기]', m[1]);
+        return;
+      }
+    }catch(e){}
+    if(document.readyState==='loading') origWrite(html);
+    else console.warn('[document.write 차단]', String(html).substring(0,100));
+  };
+  document.writeln = document.write;
+})();
+/* 카카오 JS 키는 URL 쿼리에서 읽음 — 사용자가 설정에서 입력한 값 */
+(function(){
+  var qs = new URLSearchParams(location.search);
+  var kakaoJs = qs.get('kakaoJs') || '';
+  window._kakaoRestKey = qs.get('kakaoRest') || '';
+  if (!kakaoJs) {
+    document.addEventListener('DOMContentLoaded', function(){
+      document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;color:#64748b"><h2 style="color:#dc2626">카카오 API 키 미등록</h2><p>의료기관 탐색 기능을 사용하려면 카카오 JavaScript 키가 필요합니다.<br>설정 → API Key 관리 → 카카오 개발자 API 에서 키를 등록해 주세요.</p></div>';
+    });
+    return;
+  }
+  /* 카카오 SDK 로드 — IPC 로 본문 가져와 inline 주입 (script 태그의 ORB 차단 완전 우회).
+     SDK 가 내부적으로 sub-chunk 를 로드할 때는 main 프로세스의 CORP 헤더가 ORB 막아줌. */
+  var SDK_URL = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(kakaoJs) + '&autoload=false';
+  if(!window.electronAPI || !window.electronAPI.externalFetchJson){
+    window._kakaoSdkErrorBody='electronAPI 미주입';
+  } else {
+    window.electronAPI.externalFetchJson(SDK_URL).then(function(r){
+      if(!r || !r.success || !r.data){
+        window._kakaoSdkErrorBody = (r && r.error) || 'IPC 응답 없음';
+        return;
+      }
+      var body = String(r.data);
+      /* 카카오 에러 응답 (JSON) 그대로 표시 */
+      if(body.charAt(0)==='{' && body.indexOf('errorType')!==-1){
+        window._kakaoSdkErrorBody = body.substring(0,500);
+        return;
+      }
+      /* SDK 코드 inline 주입 — cross-origin 자체가 발생 안 함 */
+      try{
+        var inline = document.createElement('script');
+        inline.textContent = body;
+        document.head.appendChild(inline);
+      }catch(e){
+        window._kakaoSdkErrorBody = 'inline 주입 실패: '+(e&&e.message||'');
+      }
+    }).catch(function(e){
+      window._kakaoSdkErrorBody='IPC 호출 실패: '+(e&&e.message||'');
+    });
+  }
+})();
+/* 웹 브라우저 버전: electronAPI 가 없으면 window-web bridge 주입 (Electron 버전은 preload.js 가 이미 electronAPI 를 주입해둠).
+   document.write 는 페이지 로드 후 실행되면 body 를 wipe 하므로 appendChild 로 안전하게 주입. */
+if (!window.electronAPI) {
+  var _br=document.createElement('script');
+  _br.src='/web-server/web-api-bridge.js';
+  document.head.appendChild(_br);
+}
+</script>
+</head>
+<body>
+<div class="header" id="dragHeader">
+  <span style="font-size:18px">🗺️</span>
+  <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
+    <span style="font-size:14px;font-weight:800;line-height:1.1">의료기관 탐색</span>
+    <span style="font-size:9.5px;color:#64748b;font-weight:500;line-height:1.25">공공 API를 통해 불러오는 정보이므로 로딩에 시간이 다소 소요될 수 있습니다.</span>
+  </div>
+  <span id="schoolAddrDisplay" style="font-size:10px;color:#718096;font-weight:500"></span>
+</div>
+<div class="tab-bar">
+  <div class="tab active" data-type="hospital">⚕ 병원</div>
+  <div class="tab" data-type="emergency">🚨 응급실</div>
+  <div class="tab" data-type="pharmacy">💊 약국</div>
+</div>
+<div class="toolbar" id="toolbar">
+  <select id="deptSel"><option value="">전체 진료과</option>
+    <option>내과</option><option>외과</option><option>정형외과</option><option>신경외과</option>
+    <option>소아청소년과</option><option>이비인후과</option><option>안과</option><option>피부과</option>
+    <option>비뇨의학과</option><option>산부인과</option><option>신경과</option><option>재활의학과</option>
+    <option>가정의학과</option><option>응급의학과</option><option>치과</option><option>정신건강의학과</option>
+  </select>
+  <span style="color:#d1d5db">|</span>
+  <span style="font-size:10px;color:#718096;font-weight:600;flex-shrink:0;white-space:nowrap">📍 기준위치</span>
+  <div style="flex:1;position:relative;min-width:150px">
+    <input id="addrInput" placeholder="도로명 주소 또는 학교명 입력 후 Enter" style="width:100%;font-size:11px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#1a1a2e;font-family:inherit;outline:none">
+    <div id="addrDrop" class="ac-drop"></div>
+  </div>
+</div>
+<div class="body-wrap">
+  <div class="list" id="listPanel"><div class="loading">지도 로딩 중...</div></div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="legend">
+      <span style="font-weight:700">범례</span>
+      <span>🏥 병원</span>
+      <span>💊 약국</span>
+      <span>🚨 응급실</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><img src="https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png" style="width:14px;height:20px;object-fit:contain" alt="학교"> 학교</span>
+    </div>
+  </div>
+</div>
+<div class="footer" id="footerText">출처: 카카오 로컬 API · 카카오맵</div>
+
+<script>
+var EXCLUDE=['동물','수의','산후','요양'];
+var _p=new URLSearchParams(location.search);
+var schoolName=decodeURIComponent(_p.get('school')||'');
+var eduOffice=decodeURIComponent(_p.get('edu')||'');
+var hiraKey=decodeURIComponent(_p.get('hira')||'');
+var emergencyKey=decodeURIComponent(_p.get('emg')||'');
+var schoolAddr=decodeURIComponent(_p.get('addr')||'');
+/* 검색 기준: 주소가 있으면 주소, 없으면 교육청+학교명 */
+var schoolQuery=schoolAddr||(schoolName?(eduOffice?eduOffice.replace(/교육청$/,'')+' ':'')+schoolName:'');
+var _initMode=decodeURIComponent(_p.get('mode')||'').trim();
+var _initType=(_initMode==='emergency'||_initMode==='pharmacy')?_initMode:'hospital';
+/* 부모 창에서 lat/lng 를 미리 보내주면 카카오 지오코딩 skip — 카카오 키가 비어있어도 지도가 뜸 */
+var _preLat=parseFloat(decodeURIComponent(_p.get('lat')||''))||0;
+var _preLng=parseFloat(decodeURIComponent(_p.get('lng')||''))||0;
+/* localStorage 폴백 — URL 에 좌표가 안 왔으면 직접 읽음 */
+if(!_preLat||!_preLng){
+  try{
+    _preLat=parseFloat(localStorage.getItem('ec_school_lat')||'0')||0;
+    _preLng=parseFloat(localStorage.getItem('ec_school_lng')||'0')||0;
+  }catch(e){}
+}
+var map=null,markers=[],infoWins=[],schoolLat=_preLat,schoolLng=_preLng,curType=_initType,schoolMk=null,_idle=null;
+
+/* ═══ 의료기관 대량 캐시 — 설정에서 미리 저장한 반경 내 데이터 ═══
+   지도 중심이 캐시된 기준지로부터 radius 내일 때 API 대신 로컬 필터로 즉시 표시. */
+var _medFacCache=null;
+var _cacheBaseLat=0,_cacheBaseLng=0,_cacheRadiusM=30000;
+if(window.electronAPI&&window.electronAPI.medfacLoadCache){
+  window.electronAPI.medfacLoadCache().then(function(r){
+    if(r&&r.success&&r.exists&&r.data){
+      _medFacCache=r.data;
+      _cacheBaseLat=(_medFacCache.baseLocation&&_medFacCache.baseLocation.lat)||0;
+      _cacheBaseLng=(_medFacCache.baseLocation&&_medFacCache.baseLocation.lng)||0;
+      _cacheRadiusM=((_medFacCache.radiusKm||30))*1000;
+      console.info('[medfac] 캐시 로드 완료 — 병원 '+(_medFacCache.hospitals||[]).length+'건, 약국 '+(_medFacCache.pharmacies||[]).length+'건, 응급실 '+(_medFacCache.emergency||[]).length+'건');
+      /* 첫 진입 시 doSearch 가 이미 호출됐을 수 있음 → 캐시 도착 후 재실행 */
+      if(map && schoolLat && _cacheContainsMap()) doSearch();
+    }
+  }).catch(function(){});
+}
+function _cacheContainsMap(){
+  if(!_medFacCache||!map)return false;
+  var c=map.getCenter();
+  var d=distKm(_cacheBaseLat,_cacheBaseLng,c.getLat(),c.getLng())*1000;
+  return d<=_cacheRadiusM;
+}
+function _searchFromCache(){
+  if(!_medFacCache)return false;
+  var srcArr=[];
+  if(curType==='emergency') srcArr=_medFacCache.emergency||[];
+  else if(curType==='pharmacy') srcArr=_medFacCache.pharmacies||[];
+  else srcArr=_medFacCache.hospitals||[];
+  if(!srcArr.length) return false;
+  var list=srcArr.map(function(d){
+    if(curType==='emergency'){
+      var lat=parseFloat(d.wgs84Lat||0),lng=parseFloat(d.wgs84Lon||0);
+      return {
+        id:d.hpid||d.dutyName,
+        place_name:d.dutyName||'',
+        road_address_name:d.dutyAddr||'',
+        phone:d.dutyTel1||d.dutyTel3||'',
+        category_name:'의료,건강 > 응급의료기관',
+        y:String(lat),x:String(lng),
+        _dist:distKm(schoolLat,schoolLng,lat,lng)*1000,
+        _emgInfo:{beds:d.hvec||'',surgery:d.hvoc||'',icuBeds:d.hvicc||'',ct:d.MKioskTy25||'',mri:d.MKioskTy1||'',eryn:d.dutyEryn||''}
+      };
+    } else {
+      var x=parseFloat(d.XPos||d.wgs84Lon||0),y=parseFloat(d.YPos||d.wgs84Lat||0);
+      return {
+        id:d.ykiho||d.yadmNm,
+        place_name:d.yadmNm||'',
+        road_address_name:d.addr||'',
+        phone:d.telno||'',
+        category_name:(d.clCdNm||'')+(curType==='pharmacy'?' > 약국':' > 병원'),
+        y:String(y),x:String(x),
+        _dist:distKm(schoolLat,schoolLng,y,x)*1000
+      };
+    }
+  });
+  /* 진료과 필터 */
+  if(curType==='hospital' && _curDept){
+    var deptLc=_curDept.toLowerCase();
+    list=list.filter(function(d){
+      var n=(d.place_name||'').toLowerCase();
+      var c=(d.category_name||'').toLowerCase();
+      return n.indexOf(deptLc)!==-1||c.indexOf(deptLc)!==-1;
+    });
+  }
+  var rMax=(curType==='emergency')?80000:(_cacheRadiusM||30000);
+  list=list.filter(function(d){return d._dist<=rMax;});
+  list.sort(function(a,b){return a._dist-b._dist;});
+  console.info('[medfac-cache] 히트 — type='+curType+(curType==='hospital'&&_curDept?' dept='+_curDept:'')+' → '+list.length+'건 (API 호출 0)');
+  render(list);
+  return true;
+}
+document.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.classList.toggle('active',t.dataset.type===curType);
+  });
+  var dsel=document.getElementById('deptSel');
+  if(dsel)dsel.style.display=curType==='hospital'?'':'none';
+});
+var ICON={hospital:'🏥',pharmacy:'💊',emergency:'🚨'};
+/* 즐겨찾기 */
+var _favs={};
+try{_favs=JSON.parse(localStorage.getItem('ec_med_favs')||'{}');}catch(e){_favs={};}
+function isFav(name){return !!_favs[name];}
+function toggleFav(name,d){
+  if(_favs[name])delete _favs[name];
+  else _favs[name]={y:d.y,x:d.x,phone:d.phone||'',addr:d.road_address_name||d.address_name||'',cat:d.category_name||''};
+  localStorage.setItem('ec_med_favs',JSON.stringify(_favs));
+  if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','med_favs',_favs);
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function distKm(a,b,c,d){var R=6371,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180,x=Math.sin(dL/2)*Math.sin(dL/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)*Math.sin(dG/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function apiKw(q,x,y,r,pg){return window.electronAPI&&window.electronAPI.kakaoKeywordSearch?window.electronAPI.kakaoKeywordSearch(q,x,y,r,pg,window._kakaoRestKey):Promise.resolve({success:false});}
+function apiCat(cat,x,y,r,pg){return window.electronAPI&&window.electronAPI.kakaoCategorySearch?window.electronAPI.kakaoCategorySearch(cat,x,y,r,pg,window._kakaoRestKey):Promise.resolve({success:false});}
+
+/* 드래그 */
+(function(){var h=document.getElementById('dragHeader'),drag=false,sx=0,sy=0;
+h.addEventListener('mousedown',function(e){drag=true;sx=e.screenX;sy=e.screenY;});
+document.addEventListener('mousemove',function(e){if(!drag)return;var dx=e.screenX-sx,dy=e.screenY-sy;sx=e.screenX;sy=e.screenY;if(window.electronAPI&&window.electronAPI.moveWindow)window.electronAPI.moveWindow(dx,dy);});
+document.addEventListener('mouseup',function(){drag=false;});
+})();
+
+/* 출처 */
+(function(){var p=['카카오 로컬 API','카카오맵'];if(hiraKey)p.push('건강보험심사평가원');if(emergencyKey)p.push('국립중앙의료원');document.getElementById('footerText').textContent='출처: '+p.join(' · ');})();
+
+/* 카카오맵 */
+var _initStartedAt=Date.now();
+/* MutationObserver — 누가 map div 를 제거하는지 추적 */
+(function(){
+  var target=document.querySelector('.body-wrap')||document.body;
+  if(!target||!window.MutationObserver) return;
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.removedNodes && Array.from(m.removedNodes).forEach(function(n){
+        if(n.id==='map' || (n.querySelector && n.querySelector('#map'))){
+          window._mapDivRemovedTrace = (window._mapDivRemovedTrace||[]).concat(['removed at '+Date.now()+' parent='+(n.parentNode&&n.parentNode.tagName)+' stack='+(new Error()).stack.split('\n').slice(1,4).join(' | ')]);
+          console.error('[MAPDIV REMOVED]', n.outerHTML?n.outerHTML.substring(0,100):n);
+        }
+      });
+    });
+  }).observe(target,{childList:true,subtree:true});
+})();
+function initMap(){
+  /* 진단 로그 — 매 폴링마다 현재 상태 기록 */
+  var mapDiv=document.getElementById('map');
+  var divOK=mapDiv && mapDiv.offsetWidth>0 && mapDiv.offsetHeight>0;
+  var sdkOK=!!(window.kakao && window.kakao.maps && window.kakao.maps.LatLng);
+  window._lastInitCheck={
+    elapsed: Date.now()-_initStartedAt,
+    divOK: divOK,
+    divSize: mapDiv?(mapDiv.offsetWidth+'x'+mapDiv.offsetHeight):'no-div',
+    sdkOK: sdkOK,
+    hasKakao: !!window.kakao,
+    hasKakaoMaps: !!(window.kakao&&window.kakao.maps),
+    hasLatLng: !!(window.kakao&&window.kakao.maps&&window.kakao.maps.LatLng),
+    sdkErrorBody: window._kakaoSdkErrorBody
+  };
+  if(!divOK || !sdkOK){
+    if(Date.now()-_initStartedAt>8000){
+      var _body = String(window._kakaoSdkErrorBody||'(본문 미수신)').substring(0,300);
+      var _state = JSON.stringify(window._lastInitCheck||{},null,2);
+      console.error('[MEDFAC INIT FAIL]', _state, '\nSDK Body:', _body);
+      var _panel=document.getElementById('listPanel');
+      if(_panel) _panel.innerHTML='<div style="padding:20px;color:#dc2626;font-size:11px;line-height:1.6"><b>⚠ 초기화 실패</b><br>콘솔(Cmd+Opt+I) 에서 [MEDFAC INIT FAIL] 로그 확인</div>';
+      var _mapDv=document.getElementById('map');
+      if(_mapDv) _mapDv.innerHTML='';
+      _initStartedAt=Date.now();  /* 한 번 표시 후 폴링 멈춤 — return 만으로 멈추지만 안전장치 */
+      return;
+    }
+    setTimeout(initMap,200);return;
+  }
+  if(kakao.maps.load){kakao.maps.load(doInit);} else {doInit();}
+}
+function doInit(){
+  /* DOM·크기 안전 검사 — map div 가 없거나 0 크기면 currentStyle 에러 발생 (카카오 SDK 호환성 코드).
+     DOM 준비 + 부모 컨테이너 레이아웃 완료까지 대기. */
+  var mapDiv=document.getElementById('map');
+  if(!mapDiv||!mapDiv.offsetWidth||!mapDiv.offsetHeight){
+    setTimeout(doInit,50);
+    return;
+  }
+  try{
+    map=new kakao.maps.Map(mapDiv,{center:new kakao.maps.LatLng(36.5,127),level:5});
+  }catch(e){
+    /* 한번 더 재시도 */
+    setTimeout(doInit,100);
+    return;
+  }
+  map.addControl(new kakao.maps.ZoomControl(),kakao.maps.ControlPosition.RIGHT);
+
+  function _placeSchool(lat,lng,addrLabel){
+    map.setCenter(new kakao.maps.LatLng(lat,lng));map.setLevel(5);
+    var img=new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',new kakao.maps.Size(24,35));
+    schoolMk=new kakao.maps.Marker({map:map,position:new kakao.maps.LatLng(lat,lng),image:img,zIndex:100,title:schoolName});
+    document.getElementById('schoolAddrDisplay').textContent='📍 '+esc(addrLabel||schoolAddr||schoolName);
+    doSearch();
+  }
+
+  /* 1순위: 미리 받은 좌표 사용 (지오코딩 skip) — 카카오 키 없어도 지도 표시 가능 */
+  if(schoolLat&&schoolLng){
+    _placeSchool(schoolLat,schoolLng,schoolAddr);
+  } else if(schoolQuery){
+    /* 2순위: 카카오 키워드 검색으로 좌표 조회 */
+    apiKw(schoolQuery).then(function(r){
+      if(r&&r.success&&r.data&&r.data.length){
+        var d=r.data[0];schoolLat=parseFloat(d.y);schoolLng=parseFloat(d.x);
+        _placeSchool(schoolLat,schoolLng,d.road_address_name||d.address_name||schoolName);
+      } else {
+        document.getElementById('listPanel').innerHTML='<div class="loading" style="color:#dc2626">⚠ 학교 좌표 조회 실패<br><span style="font-size:10px;color:#718096">설정 → API Key 관리에서<br>카카오 REST API 키와 학교 주소를 등록·반영해 주세요.</span></div>';
+      }
+    }).catch(function(err){
+      document.getElementById('listPanel').innerHTML='<div class="loading" style="color:#dc2626">⚠ 카카오 API 호출 실패<br><span style="font-size:10px;color:#718096">'+esc(err&&err.message||'')+'</span></div>';
+    });
+  } else {
+    document.getElementById('listPanel').innerHTML='<div class="loading" style="color:#dc2626">⚠ 학교 정보가 없습니다<br><span style="font-size:10px;color:#718096">설정에서 학교 주소를 먼저 입력해 주세요.</span></div>';
+  }
+
+  kakao.maps.event.addListener(map,'idle',function(){
+    /* 응급실 탭은 idle 재검색 안 함 — 학교 기준 80km 고정 */
+    if(curType==='emergency')return;
+    clearTimeout(_idle);_idle=setTimeout(doSearch,400);
+  });
+}
+initMap();
+
+function clearAll(){markers.forEach(function(m){m.setMap(null);});markers=[];infoWins=[];if(schoolMk)schoolMk.setMap(map);}
+var _curOverlay=null,_curOverlayEl=null;
+function closeAllInfoWins(){
+  if(!_curOverlay)return;
+  var ov=_curOverlay,el=_curOverlayEl;
+  _curOverlay=null;_curOverlayEl=null;
+  if(el){
+    el.style.animation='popOut .15s ease forwards';
+    setTimeout(function(){ov.setMap(null);el.style.animation='';},150);
+  } else {
+    ov.setMap(null);
+  }
+}
+
+/* ═══ 메인 검색 ═══ */
+function doSearch(){
+  if(!map||!schoolLat)return;
+  clearAll();
+  document.getElementById('listPanel').innerHTML='<div class="loading">⏳ 검색 중...</div>';
+
+  /* 진료과 선택 상태(병원)면 — 줌/이동에도 드롭다운과 동일한 진료과 전용 STRICT 검색을 현재 지도 중심으로 재실행.
+   * (캐시/카테고리 폴백은 _curDept 를 무시해 다른 과가 새던 버그 차단. 진단 확정 2026-06-01) */
+  if(curType==='hospital' && _curDept){
+    searchDeptKakao(_curDept);
+    return;
+  }
+  /* 0순위: 캐시 우선 — 지도 중심이 캐시 반경 내면 즉시 로컬 필터 (API 호출 0) */
+  if(_medFacCache && _cacheContainsMap()){
+    if(_searchFromCache()) return;
+  }
+
+  if(curType==='emergency'){
+    /* 응급실: 카카오 REST API 기본 (좌표 기준 거리순 정확) */
+    searchKakaoEmergency();
+  } else {
+    /* 병원/약국: 카카오 카테고리 검색 (동네 병원 거리순) */
+    searchKakaoCategory(curType);
+  }
+}
+
+/* ── 국립중앙의료원 응급의료 API ── */
+function searchEmergencyAPI(){
+  window.electronAPI.externalFetchEmergency(emergencyKey,{lat:schoolLat,lng:schoolLng}).then(function(res){
+    if(!res||!res.success||!res.data||!res.data.length){searchKakaoEmergency();return;}
+    var list=res.data;
+    list.forEach(function(d){
+      d._lat=parseFloat(d.wgs84Lat||0);d._lng=parseFloat(d.wgs84Lon||0);
+      d._dist=(d._lat&&d._lng)?distKm(schoolLat,schoolLng,d._lat,d._lng)*1000:9999000;
+      d.place_name=d.dutyName||'';
+      d.road_address_name=d.dutyAddr||'';
+      d.phone=d.dutyTel1||'';
+      d.category_name='의료,건강 > 응급의료기관';
+      d.y=String(d._lat);d.x=String(d._lng);
+      /* 응급실 상세 정보 — 필드명 대소문자 주의 */
+      d._emgInfo={
+        beds:d.hvec||'',           /* 응급실 가용병상 */
+        surgery:d.hvoc||'',        /* 수술실 가용 */
+        icuBeds:d.hvicc||'',       /* 중환자실 */
+        nicu:d.hvncc||'',          /* 신생아중환자실 */
+        ct:d.MKioskTy25||'',       /* CT */
+        mri:d.MKioskTy1||'',       /* MRI */
+        eryn:d.dutyEryn||''        /* 응급실 운영 여부 1=운영 */
+      };
+    });
+    /* 80km 필터 없이 전체 거리 정렬 — API가 좌표 기반 정렬을 안 하므로 직접 정렬 */
+    list.sort(function(a,b){return a._dist-b._dist;});
+    render(list);
+  }).catch(function(){searchKakaoEmergency();});
+}
+
+/* ── 심평원 병원/약국 API ── */
+function searchHiraAPI(type){
+  var hiraType=type==='pharmacy'?'pharmacy':'hospital';
+  var params={type:hiraType,numOfRows:50,pageNo:1};
+  window.electronAPI.externalFetchMedFacilities(hiraKey,params).then(function(res){
+    if(!res||!res.success||!res.data||!res.data.length){searchKakaoCategory(type);return;}
+    var list=res.data.filter(function(d){
+      var nm=(d.yadmNm||'').toLowerCase();
+      for(var i=0;i<EXCLUDE.length;i++){if(nm.indexOf(EXCLUDE[i])!==-1)return false;}
+      if(type==='hospital'&&nm.indexOf('산부인과')!==-1)return false;
+      return true;
+    });
+    list.forEach(function(d){
+      var x=parseFloat(d.XPos||d.wgs84Lon||0),y=parseFloat(d.YPos||d.wgs84Lat||0);
+      d._dist=(x&&y)?distKm(schoolLat,schoolLng,y,x)*1000:9999000;
+      d.place_name=d.yadmNm||'';
+      d.road_address_name=d.addr||'';
+      d.phone=d.telno||'';
+      d.category_name=(d.clCdNm||'')+(type==='pharmacy'?' > 약국':' > 병원');
+      d.y=String(y);d.x=String(x);
+    });
+    list=list.filter(function(d){return d._dist<=80000&&d._dist<9999000;});
+    list.sort(function(a,b){return a._dist-b._dist;});
+    if(!list.length){searchKakaoCategory(type);return;}
+    render(list);
+  }).catch(function(){searchKakaoCategory(type);});
+}
+
+/* ── 카카오 카테고리 검색 (폴백) ── */
+function searchKakaoCategory(type){
+  var center=map.getCenter();
+  var catCode=type==='pharmacy'?'PM9':'HP8';
+  /* 밀집 지역 대응 — 9개 좌표에서 분산 검색 (최대 405건 → 중복제거) */
+  var off=0.03;
+  var pts=[
+    {x:center.getLng(),y:center.getLat()},
+    {x:center.getLng()+off,y:center.getLat()},
+    {x:center.getLng()-off,y:center.getLat()},
+    {x:center.getLng(),y:center.getLat()+off*0.8},
+    {x:center.getLng(),y:center.getLat()-off*0.8},
+    {x:center.getLng()+off,y:center.getLat()+off*0.8},
+    {x:center.getLng()-off,y:center.getLat()+off*0.8},
+    {x:center.getLng()+off,y:center.getLat()-off*0.8},
+    {x:center.getLng()-off,y:center.getLat()-off*0.8}
+  ];
+  var allData=[],done=0,total=pts.length*3;
+  pts.forEach(function(pt){
+    [1,2,3].forEach(function(pg){
+      apiCat(catCode,pt.x,pt.y,5000,pg).then(function(r){
+        done++;
+        if(r&&r.success&&r.data)allData=allData.concat(r.data);
+        if(done>=total){
+          var seen={};
+          var list=allData.filter(function(d){
+            if(seen[d.id])return false;seen[d.id]=true;
+            var nm=(d.place_name||'').toLowerCase(),cn=(d.category_name||'').toLowerCase();
+            for(var i=0;i<EXCLUDE.length;i++){if(nm.indexOf(EXCLUDE[i])!==-1||cn.indexOf(EXCLUDE[i])!==-1)return false;}
+            if(type==='hospital'&&cn.indexOf('산부인과')!==-1)return false;
+            return true;
+          });
+          /* 거리는 항상 기준위치(schoolLat/schoolLng) 기준으로 계산 — 지도 이동 중심 거리는 무시 */
+          list.forEach(function(d){
+            d._dist=distKm(schoolLat,schoolLng,parseFloat(d.y),parseFloat(d.x))*1000;
+          });
+          list.sort(function(a,b){return a._dist-b._dist;});
+          render(list);
+        }
+      });
+    });
+  });
+}
+
+/* ── 카카오 응급실 검색 + 국립중앙의료원 상세 보충 ── */
+function searchKakaoEmergency(){
+  var offset=0.45;
+  var pts=[
+    {x:schoolLng,y:schoolLat},
+    {x:schoolLng+offset,y:schoolLat},
+    {x:schoolLng-offset,y:schoolLat},
+    {x:schoolLng,y:schoolLat+offset*0.8},
+    {x:schoolLng,y:schoolLat-offset*0.8}
+  ];
+  var allEmg=[],doneEmg=0,totalEmg=pts.length*3;
+  pts.forEach(function(pt){
+    [1,2,3].forEach(function(pg){
+      apiKw('응급실',pt.x,pt.y,20000,pg).then(function(r){
+        doneEmg++;
+        if(r&&r.success&&r.data)allEmg=allEmg.concat(r.data);
+        if(doneEmg>=totalEmg){
+          var seen={};
+          var list=allEmg.filter(function(d){
+            if(seen[d.id])return false;seen[d.id]=true;
+            var cn=(d.category_name||'').toLowerCase();
+            return cn.indexOf('병원')!==-1||cn.indexOf('의료')!==-1;
+          });
+          list.forEach(function(d){d._dist=distKm(schoolLat,schoolLng,parseFloat(d.y),parseFloat(d.x))*1000;});
+          list=list.filter(function(d){return d._dist<=80000;});
+          list.sort(function(a,b){return a._dist-b._dist;});
+          /* 국립중앙의료원 API — 전국 목록에서 학교 근처 10건 찾아 상세 조회 */
+          if(emergencyKey&&window.electronAPI&&window.electronAPI.externalFetchEmergency&&window.electronAPI.externalFetchEmergencyDetail){
+            /* 여러 페이지 호출하여 전국 데이터 수집 */
+            var allEmgApi=[],emgDone=0,emgPages=5;
+            var promises=[];
+            for(var p=1;p<=emgPages;p++){
+              promises.push(window.electronAPI.externalFetchEmergency(emergencyKey,{lat:schoolLat,lng:schoolLng,pageNo:p}));
+            }
+            Promise.all(promises).then(function(results){
+              results.forEach(function(r){if(r&&r.success&&r.data)allEmgApi=allEmgApi.concat(r.data);});
+              /* 거리 계산 + 정렬 */
+              allEmgApi.forEach(function(e){
+                var lat=parseFloat(e.wgs84Lat||0),lng=parseFloat(e.wgs84Lon||0);
+                e._dist=(lat&&lng)?distKm(schoolLat,schoolLng,lat,lng)*1000:9999000;
+              });
+              allEmgApi.sort(function(a,b){return a._dist-b._dist;});
+              /* 상위 10건 hpid 상세 조회 */
+              var top10=allEmgApi.slice(0,10).filter(function(e){return e.hpid;});
+              var hpids=top10.map(function(e){return e.hpid;});
+              if(!hpids.length){render(list);return;}
+              window.electronAPI.externalFetchEmergencyDetail(emergencyKey,hpids).then(function(detRes){
+                if(detRes&&detRes.success&&detRes.data){
+                  /* hpid → 상세 매핑 */
+                  var detMap={};
+                  detRes.data.forEach(function(e){if(e&&e.hpid)detMap[e.hpid]=e;});
+                  /* 카카오 결과와 이름 매칭 */
+                  list.forEach(function(d){
+                    var dName=(d.place_name||'').replace(/\s/g,'');
+                    for(var hpid in detMap){
+                      var eName=(detMap[hpid].dutyName||'').replace(/\s/g,'').replace(/\(.*?\)/g,'');
+                      if(dName.indexOf(eName)!==-1||eName.indexOf(dName.replace(/응급의료센터|응급실|응급센터/g,''))!==-1){
+                        var e=detMap[hpid];
+                        d._emgInfo={beds:e.hvec||'',surgery:e.hvoc||'',icuBeds:e.hvicc||'',ct:e.MKioskTy25||'',mri:e.MKioskTy1||'',eryn:e.dutyEryn||''};
+                        break;
+                      }
+                    }
+                  });
+                }
+                render(list);
+              }).catch(function(){render(list);});
+            }).catch(function(){render(list);});
+          } else {
+            render(list);
+          }
+        }
+      });
+    });
+  });
+}
+
+var _renderList=[];/* render 후 목록 참조용 */
+
+/* 마커 팝업 — 4방향 (위/아래/왼/오) 모두 잘리지 않도록 자동 전환.
+   팝업 박스 가정: 너비 ~280px, 높이 ~200px (응급실 정보 포함 시 더 큼). */
+window._showMarkerOverlay = function(iwIdx){
+  closeAllInfoWins();
+  var entry=infoWins[iwIdx];
+  var marker=markers[iwIdx];
+  if(!entry||!marker||!entry.htmlContent) return;
+  var pt=null, mapW=0, mapH=0;
+  try{
+    var proj=map.getProjection();
+    if(proj.containerPointFromCoords){pt=proj.containerPointFromCoords(marker.getPosition());}
+    var mapDv=document.getElementById('map');
+    mapW=mapDv?mapDv.offsetWidth:0;
+    mapH=mapDv?mapDv.offsetHeight:0;
+  }catch(e){}
+  /* 수직 — 위쪽 공간 < 220px 이면 아래로 (팝업 높이 + 여유) */
+  var showBelow = pt && pt.y<220;
+  /* 수평 — 마커 픽셀 x 위치로 xAnchor 결정 (팝업 절반 너비 ~140px).
+     왼쪽 가장자리 가까우면 xAnchor 작게(왼쪽 정렬), 오른쪽 가장자리면 크게(오른쪽 정렬). */
+  var xA = 0.5;
+  if(pt && mapW){
+    if(pt.x < 150){ xA = Math.max(0.05, pt.x/300); } /* 왼쪽 끝: 0.05~0.5 */
+    else if(pt.x > mapW-150){ xA = Math.min(0.95, 1 - (mapW-pt.x)/300); } /* 오른쪽 끝: 0.5~0.95 */
+  }
+  var wrapEl=document.createElement('div');
+  wrapEl.style.cssText='pointer-events:auto;display:flex;flex-direction:column;align-items:center;animation:popIn .2s ease;position:relative;z-index:9999';
+  var ovEl=document.createElement('div');
+  ovEl.innerHTML=entry.htmlContent;
+  ovEl.style.cssText='background:#fff;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.18);border:1px solid #e2e8f0;max-width:280px;position:relative;z-index:9999';
+  var tailEl=document.createElement('div');
+  if(showBelow){
+    tailEl.style.cssText='width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid #fff;filter:drop-shadow(0 -2px 2px rgba(0,0,0,0.08));margin-top:20px;position:relative;z-index:9999';
+    wrapEl.appendChild(tailEl);wrapEl.appendChild(ovEl);
+  } else {
+    tailEl.style.cssText='width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #fff;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.08));margin-bottom:20px;position:relative;z-index:9999';
+    wrapEl.appendChild(ovEl);wrapEl.appendChild(tailEl);
+  }
+  /* 좌우 치우침에 따라 꼬리 위치도 조정 — 마커 바로 위에 꼬리가 가도록 transform translateX 적용 */
+  if(xA !== 0.5){
+    /* 꼬리는 wrapEl 가운데 위치 → wrapEl 자체가 xA 기준이므로 꼬리를 마커 방향으로 이동 */
+    var tailShiftPx = (xA - 0.5) * 280; /* 팝업 너비 * 위치 차이 */
+    tailEl.style.transform = 'translateX('+(tailShiftPx)+'px)';
+  }
+  var yA = showBelow ? -0.3 : 1.3;
+  var ov=new kakao.maps.CustomOverlay({content:wrapEl,position:marker.getPosition(),xAnchor:xA,yAnchor:yA,zIndex:9999});
+  ov.setMap(map);
+  entry.currentOv=ov;
+  _curOverlay=ov;_curOverlayEl=wrapEl;
+};
+
+var _renderToken = 0;  /* 진행 중인 점진 렌더 취소용 토큰 */
+function render(list){
+  _renderList=list;
+  var panel=document.getElementById('listPanel');
+  if(!list.length){panel.innerHTML='<div class="loading">검색 결과가 없습니다.</div>';return;}
+  /* 즐겨찾기 상단 정렬 */
+  list.sort(function(a,b){
+    var fa=isFav(a.place_name)?0:1,fb=isFav(b.place_name)?0:1;
+    if(fa!==fb)return fa-fb;
+    return a._dist-b._dist;
+  });
+  /* ═══ 점진적 렌더링 — 가까운 순서대로 배치별 표시 ═══
+     1차: 즉시 30건 (보통 5km 이내) → 2차: 100건 (~10km) → 3차: 전체
+     각 배치 사이 requestAnimationFrame 으로 UI 응답성 유지. */
+  var token = (++_renderToken);
+  var FIRST=30, SECOND=100;
+  /* 카운터 + 진행 표시 */
+  panel.innerHTML='<div class="count">총 '+list.length+'건 — 가까운 순으로 표시 중...</div>';
+  /* 마커·팝업 배열 초기화 */
+  markers.forEach(function(m){m.setMap(null);});
+  markers=[];infoWins=[];
+  if(schoolMk)schoolMk.setMap(map);
+  /* 누적 HTML 빌드용 */
+  var accH='<div class="count" id="medfacCount">'+list.length+'건 (즐겨찾기 → 거리순)</div>';
+  function _renderBatch(start, end, isFinal){
+    if(token!==_renderToken) return;  /* 새 검색이 시작되면 이전 배치 취소 */
+    var slice = list.slice(start, end);
+    accH = _appendListItems(accH, slice, start);
+    panel.innerHTML = accH + (isFinal ? '' : '<div class="loading" style="padding:14px;font-size:10px">⏳ '+(list.length-end)+'건 더 표시 중...</div>');
+    _bindListItemEvents(panel);  /* 새로 추가된 list-item 들에 이벤트 바인딩 */
+    _addMarkersForRange(slice, start);
+    if(isFinal){
+      var c=document.getElementById('medfacCount');
+      if(c)c.textContent=list.length+'건 (즐겨찾기 → 거리순)';
+    }
+  }
+  /* 배치 1: 즉시 */
+  _renderBatch(0, Math.min(FIRST, list.length), list.length<=FIRST);
+  /* 배치 2: 다음 frame */
+  if(list.length>FIRST){
+    requestAnimationFrame(function(){
+      _renderBatch(FIRST, Math.min(SECOND, list.length), list.length<=SECOND);
+      /* 배치 3: 나머지는 setTimeout 으로 분할 (50건씩) */
+      if(list.length>SECOND){
+        var pos=SECOND;
+        var STEP=50;
+        function _next(){
+          if(token!==_renderToken) return;
+          var nextEnd=Math.min(pos+STEP, list.length);
+          _renderBatch(pos, nextEnd, nextEnd>=list.length);
+          pos=nextEnd;
+          if(pos<list.length) setTimeout(_next, 16);
+        }
+        setTimeout(_next, 16);
+      }
+    });
+  }
+  return;  /* 아래 기존 forEach 진입 안 함 — 함수 종료 */
+}
+
+/* 배치별 list-item HTML 생성 (i 는 list 전체 기준 인덱스) */
+function _appendListItems(currentH, slice, startIdx){
+  var h = currentH;
+  slice.forEach(function(d, batchI){
+    var i = startIdx + batchI;
+    var cn=(d.category_name||'').toLowerCase();
+    var ic;
+    if(_curDept&&DEPT_IC[_curDept]){ic=DEPT_IC[_curDept];}
+    else if(cn.indexOf('약국')!==-1){ic='💊';}
+    else if(cn.indexOf('종합병원')!==-1||cn.indexOf('대학병원')!==-1||d.place_name.indexOf('응급')!==-1){ic='🚨';}
+    else{ic='🏥';}
+    var dist=d._dist<1000?(Math.round(d._dist)+'m'):((d._dist/1000).toFixed(1)+'km');
+    var fav=isFav(d.place_name);
+    h+='<div class="list-item" data-idx="'+i+'" style="'+(fav?'background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2)':'')+'">';
+    h+='<div style="display:flex;align-items:center;gap:6px"><span>'+ic+'</span><span class="name" style="flex:1">'+esc(d.place_name)+'</span>';
+    h+='<span class="fav-btn" data-fav-name="'+esc(d.place_name)+'" data-fav-idx="'+i+'" style="cursor:pointer;font-size:14px;flex-shrink:0;transition:transform .15s" title="즐겨찾기">'+(fav?'⭐':'☆')+'</span>';
+    h+='<span class="dist">'+dist+'</span></div>';
+    if(d.category_name)h+='<div class="cat">'+esc(d.category_name.split('>').pop().trim())+'</div>';
+    h+='<div class="addr">'+esc(d.road_address_name||d.address_name||'')+'</div>';
+    if(d.phone)h+='<div class="tel">📞 '+esc(d.phone)+'</div>';
+    h+='<div class="med-print-row" style="margin-top:6px;display:flex;gap:6px"><button class="print-btn" data-print-idx="'+i+'" style="font-size:10px;padding:3px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;cursor:pointer;font-weight:700">🖨 인쇄</button><button class="route-btn" data-route-idx="'+i+'" title="카카오맵 길찾기 (기준위치 → 이 의료기관)" style="font-size:10px;padding:3px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#0e7490;cursor:pointer;font-weight:700">🧭 카카오맵 길찾기 열기</button></div>';
+    if(d._emgInfo){
+      var ei=d._emgInfo;
+      var emgParts=[];
+      if(ei.eryn)emgParts.push(ei.eryn==='Y'?'🟢 운영':'🔴 미운영');
+      if(ei.beds)emgParts.push('🛏 병상 '+ei.beds);
+      if(ei.icuBeds)emgParts.push('중환자 '+ei.icuBeds);
+      if(ei.ct==='Y')emgParts.push('CT✅');
+      if(ei.mri==='Y')emgParts.push('MRI✅');
+      if(emgParts.length)h+='<div style="font-size:9px;color:#dc2626;font-weight:600;margin-top:2px">'+emgParts.join(' · ')+'</div>';
+    }
+    h+='</div>';
+  });
+  return h;
+}
+
+/* 배치별 마커·팝업 생성 (실제 지도 객체 추가) */
+function _addMarkersForRange(slice, startIdx){
+  slice.forEach(function(d, batchI){
+    var i = startIdx + batchI;
+    var cn=(d.category_name||'').toLowerCase();
+    var ic;
+    if(_curDept&&DEPT_IC[_curDept]){ic=DEPT_IC[_curDept];}
+    else if(cn.indexOf('약국')!==-1){ic='💊';}
+    else if(cn.indexOf('종합병원')!==-1||cn.indexOf('대학병원')!==-1||d.place_name.indexOf('응급')!==-1){ic='🚨';}
+    else{ic='🏥';}
+    var dist=d._dist<1000?(Math.round(d._dist)+'m'):((d._dist/1000).toFixed(1)+'km');
+    var emojiSvg='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><text x="14" y="22" text-anchor="middle" font-size="22">'+ic+'</text></svg>');
+    var mImg=new kakao.maps.MarkerImage(emojiSvg,new kakao.maps.Size(28,28),{offset:new kakao.maps.Point(14,28)});
+    var mk=new kakao.maps.Marker({map:map,position:new kakao.maps.LatLng(d.y,d.x),title:d.place_name,image:mImg});
+    markers[i]=mk;
+    var iwHtml='<div style="padding:8px 14px;font-size:11px;color:#111;white-space:nowrap;border-radius:8px">'
+      +'<div style="font-weight:800;font-size:12px">'+ic+' '+esc(d.place_name)+'</div>'
+      +'<div style="font-size:10px;color:#718096;margin-top:3px">'+esc(d.road_address_name||d.address_name||'')+'</div>'
+      +(d.phone?'<div style="font-size:10px;color:#4a5568;margin-top:2px">📞 '+esc(d.phone)+'</div>':'')
+      +'<div style="font-size:9px;color:#0e7490;font-weight:600;margin-top:3px">📍 '+dist+'</div>';
+    if(d._emgInfo){
+      var e=d._emgInfo;
+      iwHtml+='<div style="margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb;font-size:10px;line-height:1.6">';
+      if(e.eryn)iwHtml+='<div style="font-weight:700;color:'+(e.eryn==='Y'?'#16a34a':'#dc2626')+'">'+(e.eryn==='Y'?'🟢 응급실 운영 중':'🔴 응급실 미운영')+'</div>';
+      if(e.beds)iwHtml+='<div style="color:#dc2626;font-weight:700">🛏 가용병상: '+esc(e.beds)+'개</div>';
+      if(e.icuBeds)iwHtml+='<div>🏥 중환자실: '+esc(e.icuBeds)+'개</div>';
+      if(e.surgery)iwHtml+='<div>🔬 수술실: '+esc(e.surgery)+'개</div>';
+      if(e.ct)iwHtml+='<div>CT: '+(e.ct==='Y'?'✅ 가능':'❌')+'</div>';
+      if(e.mri)iwHtml+='<div>MRI: '+(e.mri==='Y'?'✅ 가능':'❌')+'</div>';
+      iwHtml+='</div>';
+    }
+    iwHtml+='</div>';
+    infoWins[i]={htmlContent:iwHtml, currentOv:null};
+    (function(marker,iwIdx){
+      kakao.maps.event.addListener(marker,'mouseover',function(){window._showMarkerOverlay(iwIdx);marker.setZIndex(50);});
+      kakao.maps.event.addListener(marker,'click',function(){window._showMarkerOverlay(iwIdx);map.setCenter(marker.getPosition());map.setLevel(2);hl(iwIdx);});
+    })(mk,i);
+  });
+}
+
+/* list-item 이벤트 바인딩 — 새 배치 추가 시마다 호출 */
+function _bindListItemEvents(panel){
+  panel.querySelectorAll('.list-item:not([data-bound])').forEach(function(el){
+    el.dataset.bound='1';
+    var idx=parseInt(el.dataset.idx);
+    el.addEventListener('click',function(e){
+      if(e.target.closest('.fav-btn'))return;
+      if(markers[idx]){map.setCenter(markers[idx].getPosition());map.setLevel(2);hl(idx);}
+    });
+    el.addEventListener('mouseenter',function(){this.classList.add('hl');if(infoWins[idx]&&markers[idx]){window._showMarkerOverlay(idx);markers[idx].setZIndex(100);}});
+    el.addEventListener('mouseleave',function(){this.classList.remove('hl');});
+  });
+  panel.querySelectorAll('.fav-btn:not([data-bound])').forEach(function(btn){
+    btn.dataset.bound='1';
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      var idx=parseInt(this.dataset.favIdx);
+      var d=_renderList[idx];if(!d)return;
+      toggleFav(d.place_name,d);
+      this.textContent=isFav(d.place_name)?'⭐':'☆';
+      this.style.transform='scale(1.3)';
+      var self=this;setTimeout(function(){self.style.transform='';},200);
+      setTimeout(function(){render(_renderList);},300);
+    });
+  });
+  panel.querySelectorAll('.print-btn:not([data-bound])').forEach(function(btn){
+    btn.dataset.bound='1';
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      var idx=parseInt(this.dataset.printIdx);
+      var dd=_renderList[idx];if(!dd)return;
+      _openMedPrintModal(dd);
+    });
+  });
+  /* 🗺 카카오맵 길찾기 — 기준위치 → 해당 의료기관, 기본 브라우저로 열기 (사용자 요청 2026-06-18) */
+  panel.querySelectorAll('.route-btn:not([data-bound])').forEach(function(btn){
+    btn.dataset.bound='1';
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      var idx=parseInt(this.dataset.routeIdx);
+      var dd=_renderList[idx];if(!dd)return;
+      _openKakaoRoute(dd);
+    });
+  });
+}
+/* 카카오맵 길찾기 URL 열기 — from(기준위치)→to(의료기관). 거리·소요시간은 카카오맵이 표시. */
+function _openKakaoRoute(d){
+  try{
+    var sLat=(typeof schoolLat!=='undefined'&&schoolLat)||_preLat||0;
+    var sLng=(typeof schoolLng!=='undefined'&&schoolLng)||_preLng||0;
+    var sName=(typeof schoolName!=='undefined'&&schoolName)?schoolName:'기준위치';
+    var url='https://map.kakao.com/link/from/'+encodeURIComponent(sName)+','+sLat+','+sLng
+          +'/to/'+encodeURIComponent(d.place_name||'의료기관')+','+(d.y||'')+','+(d.x||'');
+    if(window.electronAPI&&window.electronAPI.openExternal) window.electronAPI.openExternal(url);
+    else window.open(url,'_blank');
+  }catch(_){}
+}
+
+/* ── 의료기관 인쇄 (3인치 영수증 / A4 + 30m 약도) ──────────────────────
+ *  3인치 → 지정 영수증 프린터로 텍스트 silent 출력. A4 → 기본 프린터로 텍스트+약도 silent 출력.
+ *  약도는 이미 로드된 카카오 SDK 로 현재 창에 렌더 → @media print 로 인쇄 영역만 노출하여 출력. */
+var _receiptPrinter='';
+try{ if(window.electronAPI&&electronAPI.settingsGet){ electronAPI.settingsGet('receipt_printer','').then(function(r){ _receiptPrinter=(r&&r.value)||''; }); } }catch(e){}
+function _medDeptText(d){
+  if(typeof _curDept!=='undefined' && _curDept) return _curDept;   /* 선택된 진료과 우선 */
+  var cn=d.category_name||'';
+  return cn.indexOf('>')!==-1 ? cn.split('>').pop().trim() : cn;
+}
+/* 인쇄 다이얼로그 — 3인치/A4 묻지 않고 바로: 위 두 줄(용지별 프린터+인쇄+취소) + 아래 A4·3인치 미리보기. (2026-06-02) */
+function _openMedPrintModal(d){
+  _medPvCleanup();
+  var wantMap=!!(d.y&&d.x) && (typeof kakao!=='undefined' && kakao.maps);
+  var bd=document.createElement('div'); bd.id='medPvBackdrop'; document.body.appendChild(bd);
+  bd.addEventListener('click', _medPvCleanup);
+  var bar=document.createElement('div'); bar.id='medPvBar';
+  bar.innerHTML=
+    '<div class="pv-ttl">🖨 의료기관 인쇄 — '+esc(d.place_name||'')+'</div>'
+    +'<div class="pv-row"><span class="pv-tag">🧾 3인치</span> 프린터 <select id="medPvPrinterRc"><option value="">기본 프린터</option></select> <button class="pv-go" id="medPvPrintRc">인쇄</button> <button class="pv-cl" id="medPvCancelRc">취소</button></div>'
+    +'<div class="pv-row"><span class="pv-tag">📄 A4</span> 프린터 <select id="medPvPrinterA4"><option value="">기본 프린터</option></select> <button class="pv-go" id="medPvPrintA4">인쇄</button> <button class="pv-cl" id="medPvCancelA4">취소</button></div>';
+  document.body.appendChild(bar);
+  var capA=document.createElement('div'); capA.id='medPvCapA4'; capA.className='med-pv-cap'; capA.textContent='📄 A4 미리보기'; document.body.appendChild(capA);
+  var capR=document.createElement('div'); capR.id='medPvCapRc'; capR.className='med-pv-cap'; capR.textContent='🧾 3인치 미리보기'; document.body.appendChild(capR);
+  /* A4 인쇄 원본 + 미리보기(#medPrintArea mp-a4 + 약도) */
+  _buildMedPrintArea(d, 'a4', wantMap, function(){ _medPositionCards(); });
+  /* 3인치 미리보기(#medRcPreview, 약도 없음) */
+  _buildMedRcPreview(d);
+  _medPositionCards();
+  /* 용지별 프린터 드롭다운(마지막 선택 기억) */
+  _medFillPrinter('medPvPrinterRc','receipt_printer');   /* 3인치 = 공유 키 receipt_printer */
+  _medFillPrinter('medPvPrinterA4','a4_printer');        /* A4 = 공유 키 a4_printer */
+  document.getElementById('medPvCancelRc').addEventListener('click', _medPvCleanup);
+  document.getElementById('medPvCancelA4').addEventListener('click', _medPvCleanup);
+  document.getElementById('medPvPrintRc').addEventListener('click', function(){ _medPrintReceipt(d); });
+  document.getElementById('medPvPrintA4').addEventListener('click', function(){ _medPrintA4(); });
+  window.addEventListener('resize', _medPositionCards);
+}
+/* 앱 스타일 안내 모달 — 브라우저 alert 대신. (2026-06-01) */
+function _medNotice(msg, isError){
+  var old=document.getElementById('medNoticeModal'); if(old)old.remove();
+  var ov=document.createElement('div'); ov.id='medNoticeModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:21000;display:flex;align-items:center;justify-content:center';
+  var h='<div style="background:#fff;border-radius:14px;width:330px;max-width:92vw;box-shadow:0 18px 50px rgba(0,0,0,0.4);overflow:hidden;font-family:\'Noto Sans KR\',sans-serif">';
+  h+='<div style="padding:13px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:800;color:'+(isError?'#dc2626':'#1a1a2e')+'">'+(isError?'⚠ 알림':'ℹ 안내')+'</div>';
+  h+='<div style="padding:16px 18px;font-size:12px;color:#334155;line-height:1.65;white-space:pre-line">'+esc(msg)+'</div>';
+  h+='<div style="padding:0 18px 14px;text-align:right"><button data-ok="1" style="font-size:12px;font-weight:700;padding:7px 18px;border:0;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;cursor:pointer;font-family:inherit">확인</button></div>';
+  h+='</div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){ if(e.target===ov||e.target.closest('[data-ok]')) ov.remove(); });
+  document.body.appendChild(ov);
+}
+/* ── 인쇄 다이얼로그 헬퍼들 (2026-06-02) ── */
+function _medPvCleanup(){
+  ['medPrintArea','medRcPreview','medPvBackdrop','medPvBar','medPvCapA4','medPvCapRc','medPgSizeStyle'].forEach(function(id){ var el=document.getElementById(id); if(el)el.remove(); });
+  document.body.classList.remove('printing');
+  try{ window.removeEventListener('resize', _medPositionCards); }catch(_e){}
+}
+function _medInnerHtml(d){
+  var name=esc(d.place_name||''),dept=esc(_medDeptText(d)),addr=esc(d.road_address_name||d.address_name||''),tel=esc(d.phone||'');
+  var _distM=Number(d._dist);
+  var _distTxt=(_distM>0&&_distM<9000000)?(_distM>=1000?(_distM/1000).toFixed(1).replace(/\.0$/,'')+'km':Math.round(_distM)+'m'):'';
+  var _distLine=(schoolName&&_distTxt)?'<div class="mp-dist">('+esc(schoolName)+'에서 거리: '+_distTxt+')</div>':'';
+  return '<div class="mp-nm">'+name+'</div>'+_distLine
+    +(dept?'<div class="mp-row"><b>진료과</b> '+dept+'</div>':'')
+    +(addr?'<div class="mp-row"><b>주소</b> '+addr+'</div>':'')
+    +(tel?'<div class="mp-row"><b>전화</b> '+tel+'</div>':'');
+}
+function _buildMedRcPreview(d){
+  var old=document.getElementById('medRcPreview'); if(old)old.remove();
+  var rc=document.createElement('div'); rc.id='medRcPreview'; rc.className='mp-rc mp-card';
+  rc.innerHTML=_medInnerHtml(d);
+  document.body.appendChild(rc);
+}
+/* 두 미리보기 카드(A4·3인치)를 컨트롤 바 아래에 나란히 배치 + 화면에 맞게 축소(자기 자신만 scale). */
+function _medPositionCards(){
+  var a4=document.getElementById('medPrintArea'), rc=document.getElementById('medRcPreview'), bar=document.getElementById('medPvBar');
+  if(!a4||!rc)return;
+  a4.classList.add('mp-card'); rc.classList.add('mp-card');
+  a4.style.transformOrigin='top left'; rc.style.transformOrigin='top left';
+  a4.style.transform='none'; rc.style.transform='none';
+  var barBottom = bar ? bar.getBoundingClientRect().bottom : 120;
+  var topY = barBottom + 28, availH = Math.max(160, window.innerHeight - topY - 22);
+  var a4W=a4.offsetWidth||794, a4H=a4.offsetHeight||1123;
+  var rcW=rc.offsetWidth||272, rcH=rc.offsetHeight||220;
+  var sA4=Math.min(availH/a4H, (window.innerWidth*0.46)/a4W, 0.7); if(!(sA4>0.08))sA4=0.32;
+  var sRc=Math.min(availH/rcH, (window.innerWidth*0.30)/rcW, 1.1); if(!(sRc>0.08))sRc=0.8;
+  var dA4=a4W*sA4, dRc=rcW*sRc, gap=30;
+  var startX=Math.max(12, (window.innerWidth-(dA4+gap+dRc))/2);
+  a4.style.left=startX+'px'; a4.style.top=topY+'px'; a4.style.transform='scale('+sA4.toFixed(3)+')';
+  rc.style.left=(startX+dA4+gap)+'px'; rc.style.top=topY+'px'; rc.style.transform='scale('+sRc.toFixed(3)+')';
+  var capA=document.getElementById('medPvCapA4'), capR=document.getElementById('medPvCapRc');
+  if(capA){ capA.style.left=startX+'px'; capA.style.top=(topY-21)+'px'; }
+  if(capR){ capR.style.left=(startX+dA4+gap)+'px'; capR.style.top=(topY-21)+'px'; }
+}
+/* 프린터 드롭다운 채우기 — 용지별 마지막 선택 기억. 우선순위: 마지막 선택 > 기본 > 첫 프린터. */
+/* 영수증(열전사) 프린터 이름 판별 — 비어 있을 때 3인치↔A4 기본값이 안 섞이게. */
+function _medIsRcPrinter(n){ n=(n||'').toLowerCase(); return /slk|ts-?200|\bpos\b|영수|receipt|thermal|bixolon|srp|80mm/.test(n); }
+/* 프린터 드롭다운 — 공유 설정 키(settingsKey)에 저장/복원 → 의료기관·EMS·방문증 어디서 정하든 같은 프린터가 기본으로 뜸.
+ * 우선순위: 저장된 마지막 출력 프린터 > (3인치=영수증형 / A4=영수증형 아닌 것 자동) > OS 기본. 선택 변경 시 즉시 저장. (2026-06-02) */
+function _medFillPrinter(selId, settingsKey){
+  var sel=document.getElementById(selId); if(!sel)return;
+  var isRc=(settingsKey==='receipt_printer');
+  sel.addEventListener('change', function(){ try{ electronAPI.settingsSet(settingsKey, sel.value||''); }catch(_e){} });
+  var _populate=function(last){
+    try{
+      electronAPI.listPrinters().then(function(res){
+        var list=(res&&Array.isArray(res.printers))?res.printers:(Array.isArray(res)?res:[]);
+        if(!list.length)return;
+        var defVal='';
+        list.forEach(function(p){ var v=p.name||p.deviceName||''; var o=document.createElement('option'); o.value=v; o.textContent=(p.displayName||p.name||v)+(p.isDefault?' (기본)':''); sel.appendChild(o); if(p.isDefault)defVal=v; });
+        var pick='';
+        if(last){ for(var i=0;i<list.length;i++){ var lv=list[i].name||list[i].deviceName||''; if(lv===last){ pick=last; break; } } }
+        if(!pick){
+          if(isRc){   /* 3인치 = 영수증형 프린터 우선 */
+            for(var k=0;k<list.length;k++){ var rn=list[k].name||list[k].deviceName||''; if(_medIsRcPrinter(rn)){ pick=rn; break; } }
+            if(!pick)pick=defVal;
+          } else {    /* A4 = 영수증형이 아닌 프린터(=일반 A4)로. OS 기본이 영수증형이면 건너뜀 */
+            if(defVal && !_medIsRcPrinter(defVal)) pick=defVal;
+            if(!pick){ for(var k2=0;k2<list.length;k2++){ var an=list[k2].name||list[k2].deviceName||''; if(an && !_medIsRcPrinter(an)){ pick=an; break; } } }
+            if(!pick)pick=defVal;
+          }
+        }
+        if(pick)sel.value=pick; else if(sel.options.length>1)sel.selectedIndex=1;
+      }).catch(function(){});
+    }catch(e){}
+  };
+  try{ electronAPI.settingsGet(settingsKey,'').then(function(r){ _populate((r&&r.value)||''); }).catch(function(){_populate('');}); }catch(e){ _populate(''); }
+}
+/* A4 인쇄 — 현재 창 인쇄(살아있는 약도 포함). @media print 가 #medPrintArea 만 노출. */
+function _medPrintA4(){
+  var dev=document.getElementById('medPvPrinterA4').value||undefined;
+  try{ electronAPI.settingsSet('a4_printer', dev||''); }catch(_e){}   /* 공유 설정에 저장 */
+  var _pg=document.getElementById('medPgSizeStyle'); if(_pg)_pg.remove();
+  _pg=document.createElement('style'); _pg.id='medPgSizeStyle'; _pg.textContent='@page{size:A4;margin:0}'; document.head.appendChild(_pg);
+  try{ console.log('[GP2][MEDPRINT] A4 인쇄 dev="'+(dev||'(기본)')+'"'); }catch(_e){}
+  try{
+    electronAPI.printCurrentWindow('A4', {marginType:'custom', top:0, bottom:0, left:0, right:0}, true, dev, false).then(function(res){
+      try{ console.log('[GP2][MEDPRINT] A4결과='+JSON.stringify(res)); }catch(_e){}
+      _medPvCleanup(); if(res&&!res.success&&!res.cancelled)_medNotice('인쇄 실패: '+(res.error||''), true);
+    }).catch(function(e){ _medPvCleanup(); _medNotice('인쇄 오류: '+e.message, true); });
+  }catch(e){ _medPvCleanup(); _medNotice('인쇄를 시작할 수 없습니다: '+e.message, true); }
+}
+/* 3인치 인쇄 — 방문증과 동일한 검증 경로(printWindowWithSize, 깨끗한 숨은 창 + @page 내장). Sewoo 정상 출력. */
+function _medPrintReceipt(d){
+  var dev=document.getElementById('medPvPrinterRc').value||undefined;
+  try{ electronAPI.settingsSet('receipt_printer', dev||''); }catch(_e){}   /* 공유 설정에 저장 */
+  var rc=document.getElementById('medRcPreview');
+  var rcH=Math.max(50, rc?Math.round(rc.offsetHeight*25.4/96)+4:60);
+  var inner=rc?rc.innerHTML:_medInnerHtml(d);
+  var rcHtml='<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
+    +'@page{size:80mm '+rcH+'mm;margin:0}'
+    +'*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}'
+    +'html,body{margin:0;padding:0;background:#fff;color:#000}'
+    +'body{width:80mm;box-sizing:border-box;padding:4mm;font-family:\'Malgun Gothic\',\'맑은 고딕\',sans-serif;font-size:12px;line-height:1.5;color:#000}'
+    +'.mp-nm{font-weight:800;font-size:15px;margin-bottom:6px}'
+    +'.mp-dist{color:#444;font-size:11px;font-weight:600;margin:0 0 7px}'
+    +'.mp-row{margin:2px 0}.mp-row b{display:inline-block;min-width:44px;color:#333;font-weight:700}'
+    +'</style></head><body>'+inner+'</body></html>';
+  try{ console.log('[GP2][MEDPRINT] 3인치 printWindowWithSize dev="'+(dev||'(기본)')+'" h='+rcH+'mm'); }catch(_e){}
+  try{
+    electronAPI.printWindowWithSize(rcHtml, {width:80000, height:rcH*1000}, {marginType:'custom', top:0, bottom:0, left:0, right:0}, undefined, true, dev, false).then(function(res){
+      try{ console.log('[GP2][MEDPRINT] 3인치결과='+JSON.stringify(res)); }catch(_e){}
+      _medPvCleanup(); if(res&&!res.success&&!res.cancelled)_medNotice('인쇄 실패: '+(res.error||''), true);
+    }).catch(function(e){ try{ console.log('[GP2][MEDPRINT] 3인치reject='+e.message); }catch(_e){} _medPvCleanup(); _medNotice('인쇄 오류: '+e.message, true); });
+  }catch(e){ _medPvCleanup(); _medNotice('인쇄를 시작할 수 없습니다: '+e.message, true); }
+}
+function _buildMedPrintArea(d, paper, wantMap, onReady){
+  var old=document.getElementById('medPrintArea'); if(old)old.remove();
+  var isA4=(paper==='a4');
+  var name=esc(d.place_name||''),dept=esc(_medDeptText(d)),addr=esc(d.road_address_name||d.address_name||''),tel=esc(d.phone||'');
+  /* 의료기관명 바로 아래에 "(기준지 학교명에서 거리: 521m)" — 거리는 기준위치(학교) 기준 d._dist(미터). (2026-06-01) */
+  var _distM=Number(d._dist);
+  var _distTxt=(_distM>0&&_distM<9000000)?(_distM>=1000?(_distM/1000).toFixed(1).replace(/\.0$/,'')+'km':Math.round(_distM)+'m'):'';
+  var _distLine=(schoolName&&_distTxt)?'<div class="mp-dist">('+esc(schoolName)+'에서 거리: '+_distTxt+')</div>':'';
+  var pa=document.createElement('div'); pa.id='medPrintArea'; pa.className=isA4?'mp-a4':'mp-rc';
+  var inner='<div class="mp-nm">'+name+'</div>'+_distLine
+    +(dept?'<div class="mp-row"><b>진료과</b> '+dept+'</div>':'')
+    +(addr?'<div class="mp-row"><b>주소</b> '+addr+'</div>':'')
+    +(tel?'<div class="mp-row"><b>전화</b> '+tel+'</div>':'');
+  if(wantMap){ inner+='<div id="medPrintMap"></div><div class="mp-scale"><span>축척</span><span class="mp-scbar" id="medScBar"></span><span id="medScLabel">30m</span></div>'; }
+  pa.innerHTML=inner;
+  document.body.appendChild(pa);
+  document.body.classList.add('printing');
+  if(!wantMap){ onReady(); return; }
+  try{
+    var lat=Number(d.y),lng=Number(d.x);
+    var dest=new kakao.maps.LatLng(lat,lng);
+    var hasSchool=!!(schoolLat&&schoolLng);
+    var mp=new kakao.maps.Map(document.getElementById('medPrintMap'),{center:dest,level:3,draggable:false,scrollwheel:false});
+    /* 목적지(병원) 마커 + 라벨 */
+    new kakao.maps.Marker({map:mp,position:dest});
+    new kakao.maps.CustomOverlay({map:mp,position:dest,yAnchor:2.1,content:'<div style="padding:1px 5px;font-size:10px;font-weight:700;color:#b91c1c;background:#fff;border:1px solid #b91c1c;border-radius:4px;white-space:nowrap">병원</div>'});
+    if(hasSchool){
+      var sch=new kakao.maps.LatLng(schoolLat,schoolLng);
+      new kakao.maps.Marker({map:mp,position:sch});
+      new kakao.maps.CustomOverlay({map:mp,position:sch,yAnchor:2.1,content:'<div style="padding:1px 5px;font-size:10px;font-weight:700;color:#0e7490;background:#fff;border:1px solid #0e7490;border-radius:4px;white-space:nowrap">기준지</div>'});
+      /* 기준지+목적지 둘 다 보이는 최대 확대로 자동 맞춤(가장자리 패딩). */
+      var bounds=new kakao.maps.LatLngBounds(); bounds.extend(dest); bounds.extend(sch);
+      mp.setBounds(bounds, 34, 30, 42, 30);
+    }
+    /* 동적 축척 — 현재(확정된) 줌에서 m/px 측정 후 둥근 거리 막대로 표시. */
+    function drawScale(){try{
+      var proj=mp.getProjection();
+      var cen=mp.getCenter(), clat=cen.getLat(), clng=cen.getLng();
+      var dLng=100/(111320*Math.cos(clat*Math.PI/180));   /* 100m 동쪽 = 경도 변화량 */
+      var pA=proj.containerPointFromCoords(new kakao.maps.LatLng(clat,clng));
+      var pB=proj.containerPointFromCoords(new kakao.maps.LatLng(clat,clng+dLng));
+      var pxPer100=Math.abs(pB.x-pA.x); if(!(pxPer100>0))return;
+      var mPerPx=100/pxPer100, targetPx=84, rawM=mPerPx*targetPx;
+      var steps=[10,20,30,50,100,200,300,500,1000,2000,3000,5000,10000,20000,50000];
+      var step=steps[0]; for(var i=0;i<steps.length;i++){ if(steps[i]<=rawM) step=steps[i]; }
+      var bar=document.getElementById('medScBar'); if(bar)bar.style.width=Math.round(step/mPerPx)+'px';
+      var lb=document.getElementById('medScLabel'); if(lb)lb.textContent=(step>=1000?(step/1000)+'km':step+'m');
+    }catch(e){}}
+    var fired=false; var go=function(){ if(fired)return; fired=true; drawScale(); onReady(); };
+    kakao.maps.event.addListener(mp,'tilesloaded',function(){ setTimeout(go,250); });
+    setTimeout(go,3500);   /* 타일 안 뜨면 폴백 — 텍스트는 무조건 인쇄 */
+  }catch(e){ onReady(); }
+}
+
+/* 기존 단일 패스 — 점진 렌더 분기 후 호출 안 됨 (호환용 보존만) */
+function _renderLegacy(list){
+  var panel=document.getElementById('listPanel');
+  var h='<div class="count">'+list.length+'건 (즐겨찾기 → 거리순)</div>';
+  list.forEach(function(d,i){
+    var cn=(d.category_name||'').toLowerCase();
+    /* 단순화된 아이콘 — 약국/응급 외에는 모두 🏥 병원 아이콘 (진료과별 자동 감지 제거) */
+    var ic;
+    if(_curDept&&DEPT_IC[_curDept]){ic=DEPT_IC[_curDept];}
+    else if(cn.indexOf('약국')!==-1){ic='💊';}
+    else if(cn.indexOf('종합병원')!==-1||cn.indexOf('대학병원')!==-1||d.place_name.indexOf('응급')!==-1){ic='🚨';}
+    else{ic='🏥';}
+    var dist=d._dist<1000?(Math.round(d._dist)+'m'):((d._dist/1000).toFixed(1)+'km');
+    var fav=isFav(d.place_name);
+    h+='<div class="list-item" data-idx="'+i+'" style="'+(fav?'background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.2)':'')+'">';
+    h+='<div style="display:flex;align-items:center;gap:6px"><span>'+ic+'</span><span class="name" style="flex:1">'+esc(d.place_name)+'</span>';
+    h+='<span class="fav-btn" data-fav-name="'+esc(d.place_name)+'" data-fav-idx="'+i+'" style="cursor:pointer;font-size:14px;flex-shrink:0;transition:transform .15s" title="즐겨찾기">'+(fav?'⭐':'☆')+'</span>';
+    h+='<span class="dist">'+dist+'</span></div>';
+    if(d.category_name)h+='<div class="cat">'+esc(d.category_name.split('>').pop().trim())+'</div>';
+    h+='<div class="addr">'+esc(d.road_address_name||d.address_name||'')+'</div>';
+    if(d.phone)h+='<div class="tel">📞 '+esc(d.phone)+'</div>';
+    h+='<div class="med-print-row" style="margin-top:6px;display:flex;gap:6px"><button class="print-btn" data-print-idx="'+i+'" style="font-size:10px;padding:3px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;cursor:pointer;font-weight:700">🖨 인쇄</button><button class="route-btn" data-route-idx="'+i+'" title="카카오맵 길찾기 (기준위치 → 이 의료기관)" style="font-size:10px;padding:3px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#0e7490;cursor:pointer;font-weight:700">🧭 카카오맵 길찾기 열기</button></div>';
+    if(d._emgInfo){
+      var ei=d._emgInfo;
+      var emgParts=[];
+      if(ei.eryn)emgParts.push(ei.eryn==='Y'?'🟢 운영':'🔴 미운영');
+      if(ei.beds)emgParts.push('🛏 병상 '+ei.beds);
+      if(ei.icuBeds)emgParts.push('중환자 '+ei.icuBeds);
+      if(ei.ct==='Y')emgParts.push('CT✅');
+      if(ei.mri==='Y')emgParts.push('MRI✅');
+      if(emgParts.length)h+='<div style="font-size:9px;color:#dc2626;font-weight:600;margin-top:2px">'+emgParts.join(' · ')+'</div>';
+    }
+    h+='</div>';
+    /* 마커 */
+    /* 이모지 마커 이미지 */
+    var emojiSvg='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><text x="14" y="22" text-anchor="middle" font-size="22">'+ic+'</text></svg>');
+    var mImg=new kakao.maps.MarkerImage(emojiSvg,new kakao.maps.Size(28,28),{offset:new kakao.maps.Point(14,28)});
+    var mk=new kakao.maps.Marker({map:map,position:new kakao.maps.LatLng(d.y,d.x),title:d.place_name,image:mImg});
+    markers.push(mk);
+    var iwHtml='<div style="padding:8px 14px;font-size:11px;color:#111;white-space:nowrap;border-radius:8px">'
+      +'<div style="font-weight:800;font-size:12px">'+ic+' '+esc(d.place_name)+'</div>'
+      +'<div style="font-size:10px;color:#718096;margin-top:3px">'+esc(d.road_address_name||d.address_name||'')+'</div>'
+      +(d.phone?'<div style="font-size:10px;color:#4a5568;margin-top:2px">📞 '+esc(d.phone)+'</div>':'')
+      +'<div style="font-size:9px;color:#0e7490;font-weight:600;margin-top:3px">📍 '+dist+'</div>';
+    /* 응급실 상세 정보 */
+    if(d._emgInfo){
+      var e=d._emgInfo;
+      iwHtml+='<div style="margin-top:4px;padding-top:4px;border-top:1px solid #e5e7eb;font-size:10px;line-height:1.6">';
+      if(e.eryn)iwHtml+='<div style="font-weight:700;color:'+(e.eryn==='Y'?'#16a34a':'#dc2626')+'">'+(e.eryn==='Y'?'🟢 응급실 운영 중':'🔴 응급실 미운영')+'</div>';
+      if(e.beds)iwHtml+='<div style="color:#dc2626;font-weight:700">🛏 가용병상: '+esc(e.beds)+'개</div>';
+      if(e.icuBeds)iwHtml+='<div>🏥 중환자실: '+esc(e.icuBeds)+'개</div>';
+      if(e.surgery)iwHtml+='<div>🔬 수술실: '+esc(e.surgery)+'개</div>';
+      if(e.ct)iwHtml+='<div>CT: '+(e.ct==='Y'?'✅ 가능':'❌')+'</div>';
+      if(e.mri)iwHtml+='<div>MRI: '+(e.mri==='Y'?'✅ 가능':'❌')+'</div>';
+      iwHtml+='</div>';
+    }
+    iwHtml+='</div>';
+    /* 팝업 콘텐츠 보관 — 표시 시점에 마커 위치 기준으로 위/아래 동적 결정 */
+    infoWins.push({htmlContent:iwHtml, currentOv:null});
+    (function(marker,iwIdx,idx){
+      kakao.maps.event.addListener(marker,'mouseover',function(){window._showMarkerOverlay(iwIdx);marker.setZIndex(50);});
+      kakao.maps.event.addListener(marker,'click',function(){window._showMarkerOverlay(iwIdx);map.setCenter(marker.getPosition());map.setLevel(2);hl(idx);});
+    })(mk,i,i);
+  });
+  panel.innerHTML=h;
+  /* 목록 이벤트 — hover 시 지도 미니팝업 */
+  panel.querySelectorAll('.list-item').forEach(function(el){
+    var idx=parseInt(el.dataset.idx);
+    el.addEventListener('click',function(e){
+      if(e.target.closest('.fav-btn'))return;
+      if(markers[idx]){map.setCenter(markers[idx].getPosition());map.setLevel(2);hl(idx);}
+    });
+    el.addEventListener('mouseenter',function(){this.classList.add('hl');if(infoWins[idx]&&markers[idx]){window._showMarkerOverlay(idx);markers[idx].setZIndex(100);}});
+    el.addEventListener('mouseleave',function(){this.classList.remove('hl');});
+  });
+  /* 즐겨찾기 별표 클릭 */
+  panel.querySelectorAll('.fav-btn').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      var idx=parseInt(this.dataset.favIdx);
+      var d=_renderList[idx];if(!d)return;
+      toggleFav(d.place_name,d);
+      this.textContent=isFav(d.place_name)?'⭐':'☆';
+      this.style.transform='scale(1.3)';
+      var self=this;setTimeout(function(){self.style.transform='';},200);
+      /* 재정렬 */
+      setTimeout(function(){render(_renderList);},300);
+    });
+  });
+}
+
+function hl(idx){
+  document.querySelectorAll('.list-item').forEach(function(e){e.classList.remove('hl');});
+  var items=document.querySelectorAll('.list-item');
+  if(items[idx]){items[idx].classList.add('hl');items[idx].scrollIntoView({block:'nearest'});}
+}
+
+/* 탭 전환 */
+document.querySelectorAll('.tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+    this.classList.add('active');
+    curType=this.dataset.type;
+    closeAllInfoWins();
+    document.getElementById('deptSel').style.display=curType==='hospital'?'':'none';
+    document.getElementById('deptSel').value='';_curDept='';
+    if(map&&schoolLat){map.setCenter(new kakao.maps.LatLng(schoolLat,schoolLng));map.setLevel(5);}
+    doSearch();
+  });
+});
+
+/* 진료과 — 심평원 dgsbjtCd(진료과목) 코드 매핑
+ * 주의: clCd(기관 분류)와 다름. clCd=01 은 "상급종합병원" 이므로 절대 사용하지 말 것. */
+var DEPT_CD={'내과':'01','신경과':'02','정신건강의학과':'03','외과':'04','정형외과':'05','신경외과':'06',
+  '성형외과':'08','마취통증의학과':'09','산부인과':'10','소아청소년과':'11','안과':'12','이비인후과':'13',
+  '피부과':'14','비뇨의학과':'15','재활의학과':'21','가정의학과':'23','응급의학과':'24','치과':'49'};
+/* 진료과별 아이콘 */
+var DEPT_IC={'내과':'🫀','신경과':'🧠','정신건강의학과':'🧠','외과':'🔪','정형외과':'🦴','신경외과':'🧠',
+  '성형외과':'✨','마취통증의학과':'💉','산부인과':'🤰','소아청소년과':'👶','안과':'👁','이비인후과':'👂',
+  '피부과':'🧴','비뇨의학과':'🫘','재활의학과':'🏋️','가정의학과':'👨‍⚕️','응급의학과':'🚨','치과':'🦷'};
+var _curDept='';
+
+document.getElementById('deptSel').addEventListener('click',function(){closeAllInfoWins();});
+document.getElementById('deptSel').addEventListener('change',function(){
+  closeAllInfoWins();
+  _curDept=this.value;
+  if(!this.value){doSearch();return;}
+  clearAll();
+  var dept=this.value;
+  document.getElementById('listPanel').innerHTML='<div class="loading">⏳ '+esc(dept)+' 검색 중...</div>';
+
+  /* 심평원 API — dgsbjtCd + 학교 좌표·반경 기반 (API 가 거리순 정렬 반환)
+   * 1페이지 numOfRows=100 단일 호출 + 메모리 캐시 + 6초 타임아웃 */
+  if(hiraKey&&window.electronAPI&&window.electronAPI.externalFetchMedFacilities&&DEPT_CD[dept]){
+    var cacheKey=dept+'@'+schoolLat.toFixed(3)+','+schoolLng.toFixed(3);
+    var cached=_deptCache[cacheKey];
+    if(cached){render(cached);return;}
+    var timedOut=false;
+    var tmo=setTimeout(function(){timedOut=true;searchDeptKakao(dept);},6000);
+    window.electronAPI.externalFetchMedFacilities(hiraKey,{
+      type:'hospital',
+      numOfRows:50,
+      pageNo:1,
+      dgsbjtCd:DEPT_CD[dept],
+      xPos:schoolLng,
+      yPos:schoolLat,
+      radius:30000
+    }).then(function(res){
+      if(timedOut)return;
+      clearTimeout(tmo);
+      if(!res||!res.success||!res.data||!res.data.length){searchDeptKakao(dept);return;}
+      var seen={};
+      /* 전문과 — HIRA dgsbjtCd 가 비엄격(보유 진료과 한 개만 매칭해도 반환)이라
+       * 정형외과/내과 위주 병원이 피부과 검색에 끼는 현상 방지: 병원명에 과명 포함된 경우만 통과.
+       * 1차 진료(내과·외과·가정의학과·소아청소년과·응급의학과)는 포괄성 유지 위해 제외. */
+      var STRICT_DEPTS=['피부과','비뇨의학과','재활의학과','산부인과','신경과','정신건강의학과','치과','이비인후과','안과','정형외과','신경외과','성형외과','마취통증의학과'];
+      var _strict=STRICT_DEPTS.indexOf(dept)!==-1;
+      var list=res.data.filter(function(d){
+        var key=d.ykiho||d.yadmNm;
+        if(seen[key])return false;
+        seen[key]=true;
+        var nm=(d.yadmNm||'').toLowerCase();
+        for(var i=0;i<EXCLUDE.length;i++){if(nm.indexOf(EXCLUDE[i])!==-1)return false;}
+        if(_strict&&nm.indexOf(dept)===-1)return false;
+        return true;
+      });
+      list.forEach(function(d){
+        var x=parseFloat(d.XPos||d.wgs84Lon||0),y=parseFloat(d.YPos||d.wgs84Lat||0);
+        d._dist=(x&&y)?distKm(schoolLat,schoolLng,y,x)*1000:9999000;
+        d.place_name=d.yadmNm||'';d.road_address_name=d.addr||'';d.phone=d.telno||'';
+        d.category_name=dept+(d.clCdNm?' > '+d.clCdNm:' > 병원');
+        d.y=String(y);d.x=String(x);
+      });
+      list=list.filter(function(d){return d._dist<=30000&&d._dist<9999000;});
+      list.sort(function(a,b){return a._dist-b._dist;});
+      if(!list.length){searchDeptKakao(dept);return;}
+      _deptCache[cacheKey]=list;
+      render(list);
+    }).catch(function(err){
+      if(timedOut)return;
+      clearTimeout(tmo);
+      console.warn('[MedFac] HIRA 진료과 검색 실패:',err);
+      searchDeptKakao(dept);
+    });
+  } else {
+    searchDeptKakao(dept);
+  }
+});
+
+/* 진료과 검색 결과 메모리 캐시 — (진료과명 + 학교좌표 키) */
+var _deptCache={};
+
+function searchDeptKakao(dept){
+  var center=map.getCenter();
+  /* 밀집 지역 대응 — 9개 좌표에서 분산 검색 */
+  var off=0.03;
+  var pts=[
+    {x:center.getLng(),y:center.getLat()},
+    {x:center.getLng()+off,y:center.getLat()},
+    {x:center.getLng()-off,y:center.getLat()},
+    {x:center.getLng(),y:center.getLat()+off*0.8},
+    {x:center.getLng(),y:center.getLat()-off*0.8},
+    {x:center.getLng()+off,y:center.getLat()+off*0.8},
+    {x:center.getLng()-off,y:center.getLat()+off*0.8},
+    {x:center.getLng()+off,y:center.getLat()-off*0.8},
+    {x:center.getLng()-off,y:center.getLat()-off*0.8}
+  ];
+  var allData=[],done=0,total=pts.length*3;
+  var deptLc=dept.toLowerCase();
+  pts.forEach(function(pt){
+    [1,2,3].forEach(function(pg){
+      apiKw(dept,pt.x,pt.y,5000,pg).then(function(r){
+        done++;
+        if(r&&r.success&&r.data)allData=allData.concat(r.data);
+        if(done>=total){
+          var seen={};
+          /* 전문과는 병원명(place_name)에 직접 진료과명이 포함될 때만 통과 — HIRA 와 동일 정책 */
+          var STRICT_DEPTS_KW=['피부과','비뇨의학과','재활의학과','산부인과','신경과','정신건강의학과','치과','이비인후과','안과','정형외과','신경외과','성형외과','마취통증의학과'];
+          var _strictKw=STRICT_DEPTS_KW.indexOf(dept)!==-1;
+          var list=allData.filter(function(d){
+            if(seen[d.id])return false;seen[d.id]=true;
+            var nm=(d.place_name||'').toLowerCase();
+            var cn=(d.category_name||'').toLowerCase();
+            /* 제외 키워드 (동물/수의/산후/요양) */
+            for(var i=0;i<EXCLUDE.length;i++){if(nm.indexOf(EXCLUDE[i])!==-1||cn.indexOf(EXCLUDE[i])!==-1)return false;}
+            /* 의료기관 분류 체크 */
+            var isHospital=cn.indexOf('병원')!==-1||cn.indexOf('의원')!==-1||cn.indexOf('의료')!==-1||cn.indexOf('클리닉')!==-1;
+            if(!isHospital)return false;
+            /* 진료과 매칭 — 전문과는 병원명에 과명 포함 시만 통과(엄격).
+             * 1차 진료(내과·외과·가정의학과·소아청소년과·응급의학과)는 카테고리 매칭 허용(포괄). */
+            if(_strictKw)return nm.indexOf(deptLc)!==-1;
+            return nm.indexOf(deptLc)!==-1||cn.indexOf(deptLc)!==-1;
+          });
+          list.forEach(function(d){d._dist=distKm(schoolLat,schoolLng,parseFloat(d.y),parseFloat(d.x))*1000;});
+          list=list.filter(function(d){return d._dist<=30000;});
+          list.sort(function(a,b){return a._dist-b._dist;});
+          render(list);
+        }
+      });
+    });
+  });
+}
+/* ═══ 주소 입력 — 자동완성 드롭다운 + Enter 검색 ═══ */
+(function(){
+  var addrInput=document.getElementById('addrInput');
+  var addrDrop=document.getElementById('addrDrop');
+  if(!addrInput)return;
+  addrInput.value=schoolAddr||schoolQuery||'';
+  var _addrT=null;
+
+  function moveToAddr(lat,lng,label){
+    schoolLat=lat;schoolLng=lng;
+    if(map){map.setCenter(new kakao.maps.LatLng(lat,lng));map.setLevel(5);}
+    if(schoolMk)schoolMk.setMap(null);
+    var img=new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',new kakao.maps.Size(24,35));
+    schoolMk=new kakao.maps.Marker({map:map,position:new kakao.maps.LatLng(lat,lng),image:img,zIndex:100});
+    document.getElementById('schoolAddrDisplay').textContent='📍 '+esc(label);
+    doSearch();
+  }
+
+  /* 자동완성 — 입력 시 도로명 주소 후보 */
+  addrInput.addEventListener('input',function(){
+    var q=this.value.trim();
+    if(q.length<2){addrDrop.style.display='none';return;}
+    clearTimeout(_addrT);
+    _addrT=setTimeout(function(){
+      if(!window.electronAPI||!window.electronAPI.kakaoAddressSearch)return;
+      window.electronAPI.kakaoAddressSearch(q,window._kakaoRestKey).then(function(r){
+        if(!r||!r.success||!r.data||!r.data.length){
+          /* 주소 검색 실패 시 키워드 검색 폴백 */
+          apiKw(q).then(function(r2){
+            if(!r2||!r2.success||!r2.data||!r2.data.length){addrDrop.style.display='none';return;}
+            var h='';
+            r2.data.slice(0,5).forEach(function(d){
+              h+='<div class="ac-item" data-lat="'+d.y+'" data-lng="'+d.x+'" data-label="'+esc(d.road_address_name||d.address_name||d.place_name)+'">';
+              h+='<span class="ac-icon">📍</span><div style="display:inline-block;vertical-align:middle"><div class="ac-name">'+esc(d.place_name||d.address_name)+'</div>';
+              h+='<div class="ac-addr">'+esc(d.road_address_name||d.address_name||'')+'</div></div></div>';
+            });
+            addrDrop.innerHTML=h;addrDrop.style.display='block';
+            bindAddrItems();
+          });
+          return;
+        }
+        var h='';
+        r.data.forEach(function(d){
+          var addr=d.road_address?d.road_address.address_name:(d.address?d.address.address_name:'');
+          h+='<div class="ac-item" data-lat="'+d.y+'" data-lng="'+d.x+'" data-label="'+esc(addr)+'">';
+          h+='<span class="ac-icon">🏠</span><div style="display:inline-block;vertical-align:middle"><div class="ac-name">'+esc(addr)+'</div>';
+          if(d.road_address&&d.road_address.building_name)h+='<div class="ac-addr">'+esc(d.road_address.building_name)+'</div>';
+          h+='</div></div>';
+        });
+        addrDrop.innerHTML=h;addrDrop.style.display='block';
+        bindAddrItems();
+      });
+    },300);
+  });
+
+  function bindAddrItems(){
+    addrDrop.querySelectorAll('.ac-item').forEach(function(el){
+      el.addEventListener('click',function(){
+        addrInput.value=this.dataset.label;
+        addrDrop.style.display='none';
+        moveToAddr(parseFloat(this.dataset.lat),parseFloat(this.dataset.lng),this.dataset.label);
+      });
+    });
+  }
+
+  addrInput.addEventListener('keydown',function(e){
+    if(e.key!=='Enter')return;
+    addrDrop.style.display='none';
+    var q=this.value.trim();if(!q)return;
+    apiKw(q).then(function(r){
+      if(r&&r.success&&r.data&&r.data.length){
+        var d=r.data[0];
+        moveToAddr(parseFloat(d.y),parseFloat(d.x),d.road_address_name||d.address_name||q);
+        addrInput.value=d.road_address_name||d.address_name||q;
+      }
+    });
+  });
+  addrInput.addEventListener('blur',function(){setTimeout(function(){addrDrop.style.display='none';},200);});
+})();
+</script>
+</body></html>

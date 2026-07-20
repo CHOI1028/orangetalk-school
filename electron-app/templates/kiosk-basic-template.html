@@ -1,0 +1,1562 @@
+﻿<!DOCTYPE html>
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+<!-- 키오스크 디폴트 HTML 템플릿 — buildKioskHtml() 출력 기준 -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>OO학교 보건실 키오스크</title>
+<style>
+/* ══════════ 리셋 + 기본 ══════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{font-family:"Pretendard",-apple-system,"Noto Sans KR",sans-serif;position:relative;background:#0f172a}
+body::after{content:"";position:fixed;inset:0;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);background:rgba(245,247,250,0.35);z-index:1}
+.bg-image{position:fixed;inset:0;background-size:cover;background-position:center;transition:opacity 1.5s ease;z-index:-1}
+/* 배경 레이어: 그라디언트(맨 아래) → 이미지(중간) → body::after 블러(맨 위) */
+.bg-gradient{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%);background-size:400% 400%;animation:gradientShift 20s ease infinite}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+/* ══════════ 탑바 (글래스모피즘) ══════════ */
+.top-bar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:linear-gradient(135deg,rgba(8,145,178,0.55),rgba(6,182,212,0.45),rgba(14,116,144,0.5),rgba(8,145,178,0.55),rgba(6,182,212,0.45));background-size:300% 100%;animation:headerGrad 15s ease infinite;backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 1px 0 rgba(255,255,255,0.15) inset,0 4px 16px rgba(0,0,0,0.08);border-bottom:0.5px solid rgba(255,255,255,0.18)}
+@keyframes headerGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.tb-school{font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;text-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.tb-school span:first-child{font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.15))}
+.tb-right{display:flex;align-items:center;gap:12px}
+.queue-badge{font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:5px 18px;backdrop-filter:blur(4px)}
+
+/* ══════════ 스플릿 레이아웃 ══════════ */
+.kiosk-split{position:relative;z-index:10;display:flex;width:100%;height:100vh;padding-top:56px}
+.kiosk-left{flex:0 0 42%;max-width:42%;height:100%;overflow:hidden;padding:12px 32px;border-right:2px solid rgba(8,145,178,0.15);background:linear-gradient(180deg,rgba(8,145,178,0.03),rgba(255,255,255,0.01));display:flex;flex-direction:column;justify-content:center;align-items:center}
+.kiosk-left>*{width:100%;max-width:460px}
+.kiosk-right{flex:1;height:100%;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 20px 12px;position:relative}
+
+/* ══════════ 이용 수칙 카드 ══════════ */
+.rules-card{background:rgba(255,255,255,0.85);border-radius:16px;padding:16px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.04);border:1px solid rgba(8,145,178,0.1);flex:0 1 auto;overflow:hidden;display:flex;flex-direction:column}
+.rules-title{font-size:18px;font-weight:900;color:#1a1a2e;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:10px;letter-spacing:-0.3px;flex-shrink:0}
+/* ══════════ 대기인원 카드 (가로 3등분) ══════════ */
+.queue-card{background:rgba(255,255,255,0.85);border-radius:16px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.04);border:1px solid rgba(8,145,178,0.1);margin-top:10px;flex-shrink:0;display:flex;align-items:stretch;gap:0;min-height:80px}
+.queue-card-left{flex:0 0 33%;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid rgba(8,145,178,0.1);padding-right:10px}
+.queue-card-label{font-size:10px;font-weight:700;color:#64748b;margin-bottom:2px}
+.queue-card-num{font-size:28px;font-weight:900;color:#0891b2;line-height:1}
+.queue-card-unit{font-size:11px;font-weight:600;color:#64748b}
+.queue-card-right{flex:1;padding-left:12px;position:relative;overflow:hidden;min-height:24px}
+.queue-card-right .q-empty{font-size:10px;color:#94a3b8}
+.queue-page{display:flex;flex-wrap:wrap;gap:4px;align-items:center;position:absolute;inset:0;padding:0;transition:opacity .4s ease;opacity:0}
+.queue-page.active{opacity:1;position:relative}
+.queue-person{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(8,145,178,0.08);color:#0891b2;font-weight:600;border:1px solid rgba(8,145,178,0.15)}
+.rules-icon{font-size:22px}
+.rules-body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.rules-section{margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(8,145,178,0.1);flex-shrink:0}
+.rules-section:last-of-type{border-bottom:none;margin-bottom:4px;padding-bottom:0}
+.rules-section-title{font-size:14px;font-weight:800;color:#0891b2;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.rules-section-title .num{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#065f78);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.rules-ul{list-style:none;padding:0;margin:0}
+.rules-ul li{font-size:12px;color:#5a6478;line-height:1.7;padding-left:14px;position:relative}
+.rules-ul li::before{content:"";position:absolute;left:3px;top:9px;width:4px;height:4px;border-radius:50%;background:#0891b2;opacity:0.6}
+.rules-ul li.sub{padding-left:26px;color:#8c95a6;font-size:11px}
+.rules-ul li.sub::before{left:16px;background:#8c95a6;width:3px;height:3px;opacity:0.4}
+.rules-highlight{background:linear-gradient(135deg,rgba(8,145,178,0.08),rgba(6,182,212,0.04));border:1px solid rgba(8,145,178,0.12);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:11px;color:#5a6478;line-height:1.6;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.warn-icon{font-size:15px;flex-shrink:0}
+
+/* ══════════ 왼쪽 하단 언어 선택 ══════════ */
+.left-lang-sel{flex-shrink:0;padding:20px 0 8px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.lang-sel-label{font-size:11px;font-weight:700;color:#222;letter-spacing:0.5px;background:rgba(255,255,255,0.5);padding:2px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.6)}
+.lang-sel-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.lang-btn{width:52px;height:52px;border:2.5px solid #d1d9e0;border-radius:12px;background:rgba(255,255,255,0.8);cursor:pointer;font-size:28px;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;line-height:1;overflow:hidden}
+.lang-flag-wrap{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;overflow:hidden;pointer-events:none}
+.lang-flag-wrap svg{width:100%;height:100%;display:block}
+.lang-btn:hover{background:#f0fdfa;border-color:#0891b2;transform:scale(1.08)}
+.lang-btn.active{border-color:#0891b2;background:#e0f7fa;box-shadow:0 0 8px rgba(8,145,178,0.2);position:relative}
+.lang-btn.active::after{content:"";position:absolute;left:50%;bottom:3px;transform:translateX(-50%);width:24px;height:3px;border-radius:2px;background:#0891b2;z-index:2}
+
+/* ══════════ 스크린 (스크롤 금지!) ══════════ */
+.screen{display:none;width:100%;max-width:clamp(400px,55vw,700px);text-align:center;animation:fadeIn .3s ease;height:100%;flex-direction:column;justify-content:center;padding:0}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+h2{font-size:clamp(22px,3.2vw,32px);font-weight:800;color:#1e293b;margin-bottom:20px;flex-shrink:0}
+
+/* ══════════ 버튼 — 세로 자동 축소 ══════════ */
+.btn-list{display:flex;flex-direction:column;gap:8px;min-height:0}
+.main-btn{display:flex;align-items:center;gap:14px;width:100%;padding:clamp(12px,2vh,24px) clamp(16px,2vw,28px);border:1.5px solid #d1d9e0;border-radius:16px;background:#ffffff;font-size:clamp(14px,1.6vw,19px);font-weight:700;color:#1e293b;cursor:pointer;transition:all .2s;text-align:left;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.04);flex-shrink:1;min-height:0;overflow:hidden}
+.main-btn:hover{border-color:#06b6d4;background:#f0fdfa;transform:translateY(-1px);box-shadow:0 4px 16px rgba(8,145,178,0.1)}
+.main-btn:active{transform:scale(0.98)}
+.main-btn.selected{border-color:#0891b2;background:#e0f7fa;color:#065f78;box-shadow:0 0 0 2px rgba(6,182,212,0.25) inset,0 4px 16px rgba(6,182,212,0.12)}
+.btn-emoji{font-size:clamp(24px,2.8vw,36px);flex-shrink:0}
+.back-btn,.confirm-btn{padding:10px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;min-width:100px;text-align:center;flex-shrink:0}
+.confirm-btn{margin-top:10px;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;box-shadow:0 4px 16px rgba(6,182,212,0.3)}
+.confirm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(6,182,212,0.4)}
+.confirm-btn:disabled{opacity:0.4;cursor:default;transform:none}
+.back-btn{margin-top:8px;border:2px solid #e2a3c0;background:#fdf2f8;color:#9d174d;font-size:13px;padding:10px 28px;font-weight:700}
+.back-btn:hover{background:#fce7f3;border-color:#ec4899}
+
+/* ══════════ 인적사항 드릴다운 ══════════ */
+.personal-drill{max-width:600px;margin:0 auto;width:100%;min-height:0;display:flex;flex-direction:column}
+.drill-tab{padding:10px 24px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;color:#64748b;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.drill-tab.active{border-color:#06b6d4;background:#e0f7fa;color:#0891b2}
+.drill-tab:hover{border-color:#06b6d4}
+.drill-grade-grid{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.drill-grade-btn{padding:14px 26px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;color:#334155;font-size:18px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.drill-grade-btn:hover{border-color:#06b6d4;background:#f0fdfa;color:#0891b2}
+.drill-grade-btn.active{border-color:#06b6d4;background:#e0f7fa;color:#0891b2;box-shadow:0 0 0 2px rgba(6,182,212,0.15) inset}
+.drill-cls-panel{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#ffffff;cursor:pointer;transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.drill-cls-panel:hover{border-color:#06b6d4;background:#f0fdfa}
+.drill-cls-title{font-size:12px;font-weight:700;color:#0891b2;margin-bottom:6px}
+.drill-chip{padding:3px 8px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;font-size:10px;font-weight:600;color:#334155;display:inline-block}
+.drill-sel-chip{padding:10px 18px;border:2px solid #e2e8f0;border-radius:10px;background:#fff;font-size:15px;font-weight:700;color:#334155;cursor:pointer;transition:all .15s;font-family:inherit;display:inline-block}
+.drill-sel-chip:hover{border-color:#06b6d4;background:#f0fdfa;color:#0891b2}
+#drillBody{flex:1;min-height:0;overflow-y:auto}
+
+/* ══════════ 바디맵 전체화면 모달 ══════════ */
+.bm-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:background .35s ease,backdrop-filter .35s ease,-webkit-backdrop-filter .35s ease,opacity .35s ease}
+.bm-modal.active{background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:auto;opacity:1}
+.bm-header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0}
+.bm-header-title{font-size:14px;font-weight:800;color:#1e293b}
+.bm-header-sub{font-size:10px;color:#94a3b8;margin-top:2px}
+.bm-header-right{display:flex;gap:8px;align-items:center}
+.bm-close-btn{padding:6px 16px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.bm-confirm-btn{padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+.bm-inner{background:#fff;border-radius:16px;box-shadow:0 16px 64px rgba(0,0,0,0.25);width:98vw;max-width:1200px;height:96vh;display:flex;flex-direction:column;overflow:hidden;transform:scale(0.92);opacity:0;transition:transform .3s cubic-bezier(0.34,1.56,0.64,1),opacity .25s ease}
+.bm-modal.active .bm-inner{transform:scale(1);opacity:1}
+.bm-body{display:flex;flex:1;min-height:0;overflow:hidden}
+.bm-left{width:520px;flex-shrink:0;padding:4px;display:flex;flex-direction:column;gap:3px;border-right:1px solid #e2e8f0;overflow:hidden}
+.bm-pair{display:flex;gap:4px;min-height:0}
+.bm-right{flex:1;display:flex;align-items:center;justify-content:flex-end;padding:0 6px 0 0;position:relative;overflow:hidden}
+
+.bm-zone{position:relative;cursor:crosshair;user-select:none;-webkit-user-select:none;overflow:hidden}
+.bm-zone img{width:100%;height:100%;object-fit:contain;display:block;border-radius:6px;border:1px solid #e2e8f0;background:#fff;pointer-events:none;-webkit-user-drag:none}
+.bm-zone .bm-markers{position:absolute;inset:0;pointer-events:none}
+.bm-marker{position:absolute;width:20px;height:20px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);z-index:10;cursor:pointer;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;transition:transform .12s}
+.bm-marker:hover{transform:translate(-50%,-50%) scale(1.2)}
+
+/* 선택된 부위 태그 — 숨김 */
+.bm-sel-bar{display:none}
+
+/* ══════════ 증상 선택 아코디언 (바디맵 하단) ══════════ */
+.bm-symptom-bar{flex-shrink:0;border-top:1px solid #e2e8f0;background:#f8fafc}
+.bm-symptom-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none}
+.bm-symptom-toggle-title{font-size:13px;font-weight:700;color:#0891b2}
+.bm-symptom-toggle-arrow{font-size:14px;color:#94a3b8;transition:transform .2s}
+.bm-symptom-toggle-arrow.open{transform:rotate(180deg)}
+.bm-symptom-body{display:none;padding:8px 16px 12px;max-height:180px;overflow-y:auto}
+.bm-symptom-body.open{display:block}
+.bm-sym-group{margin-bottom:8px}
+.bm-sym-group-title{font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px}
+.bm-sym-chips{display:flex;flex-wrap:wrap;gap:4px}
+.bm-sym-chip{padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;transition:all .12s}
+.bm-sym-chip:hover{border-color:#06b6d4;background:rgba(6,182,212,0.06)}
+.bm-sym-chip.selected{border-color:#0891b2;background:#e0f7fa;color:#065f78}
+.bm-tag:hover{background:#fee2e2;color:#dc2626;border-color:#fecaca}
+.bm-hint-text{font-size:10px;color:#94a3b8}
+
+/* ══════════ 기타 ══════════ */
+.guide-box{padding:clamp(16px,2.5vw,28px);background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);border-radius:14px;border:1px solid #e2e8f0;text-align:center;margin-bottom:12px}
+.guide-emoji{font-size:42px;display:block;margin-bottom:10px}
+.guide-text{font-size:clamp(13px,1.4vw,16px);color:#334155;line-height:1.8;white-space:pre-line}
+.reception-popup{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease}
+.popup-content{background:#fff;border-radius:20px;padding:36px 52px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.2);animation:popIn .3s ease}
+@keyframes popIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.deadline-modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center}
+.deadline-content{background:#fff;border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.2)}
+
+/* ══════════ 반응형 (태블릿 세로) ══════════ */
+@media(max-width:768px){
+  .kiosk-split{flex-direction:column}
+  .kiosk-left{flex:none;max-width:100%;max-height:28vh;border-right:none;border-bottom:1px solid rgba(8,145,178,0.15)}
+  .kiosk-right{padding:12px}
+  .top-bar{padding:8px 14px}
+  .tb-school{font-size:13px}
+  .lang-btn{width:26px;height:26px;font-size:14px;border-radius:5px}
+  .kiosk-left{flex:none;max-width:100%}
+  .bm-left{width:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 배경 (이미지 or 그라디언트) ══════════ -->
+<div class="bg-gradient"></div>
+<div class="bg-image" id="bgImage"></div>
+
+<!-- ══════════ 탑바 ══════════ -->
+<div class="top-bar" id="topBar">
+  <div class="tb-school"><span>🏫</span> <span>OO학교 보건실</span></div>
+  <div class="tb-right">
+    <div class="queue-badge">현재 대기 인원 <span id="topQueue">0</span> 명</div>
+  </div>
+</div>
+
+<!-- ══════════ 스플릿: 좌 36% 수칙 + 우 64% 화면 ══════════ -->
+<div class="kiosk-split">
+
+  <div class="kiosk-left">
+    <!-- 이용 수칙 카드 -->
+    <div class="rules-card">
+      <div class="rules-title"><span class="rules-icon">🩺</span> 보건실 이용 수칙 안내</div>
+      <div class="rules-body">
+        <div class="rules-section">
+          <div class="rules-section-title"><span class="num">1</span> 운영 시간</div>
+          <ul class="rules-ul">
+            <li>월~금요일 08:30 ~ 16:30</li>
+            <li class="sub">보건 선생님의 출장/조퇴 등이 있는 시간에는 이용할 수 없습니다.</li>
+            <li>쉬는 시간에 보건실 이용이 원칙</li>
+            <li class="sub">수업 시간은 쉬는 시간까지 기다리기 어려운 경우에 이용을 허용</li>
+          </ul>
+        </div>
+        <div class="rules-section">
+          <div class="rules-section-title"><span class="num">2</span> 지켜야 할 예절과 절차</div>
+          <ul class="rules-ul">
+            <li>들어갈 때: 노크 후 문 열기</li>
+            <li>키오스크에 본인의 인적사항, 방문 목적을 입력하고 안내 따르기</li>
+            <li>방문 목적이 있는 경우에만 들어오고 동행한 친구는 복도에서 대기</li>
+            <li>실내화 착용이 의무이며 실외화 착용 금지</li>
+            <li>침상 이용 제한: 최대 1시간까지 이용 가능</li>
+            <li class="sub">이후에는 조퇴 또는 병원 진료를 권장</li>
+          </ul>
+        </div>
+        <div class="rules-highlight">
+          <span class="warn-icon">💡</span>
+          <span>보건실은 아픈 친구들을 위한 공간입니다. 서로 배려하며 조용히 이용합시다.</span>
+        </div>
+      </div>
+    </div>
+    <!-- 대기인원 카드 (가로 3등분) -->
+    <div class="queue-card">
+      <div class="queue-card-left">
+        <div class="queue-card-label">👥 현재 대기 인원</div>
+        <span class="queue-card-num" id="leftQueue">0</span><span class="queue-card-unit">명</span>
+      </div>
+      <div class="queue-card-right" id="queueList">
+        <span class="q-empty">대기 중인 방문자가 없습니다</span>
+      </div>
+    </div>
+    <!-- 언어 선택 -->
+    <div class="left-lang-sel">
+      <div class="lang-sel-label">언어선택 | LANGUAGE</div>
+      <div class="lang-sel-grid">
+        <button class="lang-btn active" data-lang="ko"><span class="lang-flag-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#EEE" d="M36 27c0 2.209-1.791 4-4 4H4c-2.209 0-4-1.791-4-4V9c0-2.209 1.791-4 4-4h28c2.209 0 4 1.791 4 4v18z"/><path fill="#C60C30" d="M21.441 13.085c-2.714-1.9-6.455-1.24-8.356 1.474-.95 1.356-.621 3.227.737 4.179 1.357.949 3.228.618 4.178-.738s2.822-1.687 4.178-.736c1.358.95 1.688 2.821.737 4.178 1.901-2.714 1.241-6.455-1.474-8.357z"/><path fill="#003478" d="M22.178 17.264c-1.356-.951-3.228-.62-4.178.736s-2.821 1.687-4.178.737c-1.358-.951-1.687-2.822-.737-4.179-1.901 2.716-1.241 6.456 1.473 8.356 2.715 1.901 6.455 1.242 8.356-1.474.951-1.355.621-3.226-.736-4.176z"/><path d="M24.334 25.572l1.928-2.298.766.643-1.928 2.298zm2.57-3.063l1.928-2.297.766.643-1.928 2.297zm-1.038 4.351l1.928-2.297.766.643-1.928 2.297zm2.572-3.066l1.93-2.297.766.643-1.93 2.296zm-1.041 4.352l1.93-2.297.765.643-1.929 2.297zm2.571-3.065l1.927-2.3.767.643-1.927 2.3zm.004-14.162l.766-.643 1.93 2.299-.767.643zM27.4 7.853l.766-.643 1.928 2.299-.767.642zm-1.533 1.288l.766-.643 4.5 5.362-.766.643zm-1.532 1.284l.767-.643 1.927 2.298-.766.642zm2.57 3.065l.766-.643 1.93 2.297-.765.643zM6.4 20.854l.766-.643 4.499 5.363-.767.643zM4.87 22.14l.765-.642 1.929 2.298-.767.643zm2.567 3.066l.766-.643 1.93 2.297-.766.643zm-4.101-1.781l.766-.643 4.5 5.362-.767.643zm-.001-10.852l4.498-5.362.767.642-4.5 5.363zm1.532 1.287l4.5-5.363.766.643-4.5 5.362zM6.4 15.145l4.5-5.363.766.643-4.5 5.363z" fill="#292F33"/></svg></span></button>
+        <button class="lang-btn" data-lang="en">🇺🇸</button>
+        <button class="lang-btn" data-lang="ru">🇷🇺</button>
+        <button class="lang-btn" data-lang="vi">🇻🇳</button>
+        <button class="lang-btn" data-lang="km"><span class="lang-flag-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#032EA1" d="M36 27c0 2.209-1.791 4-4 4H4c-2.209 0-4-1.791-4-4V9c0-2.209 1.791-4 4-4h28c2.209 0 4 1.791 4 4v18z"/><path fill="#E01E24" d="M0 10.572h36v14.855H0z"/><path fill="#FFF" d="M27.021 22.897v-.902h-.542v-.901h-.496v-.586h-.226v-.451h-.438l-.238-.341v-1.599l.271-.271v-1.488l-.226.203v-.474h-.181v.226h-.359v-.723l-.429.384.136-.485-.249-1.116h-.136s-.111-.474-.337-.474c0 0 .09-.292-.091-.292s-.136.225-.136.225-.315.136-.315.473l-.18-.022-.271 1.307.191.384-.44-.384v.993H19.94v-.902l-.136.135v.316h-.315v-.316l.226-.203v-.428l-.182.191-.271-.372v-.316l-.157.157-.046-.27.226-.36-.034-.293-.258.315v-.27l.113-.248-.519-1.309-.124-.362-.191-.022v-.181s-.136-.315-.316-.315-.315.315-.315.315v.181l-.191.022-.125.362-.518 1.309.113.248v.27l-.259-.315-.035.293.226.36-.044.27-.158-.157v.316l-.27.372-.181-.191v.428l.226.203v.316h-.315v-.316l-.136-.135v.902H13.58v-.993l-.44.384.191-.384-.271-1.307-.181.022c0-.337-.315-.473-.315-.473s.045-.225-.136-.225c-.18 0-.09.292-.09.292-.226 0-.338.474-.338.474h-.135l-.248 1.116.135.485-.428-.384v.722h-.361v-.226h-.181v.474l-.225-.203v1.488l.27.271v1.599l-.239.341h-.348v.451h-.314v.586h-.452v.901h-.495v.902h-.497l-.045.991h19.035l.045-.991h-.496z"/><path fill="#DB7F86" d="M11.596 17.869v1.735h-.813l-.194.378h1.007v3.907h.342v-6.02zm13.731 2.113l-.178-.378h-.736v-1.735h-.338v6.02h.338v-3.907zm-8.222-2.113v1.735h-3.692v-1.745h-.33v6.02h.33v-3.897h3.692v3.907h.353v-6.02zm5.406 0v1.735h-3.599v-1.735h-.349v6.02h.349v-3.907h3.599v3.907h.427v-6.02z"/></svg></span></button>
+        <button class="lang-btn" data-lang="th">🇹🇭</button>
+        <button class="lang-btn" data-lang="tl">🇵🇭</button>
+        <button class="lang-btn" data-lang="zh"><span class="lang-flag-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#DE2910" d="M36 27c0 2.209-1.791 4-4 4H4c-2.209 0-4-1.791-4-4V9c0-2.209 1.791-4 4-4h28c2.209 0 4 1.791 4 4v18z"/><path fill="#FFDE02" d="M11.136 8.977l.736.356.589-.566-.111.81.72.386-.804.144-.144.804-.386-.72-.81.111.566-.589zm4.665 2.941l-.356.735.566.59-.809-.112-.386.721-.144-.805-.805-.144.721-.386-.112-.809.59.566zm-.957 3.779l.268.772.817.017-.651.493.237.783-.671-.467-.671.467.236-.783-.651-.493.817-.017zm-3.708 3.28l.736.356.589-.566-.111.81.72.386-.804.144-.144.804-.386-.72-.81.111.566-.589zM7 10.951l.929 2.671 2.826.058-2.253 1.708.819 2.706L7 16.479l-2.321 1.615.819-2.706-2.253-1.708 2.826-.058z"/></svg></span></button>
+        <button class="lang-btn" data-lang="ja">🇯🇵</button>
+        <button class="lang-btn" data-lang="mn"><span class="lang-flag-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#C4272F" d="M36 27c0 2.209-1.791 4-4 4H4c-2.209 0-4-1.791-4-4V9c0-2.209 1.791-4 4-4h28c2.209 0 4 1.791 4 4v18z"/><path fill="#005197" d="M12 5h12v26H12z"/><g fill="#F9CF01"><path d="M1.286 16.429h1.571V29H1.286zm2.395 2.357H8.32v.786H3.681zm5.462-2.357h1.571V29H9.143zm-5.462 9.427H8.32v.786H3.681zm.087-9.427h4.464L6 17.989zm-.087 11.198h4.638L6 29.249zm3.89-15.913c0 .869-.704 1.571-1.571 1.571s-1.571-.703-1.571-1.571c0-.869.704-1.571 1.571-1.571s1.571.703 1.571 1.571zm-.785-2.946c0 .759-.352.982-.786.982s-.786-.223-.786-.982C5.214 8.008 5.754 7 6 7s.786 1.008.786 1.768z"/><path d="M6 14.404c-1.303 0-2.438-.593-3.084-1.477.271 1.462 1.546 2.567 3.084 2.567s2.813-1.105 3.084-2.566c-.646.883-1.781 1.476-3.084 1.476zm2.569 8.31c0-1.095-.687-2.022-1.649-2.39.299.257.58.447.58 1.062 0 .973-.578 1.496-1.5 1.496v.009c-.642.024-1.158.547-1.158 1.193 0 .645.516 1.167 1.158 1.191v.008c.01 0 .018-.003.028-.003.005 0 .009.003.014.003.015 0 .027-.008.042-.008 1.379-.045 2.485-1.169 2.485-2.561zm-2.94 1.37c0-.229.183-.413.413-.413.229 0 .413.184.413.413 0 .228-.183.414-.413.414-.23 0-.413-.186-.413-.414z"/><path d="M6 20.152v-.006l-.021.002-.01-.002c-.011 0-.02.006-.031.006-1.389.034-2.507 1.162-2.507 2.562 0 1.096.687 2.023 1.649 2.391-.299-.257-.557-.448-.557-.999 0-.98.524-1.522 1.43-1.522l.002-.018c.005 0 .009.003.014.003.668 0 1.211-.546 1.211-1.212 0-.659-.527-1.188-1.18-1.205zm-.031 1.62c-.231 0-.417-.188-.417-.417 0-.229.185-.419.417-.419s.417.189.417.419c-.001.229-.186.417-.417.417z"/></g></svg></span></button>
+        <button class="lang-btn" data-lang="ne">🇳🇵</button>
+        <button class="lang-btn" data-lang="id">🇮🇩</button>
+        <button class="lang-btn" data-lang="ar"><span class="lang-flag-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#006C35" d="M32 5H4C1.791 5 0 6.791 0 9v18c0 2.209 1.791 4 4 4h28c2.209 0 4-1.791 4-4V9c0-2.209-1.791-4-4-4z"/><g fill="#FFF"><path d="M8.919 14.05c.632.06.283-1.069.512-1.274.043-.101.123-.102.129.026v.958c-.006.312.199.403.358.468.166-.013.276-.007.341.154l.078 1.658s.384.11.402-.933c.019-.612-.122-1.124-.039-1.243.003-.117.152-.124.256-.067.165.116.239.26.495.203.391-.107.625-.297.631-.597-.023-.285-.055-.57-.178-.855.017-.052-.075-.186-.058-.238.07.11.177.101.201 0-.066-.219-.169-.429-.337-.52-.138-.122-.34-.097-.414.157-.034.292.106.64.318.923.045.111.109.295.081.461-.113.064-.227.038-.321-.062 0 0-.311-.233-.311-.285.083-.528.019-.588-.027-.734-.032-.202-.128-.267-.206-.405-.078-.082-.183-.082-.233 0-.138.238-.074.75.026.979.071.21.181.343.129.343-.043.119-.131.091-.195-.046-.092-.284-.11-.707-.11-.898-.028-.236-.058-.741-.213-.869-.095-.129-.236-.067-.285.052-.01.234-.012.469.015.686.106.379.14.713.192 1.102.014.521-.301.226-.287-.032.073-.335.054-.863-.011-.997-.051-.133-.112-.167-.236-.145-.098-.008-.352.27-.424.73 0 0-.061.237-.087.448-.035.238-.191.406-.301-.033-.095-.319-.153-1.106-.312-.922-.046.615-.101 1.697.421 1.807z"/><path d="M9.87 14.499c-.52.01-1.281.683-1.302 1.056.548-.264 1.087-.518 1.645-.79-.09-.135-.005-.256-.343-.266z"/><path d="M12.737 16.516c.241-.803-.039-1.395.092-1.392.277.299.665.04.75-.064.037-.052.128-.086.192-.018.217.156.599.082.678-.192.046-.268.083-.546.092-.833-.177.055-.309.092-.321.165l-.037.238c-.015.077-.168.08-.174-.018-.067-.305-.345-.345-.513.128-.113.092-.317.11-.339-.027.027-.317-.101-.36-.357-.211-.082-.629-.165-1.23-.247-1.859.107-.003.205.076.302-.046-.107-.333-.333-1.013-.458-1.062-.061-.074-.113-.028-.192-.009-.134.043-.259.159-.22.384.159.965.263 1.7.421 2.665.024.113-.07.262-.192.247-.207-.14-.259-.424-.613-.412-.257.003-.55.281-.586.55-.043.213-.058.445 0 .632.18.216.397.195.586.146.155-.064.284-.22.338-.183.037.045.009.558-.732.952-.449.201-.806.247-.998-.119-.119-.229.009-1.099-.284-.897-.867 2.235 2.03 2.545 2.354.092.031-.101.153-.202.174-.037-.067 2.222-2.241 2.375-2.61 1.676-.092-.165-.119-.531-.128-.751-.055-.437-.284-.269-.32.164-.037.241-.027.309-.027.54.115 1.755 2.915 1.001 3.369-.449zm-1.08-1.518c-.018.034-.097.02-.155.02-.066-.003-.097-.014-.137-.067-.018-.06.038-.117.063-.162.031-.053.198-.108.257.04.026.067.003.136-.028.169z"/><path d="M13.602 13.009c.174-.064.999-1.007.999-1.007-.043-.037-.081-.064-.124-.101-.046-.04-.041-.08 0-.119.204-.119.139-.38.032-.499-.177-.08-.331-.054-.444.004-.143.137-.177.357-.064.495.11.052.22.163.147.224-.337.36-1.261.981-1.154 1.003.023.03.59.029.608 0zm.611-1.481c.053-.013.121.034.153.104.032.07.015.137-.037.15h-.002c-.052.013-.12-.034-.152-.104-.031-.071-.014-.137.038-.15zm-5.351 5.73c-.136.277-.193.087-.205-.068-.021-.294.007-.565.039-.779.034-.22 0-.153-.07-.064-.309.492-.336 1.228-.165 1.447.09.104.239.15.35.116.194-.084.279-.478.233-.621-.066-.101-.117-.117-.182-.031zm10.181-5.208c.356.478.694.965 1.025 1.461.065.43.112.85.14 1.267.055.804.071 1.674.021 2.521.15.006.393-.244.477-.609.055-.505-.02-1.404-.025-1.702-.005-.159-.015-.354-.027-.56.394.644.778 1.318 1.153 2.067.137-.064.107-.83.027-.938-.3-.643-.713-1.279-.845-1.523-.049-.09-.216-.346-.415-.639-.031-.336-.062-.608-.084-.698-.062-.428.177.047.144-.202-.077-.428-.315-.717-.593-1.109-.09-.127-.087-.153-.226.031-.058.131-.069.244-.066.351-.036-.053-.076-.108-.139-.185-.241-.207-.255-.219-.455-.388-.101-.072-.347-.202-.391.014-.022.191-.01.294.022.454.026.107.181.285.257.387zm.74-.024c.019.083.039.166.052.251l.015.081c-.059-.08-.108-.146-.131-.172-.164-.194-.028-.152.064-.16z"/><path d="M21.919 16.693c-.348.363-.85.81-1.396 1.017-.059.066.146.349.41.349.443-.052.833-.301 1.194-.956.097-.152.267-.479.271-.733.033-1.486-.074-2.643-.297-3.717-.015-.104-.006-.227.012-.259.028-.034.126 0 .178-.084.075-.078-.201-.718-.359-.964-.056-.11-.075-.184-.168.013-.098.16-.163.439-.155.699.211 1.463.276 2.744.414 4.207.011.141-.01.347-.104.428zm5.83-3.71c-.015-.104-.061-.346-.043-.377.028-.074.173.008.225-.077.076-.077-.374-.655-.531-.901-.057-.11-.076-.184-.169.013-.098.16-.132.447-.093.699.235 1.589.41 2.783.446 4.192-.021.134-.025.206-.088.374-.139.178-.292.4-.437.508-.144.107-.451.21-.552.289-.317.185-.318.396-.06.403.442-.052.966-.088 1.327-.634.097-.152.212-.565.217-.819.033-1.486-.019-2.596-.242-3.67zm-3.351 1.237c.004-.204.023-.474.034-.643.005-.063.02-.134.08-.15.061-.016.169.062.17-.004-.012-.129-.038-.321-.111-.412-.1-.148-.365-.112-.412.12.001.086.04.132.033.21-.012.044-.058.074-.167.022.018-.016-.071-.139-.071-.139-.085-.052-.199.003-.272.05-.041.074-.07.201-.024.33.12.227.539.612.74.616z"/><path d="M24.257 12.481c.293.359.592.723.893 1.093.065.826.082 1.502.146 2.328-.009.35-.117.655-.22.699 0 0-.155.09-.259-.009-.076-.031-.379-.505-.379-.505-.155-.142-.257-.102-.367 0-.304.293-.441.843-.647 1.221-.054.085-.204.157-.371-.006-.423-.579-.175-1.402-.227-1.19-.377.425-.211 1.128-.126 1.28.124.248.225.408.467.531.22.162.392.06.486-.053.222-.231.225-.816.329-.934.072-.213.257-.177.346-.082.087.124.189.204.315.273.207.183.454.216.697.049.166-.093.275-.214.372-.453.108-.288.049-1.612.027-2.406.155.2.306.409.459.618.067.663.105 1.323.083 1.997-.016.135.47-.4.466-.654-.002-.205 0-.391 0-.566.234.352.462.715.676 1.099.134-.07.09-.825.005-.929-.247-.414-.576-.845-.803-1.153-.015-.039-.023-.083-.041-.12-.091-.211-.034-.381-.077-.605-.042-.225-.031-.561-.096-.828-.018-.104-.072-.438-.056-.469.026-.075.126.002.175-.084.073-.08-.253-.925-.419-1.167-.06-.108-.168-.071-.302.105-.123.116-.077.38-.03.631.117.608.215 1.191.299 1.768-.161-.215-.356-.469-.545-.713l-.008-.044c0-.011-.027-.524-.051-.646-.004-.049-.016-.064.036-.058.055.046.062.049.097.065.056.01.105-.085.072-.172l-.517-.952c-.041-.041-.095-.085-.16.011-.063.055-.13.155-.128.283.016.225.055.455.07.681l.022.122c-.023-.027-.051-.061-.063-.073-.439-.462.202-.075-.084-.432-.242-.266-.312-.349-.52-.509-.104-.067-.167-.195-.201.023-.013.191-.027.414-.015.575 0 .092.093.26.174.36zm-8.901 1.079c.252.104.413-.376.517-.902.07-.148.124-.164.16-.088-.009.7.05.855.23 1.068.401.31.733.039.76.013l.312-.312c.069-.073.162-.078.26-.013.096.086.083.236.287.34.172.069.54.016.625-.132.115-.196.143-.264.195-.338.082-.109.222-.06.222-.026-.013.061-.095.122-.039.231.098.073.12.026.178.01.204-.098.356-.54.356-.54.009-.165-.083-.151-.143-.117-.078.047-.083.063-.161.111-.1.015-.293.081-.388-.067-.098-.178-.1-.426-.174-.605 0-.013-.13-.283-.009-.3.061.011.19.045.211-.063.063-.106-.137-.408-.273-.561-.119-.13-.284-.146-.443-.013-.112.103-.096.217-.118.326-.028.124-.022.278.105.443.111.219.314.502.247.898 0 0-.118.188-.325.164-.086-.019-.226-.056-.3-.606-.056-.417.014-1-.163-1.273-.064-.165-.11-.324-.266-.042-.042.111-.222.279-.091.626.107.219.15.576.102.974-.074.113-.09.151-.187.264-.136.146-.283.109-.396.054-.106-.071-.188-.108-.236-.334.009-.36.029-.95-.037-1.075-.097-.194-.257-.124-.326-.065-.329.301-.491.808-.59 1.211-.091.294-.188.21-.256.091-.166-.156-.177-1.373-.378-1.172-.323.914.182 1.918.532 1.82z"/><path d="M20.137 15.524l-.096-.055-1.881-.009c-.097-.037-.068-.069 0-.095.449-.061 1.248-.191 1.301-.958-.009-.399-.172-.661-.662-.733-.359.028-.616.377-.575.76-.017.104.034.306-.071.329-.691.063-1.444.495-1.469.805-.042.029-.136-.055-.124-.187-.026-.535-.202-1.14-.475-1.606-.218-.218-.15-.146-.296-.043-.094.108-.111.182-.106.397 0 .008.176.499.325.843.099.353.192.756.125 1.137-.232.504-.699.956-1.149 1.201-.232.075-.431.048-.48-.004-.143-.096-.136-.273-.125-.276.379-.265.813-.478 1.153-1.191.1-.272.13-.437.031-.858-.039-.158-.089-.286-.197-.398.061-.04.236.093.263.014-.04-.202-.177-.472-.331-.61-.135-.123-.282-.137-.406-.024-.14.078-.17.356-.103.6.074.184.275.215.419.584 0 .008.052.276-.022.381-.059.184-.824.785-.866.812-.021.026-.012-.013-.015-.113-.005-.122.049-.41.034-.412-.249.161-.332.654-.377.8-.63.435-1.343.759-1.755 1.201-.215.335 1.478-.385 1.675-.472.044.032.039.183.157.318.176.238.548.385.913.294.61-.221.963-.637 1.321-1.098.051-.075.131-.132.205-.075.246.551.957.941 1.874.982.213-.259.11-.384.024-.438 0-.008-.453-.18-.522-.352-.042-.156.06-.293.264-.397.589-.071 1.168-.15 1.729-.33.006-.188.115-.47.19-.592.072-.124.111-.087.1-.132zm-1.547-1.172c.028-.047.121-.045.208.006.087.05.136.13.107.177-.028.048-.122.045-.209-.006-.087-.05-.134-.129-.106-.177zm-.757 1.9c-.202.069-.396.123-.396.415.075.406-.103.267-.208.211-.124-.089-.473-.304-.523-.768-.008-.111.079-.204.218-.204.209.057.518.061.786.089.219.014.328.186.123.257zm-6.967-4.505c.216.104.624.06.606-.29 0-.031-.008-.135-.011-.163-.044-.103-.164-.078-.192.029-.009.035.015.091-.016.109-.018.018-.087.007-.084-.089 0-.031-.023-.064-.036-.083-.014-.009-.022-.012-.047-.012-.03.001-.03.009-.046.035-.007.025-.017.051-.017.08-.004.034-.017.046-.042.052-.028 0-.022.003-.044-.012-.014-.015-.031-.021-.031-.046 0-.026-.006-.068-.014-.086-.012-.016-.031-.023-.053-.029-.118 0-.126.135-.119.187-.011.009-.015.251.146.318z"/><path d="M17.512 14.027c0-.031-.023-.063-.036-.083-.014-.009-.022-.012-.047-.012-.03.001-.029.009-.046.035-.007.026-.017.051-.017.08-.003.035-.017.047-.042.052-.028 0-.022.003-.045-.011-.014-.015-.031-.021-.031-.046 0-.026-.006-.069-.014-.086-.012-.016-.031-.023-.053-.028-.118 0-.126.135-.12.186-.009.01-.014.251.147.319.217.103.732.043.606-.29 0-.031-.008-.135-.011-.164-.044-.103-.165-.077-.192.029-.008.035.016.091-.016.109-.016.018-.086.007-.083-.09zm3.397-.707c.216.104.623.06.605-.289 0-.031-.008-.135-.011-.164-.044-.103-.164-.077-.191.029-.009.035.015.091-.017.109-.018.018-.087.008-.084-.089 0-.031-.023-.064-.036-.083-.014-.009-.022-.012-.048-.012-.03.002-.029.009-.046.035-.007.026-.017.051-.017.08-.004.035-.017.047-.042.052-.028 0-.022.003-.045-.011-.014-.015-.03-.021-.03-.046 0-.026-.006-.069-.014-.087-.013-.016-.031-.023-.054-.028-.118 0-.126.135-.119.186-.007.01-.012.251.149.318zm.146-1.352c.077.216-.059.422.022.452.073.034.177-.223.215-.46.045-.192-.092-.585-.286-.666-.118-.028-.286.042-.232.2-.027.076.238.334.281.474zm1.995 5.064c.151.001.325-.345.399-.688.041-.472-.028-.759-.04-1.037-.013-.277-.313-2.392-.375-2.602-.073-.397.293-.053.253-.284-.127-.291-.442-.714-.542-.967-.06-.108-.034-.204-.168-.028-.123.405-.166.735-.119.987.318 1.66.644 3.04.592 4.619zm3.756-4.34c.035.108-.053.457.02.489.067.036.161-.241.196-.498.019-.141-.084-.633-.261-.721-.108-.03-.261.045-.211.217-.025.083.217.361.256.513zm-13.119 3.656c.065.027.154-.177.188-.366.019-.104-.081-.465-.25-.53-.104-.022-.246.006-.202.16-.005.083.23.183.244.376.034.08-.05.337.02.36zm-4.556-4.615c.033.083-.033.348.036.373.063.028.152-.184.185-.379.019-.108.004-.474-.246-.549-.103-.023-.246.034-.199.165-.024.062.187.274.224.39zm4.902 1.173c-.191.104-.266.412-.146.591.111.159.287.1.311.1.188.023.299-.352.299-.352s.006-.105-.217.094c-.094.018-.106-.017-.129-.071-.02-.097-.016-.195.029-.292.032-.093-.04-.134-.147-.07zm1.442-1.153c.071-.052.095-.086.118-.174.029-.146-.155.069-.178-.094-.041-.151.077-.213.189-.359.004-.101.002-.172-.135-.09-.096.065-.288.263-.294.491-.006.129-.03.128.055.21.061.089.122.08.245.016zm1.299.078c.124-.336.124-.478.133-.621-.038-.217-.185-.21-.282.031-.042.091-.091.57-.083.57-.033.143.149.204.232.02zm8.17 2.383s-1.003.713-1.027.738c-.1.088-.05.4 0 .364.071.028 1.08-.657 1.06-.737.047.002.07-.401-.033-.365zm-.123 1.934c.067.036.244-.183.237-.456.02-.141-.051-.658-.227-.746-.108-.03-.252.062-.202.233-.025.082.124.369.163.521.035.109-.044.416.029.448zm-5.68 1.496c0 .009.085.082.185.024.21-.081.342-.159.636-.224.077-.001.072-.208-.05-.215-.159.008-.307.016-.466.142-.098.022-.114-.037-.136-.091-.024-.133.055-.225.038-.324.006.006-.091-.083-.19-.033-.005 0-.221.146-.29.248-.043.033-.038.061-.025.116.033.076.092.053.158.017.088-.012.13.046.123.151-.042.133.017.182.017.189zm6.551.166c-.033.057-.055.143.047.17.188.053.621-.229.621-.234.07-.053.047-.152.041-.152-.041-.047-.133-.02-.195-.027-.029 0-.127-.015-.08-.101.038-.053.052-.086.078-.151.029-.065.004-.108-.102-.143-.107-.02-.15-.01-.269 0-.064.014-.086.042-.098.12.005.118.076.112.15.159.043.055.071.105-.003.194-.07.065-.119.101-.19.165zM25.5 23H24v-.5c0-.276-.224-.5-.5-.5s-.5.224-.5.5v.5H11s0 1 3 1h9v.5c0 .276.224.5.5.5s.5-.224.5-.5V24h1v.5c0 .276.224.5.5.5s.5-.224.5-.5v-1c0-.276-.224-.5-.5-.5z"/></g></svg></span></button>
+        <button class="lang-btn" data-lang="ur">🇵🇰</button>
+        <button class="lang-btn" data-lang="es"><span class="lang-flag-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#aa151b"/><rect y="5" width="30" height="10" fill="#f1bf00"/><g transform="translate(10,10)"><rect x="-2.6" y="-2.2" width="0.35" height="4.4" fill="#fff" stroke="#5a0000" stroke-width="0.08"/><rect x="2.25" y="-2.2" width="0.35" height="4.4" fill="#fff" stroke="#5a0000" stroke-width="0.08"/><path d="M-1.9 -2 L 1.9 -2 L 1.9 0.8 Q 0 2.4 -1.9 0.8 Z" fill="#fff" stroke="#5a0000" stroke-width="0.15"/><path d="M-2.1 -2.9 L -2.1 -2 L -1.4 -2.5 L -0.7 -2 L 0 -2.7 L 0.7 -2 L 1.4 -2.5 L 2.1 -2 L 2.1 -2.9 Z" fill="#f9d34d" stroke="#5a0000" stroke-width="0.1"/><line x1="0" y1="-2" x2="0" y2="1.7" stroke="#5a0000" stroke-width="0.1"/><line x1="-1.9" y1="-0.6" x2="1.9" y2="-0.6" stroke="#5a0000" stroke-width="0.1"/><rect x="-1.85" y="-1.95" width="1.8" height="1.35" fill="#aa151b"/><path d="M0.05 -0.55 L 1.85 -0.55 L 1.85 0.8 Q 0.95 1.8 0.05 0.8 Z" fill="#aa151b"/></g></svg></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kiosk-right">
+
+    <!-- ━━━ 화면 1: 인적사항 드릴다운 ━━━ -->
+    <div id="screen-s_personal" class="screen active">
+      <h2>👤 방문자를 선택해주세요.</h2>
+      <div class="personal-drill">
+        <div style="display:flex;justify-content:center;gap:6px;margin-bottom:12px;flex-shrink:0">
+          <button class="drill-tab active" id="drillTabStu" data-action="drill-tab" data-type="student">🎒 학생</button>
+          <button class="drill-tab" id="drillTabStaff" data-action="drill-tab" data-type="staff">👨‍🏫 교직원</button>
+        </div>
+        <div id="drillBody"></div>
+      </div>
+    </div>
+
+    <!-- ━━━ 화면 2: 방문 목적 ━━━ -->
+    <div id="screen-s_purpose" class="screen">
+      <h2>📋 방문 목적 선택</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p1"><span class="btn-emoji">🤕</span><span>불편한 곳이 있어요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p2"><span class="btn-emoji">🛒</span><span>물건을 빌리러 왔어요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p3"><span class="btn-emoji">📦</span><span>물건을 반납하러 왔어요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p4"><span class="btn-emoji">💬</span><span>문의 &amp; 알려드릴 게 있어서 왔어요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p5"><span class="btn-emoji">🗣️</span><span>선생님과 상담을 하고 싶어요.</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_personal">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 불편한 곳이 있어요 ━━━ -->
+    <div id="screen-s_discomfort" class="screen">
+      <h2>🤕 불편한 곳이 있어요.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_discomfort" data-opt-id="o_d1"><span class="btn-emoji">🩹</span><span>혼자 처치할 수 있어요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_discomfort" data-opt-id="o_d2"><span class="btn-emoji">🤰</span><span>생리통이 있는 것 같습니다.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_discomfort" data-opt-id="o_d3"><span class="btn-emoji">👩‍⚕️</span><span>보건 선생님의 처치가 필요합니다.</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_purpose">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 혼자 처치 ━━━ -->
+    <div id="screen-s_self_treat" class="screen">
+      <h2>🩹 혼자 처치할 수 있어요.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_self_treat" data-opt-id="o_st1"><span class="btn-emoji">🩹</span><span>가벼운 찰과상 소독 후 밴드 붙이기</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_self_treat" data-opt-id="o_st2"><span class="btn-emoji">👁️</span><span>안구 건조로 인공눈물 넣기</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_self_treat" data-opt-id="o_st3"><span class="btn-emoji">🩸</span><span>코피 시 고개 숙이고 코 눌러주기 + 코튼볼 넣기</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_self_treat" data-opt-id="o_st4"><span class="btn-emoji">💨</span><span>에어파스 갖고 밖에 나가서 뿌리고 오기</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_discomfort">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 찰과상 가이드 ━━━ -->
+    <div id="screen-s_st1_guide" class="screen">
+      <h2>🩹 찰과상 처치 절차</h2>
+      <div class="guide-box">
+        <span class="guide-emoji">🩹</span>
+        <div class="guide-text">① 흐르는 물로 상처를 충분히 씻어 흙·이물질을 제거하세요.
+② 멸균 거즈로 가볍게 눌러 물기를 제거합니다.
+③ 소독액을 묻힌 드레싱 거즈로 상처를 덮고, 연고를 얇게 바른 뒤 밴드를 붙이세요.
+④ 출혈이 계속되거나 상처가 크다면 보건 선생님을 호출해 주세요.</div>
+      </div>
+      <button class="confirm-btn" data-action="self-reset" data-sec-id="s_st1_guide" data-opt-id="o_st1g">확인</button>
+      <button class="back-btn" data-action="go-screen" data-target="s_self_treat">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 인공눈물 가이드 ━━━ -->
+    <div id="screen-s_st2_guide" class="screen">
+      <h2>👁️ 인공눈물 사용 절차</h2>
+      <div class="guide-box">
+        <span class="guide-emoji">👁️</span>
+        <div class="guide-text">① 손을 깨끗이 씻으세요.
+② 인공눈물 용기를 흔들고 뚜껑을 엽니다.
+③ 고개를 살짝 뒤로 젖히고 아래 눈꺼풀을 당겨 한 방울씩 넣으세요.
+④ 눈을 감고 눈물점(눈 안쪽 모서리)을 가볍게 눌러 흡수시킵니다.
+⑤ 자극·가려움이 심해지면 사용을 중단하고 알려주세요.</div>
+      </div>
+      <button class="confirm-btn" data-action="self-reset" data-sec-id="s_st2_guide" data-opt-id="o_st2g">확인</button>
+      <button class="back-btn" data-action="go-screen" data-target="s_self_treat">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 코피 가이드 ━━━ -->
+    <div id="screen-s_st3_guide" class="screen">
+      <h2>🩸 코피 처치 절차</h2>
+      <div class="guide-box">
+        <span class="guide-emoji">🩸</span>
+        <div class="guide-text">① 고개를 살짝 앞으로 숙이세요. (뒤로 젖히면 피가 삼켜져 구역질을 유발할 수 있습니다.)
+② 엄지와 검지로 콧방울 부분을 5~10분간 지속해서 눌러주세요.
+③ 필요 시 콧구멍에 코튼볼을 가볍게 넣고 다시 눌러줍니다.
+④ 10분이 지나도 멈추지 않거나 하루에 반복되면 보건 선생님께 알리세요.</div>
+      </div>
+      <button class="confirm-btn" data-action="self-reset" data-sec-id="s_st3_guide" data-opt-id="o_st3g">확인</button>
+      <button class="back-btn" data-action="go-screen" data-target="s_self_treat">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 에어파스 가이드 ━━━ -->
+    <div id="screen-s_st4_guide" class="screen">
+      <h2>💨 에어파스 사용 절차</h2>
+      <div class="guide-box">
+        <span class="guide-emoji">💨</span>
+        <div class="guide-text">① 실내에서는 절대 뿌리지 않고, 복도 창가나 바깥으로 나가 사용하세요.
+② 통증 부위에서 15~20cm 거리를 두고 짧게 분사합니다.
+③ 눈·얼굴·점막에는 절대 뿌리지 마세요.
+④ 사용 후 통증이 계속되거나 피부가 붉어지면 보건 선생님을 호출하세요.</div>
+      </div>
+      <button class="confirm-btn" data-action="self-reset" data-sec-id="s_st4_guide" data-opt-id="o_st4g">확인</button>
+      <button class="back-btn" data-action="go-screen" data-target="s_self_treat">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 생리통 ━━━ -->
+    <div id="screen-s_period_pain" class="screen">
+      <h2>🤰 생리통이 있는 것 같습니다.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_period_pain" data-opt-id="o_pp1"><span class="btn-emoji">🔥</span><span>핫팩을 가져갈 게요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_period_pain" data-opt-id="o_pp2"><span class="btn-emoji">👩‍⚕️</span><span>보건 선생님을 만나야할 것 같아요.</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_discomfort">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 보건 선생님 ━━━ -->
+    <div id="screen-s_nurse_meet" class="screen">
+      <h2>👩‍⚕️ 보건 선생님을 만나야 해요.</h2>
+      <div class="guide-box">
+        <span class="guide-emoji">👩‍⚕️</span>
+        <div class="guide-text">호출되면 들어오세요.</div>
+      </div>
+      <button class="confirm-btn" data-action="fd-opt-action" data-sec-id="s_nurse_meet" data-opt-id="o_nm1">확인</button>
+      <button class="back-btn" data-action="go-screen" data-target="s_discomfort">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 물건 빌리기 ━━━ -->
+    <div id="screen-s_borrow" class="screen">
+      <h2>🛒 물건을 빌리러 왔어요.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_borrow" data-opt-id="o_b1"><span class="btn-emoji">🩱</span><span>생리대</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_borrow" data-opt-id="o_b2"><span class="btn-emoji">😷</span><span>마스크</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_borrow" data-opt-id="o_b3"><span class="btn-emoji">🧹</span><span>면봉</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_borrow" data-opt-id="o_b4"><span class="btn-emoji">🩹</span><span>밴드</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_borrow" data-opt-id="o_b5"><span class="btn-emoji">🧴</span><span>손 소독제</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_borrow" data-opt-id="o_b6"><span class="btn-emoji">🔥</span><span>핫팩</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_purpose">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 빌리기 가이드들 ━━━ -->
+    <div id="screen-s_b1_guide" class="screen"><h2>🩱 생리대 사용 안내</h2><div class="guide-box"><span class="guide-emoji">🩱</span><div class="guide-text">보건실 선반에서 본인 사이즈의 생리대 1개를 가져가세요.
+사용 후 반납 의무는 없습니다.
+추가로 필요하면 언제든 다시 방문해도 괜찮아요.</div></div><button class="confirm-btn" data-action="self-reset" data-sec-id="s_b1_guide" data-opt-id="o_b1g">확인</button><button class="back-btn" data-action="go-screen" data-target="s_borrow">← 뒤로</button></div>
+    <div id="screen-s_b2_guide" class="screen"><h2>😷 마스크 사용 안내</h2><div class="guide-box"><span class="guide-emoji">😷</span><div class="guide-text">마스크 1개를 가져가세요.
+코·입을 모두 덮도록 착용하고, 젖거나 오염되면 새 마스크로 교체하세요.
+반납은 하지 않아도 됩니다.</div></div><button class="confirm-btn" data-action="self-reset" data-sec-id="s_b2_guide" data-opt-id="o_b2g">확인</button><button class="back-btn" data-action="go-screen" data-target="s_borrow">← 뒤로</button></div>
+    <div id="screen-s_b3_guide" class="screen"><h2>🧹 면봉 사용 안내</h2><div class="guide-box"><span class="guide-emoji">🧹</span><div class="guide-text">필요 수량만 가져가세요 (1~2개).
+귀 안쪽·콧속 깊은 곳에는 넣지 마세요.
+사용한 면봉은 꼭 쓰레기통에 버려주세요.</div></div><button class="confirm-btn" data-action="self-reset" data-sec-id="s_b3_guide" data-opt-id="o_b3g">확인</button><button class="back-btn" data-action="go-screen" data-target="s_borrow">← 뒤로</button></div>
+    <div id="screen-s_b4_guide" class="screen"><h2>🩹 밴드 사용 안내</h2><div class="guide-box"><span class="guide-emoji">🩹</span><div class="guide-text">상처에 맞는 크기의 밴드를 1개 가져가세요.
+상처 부위를 먼저 깨끗이 씻고 물기를 제거한 뒤 붙이면 좋습니다.
+젖거나 떨어지면 새 밴드로 교체하세요.</div></div><button class="confirm-btn" data-action="self-reset" data-sec-id="s_b4_guide" data-opt-id="o_b4g">확인</button><button class="back-btn" data-action="go-screen" data-target="s_borrow">← 뒤로</button></div>
+    <div id="screen-s_b5_guide" class="screen"><h2>🧴 손 소독제 사용 안내</h2><div class="guide-box"><span class="guide-emoji">🧴</span><div class="guide-text">손에 500원 동전 크기만큼 덜어 양 손바닥·손등·손가락 사이를 골고루 문지르세요.
+약 20초간 충분히 말리면 됩니다.
+눈·입에 들어가지 않도록 주의하세요.</div></div><button class="confirm-btn" data-action="self-reset" data-sec-id="s_b5_guide" data-opt-id="o_b5g">확인</button><button class="back-btn" data-action="go-screen" data-target="s_borrow">← 뒤로</button></div>
+
+    <!-- ━━━ 물건 반납 ━━━ -->
+    <div id="screen-s_return" class="screen">
+      <h2>📦 물건을 반납하러 왔어요.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_return" data-opt-id="o_r1"><span class="btn-emoji">🔥</span><span>핫팩 반납</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_purpose">← 뒤로</button>
+    </div>
+    <div id="screen-s_return_guide" class="screen"><h2>🔥 핫팩 반납</h2><div class="guide-box"><span class="guide-emoji">📦</span><div class="guide-text">원래 가져간 곳에 다시 넣어두세요.</div></div><button class="confirm-btn" data-action="self-reset" data-sec-id="s_return_guide" data-opt-id="o_rg1">확인</button><button class="back-btn" data-action="go-screen" data-target="s_return">← 뒤로</button></div>
+
+    <!-- ━━━ 문의/알림 ━━━ -->
+    <div id="screen-s_inquiry" class="screen">
+      <h2>💬 알려드릴 게 있어서 왔어요.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_inquiry" data-opt-id="o_i1"><span class="btn-emoji">🎨</span><span>동아리 관련</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_inquiry" data-opt-id="o_i2"><span class="btn-emoji">📚</span><span>수업 관련</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_inquiry" data-opt-id="o_i3"><span class="btn-emoji">💊</span><span>약품 사용 관련</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_purpose">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 상담 ━━━ -->
+    <div id="screen-s_counsel" class="screen">
+      <h2>🗣️ 선생님과 상담을 하고 싶어요.</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_counsel" data-opt-id="o_c1"><span class="btn-emoji">🤝</span><span>친구 관계에 관한 상담</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_counsel" data-opt-id="o_c2"><span class="btn-emoji">❤️</span><span>건강에 대한 상담</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_counsel" data-opt-id="o_c3"><span class="btn-emoji">📖</span><span>학업 등 기타 고민에 관한 상담</span></button>
+      </div>
+      <button class="back-btn" data-action="go-screen" data-target="s_purpose">← 뒤로</button>
+    </div>
+
+    <!-- ━━━ 완료 ━━━ -->
+    <div id="screen-__done" class="screen"><div style="font-size:64px;margin-bottom:16px">✅</div><h2>접수가 완료되었습니다.</h2></div>
+
+    <!-- ━━━ 팝업들 ━━━ -->
+    <div id="reception-popup" class="reception-popup" style="display:none">
+      <div class="popup-content">
+        <div style="font-size:48px;margin-bottom:12px">✅</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px">접수되었습니다.</div>
+        <div id="popup-wait-msg" style="font-size:14px;color:#64748b"></div>
+      </div>
+    </div>
+    <div id="deadline-modal" class="deadline-modal" style="display:none">
+      <div class="deadline-content">
+        <h3>📅 반납 시한</h3>
+        <div id="deadline-info" style="font-size:16px;font-weight:700;color:#0e7490;margin:16px 0"></div>
+        <button class="confirm-btn" data-action="confirm-deadline">확인</button>
+      </div>
+    </div>
+
+  </div><!-- /kiosk-right -->
+</div><!-- /kiosk-split -->
+
+<!-- ══════════ 바디맵 전체화면 모달 (프로그램과 동일) ══════════ -->
+<div class="bm-modal" id="bmModal">
+  <div class="bm-inner">
+  <div class="bm-header">
+    <div>
+      <div class="bm-header-title">🩺 바디맵 — 통증 부위 선택</div>
+      <div class="bm-header-sub">터치: 부위 선택 · 마커 터치: 통증 척도(NRS)</div>
+    </div>
+    <div class="bm-header-right">
+      <button class="bm-close-btn" data-action="bm-cancel">취소</button>
+      <button class="bm-confirm-btn" data-action="bm-confirm">확인</button>
+    </div>
+  </div>
+  <div class="bm-body">
+    <!-- 왼쪽: 얼굴/치아/손/발 -->
+    <div class="bm-left">
+      <div class="bm-pair" style="flex:1">
+        <div class="bm-zone" data-bm-key="face" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/face_adult.png"><div class="bm-markers"></div></div>
+        <div class="bm-zone" data-bm-key="teeth" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/adult_teeth.png"><div class="bm-markers"></div></div>
+      </div>
+      <div class="bm-pair" style="flex:0.55">
+        <div class="bm-zone" data-bm-key="handTop" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/hands-top.png"><div class="bm-markers"></div></div>
+        <div class="bm-zone" data-bm-key="palm" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/palm.png"><div class="bm-markers"></div></div>
+      </div>
+      <div class="bm-pair" style="flex:0.7">
+        <div class="bm-zone" data-bm-key="footTop" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/foot_top.png"><div class="bm-markers"></div></div>
+        <div class="bm-zone" data-bm-key="footBottom" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/foot_bottom.png"><div class="bm-markers"></div></div>
+      </div>
+    </div>
+    <!-- 오른쪽: 전신 -->
+    <div class="bm-right">
+      <div class="bm-zone" data-bm-key="body" style="height:98%;display:inline-block"><img crossorigin="anonymous" src="../assets/bodymap/adult_body.png" style="height:100%;width:auto"><div class="bm-markers"></div></div>
+    </div>
+  </div>
+  <div class="bm-sel-bar" id="bmSelBar">
+    <span class="bm-hint-text">선택된 부위가 여기에 표시됩니다</span>
+  </div>
+  </div><!-- /bm-inner -->
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   키오스크 JavaScript
+   ══════════════════════════════════════════ */
+var RELAY_URL = "";
+var RELAY_CHANNEL = "";
+var DEADLINES = {};
+var PEOPLE_DATA = [
+  {"uid":"s1","name":"김민준","type":"student","grade":1,"cls":1,"num":1,"gender":"M"},
+  {"uid":"s2","name":"이서연","type":"student","grade":1,"cls":1,"num":2,"gender":"F"},
+  {"uid":"s3","name":"박지훈","type":"student","grade":1,"cls":2,"num":1,"gender":"M"},
+  {"uid":"s4","name":"최수아","type":"student","grade":1,"cls":2,"num":2,"gender":"F"},
+  {"uid":"s5","name":"정우진","type":"student","grade":2,"cls":1,"num":1,"gender":"M"},
+  {"uid":"s6","name":"강하은","type":"student","grade":2,"cls":1,"num":2,"gender":"F"},
+  {"uid":"s7","name":"조민서","type":"student","grade":2,"cls":2,"num":1,"gender":"F"},
+  {"uid":"s8","name":"윤도현","type":"student","grade":3,"cls":1,"num":1,"gender":"M"},
+  {"uid":"s9","name":"한예린","type":"student","grade":3,"cls":1,"num":2,"gender":"F","level":"고","department":"간호과"},
+  {"uid":"st1","name":"김보건","type":"staff","position":"보건교사"},
+  {"uid":"st2","name":"이담임","type":"staff","position":"담임교사"}
+];
+
+var FLOW = [
+  {id:"s_personal",type:"personal_info",parentId:null,options:[]},
+  {id:"s_purpose",headerName:"방문 목적 선택",type:"choice",parentId:null,options:[
+    {id:"o_p1",label:"불편한 곳이 있어요.",emoji:"🤕",target:"s_discomfort",hasBodymapInsert:true},
+    {id:"o_p2",label:"물건을 빌리러 왔어요.",emoji:"🛒",target:"s_borrow"},
+    {id:"o_p3",label:"물건을 반납하러 왔어요.",emoji:"📦",target:"s_return"},
+    {id:"o_p4",label:"문의 & 알려드릴 게 있어서 왔어요.",emoji:"💬",target:"s_inquiry"},
+    {id:"o_p5",label:"선생님과 상담을 하고 싶어요.",emoji:"🗣️",target:"s_counsel"}
+  ]},
+  {id:"s_discomfort",type:"choice",parentId:"s_purpose",options:[
+    {id:"o_d1",label:"혼자 처치할 수 있어요.",emoji:"🩹",target:"s_self_treat"},
+    {id:"o_d2",label:"생리통이 있는 것 같습니다.",emoji:"🤰",target:"s_period_pain"},
+    {id:"o_d3",label:"보건 선생님의 처치가 필요합니다.",emoji:"👩‍⚕️",target:"s_nurse_meet"}
+  ]},
+  {id:"s_self_treat",type:"choice",parentId:"s_discomfort",options:[
+    {id:"o_st1",label:"가벼운 찰과상 소독 후 밴드 붙이기",emoji:"🩹",target:"s_st1_guide",hasSymTreatInsert:true,symptomTreat:{symptoms:["찰과상"],treatments:["소독 드레싱[에스로반연고(티트리오일) (0.1mg), 밴드, 애니클린]"]}},
+    {id:"o_st2",label:"안구 건조로 인공눈물 넣기",emoji:"👁️",target:"s_st2_guide",hasSymTreatInsert:true,symptomTreat:{symptoms:["안구건조"],treatments:["투약[루핑점안액 (1개)]","보건교육"]}},
+    {id:"o_st3",label:"코피 시 고개 숙이고 코 눌러주기 + 코튼볼 넣기",emoji:"🩸",target:"s_st3_guide",hasSymTreatInsert:true,symptomTreat:{symptoms:["코피"],treatments:["지혈, 코튼볼 삽입","보건교육"]}},
+    {id:"o_st4",label:"에어파스 갖고 밖에 나가서 뿌리고 오기",emoji:"💨",target:"s_st4_guide",hasSymTreatInsert:true,symptomTreat:{symptoms:["근육통"],treatments:["투약[신신에어파스]","보건교육"]}}
+  ]},
+  {id:"s_st1_guide",type:"guide",parentId:"s_self_treat",options:[{id:"o_st1g",label:"확인",target:"__self_reset"}]},
+  {id:"s_st2_guide",type:"guide",parentId:"s_self_treat",options:[{id:"o_st2g",label:"확인",target:"__self_reset"}]},
+  {id:"s_st3_guide",type:"guide",parentId:"s_self_treat",options:[{id:"o_st3g",label:"확인",target:"__self_reset"}]},
+  {id:"s_st4_guide",type:"guide",parentId:"s_self_treat",options:[{id:"o_st4g",label:"확인",target:"__self_reset"}]},
+  {id:"s_period_pain",type:"choice",parentId:"s_discomfort",options:[
+    {id:"o_pp1",label:"핫팩을 가져갈 게요.",emoji:"🔥",target:"__self_reset"},
+    {id:"o_pp2",label:"보건 선생님을 만나야할 것 같아요.",emoji:"👩‍⚕️",target:"s_nurse_meet"}
+  ]},
+  {id:"s_nurse_meet",type:"guide",parentId:"s_discomfort",options:[{id:"o_nm1",label:"확인",target:"__nurse"}]},
+  {id:"s_borrow",type:"choice",parentId:"s_purpose",options:[
+    {id:"o_b1",label:"생리대",emoji:"🩱",target:"s_b1_guide"},
+    {id:"o_b2",label:"마스크",emoji:"😷",target:"s_b2_guide"},
+    {id:"o_b3",label:"면봉",emoji:"🧹",target:"s_b3_guide"},
+    {id:"o_b4",label:"밴드",emoji:"🩹",target:"s_b4_guide"},
+    {id:"o_b5",label:"손 소독제",emoji:"🧴",target:"s_b5_guide"},
+    {id:"o_b6",label:"핫팩",emoji:"🔥",target:"__deadline"}
+  ]},
+  {id:"s_b1_guide",type:"guide",parentId:"s_borrow",options:[{id:"o_b1g",label:"확인",target:"__self_reset"}]},
+  {id:"s_b2_guide",type:"guide",parentId:"s_borrow",options:[{id:"o_b2g",label:"확인",target:"__self_reset"}]},
+  {id:"s_b3_guide",type:"guide",parentId:"s_borrow",options:[{id:"o_b3g",label:"확인",target:"__self_reset"}]},
+  {id:"s_b4_guide",type:"guide",parentId:"s_borrow",options:[{id:"o_b4g",label:"확인",target:"__self_reset"}]},
+  {id:"s_b5_guide",type:"guide",parentId:"s_borrow",options:[{id:"o_b5g",label:"확인",target:"__self_reset"}]},
+  {id:"s_return",type:"choice",parentId:"s_purpose",options:[{id:"o_r1",label:"핫팩 반납",emoji:"🔥",target:"s_return_guide"}]},
+  {id:"s_return_guide",type:"guide",parentId:"s_return",options:[{id:"o_rg1",label:"안내",target:"__self_reset"}]},
+  {id:"s_inquiry",type:"choice",parentId:"s_purpose",options:[
+    {id:"o_i1",label:"동아리 관련",emoji:"🎨",target:"__nurse"},
+    {id:"o_i2",label:"수업 관련",emoji:"📚",target:"__nurse"},
+    {id:"o_i3",label:"약품 사용 관련",emoji:"💊",target:"__nurse"}
+  ]},
+  {id:"s_counsel",type:"choice",parentId:"s_purpose",options:[
+    {id:"o_c1",label:"친구 관계에 관한 상담",emoji:"🤝",target:"__done"},
+    {id:"o_c2",label:"건강에 대한 상담",emoji:"❤️",target:"__done"},
+    {id:"o_c3",label:"학업 등 기타 고민에 관한 상담",emoji:"📖",target:"__done"}
+  ]}
+];
+
+/* ── 상태 ── */
+var _selectedPerson = null, _selectedOptions = [], _bodymapData = [], _waitCount = 0;
+var _currentScreen = "s_personal", _navHistory = [];
+var _waitQueue = []; /* 대기인원 목록 */
+
+function _personInfoText(p) {
+  if (!p) return '';
+  if (p.type === 'staff') return p.position || '교직원';
+  var parts = [];
+  if (p.level) parts.push(p.level);
+  if (p.department) parts.push(p.department);
+  if (p.grade) parts.push(p.grade + '-' + (p.cls || 0));
+  return parts.join(' ');
+}
+
+var _queuePageIdx = 0, _queuePageTimer = null;
+var QUEUE_PER_PAGE = 6; /* 한 페이지당 표시 인원 */
+
+function updateQueueDisplay() {
+  var tq = document.getElementById("topQueue"); if (tq) tq.textContent = _waitCount;
+  var lq = document.getElementById("leftQueue"); if (lq) lq.textContent = _waitCount;
+  var ql = document.getElementById("queueList"); if (!ql) return;
+  if (_waitQueue.length === 0) {
+    ql.innerHTML = '<span class="q-empty">대기 중인 방문자가 없습니다</span>';
+    if (_queuePageTimer) { clearInterval(_queuePageTimer); _queuePageTimer = null; }
+    return;
+  }
+  /* 페이지 분할 */
+  var pages = [];
+  for (var i = 0; i < _waitQueue.length; i += QUEUE_PER_PAGE) {
+    pages.push(_waitQueue.slice(i, i + QUEUE_PER_PAGE));
+  }
+  var h = '';
+  pages.forEach(function(page, pi) {
+    h += '<div class="queue-page' + (pi === 0 ? ' active' : '') + '" data-qpage="' + pi + '">';
+    page.forEach(function(q, qi) {
+      var rank = pi * QUEUE_PER_PAGE + qi + 1;
+      h += '<span class="queue-person"><b>#' + rank + '.</b> ' + q.info + ' ' + q.name + '</span>';
+    });
+    h += '</div>';
+  });
+  ql.innerHTML = h;
+  _queuePageIdx = 0;
+  /* 2페이지 이상이면 3초 회전 */
+  if (_queuePageTimer) clearInterval(_queuePageTimer);
+  if (pages.length > 1) {
+    _queuePageTimer = setInterval(function() {
+      var allPages = ql.querySelectorAll('.queue-page');
+      if (allPages.length <= 1) return;
+      _queuePageIdx = (_queuePageIdx + 1) % allPages.length;
+      allPages.forEach(function(p, i) {
+        p.classList.toggle('active', i === _queuePageIdx);
+      });
+    }, 3000);
+  }
+}
+
+/* ── 배경 이미지 순환 (빌드 시 base64 주입) ── */
+/* 빌드 시 base64로 교체됨. 로컬 테스트용 상대 경로 */
+var BG_IMAGES = [
+  "../assets/backgrounds/poppy_field_at_sunrise.webp",
+  "../assets/backgrounds/village_of_cats.webp",
+  "../assets/backgrounds/jeju_by-monet.webp",
+  "../assets/backgrounds/a_tree_on_the_hill.webp",
+  "../assets/backgrounds/21st_century_classroom.webp",
+  "../assets/backgrounds/fruits_and_flowers_on_the_table.webp",
+  "../assets/backgrounds/colorful.webp",
+  "../assets/backgrounds/students going school.webp",
+  "../assets/backgrounds/the_starry_night_reimagined.webp",
+  "../assets/backgrounds/classroom_in_session.webp",
+  "../assets/backgrounds/poppies_in_georgia_okeeffe_style.webp",
+  "../assets/backgrounds/ambulances_on_the_street.webp"
+];
+var _bgIdx = 0;
+function rotateBg() {
+  var el = document.getElementById("bgImage");
+  if (el && BG_IMAGES.length) {
+    var next = Math.floor(Math.random() * BG_IMAGES.length);
+    while (next === _bgIdx && BG_IMAGES.length > 1) next = Math.floor(Math.random() * BG_IMAGES.length);
+    _bgIdx = next;
+    el.style.opacity = "0";
+    setTimeout(function() { el.style.backgroundImage = "url(" + BG_IMAGES[_bgIdx] + ")"; el.style.opacity = "1"; }, 1500);
+  }
+}
+(function() {
+  var el = document.getElementById("bgImage");
+  if (el && BG_IMAGES.length) {
+    _bgIdx = Math.floor(Math.random() * BG_IMAGES.length);
+    el.style.backgroundImage = "url(" + BG_IMAGES[_bgIdx] + ")";
+  }
+  setInterval(rotateBg, 300000); /* 5분마다 랜덤 배경 변경 */
+})();
+
+/* ═══════════════════════════════════
+   화면 전환
+   ═══════════════════════════════════ */
+var _skipPreInsert = {};
+function goScreen(id) {
+  _navHistory.push(_currentScreen);
+  _currentScreen = id;
+  document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
+  var el = document.getElementById("screen-" + id);
+  if (el) el.classList.add("active");
+}
+function goBack() {
+  if (_navHistory.length) {
+    var prev = _navHistory.pop();
+    _currentScreen = prev;
+    document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
+    var el = document.getElementById("screen-" + prev);
+    if (el) el.classList.add("active"); else resetToPersonal();
+  } else resetToPersonal();
+}
+
+/* ═══════════════════════════════════
+   인적사항 드릴다운 (프로그램 상세 검색과 동일)
+   ═══════════════════════════════════ */
+var _people = [], _drillTab = "student", _drillSelGrade = 0, _drillSelCls = 0;
+setTimeout(function() { drillShowTab("student"); }, 0);
+
+function drillShowTab(type) {
+  _drillTab = type;
+  document.getElementById("drillTabStu").className = "drill-tab" + (type === "student" ? " active" : "");
+  document.getElementById("drillTabStaff").className = "drill-tab" + (type === "staff" ? " active" : "");
+  var body = document.getElementById("drillBody"); if (!body) return;
+  _drillSelGrade = 0; _drillSelCls = 0;
+  if (type === "staff") {
+    var staff = PEOPLE_DATA.filter(function(p) { return p.type === "staff"; }).sort(function(a, b) { return a.name.localeCompare(b.name); });
+    _people = staff;
+    var h = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">';
+    staff.forEach(function(p, i) { h += '<span class="drill-sel-chip" data-action="drill-select" data-idx="' + i + '">' + p.name + (p.position ? " (" + p.position + ")" : "") + '</span>'; });
+    body.innerHTML = h + '</div>';
+  } else {
+    var grades = []; PEOPLE_DATA.forEach(function(p) { if (p.type === "student" && p.grade && grades.indexOf(p.grade) === -1) grades.push(p.grade); });
+    grades.sort(function(a, b) { return a - b; });
+    var h = '<div class="drill-grade-grid">';
+    grades.forEach(function(g) { h += '<button class="drill-grade-btn" data-action="drill-grade" data-grade="' + g + '">' + g + '학년</button>'; });
+    body.innerHTML = h + '</div><div id="drillGradeBody"></div>';
+  }
+}
+
+function drillSelectGrade(grade) {
+  _drillSelGrade = grade; _drillSelCls = 0;
+  document.querySelectorAll(".drill-grade-btn").forEach(function(b) { b.className = "drill-grade-btn" + (parseInt(b.dataset.grade) === grade ? " active" : ""); });
+  var gb = document.getElementById("drillGradeBody"); if (!gb) return;
+  var stu = PEOPLE_DATA.filter(function(p) { return p.type === "student" && p.grade === grade; });
+  var classes = {}; stu.forEach(function(p) { if (!classes[p.cls]) classes[p.cls] = []; classes[p.cls].push(p); });
+  var h = '<div style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:4px">';
+  Object.keys(classes).sort(function(a, b) { return a - b; }).forEach(function(c) {
+    var list = classes[c].sort(function(a, b) { return a.num - b.num; });
+    h += '<div class="drill-cls-panel" data-action="drill-cls" data-cls="' + c + '"><div class="drill-cls-title">' + grade + '학년 ' + c + '반 (' + list.length + '명)</div><div style="display:flex;flex-wrap:wrap;gap:4px">';
+    list.forEach(function(s) {
+      var extra = s.level ? ' [' + s.level + (s.department ? ' ' + s.department : '') + ']' : '';
+      h += '<span class="drill-chip">' + s.num + '번 ' + s.name + extra + '</span>';
+    });
+    h += '</div></div>';
+  });
+  gb.innerHTML = h + '</div>';
+}
+
+function drillSelectClass(cls) {
+  _drillSelCls = parseInt(cls);
+  var gb = document.getElementById("drillGradeBody"); if (!gb) return;
+  var students = PEOPLE_DATA.filter(function(p) { return p.type === "student" && p.grade === _drillSelGrade && p.cls === _drillSelCls; }).sort(function(a, b) { return a.num - b.num; });
+  _people = students;
+  var h = '<div style="border:2px solid #06b6d4;border-radius:12px;padding:14px;background:#f0fdfa">';
+  h += '<div style="font-size:13px;font-weight:700;color:#0891b2;margin-bottom:10px">' + _drillSelGrade + '학년 ' + _drillSelCls + '반 (' + students.length + '명) <span data-action="drill-back-grade" style="font-size:10px;color:#94a3b8;cursor:pointer;margin-left:8px">← 반 목록으로</span></div>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  students.forEach(function(p, i) {
+    var extra = p.level ? ' [' + p.level + (p.department ? ' ' + p.department : '') + ']' : '';
+    h += '<span class="drill-sel-chip" data-action="drill-select" data-idx="' + i + '">' + p.num + '번 ' + p.name + extra + '</span>';
+  });
+  gb.innerHTML = h + '</div></div>';
+}
+
+function selectPerson(idx) {
+  _selectedPerson = _people[idx];
+  _selectedOptions = []; _bodymapData = [];
+  goScreen("s_purpose");
+}
+
+/* ═══════════════════════════════════
+   플로우 옵션 액션
+   ═══════════════════════════════════ */
+var _pendingOpt = null;
+function fdOptAction(secId, optId) {
+  var sec = FLOW.find(function(s) { return s.id === secId; }); if (!sec) return;
+  var opt = (sec.options || []).find(function(o) { return o.id === optId; }); if (!opt) return;
+  _pendingOpt = { secId: secId, optId: optId, target: opt.target, symptomTreat: opt.symptomTreat || null, hasBm: opt.hasBodymapInsert || false };
+
+  /* 바디맵 삽입이 있으면 전체화면 바디맵 모달 열기 */
+  if (opt.hasBodymapInsert) { openBodymapModal(); return; }
+
+  resolveTarget();
+}
+
+function resolveTarget() {
+  if (!_pendingOpt) return;
+  var p = _pendingOpt; _pendingOpt = null;
+  if (p.target === "__done") { selectOption(p.secId, p.optId); }
+  else if (p.target === "__nurse") submitNurse(p.secId, p.optId);
+  else if (p.target === "__deadline") openDeadline(p.secId, p.optId);
+  else if (p.target === "__self_reset") selfReset(p.secId, p.optId);
+  else goScreen(p.target);
+}
+
+function selectOption(secId, optId) {
+  var sec = FLOW.find(function(s) { return s.id === secId; });
+  var opt = sec ? sec.options.find(function(o) { return o.id === optId; }) : null;
+  if (opt) _selectedOptions.push({ secId: secId, optId: optId, label: opt.label, symptomTreat: opt.symptomTreat });
+  submitAndReset(secId);
+}
+
+function _aggregateSymTreat() {
+  var syms = {}, trts = {};
+  _selectedOptions.forEach(function(o) {
+    if (!o.symptomTreat) return;
+    (o.symptomTreat.symptoms || []).forEach(function(s) { syms[s] = 1; });
+    (o.symptomTreat.treatments || []).forEach(function(t) { trts[t] = 1; });
+  });
+  return { symptoms: Object.keys(syms), treatments: Object.keys(trts) };
+}
+
+function selfReset(secId, optId) {
+  var sec = FLOW.find(function(s) { return s.id === secId; });
+  var opt = sec ? (sec.options || []).find(function(o) { return o.id === optId; }) : null;
+  var popup = document.getElementById("reception-popup");
+  var msg = document.getElementById("popup-wait-msg");
+  var title = popup.querySelector('div[style*="font-weight:800"]');
+  if (title) title.textContent = (opt ? opt.label : "") + " 완료";
+  msg.textContent = "감사합니다. 처음 화면으로 돌아갑니다.";
+  popup.style.display = "flex";
+  setTimeout(function() { popup.style.display = "none"; resetToPersonal(); }, 1500);
+}
+
+/* 릴레이로는 UID 만 전송 — 개인정보(이름·학년·반·번호·성별) 는 절대 서버를 거치지 않음.
+ * nurse PC 가 받은 UID 로 자기 DB(S.people) 에서 풀네임 등 인적사항을 조회하여 표시. */
+function _personIdOnly(p) { return p ? { uid: p.uid || p.id || '' } : {}; }
+
+function submitAndReset(secId) {
+  var agg = _aggregateSymTreat();
+  sendReception({ person: _personIdOnly(_selectedPerson), options: _selectedOptions, bodymap: _bodymapData, symptoms: agg.symptoms, treatments: agg.treatments, time: new Date().toISOString() });
+  showReceptionPopup();
+}
+
+function submitNurse(secId, optId) {
+  var sec = FLOW.find(function(s) { return s.id === secId; });
+  var opt = sec ? sec.options.find(function(o) { return o.id === optId; }) : null;
+  if (opt) _selectedOptions.push({ secId: secId, optId: optId, label: opt.label, symptomTreat: opt.symptomTreat || null });
+  var agg = _aggregateSymTreat();
+  sendReception({ person: _personIdOnly(_selectedPerson), options: _selectedOptions, bodymap: _bodymapData, symptoms: agg.symptoms, treatments: agg.treatments, time: new Date().toISOString(), type: "nurse" });
+  showReceptionPopup();
+}
+
+function showReceptionPopup() {
+  var popup = document.getElementById("reception-popup");
+  var msg = document.getElementById("popup-wait-msg");
+  _waitCount++;
+  /* 대기 목록에 방문자 추가 */
+  if (_selectedPerson) {
+    _waitQueue.push({ name: _selectedPerson.name, info: _personInfoText(_selectedPerson) });
+  }
+  updateQueueDisplay();
+  msg.textContent = "현재 대기 인원 " + _waitCount + "명입니다.";
+  popup.style.display = "flex";
+  setTimeout(function() { popup.style.display = "none"; resetToPersonal(); }, 1500);
+}
+
+function resetToPersonal() {
+  _selectedPerson = null; _selectedOptions = []; _bodymapData = []; _skipPreInsert = {};
+  _navHistory = []; _currentScreen = "s_personal";
+  document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
+  document.getElementById("screen-s_personal").classList.add("active");
+  drillShowTab("student");
+}
+
+/* ═══════════════════════════════════
+   바디맵 전체화면 모달 (프로그램과 동일 7개 패널)
+   좌표 데이터도 프로그램과 동일
+   ═══════════════════════════════════ */
+/* 좌표 갱신 2026-05-28 — 프로그램(emergency-view.js)·편집기(bodymap-anchors-preview.html) 와 1:1 동기. 키오스크 포맷은 {cx,cy,l} 만 사용 (w/h/shape 미사용 — 최근접 점 매칭). */
+var BM_BODY_PARTS = [
+  {cx:25.04,cy:19.4,l:"목"},
+  {cx:14.76,cy:20.6,l:"오른쪽 어깨"},
+  {cx:35.9,cy:20.7,l:"왼쪽 어깨"},
+  {cx:19.31,cy:28.3,l:"오른쪽 가슴"},
+  {cx:33.1,cy:28.3,l:"왼쪽 가슴"},
+  {cx:6.28,cy:48.9,l:"오른쪽 손목"},
+  {cx:8.84,cy:38,l:"오른쪽 팔꿈치"},
+  {cx:44.4,cy:48.8,l:"왼쪽 손목"},
+  {cx:18.44,cy:60.8,l:"오른쪽 윗허벅지"},
+  {cx:32.53,cy:60.4,l:"왼쪽 윗허벅지"},
+  {cx:18.7,cy:67.9,l:"오른쪽 아랫허벅지"},
+  {cx:34.2,cy:67.7,l:"왼쪽 아랫허벅지"},
+  {cx:19,cy:72.3,l:"오른쪽 무릎"},
+  {cx:17.8,cy:88,l:"오른쪽 아랫정강이"},
+  {cx:36.3,cy:88,l:"왼쪽 아랫정강이"},
+  {cx:17.6,cy:92,l:"오른쪽 발목"},
+  {cx:36.4,cy:92.2,l:"왼쪽 발목"},
+  {cx:74.6,cy:6.6,l:"뒷머리"},
+  {cx:74.3,cy:15.9,l:"뒷목"},
+  {cx:67.5,cy:26.9,l:"왼쪽 견갑골"},
+  {cx:82.07,cy:26.8,l:"오른쪽 견갑골"},
+  {cx:74.51,cy:25.9,l:"윗등"},
+  {cx:74.69,cy:44.6,l:"허리"},
+  {cx:59.09,cy:39.1,l:"왼쪽 팔꿈치 뒤"},
+  {cx:91.97,cy:39.16,l:"오른쪽 팔꿈치 뒤"},
+  {cx:68.16,cy:53.2,l:"왼쪽 엉덩이"},
+  {cx:81.75,cy:52.9,l:"오른쪽 엉덩이"},
+  {cx:66.7,cy:72.4,l:"왼쪽 오금"},
+  {cx:83.3,cy:72.4,l:"오른쪽 오금"},
+  {cx:66.8,cy:80.5,l:"왼쪽 윗종아리"},
+  {cx:83.3,cy:80.6,l:"오른쪽 윗종아리"},
+  {cx:65.8,cy:88.09,l:"왼쪽 아랫종아리"},
+  {cx:82.9,cy:88.22,l:"오른쪽 아랫종아리"},
+  {cx:84.25,cy:20.9,l:"오른쪽 어깨"},
+  {cx:65.4,cy:21.3,l:"왼쪽 어깨"},
+  {cx:68.73,cy:93.83,l:"왼쪽 아킬레스건"},
+  {cx:67.3,cy:96.8,l:"왼쪽 뒤꿈치"},
+  {cx:80.2,cy:97.5,l:"오른쪽 뒤꿈치"},
+  {cx:65.48,cy:94.1,l:"왼쪽 복숭아뼈"},
+  {cx:84.77,cy:94.55,l:"오른쪽 복숭아뼈"},
+  {cx:81.16,cy:94.65,l:"오른쪽 아킬레스건"},
+  {cx:82.51,cy:63.1,l:"오른쪽 뒷허벅지"},
+  {cx:68.19,cy:63.2,l:"왼쪽 뒷허벅지"},
+  {cx:74.73,cy:36.5,l:"중간등"},
+  {cx:68,cy:34.95,l:"왼쪽 등"},
+  {cx:81.94,cy:35.28,l:"오른쪽 등"},
+  {cx:67.6,cy:44.44,l:"왼쪽 옆구리"},
+  {cx:82.88,cy:44.58,l:"오른쪽 옆구리"},
+  {cx:59.4,cy:30.2,l:"왼쪽 상완 뒤"},
+  {cx:90.21,cy:30.05,l:"오른쪽 상완 뒤"},
+  {cx:57.4,cy:44.3,l:"왼쪽 전완 뒤"},
+  {cx:92.67,cy:44.2,l:"오른쪽 전완 뒤"},
+  {cx:56.8,cy:48.5,l:"왼쪽 손목"},
+  {cx:94.24,cy:48.6,l:"오른쪽 손목"},
+  {cx:55.7,cy:53.8,l:"왼손"},
+  {cx:95.02,cy:54.5,l:"오른손"},
+  {cx:60.7,cy:97.6,l:"왼발 외측"},
+  {cx:86.5,cy:97.3,l:"오른발 외측"},
+  {cx:34.4,cy:72.5,l:"왼쪽 무릎"},
+  {cx:34.7,cy:79.9,l:"왼쪽 정강이"},
+  {cx:18.7,cy:80.2,l:"오른쪽 정강이"},
+  {cx:31,cy:52.1,l:"왼쪽 사타구니"},
+  {cx:21.73,cy:52.4,l:"오른쪽 사타구니"},
+  {cx:26.15,cy:52.19,l:"생식기"},
+  {cx:16.04,cy:52.36,l:"오른쪽 골반 옆"},
+  {cx:36.1,cy:51.9,l:"왼쪽 골반 옆"},
+  {cx:25.61,cy:48.7,l:"허리"},
+  {cx:18.04,cy:45.9,l:"우하복부"},
+  {cx:34.1,cy:46,l:"좌하복부"},
+  {cx:26.46,cy:46,l:"중앙하복부"},
+  {cx:26.43,cy:41.7,l:"중앙복부"},
+  {cx:18.75,cy:36.7,l:"우상복부"},
+  {cx:33.1,cy:36.8,l:"좌상복부"},
+  {cx:33.9,cy:41.8,l:"좌측 중앙복부"},
+  {cx:18.38,cy:41.65,l:"우측 중앙복부"},
+  {cx:26.34,cy:36.7,l:"중앙상복부"},
+  {cx:26.7,cy:28.1,l:"가슴 중앙"},
+  {cx:43.7,cy:45,l:"왼쪽 전박 내측"},
+  {cx:8.46,cy:44.2,l:"오른쪽 전박 내측"},
+  {cx:45.5,cy:54.2,l:"왼손"},
+  {cx:5.93,cy:54.2,l:"오른손"},
+  {cx:41.8,cy:39.5,l:"왼쪽 팔꿈치"},
+  {cx:40.67,cy:31.6,l:"왼쪽 상완내측"},
+  {cx:11.06,cy:31.4,l:"오른쪽 상완내측"},
+  {cx:11.29,cy:24.9,l:"오른쪽 어깨"},
+  {cx:40.29,cy:24.6,l:"왼쪽 어깨"},
+  {cx:21.8,cy:10.1,l:"오른쪽 눈"},
+  {cx:28.72,cy:9.71,l:"왼쪽 눈"},
+  {cx:25.43,cy:11.35,l:"코"},
+  {cx:25.63,cy:13.9,l:"입"},
+  {cx:17.9,cy:4.3,l:"오른쪽 두부"},
+  {cx:33.9,cy:4.5,l:"왼쪽 두부"},
+  {cx:26.1,cy:3.6,l:"중앙 두부"},
+  {cx:17.6,cy:11.2,l:"오른쪽 귀"},
+  {cx:33.07,cy:10.62,l:"왼쪽 귀"},
+  {cx:21.58,cy:13.19,l:"오른쪽 뺨"},
+  {cx:29.45,cy:12.68,l:"왼쪽 뺨"},
+  {cx:25.7,cy:7.9,l:"이마"},
+  {cx:25.6,cy:15.8,l:"턱"},
+  {cx:36.7,cy:96.2,l:"왼발"},
+  {cx:16.5,cy:96.3,l:"오른발"},
+  {cx:59,cy:94.7,l:"왼발 외측"},
+  {cx:89.3,cy:95.1,l:"오른발 외측"},
+  {cx:67.36,cy:91.72,l:"왼쪽 발목"},
+  {cx:84.21,cy:91.85,l:"오른쪽 발목"}
+];
+var BM_FACE_PARTS = [
+  {cx:50.2,cy:12.8,l:"전두부"},
+  {cx:18.9,cy:12.7,l:"오른쪽 전두부"},
+  {cx:80.8,cy:12.9,l:"왼쪽 전두부"},
+  {cx:49.1,cy:29.8,l:"이마"},
+  {cx:30.3,cy:37.7,l:"오른쪽 눈썹"},
+  {cx:68.5,cy:37.1,l:"왼쪽 눈썹"},
+  {cx:49.6,cy:40.5,l:"미간"},
+  {cx:31.4,cy:46.7,l:"오른쪽 눈"},
+  {cx:68.4,cy:46.3,l:"왼쪽 눈"},
+  {cx:8.6,cy:32.9,l:"오른쪽 관자놀이"},
+  {cx:90.8,cy:32.6,l:"왼쪽 관자놀이"},
+  {cx:9.5,cy:51.8,l:"오른쪽 귀"},
+  {cx:89.7,cy:50.7,l:"왼쪽 귀"},
+  {cx:51.1,cy:50.3,l:"콧등"},
+  {cx:50.1,cy:57.9,l:"코끝"},
+  {cx:46.3,cy:57.3,l:"오른쪽 콧볼"},
+  {cx:54.2,cy:56.8,l:"왼쪽 콧볼"},
+  {cx:22.8,cy:58.4,l:"오른쪽 볼"},
+  {cx:78.4,cy:58.1,l:"왼쪽 볼"},
+  {cx:50,cy:64.1,l:"윗입술"},
+  {cx:50.2,cy:66.85,l:"아랫입술"},
+  {cx:22.1,cy:68.9,l:"오른쪽 턱선"},
+  {cx:78,cy:68.2,l:"왼쪽 턱선"},
+  {cx:39.76,cy:70.9,l:"왼쪽 턱"},
+  {cx:51.07,cy:88.7,l:"목/인후"},
+  {cx:30.3,cy:41.3,l:"오른쪽 눈거풀"},
+  {cx:68.4,cy:40.4,l:"왼쪽 눈거풀"},
+  {cx:37.2,cy:53.3,l:"오른쪽 광대뼈"},
+  {cx:65,cy:52.9,l:"왼쪽 광대뼈"},
+  {cx:50.1,cy:61.6,l:"인중"},
+  {cx:33.6,cy:64.1,l:"오른쪽 입 주변"},
+  {cx:66.6,cy:64.29,l:"왼쪽 입 주변"},
+  {cx:41.52,cy:75.25,l:"왼쪽 턱"},
+  {cx:57.8,cy:47.7,l:"왼쪽 눈 옆"},
+  {cx:42.6,cy:48,l:"오른쪽 눈 옆"},
+  {cx:20.3,cy:46.5,l:"오른쪽 눈 옆"},
+  {cx:80.1,cy:46.4,l:"왼쪽 눈 옆"},
+  {cx:19,cy:38.9,l:"오른쪽 눈썹 옆"},
+  {cx:79.6,cy:39.7,l:"왼쪽 눈썹 옆"},
+  {cx:36.1,cy:57.8,l:"오른쪽 광대뼈 아래"},
+  {cx:65.4,cy:57.9,l:"왼쪽 광대뼈 아래"},
+  {cx:61.83,cy:70.89,l:"오른쪽 턱"},
+  {cx:62.09,cy:75.33,l:"오른쪽 턱"},
+  {cx:73.12,cy:63.09,l:"왼쪽 볼"},
+  {cx:31.02,cy:88.58,l:"목 오른편"},
+  {cx:70.33,cy:88.69,l:"목 왼편"}
+];
+var BM_TEETH_PARTS = [
+  {cx:49.61,cy:14.93,l:"윗 앞니"},
+  {cx:33.35,cy:16.5,l:"오른쪽 윗 측절치"},
+  {cx:26.47,cy:18.76,l:"오른쪽 윗 송곳니"},
+  {cx:73.34,cy:18.66,l:"왼쪽 윗 송곳니"},
+  {cx:49.8,cy:36,l:"목젖"},
+  {cx:49.4,cy:59.57,l:"혀 중간"},
+  {cx:50.02,cy:78.85,l:"아랫 앞니"},
+  {cx:37.6,cy:78.56,l:"오른쪽 아랫 측절치"},
+  {cx:61.87,cy:78.7,l:"왼쪽 아랫 측절치"},
+  {cx:50.1,cy:26.2,l:"중앙 구개"},
+  {cx:61.66,cy:27.29,l:"왼쪽 구개"},
+  {cx:38.22,cy:27.42,l:"오른쪽 구개"},
+  {cx:65.98,cy:16.36,l:"왼쪽 윗 측절치"},
+  {cx:28.19,cy:43.86,l:"오른쪽 편도"},
+  {cx:71.41,cy:44.19,l:"왼쪽 편도"},
+  {cx:50.03,cy:71.7,l:"혀 끝"},
+  {cx:50.01,cy:45,l:"인후"},
+  {cx:39.97,cy:36.83,l:"인후"},
+  {cx:59.44,cy:36.48,l:"인후"},
+  {cx:50.5,cy:4.5,l:"윗 입술"},
+  {cx:78.52,cy:9.59,l:"윗 입술 왼편"},
+  {cx:21.49,cy:9.62,l:"윗 입술 오른편"},
+  {cx:69.17,cy:77.53,l:"왼쪽 아래 송곳니"},
+  {cx:30.16,cy:77.24,l:"오른쪽 아래 송곳니"},
+  {cx:24.35,cy:74.59,l:"오른쪽 아래 제1소구치"},
+  {cx:75.55,cy:74.62,l:"왼쪽 아래 제1소구치"},
+  {cx:23.3,cy:68.8,l:"오른쪽 아래 제2소구치"},
+  {cx:76.86,cy:68.42,l:"왼쪽 아래 제2소구치"},
+  {cx:20.36,cy:64.38,l:"오른쪽 아래 제1대구치"},
+  {cx:18.18,cy:59.98,l:"오른쪽 아래 제2대구치"},
+  {cx:15.69,cy:54.91,l:"오른쪽 아래 제3대구치"},
+  {cx:79.49,cy:64.13,l:"왼쪽 아래 제1대구치"},
+  {cx:81.22,cy:59.98,l:"왼쪽 아래 제2대구치"},
+  {cx:84.33,cy:54.89,l:"왼쪽 아래 제3대구치"},
+  {cx:79.39,cy:28.29,l:"왼쪽 위 제2소구치"},
+  {cx:76.35,cy:25.21,l:"왼쪽 위 제1소구치"},
+  {cx:20.46,cy:28.23,l:"오른쪽 위 제2소구치"},
+  {cx:20.12,cy:21.83,l:"오른쪽 위 제1소구치"},
+  {cx:16.08,cy:25.03,l:"오른쪽 위 제2소구치"},
+  {cx:84.04,cy:24.56,l:"왼쪽 위 제2소구치"},
+  {cx:79.62,cy:20.69,l:"왼쪽 위 제1소구치"},
+  {cx:15.7,cy:34.71,l:"오른쪽 위 제2대구치"},
+  {cx:17.2,cy:31.22,l:"오른쪽 위 제1대구치"},
+  {cx:14.54,cy:37.71,l:"오른쪽 위 제3대구치"},
+  {cx:85.36,cy:38.37,l:"왼쪽 위 제3대구치"},
+  {cx:84.08,cy:35.1,l:"왼쪽 위 제2대구치"},
+  {cx:81.89,cy:31.56,l:"왼쪽 위 제1대구치"},
+  {cx:33.42,cy:93.1,l:"아랫 입술 우측"},
+  {cx:49.9,cy:9.9,l:"윗 잇몸"},
+  {cx:50.97,cy:85.07,l:"아랫 잇몸"},
+  {cx:35.25,cy:60.17,l:"혀 중간 우측"},
+  {cx:64.16,cy:60.42,l:"혀 중간 좌측"},
+  {cx:80.82,cy:71.75,l:"왼쪽 아래 제2소구치"},
+  {cx:28.74,cy:71.75,l:"오른쪽 아래 제1소구치"},
+  {cx:15.05,cy:45.41,l:"오른쪽 구강 안쪽"},
+  {cx:84.7,cy:45.8,l:"왼쪽 구강 안쪽"},
+  {cx:24.7,cy:25,l:"오른쪽 위 제1소구치"},
+  {cx:87.23,cy:28.47,l:"왼쪽 위 제1대구치"},
+  {cx:88.83,cy:31.45,l:"왼쪽 위 제2대구치"},
+  {cx:12.97,cy:28.07,l:"오른쪽4 위 제1대구치"},
+  {cx:66.37,cy:93.41,l:"아랫 입술 좌측"},
+  {cx:19.19,cy:72.59,l:"오른쪽 아래 제2소구치"},
+  {cx:14.95,cy:68.33,l:"오른쪽 아래 제1대구치"},
+  {cx:84.62,cy:68.04,l:"왼쪽 아래 제1소구치"},
+  {cx:87.56,cy:63.59,l:"오른쪽 아래 제2대구치"}
+];
+var BM_HAND_TOP_PARTS = [
+  {cx:23.8,cy:49.7,l:"왼손 손등 상단"},
+  {cx:24,cy:69.3,l:"왼손 손등 중앙"},
+  {cx:24.5,cy:89.5,l:"왼손 손목"},
+  {cx:75.6,cy:49.07,l:"오른손 손등 상단"},
+  {cx:75.6,cy:67.6,l:"오른손 손등 중앙"},
+  {cx:76.1,cy:87.7,l:"오른손 손목"},
+  {cx:67,cy:87.2,l:"오른쪽 손목 내측"},
+  {cx:15.9,cy:89.4,l:"왼쪽 손목 외측"},
+  {cx:33.1,cy:89.3,l:"왼쪽 손목 내측"},
+  {cx:84.9,cy:87.7,l:"오른쪽 손목 외측"},
+  {cx:33.7,cy:49.58,l:"왼쪽 손등 상단 내측"},
+  {cx:12.17,cy:52.6,l:"왼쪽 손등 상단 외측"},
+  {cx:36.98,cy:69,l:"왼쪽 손등 중앙 내측"},
+  {cx:12.5,cy:69.3,l:"왼쪽 손등 중앙 외측"},
+  {cx:44.16,cy:38.1,l:"왼쪽 엄지 원위부(위)"},
+  {cx:40.6,cy:55.7,l:"왼쪽 엄지 근위부(위)"},
+  {cx:42.28,cy:46.9,l:"왼쪽 엄지 중간부(위)"},
+  {cx:32.6,cy:9.6,l:"왼쪽 검지 원위부(위)"},
+  {cx:32.5,cy:20.6,l:"왼쪽 검지 중간부(위)"},
+  {cx:32.2,cy:31.9,l:"왼쪽 검지 근위부(위)"},
+  {cx:21.7,cy:5.5,l:"왼쪽 중지 원위부(위)"},
+  {cx:22,cy:16.4,l:"왼쪽 중지 중간부(위)"},
+  {cx:23,cy:30.8,l:"왼쪽 중지 근위부(위)"},
+  {cx:11.2,cy:12.2,l:"왼쪽 약지 원위부(위)"},
+  {cx:13,cy:23,l:"왼쪽 약지 중간부(위)"},
+  {cx:14.4,cy:33.5,l:"왼쪽 약지 근위부(위)"},
+  {cx:2.6,cy:27.5,l:"왼쪽 소지 원위부(위)"},
+  {cx:4.9,cy:33.8,l:"왼쪽 소지 중간부(위)"},
+  {cx:6.7,cy:41.2,l:"왼쪽 소지 근위부(위)"},
+  {cx:96.8,cy:27.7,l:"오른쪽 소지 원위부(위)"},
+  {cx:94.73,cy:36.8,l:"오른쪽 소지 중간부(위)"},
+  {cx:91.4,cy:46,l:"오른쪽 소지 근위부(위)"},
+  {cx:88.1,cy:12.1,l:"오른쪽 약지 원위부(위)"},
+  {cx:85.4,cy:34.99,l:"오른쪽 약지 근위부(위)"},
+  {cx:87.09,cy:24.3,l:"오른쪽 약지 중간부(위)"},
+  {cx:78.7,cy:6.2,l:"오른쪽 중지 원위부(위)"},
+  {cx:77.4,cy:31.7,l:"오른쪽 중지 근위부(위)"},
+  {cx:78.2,cy:18.4,l:"오른쪽 중지 중간부(위)"},
+  {cx:67.8,cy:9.5,l:"오른쪽 검지 원위부(위)"},
+  {cx:68,cy:21.7,l:"오른쪽 검지 중간부(위)"},
+  {cx:68,cy:31.97,l:"오른쪽 검지 근위부(위)"},
+  {cx:55.2,cy:38.3,l:"오른쪽 엄지 원위부(위)"},
+  {cx:58.24,cy:45.9,l:"오른쪽 엄지 중간부(위)"},
+  {cx:58.7,cy:54.58,l:"오른쪽 엄지 근위부(위)"},
+  {cx:66.4,cy:48.67,l:"오른쪽 손등 상단 내측"},
+  {cx:87.1,cy:55.1,l:"오른쪽 손등 상단 외측"},
+  {cx:63.12,cy:67.3,l:"오른쪽 손등 중앙 내측"},
+  {cx:86.1,cy:67.6,l:"오른쪽 손등 중앙 외측"},
+  {cx:45.9,cy:39.4,l:"왼쪽 엄지 손톱"},
+  {cx:32.2,cy:7,l:"왼쪽 검지 손톱"},
+  {cx:21,cy:4.7,l:"왼쪽 중지 손톱"},
+  {cx:11.1,cy:10.3,l:"왼쪽 약지 손톱"},
+  {cx:2.4,cy:26.6,l:"왼쪽 소지 손톱"},
+  {cx:54.1,cy:39.8,l:"오른쪽 엄지 손톱"},
+  {cx:68.4,cy:6.8,l:"오른쪽 검지 손톱"},
+  {cx:79.2,cy:4.4,l:"오른쪽 중지 손톱"},
+  {cx:88.73,cy:10.2,l:"오른쪽 약지 손톱"},
+  {cx:97.5,cy:26.7,l:"오른쪽 소지 손톱"},
+  {cx:84.5,cy:45.48,l:"오른쪽 손등 상단 외측"},
+  {cx:14.48,cy:42.17,l:"왼쪽 약지 근위부(위)"}
+];
+var BM_PALM_PARTS = [
+  {cx:18.64,cy:9.09,l:"완손 검지 원위부"},
+  {cx:19.22,cy:20.8,l:"완손 검지 중간부"},
+  {cx:18.8,cy:31.9,l:"완손 검지 근위부"},
+  {cx:29.34,cy:7.81,l:"완손 중지 원위부"},
+  {cx:28.38,cy:20.31,l:"완손 중지 중간부"},
+  {cx:27.07,cy:31.78,l:"완손 중지 근위부"},
+  {cx:39.97,cy:12.2,l:"완손 약지 원위부"},
+  {cx:36.47,cy:25.87,l:"완손 약지 중간부"},
+  {cx:34.4,cy:34.77,l:"완손 약지 근위부"},
+  {cx:45.62,cy:27.92,l:"완손 소지 원위부"},
+  {cx:43.36,cy:37.08,l:"완손 소지 중간부"},
+  {cx:40.93,cy:44.37,l:"완손 소지 근위부"},
+  {cx:25,cy:89.7,l:"완손 손목"},
+  {cx:93.91,cy:36.37,l:"오른손 엄지 원위부"},
+  {cx:80.93,cy:8.27,l:"오른손 검지 원위부"},
+  {cx:80.91,cy:21.22,l:"오른손 검지 중간부"},
+  {cx:70.29,cy:8.16,l:"오른손 중지 원위부"},
+  {cx:72.16,cy:21.14,l:"오른손 중지 중간부"},
+  {cx:73.43,cy:31.54,l:"오른손 중지 근위부"},
+  {cx:61.27,cy:14.02,l:"오른손 약지 근위부"},
+  {cx:54.23,cy:28.55,l:"오른손 소지 원위부"},
+  {cx:58.28,cy:46.11,l:"오른손 소지 근위부"},
+  {cx:74.28,cy:45.79,l:"오른손 손바닥 상단"},
+  {cx:76,cy:57.3,l:"오른손 손바닥 중앙"},
+  {cx:75.2,cy:90.43,l:"오른손 손목"},
+  {cx:33.2,cy:89.1,l:"완쪽 손목 내측"},
+  {cx:66.8,cy:89.8,l:"오른쪽 손목 내측"},
+  {cx:16.7,cy:89.4,l:"완쪽 손목 외측"},
+  {cx:83.5,cy:89.9,l:"오른쪽 손목 외측"},
+  {cx:24.5,cy:75.5,l:"완쪽 손꿈치"},
+  {cx:75.8,cy:75.9,l:"오른쪽 손꿈치"},
+  {cx:75.3,cy:67.2,l:"오른쪽 손바닥 하단"},
+  {cx:25.8,cy:67.5,l:"완쪽 손바닥 하단"},
+  {cx:25.1,cy:56.7,l:"완쪽 손바닥 중앙"},
+  {cx:24.72,cy:44.38,l:"완쪽 손바닥 상단"},
+  {cx:63.3,cy:25.86,l:"오른손 약지 중간부"},
+  {cx:8.6,cy:47.39,l:"완쪽 엄지 근위부"},
+  {cx:7.5,cy:43.21,l:"완쪽 엄지 중간부"},
+  {cx:6.11,cy:37.42,l:"완쪽 엄지 원위부"},
+  {cx:56.48,cy:37.8,l:"오른손 소지 중간부"},
+  {cx:65.38,cy:35.33,l:"오른손 약지 근위부"},
+  {cx:81.51,cy:31.83,l:"오른손 검지 근위부"},
+  {cx:92.56,cy:44.67,l:"오른손 엄지 중간부"},
+  {cx:91.39,cy:49.16,l:"오른손 엄지 근위부"},
+  {cx:77.1,cy:38.54,l:"오른쪽 손바닥 상단"}
+];
+var BM_FOOT_TOP_PARTS = [
+  {cx:40.2,cy:14.8,l:"왼발 엄지발가락"},
+  {cx:27.5,cy:15.85,l:"왼발 검지 발가락"},
+  {cx:18.61,cy:17.97,l:"왼발 중지 발가락"},
+  {cx:11.1,cy:19.6,l:"왼발 약지 발가락"},
+  {cx:3.1,cy:22.6,l:"왼발 소지 발가락"},
+  {cx:23.6,cy:37.5,l:"왼발 앞발등"},
+  {cx:23.2,cy:56.3,l:"왼발 중간 발등"},
+  {cx:25.9,cy:75.7,l:"왼발 뒷발등"},
+  {cx:26.2,cy:92.2,l:"왼발 발목"},
+  {cx:59.27,cy:14.09,l:"오른발 엄지발가락"},
+  {cx:72.3,cy:14.81,l:"오른발 검지 발가락"},
+  {cx:81,cy:15.37,l:"오른발 중지 발가락"},
+  {cx:89,cy:18.37,l:"오른발 약지 발가락"},
+  {cx:98.3,cy:21.42,l:"오른발 소지 발가락"},
+  {cx:75.5,cy:36.5,l:"오른발 앞발등"},
+  {cx:76.8,cy:57.4,l:"오른발 중간 발등"},
+  {cx:74.9,cy:76.89,l:"오른발 뒷발등"},
+  {cx:75.3,cy:92.3,l:"오른발 발목"},
+  {cx:36.9,cy:91.5,l:"왼쪽 발목 내측"},
+  {cx:14.1,cy:92,l:"왼쪽 발목 외측"},
+  {cx:40.8,cy:75.6,l:"왼쪽 안쪽 복숭아뼈"},
+  {cx:63.49,cy:92.23,l:"오른쪽 발목 내측"},
+  {cx:87.36,cy:91.8,l:"오른쪽 발목 외측"},
+  {cx:86.7,cy:76.97,l:"오른쪽 바깥쪽 복숭아뼈"},
+  {cx:62.4,cy:77.31,l:"오른쪽 안쪽 복숭아뼈"},
+  {cx:9.7,cy:76,l:"왼쪽 바깥쪽 복숭아뼈"},
+  {cx:61.2,cy:6.5,l:"오른쪽 엄지 발톱"},
+  {cx:72.8,cy:6.7,l:"오른쪽 검지 발톱"},
+  {cx:81.7,cy:9.5,l:"오른쪽 중지 발톱"},
+  {cx:89.3,cy:14,l:"오른쪽 약지 발톱"},
+  {cx:96,cy:19.7,l:"오른쪽 소지 발톱"},
+  {cx:4.1,cy:19.4,l:"왼쪽 소지 발톱"},
+  {cx:10.9,cy:14.1,l:"왼쪽 약지 발톱"},
+  {cx:18.2,cy:9.4,l:"왼쪽 중지 발톱"},
+  {cx:27,cy:7.1,l:"왼쪽 검지 발톱"},
+  {cx:39.1,cy:6.3,l:"왼쪽 엄지 발톱"}
+];
+var BM_FOOT_BOTTOM_PARTS = [
+  {cx:24.6,cy:39.84,l:"왼발 아치"},
+  {cx:26.09,cy:58.2,l:"왼발 발바닥 중앙"},
+  {cx:28.8,cy:83.3,l:"왼발 뒤꿈치"},
+  {cx:60.83,cy:9.9,l:"오른발 엄지 발가락 (발바닥면)"},
+  {cx:73.2,cy:11.4,l:"오른발 검지 발가락 (발바닥면)"},
+  {cx:81.8,cy:12.21,l:"오른발 중지 발가락 (발바닥면)"},
+  {cx:76.4,cy:36.6,l:"오른발 아치"},
+  {cx:76.63,cy:55.6,l:"오른발 발바닥 중앙"},
+  {cx:71.5,cy:82.3,l:"오른발 뒤꿈치"},
+  {cx:88.9,cy:18.62,l:"오른쪽 약지 발가락 (발바닥면)"},
+  {cx:95.8,cy:23.75,l:"오른쪽 소지 발가락 (발바닥면)"},
+  {cx:58.5,cy:81.8,l:"오른발 뒤꿈치 내측"},
+  {cx:86.3,cy:79.6,l:"오른발 뒤꿈치 외측"},
+  {cx:41.8,cy:82.4,l:"왼발 뒤꿈치 내측"},
+  {cx:14.2,cy:83.2,l:"왼발 뒤꿈치 외측"},
+  {cx:39.36,cy:10.31,l:"왼쪽 엄지 발가락 (발바닥면)"},
+  {cx:28.01,cy:11.5,l:"왼쪽 검지 발가락 (발바닥면)"},
+  {cx:19.65,cy:12.57,l:"왼쪽 중지 발가락 (발바닥면)"},
+  {cx:12.01,cy:18.32,l:"왼쪽 약지 발가락 (발바닥면)"},
+  {cx:3.63,cy:23.9,l:"왼쪽 소지 발가락 (발바닥면)"},
+  {cx:69.32,cy:24.22,l:"오른발 발바닥 앞꿈치"},
+  {cx:32.15,cy:25.73,l:"왼발 발바닥 앞꿈치"},
+  {cx:11.99,cy:28.74,l:"왼발 발바닥 앞꿈치"},
+  {cx:92.79,cy:13.96,l:"오른쪽 약지 발가락 (발바닥면)"},
+  {cx:96.83,cy:17.61,l:"오른쪽 소지 발가락 (발바닥면)"},
+  {cx:7.61,cy:13.26,l:"왼쪽 약지 발가락 (발바닥면)"},
+  {cx:14.13,cy:7.46,l:"왼쪽 중지 발가락 (발바닥면)"},
+  {cx:9.92,cy:58.15,l:"왼발 발바닥 중앙 (외측)"},
+  {cx:40.16,cy:58.07,l:"왼발 발바닥 중앙 (내측)"},
+  {cx:91.68,cy:55.54,l:"오른발 발바닥 중앙 (외측)"},
+  {cx:61.16,cy:55.58,l:"오른발 발바닥 중앙 (내측)"}
+];
+
+var BM_ZONE_MAP = {
+  body: BM_BODY_PARTS, face: BM_FACE_PARTS, teeth: BM_TEETH_PARTS,
+  handTop: BM_HAND_TOP_PARTS, palm: BM_PALM_PARTS,
+  footTop: BM_FOOT_TOP_PARTS, footBottom: BM_FOOT_BOTTOM_PARTS
+};
+
+var _nrsColors = ["#22c55e","#4ade80","#a3e635","#facc15","#fbbf24","#f59e0b","#f97316","#ef4444","#dc2626","#991b1b"];
+
+function openBodymapModal() {
+  document.getElementById("bmModal").classList.add("active");
+  bmRenderAll();
+}
+
+function closeBodymapModal() {
+  var modal = document.getElementById("bmModal");
+  modal.classList.remove("active");
+  /* transition 끝날 때까지 pointer-events 차단은 CSS가 처리 */
+}
+
+/* object-fit:contain의 실제 이미지 영역 계산 */
+function bmActualRect(img) {
+  var r = img.getBoundingClientRect();
+  var nw = img.naturalWidth || r.width, nh = img.naturalHeight || r.height;
+  var ratio = nw / nh, cRatio = r.width / r.height;
+  var aw, ah, ox, oy;
+  if (ratio > cRatio) { aw = r.width; ah = r.width / ratio; ox = 0; oy = (r.height - ah) / 2; }
+  else { ah = r.height; aw = r.height * ratio; ox = (r.width - aw) / 2; oy = 0; }
+  return { left: r.left + ox, top: r.top + oy, width: aw, height: ah };
+}
+
+function bmNearest(parts, xPct, yPct) {
+  var best = null, bd = Infinity;
+  parts.forEach(function(p) { var d = (xPct - p.cx) * (xPct - p.cx) + (yPct - p.cy) * (yPct - p.cy); if (d < bd) { bd = d; best = p; } });
+  return best ? best.l : "미지정";
+}
+
+function bmRenderAll() {
+  /* 마커 렌더링 */
+  document.querySelectorAll(".bm-zone .bm-markers").forEach(function(ov) { ov.innerHTML = ""; });
+  _bodymapData.forEach(function(mk, mi) {
+    var zone = document.querySelector('.bm-zone[data-bm-key="' + mk.imgKey + '"] .bm-markers');
+    if (!zone) return;
+    var dot = document.createElement("div"); dot.className = "bm-marker";
+    dot.style.left = mk.x + "%"; dot.style.top = mk.y + "%";
+    if (mk.nrs === 0) { dot.style.background = "#22c55e"; dot.textContent = "✓"; }
+    else { dot.style.background = _nrsColors[Math.min((mk.nrs || 1) - 1, 9)]; dot.textContent = mk.nrs; }
+    dot.dataset.idx = mi;
+    zone.appendChild(dot);
+  });
+  /* 태그 바 */
+  var bar = document.getElementById("bmSelBar");
+  if (_bodymapData.length === 0) { bar.innerHTML = '<span class="bm-hint-text">선택된 부위가 여기에 표시됩니다</span>'; return; }
+  var h = '';
+  _bodymapData.forEach(function(mk, mi) {
+    h += '<span class="bm-tag" data-action="bm-remove" data-idx="' + mi + '">' + mk.label + (mk.nrs ? " (NRS " + mk.nrs + ")" : "") + ' ✕</span>';
+  });
+  bar.innerHTML = h;
+}
+
+/* 이미지 투명 영역 체크 — 색이 있는 부분만 클릭 허용 (프로그램과 동일) */
+function bmHasPixel(img, xPct, yPct) {
+  try {
+    if (!img._bmCache) {
+      var cv = document.createElement("canvas");
+      cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      var ctx = cv.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      img._bmCache = { ctx: ctx, w: img.naturalWidth, h: img.naturalHeight };
+    }
+    var cx = Math.floor(xPct / 100 * img._bmCache.w);
+    var cy = Math.floor(yPct / 100 * img._bmCache.h);
+    var r = 3; /* 반경 3px 검사 */
+    var sx = Math.max(0, cx - r), sy = Math.max(0, cy - r);
+    var sw = Math.min(img._bmCache.w - sx, r * 2 + 1);
+    var sh = Math.min(img._bmCache.h - sy, r * 2 + 1);
+    if (sw > 0 && sh > 0) {
+      var id = img._bmCache.ctx.getImageData(sx, sy, sw, sh).data;
+      for (var i = 3; i < id.length; i += 4) {
+        if (id[i] > 30) return true; /* 알파값 > 30 → 색이 있는 영역 */
+      }
+    }
+    return false;
+  } catch (ex) { return true; /* CORS 등 오류 시 허용 */ }
+}
+
+/* 바디맵 존 클릭 */
+document.getElementById("bmModal").addEventListener("click", function(e) {
+  var zone = e.target.closest(".bm-zone");
+  if (!zone || e.target.classList.contains("bm-marker")) return;
+  var key = zone.dataset.bmKey;
+  var parts = BM_ZONE_MAP[key]; if (!parts) return;
+  var img = zone.querySelector("img"); if (!img) return;
+  var ar = bmActualRect(img);
+  var xPct = (e.clientX - ar.left) / ar.width * 100;
+  var yPct = (e.clientY - ar.top) / ar.height * 100;
+  if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return;
+  /* 투명 영역 클릭 무시 */
+  if (!bmHasPixel(img, xPct, yPct)) return;
+  var label = bmNearest(parts, xPct, yPct);
+  var existing = _bodymapData.findIndex(function(d) { return d.imgKey === key && d.label === label; });
+  if (existing >= 0) { _bodymapData.splice(existing, 1); }
+  else { _bodymapData.push({ imgKey: key, x: xPct, y: yPct, label: label, nrs: 0 }); }
+  bmRenderAll();
+});
+
+/* 마커 클릭 → NRS 팝업 (클릭 위치 전달) */
+document.getElementById("bmModal").addEventListener("click", function(e) {
+  if (!e.target.classList.contains("bm-marker")) return;
+  e.stopPropagation();
+  var idx = parseInt(e.target.dataset.idx);
+  var mk = _bodymapData[idx]; if (!mk) return;
+  showNrsPopup(mk.label, idx, e.clientX, e.clientY);
+}, true);
+
+/* NRS 팝업 — 프로그램과 동일: 클릭 위치 옆에 작은 팝업, 번호 클릭 시 즉시 적용 */
+function showNrsPopup(label, idx, clientX, clientY) {
+  var mk = _bodymapData[idx]; if (!mk) return;
+  var old = document.getElementById("bmNrsPop"); if (old) old.remove();
+  var pop = document.createElement("div"); pop.id = "bmNrsPop";
+  var px = (clientX || 400) + 10, py = (clientY || 300) - 20;
+  if (px + 320 > window.innerWidth) px = window.innerWidth - 330;
+  if (py + 100 > window.innerHeight) py = window.innerHeight - 110;
+  if (py < 10) py = 10;
+  pop.style.cssText = "position:fixed;left:" + px + "px;top:" + py + "px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:12000;display:flex;flex-direction:column;gap:4px;align-items:center";
+  pop.innerHTML = '<div style="font-size:10px;color:#94a3b8">통증 척도(NRS)</div>'
+    + '<div style="display:flex;gap:4px" id="bmNrsButtons"></div>'
+    + '<img crossorigin="anonymous" src="../assets/bodymap/scale.png" style="width:280px;margin-top:2px;border-radius:4px" onerror="this.style.display=\'none\'">';
+  var btns = pop.querySelector("#bmNrsButtons");
+  for (var n = 1; n <= 10; n++) {
+    (function(nrs) {
+      var btn = document.createElement("button"); btn.textContent = nrs;
+      btn.style.cssText = "width:26px;height:26px;border-radius:50%;border:none;font-size:11px;font-weight:800;color:#fff;cursor:pointer;background:" + _nrsColors[Math.min(nrs - 1, 9)] + ";transition:transform .1s";
+      btn.addEventListener("mouseenter", function() { btn.style.transform = "scale(1.2)"; });
+      btn.addEventListener("mouseleave", function() { btn.style.transform = "scale(1)"; });
+      btn.addEventListener("click", function(ev) {
+        ev.stopPropagation();
+        _bodymapData[idx].nrs = nrs;
+        pop.remove();
+        bmRenderAll();
+      });
+      btns.appendChild(btn);
+    })(n);
+  }
+  /* 바깥 클릭으로 닫기 */
+  setTimeout(function() {
+    document.addEventListener("click", function closeNrs(ev) {
+      if (!pop.contains(ev.target)) { pop.remove(); document.removeEventListener("click", closeNrs); }
+    });
+  }, 50);
+  document.body.appendChild(pop);
+}
+
+/* ── 마감시간 ── */
+var _deadlineCtx = null;
+function openDeadline(secId, optId) {
+  _deadlineCtx = { secId: secId, optId: optId };
+  var info = document.getElementById("deadline-info");
+  var dl = DEADLINES[secId + "_" + optId];
+  info.textContent = dl ? "반납 시한: " + dl : "반납 시한이 설정되지 않았습니다.";
+  document.getElementById("deadline-modal").style.display = "flex";
+}
+function confirmDeadline() {
+  document.getElementById("deadline-modal").style.display = "none";
+  if (_deadlineCtx) { _selectedOptions.push({ secId: _deadlineCtx.secId, optId: _deadlineCtx.optId, label: "마감시간 확인" }); submitAndReset(_deadlineCtx.secId); }
+}
+
+/* ── 릴레이 ── */
+function sendReception(payload) {
+  if (!RELAY_URL || !RELAY_CHANNEL) return;
+  fetch(RELAY_URL + "/api/v1/kiosk/reception/" + encodeURIComponent(RELAY_CHANNEL), {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+  }).catch(function() {});
+}
+
+/* ═══════════════════════════════════
+   릴레이 WebSocket — 호출 시 대기인원 감소
+   ═══════════════════════════════════ */
+function removeFromQueue(personName) {
+  var idx = -1;
+  for (var i = 0; i < _waitQueue.length; i++) {
+    if (_waitQueue[i].name === personName) { idx = i; break; }
+  }
+  if (idx >= 0) {
+    _waitQueue.splice(idx, 1);
+    _waitCount = Math.max(0, _waitCount - 1);
+    updateQueueDisplay();
+  }
+}
+
+/* nurse_call payload 는 UID 만 들어있다 (서버에 개인정보 0).
+ * 키오스크가 PEOPLE_DATA 에서 풀네임/학년/반 조회. */
+function _lookupByUid(uid){
+  if(!uid || !Array.isArray(PEOPLE_DATA)) return null;
+  for (var i = 0; i < PEOPLE_DATA.length; i++) {
+    var p = PEOPLE_DATA[i];
+    if (p && (p.uid === uid || p.id === uid)) return p;
+  }
+  return null;
+}
+function showNurseCallBanner(payload) {
+  if (!payload) return;
+  /* 후방 호환: 옛 서버는 person_name 직접 보냈으나, 새 서버는 person.uid 만 보냄 */
+  var name = payload.person_name || "";
+  var gc   = payload.grade_class || "";
+  if (!name && payload.person && payload.person.uid) {
+    var p = _lookupByUid(payload.person.uid);
+    if (p) {
+      name = p.name || "방문자";
+      if (p.type === "staff") {
+        gc = p.position || "";
+      } else {
+        var parts = [];
+        if (p.grade) parts.push(p.grade + "학년");
+        if (p.cls)   parts.push(p.cls + "반");
+        if (p.num)   parts.push(p.num + "번");
+        gc = parts.join(" ");
+      }
+    } else {
+      name = "방문자";
+    }
+  }
+  if (!name) name = "방문자";
+  var msg = payload.message || "들어오세요.";
+  /* 대기열에서 해당 학생 제거 */
+  removeFromQueue(name);
+  /* 호출 배너 표시 */
+  var old = document.getElementById("nurseCallBanner"); if (old) old.remove();
+  var ov = document.createElement("div"); ov.id = "nurseCallBanner";
+  ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease";
+  ov.innerHTML = '<div style="background:#fff;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 16px 64px rgba(0,0,0,0.3);max-width:80vw">'
+    + '<div style="font-size:72px;margin-bottom:16px">📢</div>'
+    + '<div style="font-size:20px;color:#64748b;margin-bottom:8px">' + gc + '</div>'
+    + '<div style="font-size:36px;font-weight:800;color:#1e293b;margin-bottom:16px">' + name + ' 학생</div>'
+    + '<div style="font-size:28px;color:#0891b2;font-weight:700">' + msg + '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(function() { if (ov.parentNode) ov.remove(); }, 8000);
+}
+
+if (RELAY_URL && RELAY_CHANNEL) {
+  (function() {
+    function connect() {
+      var ws = new WebSocket(RELAY_URL.replace(/^http/, "ws") + "/ws?channel=" + encodeURIComponent(RELAY_CHANNEL) + "&role=kiosk");
+      ws.onmessage = function(e) {
+        try {
+          var m = JSON.parse(e.data);
+          if (m.type === "waitCount" || m.type === "queue_update") {
+            var c = (m.payload && m.payload.waiting_count) || m.count || 0;
+            _waitCount = c;
+            updateQueueDisplay();
+          } else if (m.type === "nurse_call") {
+            showNurseCallBanner(m.payload);
+          } else if (m.type === "roster_updated") {
+            /* 명단 갱신 */
+          }
+        } catch (x) {}
+      };
+      ws.onclose = function() { setTimeout(connect, 5000); };
+      ws.onerror = function() {};
+    }
+    connect();
+  })();
+}
+
+/* ═══════════════════════════════════
+   이벤트 위임
+   ═══════════════════════════════════ */
+document.addEventListener("click", function(ev) {
+  var t = ev.target.closest("[data-action]"); if (!t) return;
+  var act = t.getAttribute("data-action");
+  switch (act) {
+    case "go-screen": goScreen(t.getAttribute("data-target")); break;
+    case "go-back": goBack(); break;
+    case "fd-opt-action": fdOptAction(t.getAttribute("data-sec-id"), t.getAttribute("data-opt-id")); break;
+    case "submit-and-reset": submitAndReset(t.getAttribute("data-sec-id")); break;
+    case "self-reset": selfReset(t.getAttribute("data-sec-id"), t.getAttribute("data-opt-id")); break;
+    case "confirm-deadline": confirmDeadline(); break;
+    case "drill-tab": drillShowTab(t.getAttribute("data-type")); break;
+    case "drill-grade": drillSelectGrade(parseInt(t.getAttribute("data-grade"))); break;
+    case "drill-cls": drillSelectClass(t.getAttribute("data-cls")); break;
+    case "drill-select": selectPerson(parseInt(t.getAttribute("data-idx"))); break;
+    case "drill-back-grade": drillSelectGrade(_drillSelGrade); break;
+    case "bm-cancel": closeBodymapModal(); break;
+    case "bm-confirm": closeBodymapModal(); resolveTarget(); break;
+    case "bm-remove":
+      var ri = parseInt(t.getAttribute("data-idx"));
+      _bodymapData.splice(ri, 1); bmRenderAll();
+      break;
+  }
+});
+</script>
+</body>
+</html>

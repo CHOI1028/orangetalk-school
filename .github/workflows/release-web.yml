@@ -1,0 +1,119 @@
+name: Build & Release Web Version
+
+on:
+  push:
+    tags:
+      - 'web-v*'   # web-v1.0.0 형태의 태그 push 시 실행
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            artifact: OrangeTalkWeb-Windows
+            zip_cmd: 7z a -tzip
+            ext: .zip
+          - os: macos-latest
+            name: macOS
+            artifact: OrangeTalkWeb-macOS
+            zip_cmd: zip -r
+            ext: .zip
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (electron-app)
+        working-directory: electron-app
+        run: npm install --production --ignore-scripts
+
+      - name: Rebuild better-sqlite3 for Node.js
+        working-directory: electron-app
+        run: npm rebuild better-sqlite3
+
+      - name: Install express (if missing)
+        working-directory: electron-app
+        run: npm install express
+
+      - name: Build distribution
+        working-directory: electron-app
+        run: node web-server/build-dist.js
+
+      - name: Verify server starts
+        working-directory: electron-app/dist-web/OrangeTalkWeb
+        shell: bash
+        run: |
+          node web-server/server.js &
+          SERVER_PID=$!
+          sleep 4
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/)
+          kill $SERVER_PID 2>/dev/null || true
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Server health check failed: HTTP $STATUS"
+            exit 1
+          fi
+          echo "✅ Server health check passed: HTTP $STATUS"
+
+      - name: Create ZIP archive
+        working-directory: electron-app/dist-web
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a -tzip "${{ matrix.artifact }}${{ matrix.ext }}" OrangeTalkWeb/
+          else
+            zip -r "${{ matrix.artifact }}${{ matrix.ext }}" OrangeTalkWeb/
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: electron-app/dist-web/${{ matrix.artifact }}${{ matrix.ext }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "오렌지톡 웹 버전 ${{ github.ref_name }}"
+          body: |
+            ## 오렌지톡 — 웹 브라우저 버전
+
+            ### 설치 방법
+            1. 아래에서 운영체제에 맞는 파일 다운로드
+            2. 압축 해제
+            3. [Node.js LTS](https://nodejs.org) 설치 (아직 없다면)
+            4. `start.bat` (Windows) 또는 `start.command` (macOS) 더블클릭
+            5. 브라우저에서 http://localhost:3000 자동으로 열림
+
+            ### 다운로드
+            - **Windows**: `OrangeTalkWeb-Windows.zip`
+            - **macOS**: `OrangeTalkWeb-macOS.zip`
+
+            ### 데이터 저장 위치
+            - Windows: `%USERPROFILE%\.health-diary-web\data\`
+            - macOS: `~/.health-diary-web/data/`
+          files: |
+            artifacts/**/*.zip
+          draft: false
+          prerelease: false

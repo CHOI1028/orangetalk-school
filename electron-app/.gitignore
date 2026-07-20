@@ -1,0 +1,10 @@
+oauth-client.json
+api-keys.json
+node_modules/
+dist/
+# 빌드 시 생성되는 암호화 자격증명 번들 (배포 빌드에만 포함)
+src/main/services/bundled-credentials.js
+src/main/services/bundled-api-keys.js
+# 기존 평문 토큰 캐시 (마이그레이션 후 자동 삭제됨)
+.gauth_token
+.gauth_token_sheets

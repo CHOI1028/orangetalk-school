@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<!-- 오렌지톡 하단 배너(footer) 문구 편집기 — 단독 실행(설치 불필요, 브라우저로 열기).
+     ① banner.json 파일 불러오기(드래그&드롭/클릭, 필수) → ② 문구 편집 → ③ 내려받기. JSON 직접 손댈 일 없음. -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오렌지톡 — 하단 배너 문구 편집기</title>
+<style>
+  :root{ --org:#f97316; --org2:#ea580c; --bg:#fff7ed; --card:#ffffff; --bdr:#fed7aa; --t1:#1f2937; --t2:#6b7280; --ok:#16a34a; --err:#dc2626; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Malgun Gothic','맑은 고딕',system-ui,sans-serif; background:var(--bg); color:var(--t1); line-height:1.6; }
+  .wrap{ max-width:820px; margin:0 auto; padding:14px 20px 24px; }
+  .hero{ background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06)); border:1px solid var(--bdr); border-radius:14px; padding:16px 20px; text-align:center; }
+  .hero-logo{ height:38px; display:block; margin:0 auto; }
+  .hero-title{ margin-top:8px; font-size:18px; font-weight:800; color:var(--t1); }
+  .card{ background:var(--card); border:1px solid var(--bdr); border-radius:12px; padding:13px 18px; margin-top:11px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .card.must{ border-color:var(--org); border-width:1.5px; }
+  .card h2{ margin:0 0 3px; font-size:14px; font-weight:800; color:var(--org2); display:flex; align-items:center; gap:8px; }
+  .card .desc{ margin:0 0 9px; font-size:12px; color:var(--t2); line-height:1.45; }
+  .req{ font-size:11px; font-weight:800; color:#fff; background:var(--org); padding:2px 9px; border-radius:20px; }
+  textarea{ width:100%; border:1.5px solid var(--bdr); border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.8; font-family:'Malgun Gothic','맑은 고딕',monospace; color:var(--t1); resize:vertical; background:#fffdfa; }
+  textarea:focus{ outline:none; border-color:var(--org); box-shadow:0 0 0 3px rgba(249,115,22,0.12); }
+  #editor{ min-height:150px; }
+  #jsonOut{ min-height:92px; font-size:12px; background:#1f2937; color:#e5e7eb; border-color:#374151; }
+  .dropzone{ border:2px dashed var(--org); border-radius:12px; padding:26px 14px; text-align:center; cursor:pointer; background:#fffdfa; transition:background .15s, border-color .15s; }
+  .cols{ display:flex; gap:12px; align-items:flex-start; margin-top:11px; flex-wrap:wrap; }
+  .col-left{ flex:1 1 250px; min-width:230px; }
+  .col-right{ flex:2 1 340px; min-width:300px; }
+  .cols .card{ margin-top:0; }
+  .col-right .card + .card{ margin-top:11px; }
+  .dropzone:hover{ background:rgba(249,115,22,0.05); }
+  .dropzone.dragover{ background:rgba(249,115,22,0.12); border-color:var(--org2); }
+  .dz-icon{ font-size:34px; }
+  .dz-text{ margin-top:8px; font-size:14px; font-weight:800; color:var(--org2); line-height:1.6; }
+  .dz-sub{ margin-top:4px; font-size:11.5px; color:var(--t2); }
+  .dz-file{ margin-top:10px; font-size:12.5px; font-weight:700; color:var(--ok); }
+  .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  button{ font-family:inherit; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:9px; border:none; cursor:pointer; transition:transform .08s, box-shadow .12s; }
+  button:active{ transform:translateY(1px); }
+  .b-primary{ background:linear-gradient(135deg,var(--org),var(--org2)); color:#fff; box-shadow:0 4px 12px rgba(249,115,22,0.25); }
+  .status{ margin-top:12px; font-size:12.5px; font-weight:700; min-height:20px; }
+  .status.ok{ color:var(--ok); }
+  .status.err{ color:var(--err); }
+  .count{ font-size:12px; color:var(--t2); margin-top:8px; }
+  .ordrow{ display:flex; align-items:center; gap:14px; margin-bottom:10px; flex-wrap:wrap; background:#fffdfa; border:1px solid var(--bdr); border-radius:8px; padding:8px 12px; }
+  .ordlbl{ font-size:12px; font-weight:800; color:var(--org2); }
+  .ordopt{ font-size:12.5px; color:var(--t1); cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+  .note{ font-size:12px; color:var(--t2); background:#fff7ed; border:1px dashed var(--bdr); border-radius:10px; padding:12px 14px; margin-top:18px; line-height:1.7; }
+  .note b{ color:var(--org2); }
+  ol{ margin:6px 0 0; padding-left:20px; }
+  ol li{ margin-bottom:3px; font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <img src="data:image/png;base64,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" alt="오렌지톡" class="hero-logo">
+    <div class="hero-title">하단 배너 문구 편집기</div>
+  </div>
+
+  <div class="cols">
+  <div class="col-left">
+  <div class="card must">
+    <h2>① banner.json 파일 불러오기 <span class="req">필수</span></h2>
+    <p class="desc">반드시 먼저 하세요. 지금 쓰고 있는 <b>banner.json 파일</b>을 아래로 끌어다 놓거나, 칸을 클릭해 파일을 고르면 현재 문구가 ②에 채워집니다.</p>
+    <div id="dropZone" class="dropzone">
+      <div class="dz-icon">📂</div>
+      <div class="dz-text">파일을 여기로 드래그하거나 클릭하여 선택</div>
+      <div class="dz-sub">banner.json 파일</div>
+      <div class="dz-file" id="dzFile"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
+    <div class="status" id="loadStatus"></div>
+  </div>
+  </div>
+
+  <div class="col-right">
+  <div class="card">
+    <h2>② 문구 편집</h2>
+    <p class="desc">한 줄에 하나씩 입력하세요. 빈 줄은 무시됩니다. 입력하는 즉시 아래 banner.json에 바로 반영됩니다.</p>
+    <div class="ordrow">
+      <span class="ordlbl">표시 순서</span>
+      <label class="ordopt"><input type="radio" name="ord" value="sequential" checked> 순차 (적은 순서대로)</label>
+      <label class="ordopt"><input type="radio" name="ord" value="random"> 랜덤 (무작위)</label>
+    </div>
+    <textarea id="editor" spellcheck="false" placeholder="먼저 ①에서 현재 banner.json 파일을 불러오세요. 그 뒤 여기서 문구를 한 줄씩 추가·수정하면 됩니다."></textarea>
+    <div class="count" id="count"></div>
+  </div>
+
+  <div class="card">
+    <h2>생성된 banner.json <span style="font-size:11px;font-weight:600;color:var(--t2)">(자동 생성 · 수정 불가)</span></h2>
+    <p class="desc">②에서 입력하는 대로 자동으로 즉시 반영됩니다. 이 칸은 직접 수정할 수 없습니다. 아래 "내려받기"는 항상 최신 내용으로 저장됩니다.</p>
+    <textarea id="jsonOut" readonly spellcheck="false"></textarea>
+    <div class="btnrow">
+      <button class="b-primary" onclick="downloadJson()">⬇️ banner.json 내려받기</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  </div>
+  </div>
+
+  <div class="note">
+    <b>사용 순서</b>
+    <ol>
+      <li><b>①</b> 현재 banner.json 파일을 드래그하거나 클릭해서 불러옵니다 (꼭 먼저!)</li>
+      <li><b>②</b> 문구를 추가·수정합니다 (한 줄에 하나씩)</li>
+      <li>생성된 JSON 아래 <b>"내려받기"</b>로 banner.json 파일을 저장 → 설치파일과 함께 school114.org 다운로드 폴더에 저장 → 사용자 앱이 다음 실행 때 자동 갱신</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+var editor = document.getElementById('editor');
+var jsonOut = document.getElementById('jsonOut');
+var statusEl = document.getElementById('status');
+var loadStatusEl = document.getElementById('loadStatus');
+var countEl = document.getElementById('count');
+var fileInput = document.getElementById('fileInput');
+var dropZone = document.getElementById('dropZone');
+var dzFile = document.getElementById('dzFile');
+
+function linesToArray(){
+  return editor.value.split('\n').map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+}
+function updateCount(){ countEl.textContent = '현재 ' + linesToArray().length + '개 문구'; }
+function setStatus(el, msg, ok){ el.textContent = msg; el.className = 'status ' + (ok ? 'ok' : 'err'); }
+function getOrder(){
+  var r = document.querySelector('input[name="ord"]:checked');
+  return (r && r.value === 'random') ? 'random' : 'sequential';
+}
+/* 입력하는 대로 banner.json 을 자동 생성 (footer + order). */
+function regen(){
+  var arr = linesToArray();
+  jsonOut.value = arr.length ? JSON.stringify({ footer: arr, order: getOrder() }, null, 2) : '';
+  return arr;
+}
+
+/* ── ① 파일 불러오기 (드래그&드롭 / 클릭 선택) ── */
+dropZone.addEventListener('click', function(){ fileInput.click(); });
+fileInput.addEventListener('change', function(){ if(fileInput.files && fileInput.files[0]) readFile(fileInput.files[0]); });
+dropZone.addEventListener('dragover', function(e){ e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', function(e){
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+
+function readFile(file){
+  if(!/\.json$/i.test(file.name)){ setStatus(loadStatusEl, '❌ .json 파일만 불러올 수 있습니다.', false); return; }
+  var reader = new FileReader();
+  reader.onload = function(){ loadFromText(String(reader.result), file.name); };
+  reader.onerror = function(){ setStatus(loadStatusEl, '❌ 파일을 읽지 못했습니다.', false); };
+  reader.readAsText(file, 'utf-8');
+}
+function loadFromText(raw, fname){
+  var obj;
+  try{ obj = JSON.parse(raw); }
+  catch(e){ setStatus(loadStatusEl, '❌ JSON 형식이 올바르지 않습니다. (' + e.message + ')', false); return; }
+  var arr = obj && obj.footer;
+  if(!Array.isArray(arr)){ setStatus(loadStatusEl, '❌ "footer" 목록을 찾을 수 없습니다. (올바른 banner.json 인지 확인)', false); return; }
+  editor.value = arr.map(function(s){ return String(s); }).join('\n');
+  var ord = (obj.order === 'random') ? 'random' : 'sequential';
+  var ordEl = document.querySelector('input[name="ord"][value="' + ord + '"]'); if(ordEl) ordEl.checked = true;
+  updateCount(); regen();
+  dzFile.textContent = '📄 ' + (fname || 'banner.json') + ' · ' + arr.length + '개 문구 불러옴';
+  setStatus(loadStatusEl, '↩️ ' + arr.length + '개 문구를 불러왔습니다. 이제 ②에서 수정하세요.', true);
+  editor.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+/* ── ③ 내려받기 ── */
+function downloadJson(){
+  var arr = regen();
+  if(!arr.length){ setStatus(statusEl, '⚠️ 문구를 한 줄 이상 입력해 주세요. (먼저 ①에서 파일 불러오기)', false); return; }
+  var blob = new Blob([jsonOut.value], { type:'application/json;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'banner.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  setStatus(statusEl, '⬇️ banner.json 파일을 내려받았습니다. (' + arr.length + '개 문구)', true);
+}
+
+editor.addEventListener('input', function(){ updateCount(); regen(); });
+Array.prototype.forEach.call(document.querySelectorAll('input[name="ord"]'), function(r){ r.addEventListener('change', regen); });
+updateCount();
+regen();
+</script>
+</body>
+</html>

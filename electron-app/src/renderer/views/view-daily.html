@@ -1,0 +1,181 @@
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+  <div id="view-daily" class="view fade-in">
+    <div style="display:none"><h1 id="dailyTitle"></h1><p id="dailySubtitle"></p></div>
+    <div style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
+      <div class="magic-index-tab active" data-cat="general">일반 일지</div>
+      <div class="magic-index-tab" data-cat="emergency">응급처치 기록 &amp; 리스트</div>
+      <div class="magic-index-tab" data-cat="infection">감염병 관리 &amp; 리스트</div>
+    </div>
+    <div class="magic-chart-body" style="padding:16px">
+
+    <!-- SUB: 일반 일지 -->
+    <div id="dailyCat-general" class="daily-cat-content active" style="position:relative">
+      <!-- 전광판: 최대화 시 기준 위치 고정 (right:0) — 창 축소 시 캔버스 가로 스크롤로 접근 -->
+      <div id="dailyVisitorCount" class="flip-group" style="position:absolute;right:0;top:3px;z-index:50"></div>
+      <!-- 검색 행: 고정 -->
+      <div style="display:flex;align-items:center;gap:3px;position:absolute;left:0;top:0;z-index:100">
+        <div class="autocomplete-wrap" style="width:300px;position:relative;flex-shrink:0">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none;z-index:1">🔍</span>
+          <input type="text" lang="ko" inputmode="text" class="form-input" id="dailySearchInput" data-no-auto-save placeholder="이름 검색 (일지에 등록)" style="font-size:11px;padding-left:30px;padding-right:60px;width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;padding-top:8px;padding-bottom:8px">
+          <button id="dailyAdvSearchBtn" class="adv-search-hover-btn" data-tooltip="이름으로 검색합니다." style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1;z-index:2">상세 검색</button>
+          <div class="autocomplete-list" id="dailyACList"></div>
+        </div>
+        <button class="btn-add" id="dailyAddPersonBtn" data-tooltip="인원 추가 등록/변경/삭제 등을 관리합니다." style="white-space:nowrap;min-width:fit-content;padding:0 10px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);flex-shrink:0;transition:all .15s;border-radius:6px;cursor:pointer">👥 인원 데이터 관리</button>
+        <button id="medFacilityBtn" data-tooltip="학교 인근 병원, 약국, 응급실을 검색합니다." style="white-space:nowrap;padding:0 6px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;font-weight:600;background:rgba(245,158,11,0.12);color:#d97706;border:1px solid rgba(245,158,11,0.3);flex-shrink:0;transition:all .15s;border-radius:6px;cursor:pointer">🗺️ 의료기관 탐색</button>
+        <button id="drugSearchBtn" data-tooltip="약품명을 검색하여 'e약은요' 데이터를 조회합니다." style="white-space:nowrap;padding:0 8px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;font-weight:600;background:rgba(14,165,233,0.1);color:#0284c7;border:1px solid rgba(14,165,233,0.3);flex-shrink:0;transition:all .15s;border-radius:6px;cursor:pointer">💊 약품 검색</button>
+        <button id="dailyTodayMemoBtn" data-tooltip="클릭하여 활성화 또는 비활성화할 수 있습니다." style="white-space:nowrap;padding:0 8px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;font-weight:600;background:rgba(148,163,184,0.12);color:#64748b;border:1px solid rgba(148,163,184,0.35);flex-shrink:0;transition:all .15s;border-radius:6px;cursor:pointer">📝 오늘의 메모</button>
+      </div>
+      <!-- 2행: 버튼 (가로 스크롤) -->
+      <div id="dailyToolbarWrap" style="overflow-x:auto;scrollbar-width:thin;position:relative;margin-bottom:2px;margin-top:46px;padding-bottom:2px">
+      <div style="display:flex;align-items:center;gap:3px;min-width:1100px">
+<button id="btnPrevDay" style="white-space:nowrap;min-width:fit-content;height:32px;padding:0 6px;background:rgba(34,197,94,0.12);color:#16a34a;border:1px solid rgba(34,197,94,0.3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box" title="전날 보건일지">◀</button>
+<span style="white-space:nowrap;height:32px;padding:0 10px;min-width:140px;justify-content:center;background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.25);border-radius:6px;font-size:11px;font-weight:700;user-select:none;display:inline-flex;align-items:center;box-sizing:border-box" id="dailyDateLabel">오늘의 보건일지</span>
+<button id="btnNextDay" style="white-space:nowrap;min-width:fit-content;height:32px;padding:0 6px;background:rgba(34,197,94,0.12);color:#16a34a;border:1px solid rgba(34,197,94,0.3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box" title="다음날 보건일지">▶</button>
+<button class="btn-add" id="dailyQuickMsgBtn" data-tooltip="자주 사용하는 문구를 복사하여 전송할 수 있습니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">💬 상용 메시지</button>
+<button class="btn-add" id="dailyColSelectorBtn" data-tooltip="현재 일지에 무엇이 보이게 할 것인지 결정합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🔧 열 필드 설정</button>
+<button class="btn-add" id="dailyRentalLedgerBtn" data-tooltip="보건실 물품 대여를 관리합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">📦 물품 대여 대장</button>
+<button class="btn-add btn-open-visit-pass" id="dailyVisitPassBtn" data-tooltip="보건실 방문 확인증 또는 커스텀 양식을 출력합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🖨 커스텀 양식 출력</button>
+<button class="btn-add" id="dailyDiaryPrintBtn" data-tooltip="원하는 기간과 내용을 선택하여 일지를 출력합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">📋 일지 출력</button>
+<button class="btn-add" id="dailySortAscBtn" data-tooltip="입실 시간이 이른 학생 순으로 위에서 아래로 정렬됩니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↑ 오름차순</button>
+<button class="btn-add" id="dailySortDescBtn" data-tooltip="입실 시간이 늦은 학생 순으로 위에서 아래로 정렬됩니다.&#10;다른 식의 정렬 (학년반, 번호, 성별, 오름차순 정렬)이 되어 있더라도 방문자 등록이 이뤄지면 그 즉시 내림차순으로 재정렬되어 가장 최근 방문자가 가장 위에 위치하게 됩니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↓ 내림차순</button>
+      </div>
+      </div><!-- /dailyToolbarWrap -->
+      <!-- 오늘의 메모 아코디언 — today-memo.js 가 제어 (토글 ON 시 표시) -->
+      <div id="dailyTodayMemo" style="display:none;margin:6px 0 4px"></div>
+      <div id="dailyTableOuter" style="position:relative;margin-top:4px">
+      <!-- 로딩/전환 안내 오버레이 (position:absolute — 레이아웃 흐름 밖, 표 너비·스크롤에 영향 0) -->
+      <style>
+        #dailyLoadingOverlay .daily-loading-dots{display:inline-block;width:1.6em;text-align:left}
+        #dailyLoadingOverlay .daily-loading-dots::after{content:".";animation:dailyLoadingDots 1.4s infinite}
+        @keyframes dailyLoadingDots{0%{content:"."}20%{content:".."}40%{content:"..."}60%{content:".."}80%{content:"."}100%{content:"."}}
+      </style>
+      <div id="dailyLoadingOverlay" style="position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--t2);font-size:15px;font-weight:700;letter-spacing:0.3px;pointer-events:auto">Loading<span class="daily-loading-dots"></span></div>
+      <div class="cc" id="dailyTableWrap" style="overflow-y:auto;overflow-x:auto;padding:0;scrollbar-width:thin">
+        <table class="rec-table" id="recTable" style="width:100%;visibility:hidden">
+          <thead style="position:sticky;top:0;z-index:10;background:var(--bg2)"><tr style="background:var(--bg2)">
+            <th data-col-index="0" style="width:24px">순</th>
+            <th data-col-index="19" style="width:36px" id="thSchoolLevelCol">학교급</th>
+            <th data-col-index="17" style="width:36px" id="thMajorCol">학과</th>
+            <th data-col-index="1" style="width:58px;cursor:pointer;user-select:none" data-sort="grade" id="thGradeClass">학년반(소속)<span id="_sortArrow_grade" style="font-size:9px;margin-left:2px;opacity:0.4"></span></th>
+            <th data-col-index="2" style="width:28px;cursor:pointer;user-select:none" data-sort="num">번호<span id="_sortArrow_num" style="font-size:9px;margin-left:2px;opacity:0.4"></span></th>
+            <th data-col-index="3" style="width:34px;cursor:pointer;user-select:none" data-sort="care">요보호<span id="_sortArrow_care" style="font-size:9px;margin-left:2px;opacity:0.4"></span></th>
+            <th data-col-index="15" style="width:28px">VIP</th>
+            <th data-col-index="4" style="width:52px">이름</th>
+            <th data-col-index="5" style="width:28px;cursor:pointer;user-select:none" data-sort="gender">성별<span id="_sortArrow_gender" style="font-size:9px;margin-left:2px;opacity:0.4"></span></th>
+            <th data-col-index="16" style="width:34px">바디맵</th>
+            <th data-col-index="6" style="width:13%">증상<span class="header-tooltip-wrap" data-tooltip="선택한 증상은 통계 처리되어 다양하게 활용할 수 있습니다.">ⓘ</span></th>
+            <th data-col-index="8" style="width:19%">처치</th>
+            <!-- 의약품 컬럼 삭제, 학교급(idx:19) 추가 -->
+            <th data-col-index="10" style="width:38px;cursor:pointer;user-select:none" data-sort="timeIn">입실<span id="_sortArrow_timeIn" style="font-size:9px;margin-left:2px;opacity:0.4"></span></th>
+            <th data-col-index="11" style="width:38px;cursor:pointer;user-select:none" data-sort="timeOut">퇴실<span id="_sortArrow_timeOut" style="font-size:9px;margin-left:2px;opacity:0.4"></span></th>
+            <th data-col-index="12" style="width:36px">V/S</th>
+            <th data-col-index="13" style="width:50px">처치자</th>
+            <th data-col-index="14" style="width:auto;min-width:72px">주의사항(메모)</th>
+          </tr></thead>
+          <tbody id="recBody"></tbody>
+        </table>
+        <!-- 부팅 직후 DB 로딩 안내 — 정적 HTML 로 미리 표시. renderDaily()가 데이터 도착 후 자동으로 숨김. -->
+        <div class="daily-empty-msg" style="display:block;text-align:center;padding:56px 0;color:var(--t3);font-size:12px;width:100%">로딩 중입니다. 잠시만 기다려주세요.</div>
+      </div>
+      </div><!-- /dailyTableOuter -->
+    </div>
+
+    <div id="dailyCat-emergency" class="daily-cat-content">
+      <div class="ec-wrap">
+        <div id="ecVisitorCount" class="flip-group" style="position:absolute;right:0;top:4px;z-index:50"></div>
+        <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <div class="autocomplete-wrap" style="width:300px;position:relative">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none;z-index:1">🔍</span>
+            <input type="text" lang="ko" inputmode="text" class="form-input" id="ecSearchInput" data-no-auto-save placeholder="이름 검색 (응급기록지 작성)" style="font-size:11px;padding-left:30px;padding-right:60px;width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;padding-top:8px;padding-bottom:8px">
+            <button id="ecAdvSearchBtn" class="adv-search-hover-btn" data-tooltip="이름으로 검색합니다." style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1;z-index:2">상세 검색</button>
+            <div class="autocomplete-list" id="ecACList"></div>
+          </div>
+        </div>
+        <div class="ec-search-bar" style="gap:6px;justify-content:space-between;position:relative">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
+            <span id="ecYearLabel" style="display:none"></span>
+            <button class="btn-add" id="ecPrintListBtn" data-tooltip="선택된 응급처치 개별 기록을 인쇄합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🖨 응급처치 개별 기록 출력</button>
+            <button class="btn-add" id="ecPrintTableBtn" data-tooltip="응급처치 기록 전체를 리스트 형태로 출력합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🖨 응급처치 기록표 출력</button>
+            <button class="btn-add" id="ecColSelectorBtn" data-tooltip="응급처치 리스트에 무엇이 보이게 할 것인지 결정합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🔧 열 필드 설정</button>
+            <button class="btn-add" id="ecSortAscBtn" data-tooltip="작성일이 이른 순으로 정렬합니다." style="white-space:nowrap;min-width:fit-content;padding:0 8px;font-size:11px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↑ 오름차순</button>
+            <button class="btn-add" id="ecSortDescBtn" data-tooltip="작성일이 최근인 순으로 정렬합니다." style="white-space:nowrap;min-width:fit-content;padding:0 8px;font-size:11px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↓ 내림차순</button>
+          </div>
+        </div>
+        <!-- Records list -->
+        <div class="cc" style="overflow-x:auto;padding:10px;scrollbar-width:thin;position:relative;margin-top:8px" id="ecListCard">
+          <table class="ec-list-table" id="ecListTable">
+            <thead><tr>
+              <th data-col-index="0" style="width:36px;text-align:center">순</th>
+              <th data-col-index="1" style="width:90px">작성일</th>
+              <th data-col-index="12" style="width:42px;text-align:center">학교급</th>
+              <th data-col-index="2" style="width:50px">학년반</th>
+              <th data-col-index="3" style="width:40px">번호</th>
+              <th data-col-index="4" style="width:66px">요보호</th>
+              <th data-col-index="5" style="width:60px">이름</th>
+              <th data-col-index="6" style="width:130px">사고발생시간</th>
+              <th data-col-index="7">발생장소</th>
+              <th data-col-index="8">V/S</th>
+              <th data-col-index="9" style="width:56px">이송여부</th>
+              <th data-col-index="10">이송기관명</th>
+              <th data-col-index="11" style="width:70px;text-align:center">주의사항(메모)</th>
+            </tr></thead>
+            <tbody id="ecListBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="dailyCat-infection" class="daily-cat-content">
+      <div class="inf-wrap">
+        <div id="infVisitorCount" class="flip-group" style="position:absolute;right:0;top:4px;z-index:50"></div>
+        <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <div class="autocomplete-wrap" style="width:300px;position:relative">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none;z-index:1">🔍</span>
+            <input type="text" lang="ko" inputmode="text" class="form-input" id="infSearchInput" data-no-auto-save placeholder="이름 검색 (감염병 관리 기록지 작성)" style="font-size:11px;padding-left:30px;padding-right:60px;width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;padding-top:8px;padding-bottom:8px">
+            <button id="infAdvSearchBtn" class="adv-search-hover-btn" data-tooltip="이름으로 검색합니다." style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1;z-index:2">상세 검색</button>
+            <div class="autocomplete-list" id="infACList"></div>
+          </div>
+        </div>
+        <div class="inf-search-bar" style="gap:6px;justify-content:space-between;position:relative">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
+            <span id="infYearLabel" style="display:none"></span>
+            <button class="btn-add" id="infPrintListBtn" data-tooltip="선택된 감염병 개별 기록을 인쇄합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🖨 감염병 개별 기록 출력</button>
+            <button class="btn-add" id="infPrintTableBtn" data-tooltip="감염병 기록 전체를 리스트 형태로 출력합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🖨 감염병 기록표 출력</button>
+            <button class="btn-add" id="infColSelectorBtn" data-tooltip="감염병 리스트에 무엇이 보이게 할 것인지 결정합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🔧 열 필드 설정</button>
+            <button class="btn-add" id="infSortAscBtn" data-tooltip="작성일이 이른 순으로 정렬합니다." style="white-space:nowrap;min-width:fit-content;padding:0 8px;font-size:11px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↑ 오름차순</button>
+            <button class="btn-add" id="infSortDescBtn" data-tooltip="작성일이 최근인 순으로 정렬합니다." style="white-space:nowrap;min-width:fit-content;padding:0 8px;font-size:11px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↓ 내림차순</button>
+          </div>
+        </div>
+        <!-- Records list -->
+        <div class="cc" style="overflow-x:auto;padding:10px;scrollbar-width:thin;position:relative;margin-top:8px" id="infListCard">
+          <table class="inf-list-table" id="infListTable">
+            <thead><tr>
+              <th data-col-index="0" style="width:36px;text-align:center">순</th>
+              <th data-col-index="1" style="width:80px">작성일</th>
+              <th data-col-index="13" style="width:42px;text-align:center">학교급</th>
+              <th data-col-index="2" style="width:50px">학년반</th>
+              <th data-col-index="3" style="width:40px">번호</th>
+              <th data-col-index="4" style="width:66px">요보호</th>
+              <th data-col-index="5" style="width:60px">이름</th>
+              <th data-col-index="6" style="width:80px">진단일</th>
+              <th data-col-index="7" style="width:80px">감염병명</th>
+              <th data-col-index="8">주요 증상</th>
+              <th data-col-index="9" style="width:70px;text-align:center">등교중지</th>
+              <th data-col-index="10" style="width:90px">등교중지개시일시</th>
+              <th data-col-index="11" style="width:90px">등교재개일시</th>
+              <th data-col-index="12" style="width:70px;text-align:center">주의사항(메모)</th>
+            </tr></thead>
+            <tbody id="infListBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- SUB: 키오스크 관리 -->
+    <div id="dailyCat-kiosk" class="daily-cat-content">
+      <div id="kiosk-home"></div>
+    </div>
+
+    </div><!-- /magic-chart-body -->
+  </div>

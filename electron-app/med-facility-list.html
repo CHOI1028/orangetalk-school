@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+<!--
+  의료기관 탐색 — 동료 협업 / 원격 모드 (web-server 클라이언트 전용)
+  - 카카오맵 SDK 로드 안 함 (도메인 검사 회피)
+  - 카카오 키워드 검색 REST + 심평원 + 응급의료 결과를 카드 리스트로 표시
+  - 좌측: 정적 SVG 지도 (마커는 학교 위치 기준 위·경도 비례 배치)
+  - 카드 클릭 → 카카오맵 공식 사이트(map.kakao.com) 새 탭 — 여기서 인터랙티브 지도 사용
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>의료기관 탐색 (동료 협업 모드)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans KR','Apple SD Gothic Neo','맑은 고딕',sans-serif;background:#f5f7fa;color:#1a1a2e;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .header{padding:10px 16px;background:linear-gradient(180deg,#f5f7fa,#ebeef4);border-bottom:1px solid #d1d5db;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .header .ic{font-size:18px}
+  .header .title{font-size:14px;font-weight:800;flex:1}
+  .header .badge{font-size:10px;padding:3px 9px;border-radius:10px;background:rgba(6,182,212,0.10);color:#06b6d4;font-weight:700}
+  .header .schoolAddr{font-size:10px;color:#718096;font-weight:500;margin-right:6px}
+  .notice{background:rgba(6,182,212,0.06);border-left:3px solid #06b6d4;padding:7px 14px;font-size:10.5px;color:#4b5563;flex-shrink:0}
+  .notice b{color:#1a1a2e}
+  .tab-bar{display:flex;background:#fff;border-bottom:1px solid #d1d5db;flex-shrink:0}
+  .tab{flex:1;padding:9px;text-align:center;font-size:12px;font-weight:700;color:#9ca3af;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+  .tab:hover{color:#06b6d4}
+  .tab.active{color:#06b6d4;border-bottom-color:#06b6d4}
+  .toolbar{padding:8px 14px;background:#fff;border-bottom:1px solid #f1f3f5;display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+  .toolbar select,.toolbar input{padding:6px 9px;font-size:11.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#1a1a2e;font-family:inherit;outline:none}
+  .toolbar select{min-width:110px}
+  .toolbar input{flex:1;min-width:160px}
+  .toolbar select:focus,.toolbar input:focus{border-color:#06b6d4}
+  .toolbar .sep{color:#d1d5db}
+  .toolbar .loc{font-size:10px;color:#718096;display:flex;align-items:center;gap:4px;flex-shrink:0;white-space:nowrap}
+  .toolbar .loc b{color:#1a1a2e;font-weight:700}
+  .body-wrap{flex:1;display:grid;grid-template-columns:1.05fr 1fr;gap:0;overflow:hidden}
+  .map-area{padding:10px;border-right:1px solid #e2e8f0;background:#fff;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+  .map-frame{position:relative;flex:1;min-height:280px;border-radius:10px;overflow:hidden;border:1px dashed #cbd5e1;background:#fafbfc;display:flex;align-items:center;justify-content:center;padding:20px}
+  .map-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#475569;font-size:13px;text-align:center;line-height:1.8}
+  .map-empty .ic{font-size:46px;margin-bottom:14px;opacity:0.45}
+  .map-empty .title{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:10px}
+  .map-empty .sub{font-size:11px;color:#718096;font-weight:500;line-height:1.7}
+  .map-empty .sub b{color:#06b6d4;font-weight:700}
+  .list-area{padding:10px;overflow-y:auto;background:#f5f7fa}
+  .list-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#718096;margin-bottom:8px;padding:0 4px}
+  .list-head b{color:#1a1a2e;font-weight:700}
+  .card{display:grid;grid-template-columns:28px 1fr auto;gap:10px;padding:9px 11px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;margin-bottom:6px;cursor:pointer;transition:all .12s}
+  .card:hover{background:rgba(6,182,212,0.04);border-color:#06b6d4;transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,0.04)}
+  .card.selected{border-color:#06b6d4;background:rgba(6,182,212,0.06);box-shadow:0 0 0 2px rgba(6,182,212,0.20)}
+  .card .num-pin{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:10.5px;box-shadow:0 2px 4px rgba(0,0,0,0.18)}
+  .card .info{min-width:0}
+  .card .info .name{font-size:12.5px;font-weight:700;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .info .name .dept{font-size:10px;color:#9ca3af;font-weight:500;margin-left:4px}
+  .card .info .meta{font-size:10.5px;color:#4b5563;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .info .extra{font-size:9.5px;color:#9ca3af;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+  .card .info .phone{color:#06b6d4;font-weight:700}
+  .card .action{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .card .distance{font-size:11px;font-weight:800;color:#1a1a2e;white-space:nowrap}
+  .card .more{font-size:9.5px;color:#06b6d4;font-weight:700;white-space:nowrap}
+  .empty{padding:30px 20px;text-align:center;color:#9ca3af;font-size:11.5px;line-height:1.7}
+  .empty .ic{font-size:30px;margin-bottom:6px;display:block;opacity:0.5}
+  .loading{padding:30px 20px;text-align:center;color:#9ca3af;font-size:11.5px}
+  .loading .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(6,182,212,0.20);border-top-color:#06b6d4;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{padding:14px 16px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#b91c1c;line-height:1.7}
+  .err b{color:#7f1d1d}
+  .footer{padding:7px 14px;border-top:1px solid #e2e8f0;background:#fff;font-size:9.5px;color:#9ca3af;text-align:center;flex-shrink:0}
+</style>
+<script>
+/* electronAPI 자동 주입 — 웹 브라우저 모드(web-server) 일 때만.
+   med-facility.html 과 동일 패턴. */
+if (!window.electronAPI) {
+  var _br = document.createElement('script');
+  _br.src = '/web-server/web-api-bridge.js';
+  document.head.appendChild(_br);
+}
+</script>
+</head>
+<body>
+
+<div class="header">
+  <span class="ic">🗺️</span>
+  <span class="title">의료기관 탐색</span>
+  <span class="badge">동료 협업 모드</span>
+  <span class="schoolAddr" id="schoolAddrDisplay"></span>
+</div>
+
+<div class="notice">
+  💡 동료 협업 모드에서는 지도가 표시되지 않습니다. 의료기관 데이터는 정상 검색·표시되며, 자세한 위치·길찾기는 카드의 <b>"📍 자세히 →"</b> 버튼을 눌러 카카오맵에서 보세요.
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" data-mode="hospital">⚕ 병원</div>
+  <div class="tab" data-mode="emergency">🚨 응급실</div>
+  <div class="tab" data-mode="pharmacy">💊 약국</div>
+</div>
+
+<div class="toolbar">
+  <select id="deptSel">
+    <option value="">전체 진료과</option>
+    <option>내과</option><option>외과</option><option>정형외과</option><option>신경외과</option>
+    <option>소아청소년과</option><option>이비인후과</option><option>안과</option><option>피부과</option>
+    <option>비뇨의학과</option><option>산부인과</option><option>신경과</option><option>재활의학과</option>
+    <option>가정의학과</option><option>응급의학과</option><option>치과</option><option>정신건강의학과</option>
+  </select>
+  <span class="sep">|</span>
+  <input id="searchInput" placeholder="병원/약국 이름 검색 (선택)">
+  <span class="loc">📍 기준위치 <b id="schoolNameLabel">—</b></span>
+</div>
+
+<div class="body-wrap">
+  <div class="map-area">
+    <div class="map-frame" id="mapFrame">
+      <div class="map-empty" id="mapEmpty">
+        <div class="ic">🗺️</div>
+        <div class="title">웹 브라우저를 통해 클라이언트로<br>접속하는 경우 지도가 표시되지 않습니다.</div>
+        <div class="sub">의료기관 데이터는 정상 표시됩니다.<br>오른쪽 목록에서 결과를 확인하고,<br>카드의 <b>"📍 자세히 →"</b> 로 카카오맵에서 위치를 확인하세요.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="list-area">
+    <div class="list-head">
+      <span>총 <b id="resultCount">0</b>건</span>
+      <span id="sortLabel">거리순 ▾</span>
+    </div>
+    <div id="listPanel">
+      <div class="empty">
+        <span class="ic">🏥</span>
+        진료과를 선택하거나 병원명을 입력해 주세요.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer" id="footerText">
+  출처: 카카오 로컬 API · 건강보험심사평가원 · 국립중앙의료원
+</div>
+
+<script>
+'use strict';
+
+/* ────── URL 파라미터 파싱 ────── */
+var _p = new URLSearchParams(location.search);
+var _schoolName = decodeURIComponent(_p.get('school') || '');
+var _eduOffice = decodeURIComponent(_p.get('edu') || '');
+var _hiraKey = decodeURIComponent(_p.get('hira') || '');
+var _emgKey = decodeURIComponent(_p.get('emg') || '');
+var _schoolAddr = decodeURIComponent(_p.get('addr') || '');
+var _initMode = decodeURIComponent(_p.get('mode') || '') || 'hospital';
+var _kakaoRest = decodeURIComponent(_p.get('kakaoRest') || '');
+var _schoolLat = parseFloat(_p.get('lat') || '0') || null;
+var _schoolLng = parseFloat(_p.get('lng') || '0') || null;
+
+/* 헤더에 학교명·주소 표시 */
+document.getElementById('schoolNameLabel').textContent = _schoolName || '—';
+document.getElementById('schoolAddrDisplay').textContent = _schoolAddr || '';
+
+/* ────── 상태 ────── */
+var _curMode = _initMode;        /* hospital | emergency | pharmacy */
+var _curResults = [];            /* 현재 화면에 표시 중인 결과 */
+var _selectedIdx = -1;           /* 카드/마커 선택 */
+var _searchTimer = null;
+var _curAbort = null;
+
+/* ────── 마커 색상 팔레트 (1~10번 다른 색) ────── */
+var _MARKER_COLORS = [
+  '#ef4444', '#06b6d4', '#8b5cf6', '#10b981', '#ec4899',
+  '#f59e0b', '#6366f1', '#14b8a6', '#f97316', '#84cc16'
+];
+
+/* ────── 거리 계산 (Haversine, km) ────── */
+function _haversine(lat1, lng1, lat2, lng2) {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
+  var R = 6371;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLng = (lng2 - lng1) * Math.PI / 180;
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* ────── HTML escape ────── */
+function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+/* ────── electronAPI 준비 대기 (웹 브라우저는 web-api-bridge 비동기 로드) ────── */
+function _waitElectronAPI(retries) {
+  return new Promise(function(resolve, reject) {
+    var n = retries || 50;
+    (function tick() {
+      if (window.electronAPI && window.electronAPI.kakaoKeywordSearch) return resolve();
+      if (--n <= 0) return reject(new Error('electronAPI 미주입 — web-api-bridge.js 로드 실패'));
+      setTimeout(tick, 100);
+    })();
+  });
+}
+
+/* ────── 모드별 toolbar 가시성 (호스트 med-facility.html 과 동일 동작) ──
+ *  병원 탭 → 진료과 드롭다운 + 검색창 표시
+ *  응급실/약국 탭 → 진료과 드롭다운 + 구분선 숨김 (검색창은 유지) */
+function _applyModeUI() {
+  var isHospital = (_curMode === 'hospital');
+  var sel = document.getElementById('deptSel');
+  if (sel) sel.style.display = isHospital ? 'inline-block' : 'none';
+  /* deptSel 옆 구분선 '|' 도 함께 숨김 */
+  var seps = document.querySelectorAll('.toolbar .sep');
+  seps.forEach(function(s){ s.style.display = isHospital ? 'inline' : 'none'; });
+}
+
+/* ────── 탭 전환 ────── */
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    t.classList.add('active');
+    _curMode = t.dataset.mode;
+    _applyModeUI();
+    _scheduleSearch();
+  });
+});
+/* 초기 탭 선택 (URL ?mode= 반영) */
+document.querySelectorAll('.tab').forEach(function(t) {
+  if (t.dataset.mode === _curMode) {
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('active'); });
+    t.classList.add('active');
+  }
+});
+_applyModeUI();
+
+/* ────── 진료과/검색어 변경 ────── */
+document.getElementById('deptSel').addEventListener('change', _scheduleSearch);
+document.getElementById('searchInput').addEventListener('input', _scheduleSearch);
+
+function _scheduleSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(_runSearch, 300);
+}
+
+/* ────── 검색 실행 ────── */
+function _runSearch() {
+  var dept = document.getElementById('deptSel').value || '';
+  var q = (document.getElementById('searchInput').value || '').trim();
+
+  /* 키워드 결정: 사용자 입력 우선, 없으면 진료과+모드 */
+  var keyword = q;
+  if (!keyword) {
+    if (_curMode === 'emergency') keyword = '응급실';
+    else if (_curMode === 'pharmacy') keyword = '약국';
+    else if (dept) keyword = dept;
+    else keyword = '병원';
+  }
+
+  /* 학교 좌표 없으면 안내 */
+  if (!_schoolLat || !_schoolLng) {
+    _renderError(
+      '학교 위치 좌표가 없습니다.<br><br>' +
+      '<b>해결:</b> 호스트(또는 공용) PC 의 오렌지톡에서 ' +
+      '<b>설정 → API 키 관리 → 기준위치(학교) 주소</b> 를 먼저 입력 후 반영해 주세요.'
+    );
+    return;
+  }
+  if (!_kakaoRest) {
+    _renderError(
+      '카카오 REST API 키가 없습니다.<br><br>' +
+      '<b>해결:</b> 호스트(또는 공용) PC 의 <b>설정 → API 키 관리 → 카카오 개발자 API</b> 에서 ' +
+      'REST API 키를 입력하고 반영해 주세요. 카카오 어플리케이션의 <b>카카오맵 서비스 활성화</b> 도 필수입니다.'
+    );
+    return;
+  }
+
+  _renderLoading();
+
+  /* 진행 중인 호출 취소 */
+  if (_curAbort) _curAbort.aborted = true;
+  var myAbort = { aborted: false };
+  _curAbort = myAbort;
+
+  _waitElectronAPI(50).then(function() {
+    return window.electronAPI.kakaoKeywordSearch(keyword, _schoolLng, _schoolLat, 5000, 1, _kakaoRest);
+  }).then(function(res) {
+    if (myAbort.aborted) return;
+    if (!res || !res.success || !res.data) {
+      _renderError(
+        '카카오 검색 실패' +
+        (res && res.error ? ' — ' + _esc(res.error) : '') +
+        '<br><br>호스트 PC 의 카카오 어플리케이션에서 <b>"카카오맵" 서비스가 활성화(ON)</b> 되어 있는지 확인해 주세요.'
+      );
+      return;
+    }
+    var items = (res.data || []).slice();
+    /* 호스트 med-facility.html 과 동일한 제외 키워드 (place_name 또는 category_name 매칭).
+     *  사용자 요청: 클라이언트 결과에 동물병원·요양원 등이 섞이지 않도록 동일 필터 적용. */
+    var EXCLUDE = ['동물','수의','산후','요양'];
+    items = items.filter(function(d){
+      var nm = (d.place_name || '').toLowerCase();
+      var cn = (d.category_name || '').toLowerCase();
+      for (var i = 0; i < EXCLUDE.length; i++) {
+        if (nm.indexOf(EXCLUDE[i]) !== -1 || cn.indexOf(EXCLUDE[i]) !== -1) return false;
+      }
+      return true;
+    });
+    /* 모드별 후처리: 약국은 카카오 카테고리로 필터, 응급실은 키워드로 이미 응급실, 병원은 진료과 추가 필터 */
+    if (_curMode === 'pharmacy') {
+      items = items.filter(function(d){ return (d.category_group_code === 'PM9') || /약국/.test(d.place_name || ''); });
+    } else if (_curMode === 'emergency') {
+      items = items.filter(function(d){ return /응급/.test(d.place_name || '') || /응급/.test(d.category_name || ''); });
+    } else {
+      /* 병원 — 카카오 카테고리 HP8 우선, 진료과 키워드 추가 매칭. 호스트와 동일하게 산부인과도 제외. */
+      items = items.filter(function(d){ return (d.category_group_code === 'HP8') || /병원|의원|의료원|클리닉/.test(d.place_name || ''); });
+      items = items.filter(function(d){ return (d.category_name || '').indexOf('산부인과') === -1; });
+      if (dept) {
+        items = items.filter(function(d){ return (d.place_name + ' ' + (d.category_name || '')).indexOf(dept) >= 0 || (d.place_name || '').indexOf(dept) >= 0; });
+      }
+    }
+
+    /* 거리 계산 + 정렬 */
+    items.forEach(function(d){
+      var lat = parseFloat(d.y); var lng = parseFloat(d.x);
+      d._lat = isNaN(lat) ? null : lat;
+      d._lng = isNaN(lng) ? null : lng;
+      d._distanceKm = _haversine(_schoolLat, _schoolLng, d._lat, d._lng);
+    });
+    items.sort(function(a, b){
+      if (a._distanceKm == null) return 1;
+      if (b._distanceKm == null) return -1;
+      return a._distanceKm - b._distanceKm;
+    });
+
+    /* 최대 30개 */
+    items = items.slice(0, 30);
+
+    _curResults = items;
+    _selectedIdx = -1;
+    _renderResults();
+  }).catch(function(err) {
+    if (myAbort.aborted) return;
+    _renderError('호출 중 오류: ' + _esc(err && err.message || String(err)));
+  });
+}
+
+/* ────── 결과 렌더 — 지도 + 카드 리스트 ────── */
+function _renderResults() {
+  document.getElementById('resultCount').textContent = _curResults.length;
+  if (_curResults.length === 0) {
+    document.getElementById('listPanel').innerHTML =
+      '<div class="empty"><span class="ic">🔎</span>검색 결과가 없습니다.<br>다른 진료과 또는 키워드로 시도해 보세요.</div>';
+    _clearMarkers();
+    return;
+  }
+  /* 카드 렌더 */
+  var html = _curResults.map(function(d, i) {
+    var color = _MARKER_COLORS[i % _MARKER_COLORS.length];
+    var distTxt = d._distanceKm != null ? (d._distanceKm < 1 ? Math.round(d._distanceKm * 1000) + 'm' : d._distanceKm.toFixed(1) + 'km') : '—';
+    var phoneTxt = d.phone ? '<span class="phone">📞 ' + _esc(d.phone) + '</span>' : '';
+    var addr = d.road_address_name || d.address_name || '';
+    var category = d.category_name ? d.category_name.split('>').pop().trim() : '';
+    return '<div class="card" data-idx="' + i + '">' +
+      '<div class="num-pin" style="background:' + color + '">' + (i + 1) + '</div>' +
+      '<div class="info">' +
+        '<div class="name">' + _esc(d.place_name) + (category ? ' <span class="dept">' + _esc(category) + '</span>' : '') + '</div>' +
+        '<div class="meta">' + _esc(addr) + '</div>' +
+        '<div class="extra">' + phoneTxt + '</div>' +
+      '</div>' +
+      '<div class="action">' +
+        '<div class="distance">' + distTxt + '</div>' +
+        '<div class="more">📍 자세히 →</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('listPanel').innerHTML = html;
+
+  /* 카드 클릭 → 카카오맵 새 탭 */
+  document.querySelectorAll('.card').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var idx = parseInt(el.dataset.idx, 10);
+      var d = _curResults[idx];
+      if (!d) return;
+      _selectIdx(idx);
+      var url = 'https://map.kakao.com/?q=' + encodeURIComponent(d.place_name);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+    el.addEventListener('mouseenter', function() {
+      var idx = parseInt(el.dataset.idx, 10);
+      _highlightIdx(idx);
+    });
+  });
+
+  _renderMarkers();
+}
+
+/* ────── 마커 렌더 ────── 비활성화 (2026-05-15)
+ *  웹 브라우저 클라이언트에서는 지도를 표시하지 않기로 결정.
+ *  지도 영역은 안내문만 표시하며, 마커·정적 SVG 지도 모두 제거됨.
+ *  의료기관 데이터 자체는 list-area 의 카드로 정상 표시. */
+function _renderMarkers() {
+  return;
+  /* 아래는 레거시 코드 — 호출되지 않음 (호스트 카카오맵 페이지가 별도 존재). */
+  var frame = document.getElementById('mapFrame');
+  Array.prototype.slice.call(frame.querySelectorAll('.marker')).forEach(function(m){ m.remove(); });
+
+  /* 학교 + 결과들의 위·경도 범위 계산 → bounding box → 0~100% 좌표 매핑 */
+  var lats = [_schoolLat]; var lngs = [_schoolLng];
+  _curResults.forEach(function(d){
+    if (d._lat != null) lats.push(d._lat);
+    if (d._lng != null) lngs.push(d._lng);
+  });
+  var minLat = Math.min.apply(null, lats), maxLat = Math.max.apply(null, lats);
+  var minLng = Math.min.apply(null, lngs), maxLng = Math.max.apply(null, lngs);
+  /* padding 10% */
+  var dLat = (maxLat - minLat) || 0.01; var dLng = (maxLng - minLng) || 0.01;
+  minLat -= dLat * 0.10; maxLat += dLat * 0.10;
+  minLng -= dLng * 0.10; maxLng += dLng * 0.10;
+  function _xy(lat, lng) {
+    var x = (lng - minLng) / (maxLng - minLng) * 100;     /* % */
+    var y = (1 - (lat - minLat) / (maxLat - minLat)) * 100; /* % (위가 북쪽) */
+    return { x: x, y: y };
+  }
+
+  /* 학교 마커 */
+  var s = _xy(_schoolLat, _schoolLng);
+  var sm = document.createElement('div');
+  sm.className = 'marker m-school';
+  sm.style.left = s.x + '%';
+  sm.style.top = s.y + '%';
+  sm.title = _schoolName;
+  sm.innerHTML = '<div class="pin">★</div><div class="tail"></div>';
+  frame.appendChild(sm);
+
+  /* 결과 마커 */
+  _curResults.forEach(function(d, i) {
+    if (d._lat == null || d._lng == null) return;
+    var p = _xy(d._lat, d._lng);
+    var color = _MARKER_COLORS[i % _MARKER_COLORS.length];
+    var el = document.createElement('div');
+    el.className = 'marker m-result';
+    el.style.left = p.x + '%';
+    el.style.top = p.y + '%';
+    el.dataset.idx = i;
+    el.title = (i + 1) + '. ' + d.place_name;
+    el.innerHTML = '<div class="pin" style="background:' + color + '"></div><div class="tail" style="border-top-color:' + color + '"></div>';
+    el.querySelector('.pin').textContent = (i + 1);
+    el.addEventListener('click', function() {
+      var idx = parseInt(el.dataset.idx, 10);
+      _selectIdx(idx);
+      /* 카드 영역 스크롤 */
+      var card = document.querySelector('.card[data-idx="' + idx + '"]');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    frame.appendChild(el);
+  });
+}
+
+function _clearMarkers() {
+  /* 비활성화 (2026-05-15) — 지도 미표시. mapOverlay 요소 자체가 제거됨. */
+  return;
+}
+
+function _selectIdx(idx) {
+  _selectedIdx = idx;
+  document.querySelectorAll('.card').forEach(function(c){ c.classList.toggle('selected', parseInt(c.dataset.idx, 10) === idx); });
+  document.querySelectorAll('.marker.m-result').forEach(function(m){ m.classList.toggle('selected', parseInt(m.dataset.idx, 10) === idx); });
+}
+
+function _highlightIdx(idx) {
+  document.querySelectorAll('.marker.m-result').forEach(function(m){
+    m.classList.toggle('selected', parseInt(m.dataset.idx, 10) === idx);
+  });
+}
+
+/* ────── 안내 화면 ────── */
+function _renderLoading() {
+  document.getElementById('listPanel').innerHTML = '<div class="loading"><span class="spin"></span>검색 중…</div>';
+}
+function _renderError(msg) {
+  document.getElementById('listPanel').innerHTML = '<div class="err">' + msg + '</div>';
+  _clearMarkers();
+}
+
+/* ────── 초기 검색 ────── */
+window.addEventListener('load', function() {
+  setTimeout(_runSearch, 200);
+});
+</script>
+</body>
+</html>

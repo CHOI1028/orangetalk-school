@@ -1,0 +1,51 @@
+{
+  "languages": [],
+  "sections": [
+    {
+      "id": "s_personal",
+      "headerName": "인적사항",
+      "type": "personal_info",
+      "depth": 0,
+      "parentId": null,
+      "enabled": true,
+      "isDefault": true
+    },
+    {
+      "id": "s_purpose",
+      "headerName": "방문 목적 선택",
+      "type": "choice",
+      "depth": 0,
+      "parentId": null,
+      "enabled": true,
+      "isDefault": true,
+      "options": [
+        { "id": "o_p1", "label": "불편한 곳이 있어서 왔어요.", "emoji": "🤕", "tag": "진료/처치", "target": "__done", "hasBodymapInsert": true, "enabled": true, "isDefault": true },
+        { "id": "o_p2", "label": "다른 이유로 왔어요.", "emoji": "💬", "tag": "기타", "target": "__done", "enabled": true, "isDefault": true }
+      ]
+    }
+  ],
+  "defaultRules": {
+    "title": "보건실 이용 수칙 안내",
+    "timeTitle": "운영 시간",
+    "mannerTitle": "지켜야 할 예절과 절차",
+    "time": [
+      "월~금요일 08:30 ~ 16:30",
+      { "text": "보건 선생님의 출장/조퇴 등이 있는 시간에는 이용할 수 없습니다.", "sub": true, "marker": "▸" },
+      "쉬는 시간에 보건실 이용이 원칙",
+      { "text": "수업 시간은 쉬는 시간까지 기다리기 어려운 경우에 이용을 허용", "sub": true, "marker": "▸" }
+    ],
+    "manners": [
+      { "text": "들어갈 때: 노크 후 문 열기" },
+      { "text": "키오스크에 본인의 인적사항, 방문 목적을 입력하고 안내 따르기" },
+      { "text": "방문 목적이 있는 경우에만 들어오고 동행한 친구는 복도에서 대기" },
+      { "text": "실내화 착용이 의무이며 실외화 착용 금지" },
+      { "text": "침상 이용 제한: 최대 1시간까지 이용 가능" },
+      { "text": "이후에는 조퇴 또는 병원 진료를 권장", "sub": true, "marker": "▸" }
+    ]
+  },
+  "defaultRuleMeta": {
+    "titleIcon": "🩺",
+    "timeIcon": "①",
+    "mannerIcon": "②"
+  }
+}

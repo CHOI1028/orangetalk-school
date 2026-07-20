@@ -1,0 +1,105 @@
+# ── 의존성 ──
+node_modules/
+/package.json
+/package-lock.json
+
+# ── 빌드 산출물 ──
+dist/
+dist-web/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── 로그 ──
+*.log
+
+# ── 인증/보안 ──
+oauth-client.json
+.gauth_token
+.gauth_token_sheets
+src/main/services/bundled-credentials.js
+
+# ── AI/개발 도구 ──
+.claude/
+.playwright-mcp/
+CLAUDE.md
+CLAUDE.local.md
+MEMORY.md
+
+# ── 키오스크 생성 파일 ──
+electron-app/kiosk/
+
+# ── 백업 / 미리보기 ──
+electron-app/_backup_features/
+electron-app/_preview/
+
+# ── 내부 문서 (공개 불필요) ──
+PROJECT_DOCUMENTATION.md
+REQUIREMENTS_ANALYSIS.md
+electron-app/GYOMU_DESIGN.md
+electron-app/about_database.md
+
+# ── 개발 전용 시드 데이터/스크립트 ──
+electron-app/.seed-user-data/
+electron-app/scripts/seed-dev-data.js
+electron-app/scripts/seed-realistic-data.js
+
+# ── 릴레이 서버 (별도 프로젝트) ──
+relay-server/
+
+# ── 서버 코드 (오라클 인증서버 등 — 배포·공개 금지) ──
+electron-app/server-code/
+server-code/
+
+# ── DB 파일 (안전장치 — 실수로 커밋 방지) ──
+*.sqlite3
+*.sqlite
+*.sqlite3-shm
+*.sqlite3-wal
+*.db
+*.db-journal
+
+# ── 환경변수 ──
+.env
+.env.local
+.env.*.local
+
+# ── IDE/에디터 ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── 테스트/커버리지 ──
+coverage/
+.nyc_output/
+
+# ── OS (추가) ──
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ── 기타 ──
+*.bak
+*.tmp
+
+# ── 약품 캐시 자동 백업 (런타임 생성, 커밋 제외) ──
+electron-app/templates/medications_list.json.bak.*
+electron-app/templates/*.json.bak.*
+
+# ── 내부 작업 문서 (공개 저장소 노출 금지) ──
+MSIX_WINDOWS_TEST_PLAN.md
+
+# ── CD키 마스터 리스트 (절대 커밋 금지 — 정식 출시용 라이선스 키) ──
+license-keys/
+*.license-keys.csv
+
+# ── SSH 키·서버 시크릿 (절대 커밋 금지) ──
+secrets/
+*.pem
+*.key
+
+# ── Claude 영구 메모리 (오렌지팜에 협상 자산 — GitHub 푸시 금지) ──
+docs/memory/

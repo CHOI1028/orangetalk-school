@@ -1,0 +1,1124 @@
+﻿<!DOCTYPE html>
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+<!-- 키오스크 기본형 세로 HTML 템플릿 — buildKioskHtml() 출력 기준 -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>OO학교 보건실 키오스크</title>
+<style>
+/* ══════════ 리셋 + 기본 ══════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{font-family:"Pretendard",-apple-system,"Noto Sans KR",sans-serif;position:relative;background:#0f172a}
+body::after{content:"";position:fixed;inset:0;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);background:rgba(245,247,250,0.35);z-index:1}
+.bg-image{position:fixed;inset:0;background-size:cover;background-position:center;transition:opacity 1.5s ease;z-index:-1}
+/* 배경 레이어: 그라디언트(맨 아래) → 이미지(중간) → body::after 블러(맨 위) */
+.bg-gradient{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%);background-size:400% 400%;animation:gradientShift 20s ease infinite}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+/* ══════════ 탑바 (글래스모피즘) ══════════ */
+.top-bar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:linear-gradient(135deg,rgba(8,145,178,0.55),rgba(6,182,212,0.45),rgba(14,116,144,0.5),rgba(8,145,178,0.55),rgba(6,182,212,0.45));background-size:300% 100%;animation:headerGrad 15s ease infinite;backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 1px 0 rgba(255,255,255,0.15) inset,0 4px 16px rgba(0,0,0,0.08);border-bottom:0.5px solid rgba(255,255,255,0.18)}
+@keyframes headerGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.tb-school{font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;text-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.tb-school span:first-child{font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.15))}
+.tb-right{display:flex;align-items:center;gap:12px}
+.queue-badge{font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:5px 18px;backdrop-filter:blur(4px)}
+
+/* ══════════ 세로형 전체 레이아웃 ══════════ */
+.kiosk-portrait{position:relative;z-index:10;width:100%;height:100vh;padding-top:56px;display:flex;align-items:center;justify-content:center}
+.kiosk-portrait-inner{width:100%;max-width:600px;padding:16px 20px}
+
+/* ══════════ 스크린 (스크롤 금지!) ══════════ */
+.screen{display:none;width:100%;max-width:600px;text-align:center;animation:fadeIn .3s ease;height:100%;flex-direction:column;justify-content:center;padding:0}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+h2{font-size:clamp(22px,3.2vw,32px);font-weight:800;color:#1e293b;margin-bottom:20px;flex-shrink:0}
+
+/* ══════════ 버튼 — 세로 자동 축소 ══════════ */
+.btn-list{display:flex;flex-direction:column;gap:8px;min-height:0}
+.main-btn{display:flex;align-items:center;gap:14px;width:100%;padding:clamp(12px,2vh,24px) clamp(16px,2vw,28px);border:1.5px solid #d1d9e0;border-radius:16px;background:#ffffff;font-size:clamp(14px,1.6vw,19px);font-weight:700;color:#1e293b;cursor:pointer;transition:all .2s;text-align:left;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.04);flex-shrink:1;min-height:0;overflow:hidden}
+.main-btn:hover{border-color:#06b6d4;background:#f0fdfa;transform:translateY(-1px);box-shadow:0 4px 16px rgba(8,145,178,0.1)}
+.main-btn:active{transform:scale(0.98)}
+.main-btn.selected{border-color:#0891b2;background:#e0f7fa;color:#065f78;box-shadow:0 0 0 2px rgba(6,182,212,0.25) inset,0 4px 16px rgba(6,182,212,0.12)}
+.btn-emoji{font-size:clamp(24px,2.8vw,36px);flex-shrink:0}
+.back-btn,.confirm-btn{padding:10px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;min-width:100px;text-align:center;flex-shrink:0}
+.confirm-btn{margin-top:10px;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;box-shadow:0 4px 16px rgba(6,182,212,0.3)}
+.confirm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(6,182,212,0.4)}
+.confirm-btn:disabled{opacity:0.4;cursor:default;transform:none}
+.back-btn{margin-top:8px;border:2px solid #e2a3c0;background:#fdf2f8;color:#9d174d;font-size:13px;padding:10px 28px;font-weight:700}
+.back-btn:hover{background:#fce7f3;border-color:#ec4899}
+
+/* ══════════ 인적사항 드릴다운 ══════════ */
+.personal-drill{max-width:600px;margin:0 auto;width:100%;min-height:0;display:flex;flex-direction:column}
+.drill-tab{padding:10px 24px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;color:#64748b;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.drill-tab.active{border-color:#06b6d4;background:#e0f7fa;color:#0891b2}
+.drill-tab:hover{border-color:#06b6d4}
+.drill-grade-grid{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.drill-grade-btn{padding:14px 26px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;color:#334155;font-size:18px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.drill-grade-btn:hover{border-color:#06b6d4;background:#f0fdfa;color:#0891b2}
+.drill-grade-btn.active{border-color:#06b6d4;background:#e0f7fa;color:#0891b2;box-shadow:0 0 0 2px rgba(6,182,212,0.15) inset}
+.drill-cls-panel{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#ffffff;cursor:pointer;transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.drill-cls-panel:hover{border-color:#06b6d4;background:#f0fdfa}
+.drill-cls-title{font-size:12px;font-weight:700;color:#0891b2;margin-bottom:6px}
+.drill-chip{padding:3px 8px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;font-size:10px;font-weight:600;color:#334155;display:inline-block}
+.drill-sel-chip{padding:10px 18px;border:2px solid #e2e8f0;border-radius:10px;background:#fff;font-size:15px;font-weight:700;color:#334155;cursor:pointer;transition:all .15s;font-family:inherit;display:inline-block}
+.drill-sel-chip:hover{border-color:#06b6d4;background:#f0fdfa;color:#0891b2}
+#drillBody{flex:1;min-height:0;overflow-y:auto}
+
+/* ══════════ 바디맵 전체화면 모달 ══════════ */
+.bm-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:background .35s ease,backdrop-filter .35s ease,-webkit-backdrop-filter .35s ease,opacity .35s ease}
+.bm-modal.active{background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:auto;opacity:1}
+.bm-header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0}
+.bm-header-title{font-size:14px;font-weight:800;color:#1e293b}
+.bm-header-sub{font-size:10px;color:#94a3b8;margin-top:2px}
+.bm-header-right{display:flex;gap:8px;align-items:center}
+.bm-close-btn{padding:6px 16px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.bm-confirm-btn{padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+.bm-inner{background:#fff;border-radius:16px;box-shadow:0 16px 64px rgba(0,0,0,0.25);width:98vw;max-width:1200px;height:96vh;display:flex;flex-direction:column;overflow:hidden;transform:scale(0.92);opacity:0;transition:transform .3s cubic-bezier(0.34,1.56,0.64,1),opacity .25s ease}
+.bm-modal.active .bm-inner{transform:scale(1);opacity:1}
+.bm-body{display:flex;flex:1;min-height:0;overflow:hidden}
+.bm-left{width:520px;flex-shrink:0;padding:4px;display:flex;flex-direction:column;gap:3px;border-right:1px solid #e2e8f0;overflow:hidden}
+.bm-pair{display:flex;gap:4px;min-height:0}
+.bm-right{flex:1;display:flex;align-items:center;justify-content:flex-end;padding:0 6px 0 0;position:relative;overflow:hidden}
+
+.bm-zone{position:relative;cursor:crosshair;user-select:none;-webkit-user-select:none;overflow:hidden}
+.bm-zone img{width:100%;height:100%;object-fit:contain;display:block;border-radius:6px;border:1px solid #e2e8f0;background:#fff;pointer-events:none;-webkit-user-drag:none}
+.bm-zone .bm-markers{position:absolute;inset:0;pointer-events:none}
+.bm-marker{position:absolute;width:20px;height:20px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);z-index:10;cursor:pointer;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;transition:transform .12s}
+.bm-marker:hover{transform:translate(-50%,-50%) scale(1.2)}
+
+/* 선택된 부위 태그 — 숨김 */
+.bm-sel-bar{display:none}
+
+/* ══════════ 증상 선택 아코디언 (바디맵 하단) ══════════ */
+.bm-symptom-bar{flex-shrink:0;border-top:1px solid #e2e8f0;background:#f8fafc}
+.bm-symptom-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none}
+.bm-symptom-toggle-title{font-size:13px;font-weight:700;color:#0891b2}
+.bm-symptom-toggle-arrow{font-size:14px;color:#94a3b8;transition:transform .2s}
+.bm-symptom-toggle-arrow.open{transform:rotate(180deg)}
+.bm-symptom-body{display:none;padding:8px 16px 12px;max-height:180px;overflow-y:auto}
+.bm-symptom-body.open{display:block}
+.bm-sym-group{margin-bottom:8px}
+.bm-sym-group-title{font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px}
+.bm-sym-chips{display:flex;flex-wrap:wrap;gap:4px}
+.bm-sym-chip{padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;transition:all .12s}
+.bm-sym-chip:hover{border-color:#06b6d4;background:rgba(6,182,212,0.06)}
+.bm-sym-chip.selected{border-color:#0891b2;background:#e0f7fa;color:#065f78}
+.bm-tag:hover{background:#fee2e2;color:#dc2626;border-color:#fecaca}
+.bm-hint-text{font-size:10px;color:#94a3b8}
+
+/* ══════════ 기타 ══════════ */
+.guide-box{padding:clamp(16px,2.5vw,28px);background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);border-radius:14px;border:1px solid #e2e8f0;text-align:center;margin-bottom:12px}
+.guide-emoji{font-size:42px;display:block;margin-bottom:10px}
+.guide-text{font-size:clamp(13px,1.4vw,16px);color:#334155;line-height:1.8;white-space:pre-line}
+.reception-popup{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease}
+.popup-content{background:#fff;border-radius:20px;padding:36px 52px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.2);animation:popIn .3s ease}
+@keyframes popIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ══════════ 반응형 (태블릿 세로) ══════════ */
+@media(max-width:768px){
+  .top-bar{padding:8px 14px}
+  .tb-school{font-size:13px}
+  .bm-left{width:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 배경 (이미지 or 그라디언트) ══════════ -->
+<div class="bg-gradient"></div>
+<div class="bg-image" id="bgImage"></div>
+
+<!-- ══════════ 탑바 ══════════ -->
+<div class="top-bar" id="topBar">
+  <div class="tb-school"><span>🏫</span> <span>OO학교 보건실</span></div>
+  <div class="tb-right">
+    <div class="queue-badge">현재 대기 인원 <span id="topQueue">0</span> 명</div>
+  </div>
+</div>
+
+<!-- ══════════ 세로형: 전체 화면 중앙 정렬 ══════════ -->
+<div class="kiosk-portrait">
+
+    <!-- ━━━ 화면 1: 인적사항 드릴다운 ━━━ -->
+    <div id="screen-s_personal" class="screen active">
+      <h2>👤 방문자를 선택해주세요.</h2>
+      <div class="personal-drill">
+        <div style="display:flex;justify-content:center;gap:6px;margin-bottom:12px;flex-shrink:0">
+          <button class="drill-tab active" id="drillTabStu" data-action="drill-tab" data-type="student">🎒 학생</button>
+          <button class="drill-tab" id="drillTabStaff" data-action="drill-tab" data-type="staff">👨‍🏫 교직원</button>
+        </div>
+        <div id="drillBody"></div>
+      </div>
+    </div>
+
+    <!-- ━━━ 화면 2: 방문 목적 ━━━ -->
+    <div id="screen-s_purpose" class="screen">
+      <h2>📋 방문 목적 선택</h2>
+      <div class="btn-list">
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p1"><span class="btn-emoji">🤕</span><span>불편한 곳이 있어서 왔어요.</span></button>
+        <button class="main-btn" data-action="fd-opt-action" data-sec-id="s_purpose" data-opt-id="o_p2"><span class="btn-emoji">💬</span><span>다른 이유로 왔어요.</span></button>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button class="back-btn" data-action="go-screen" data-target="s_personal" style="flex:none;min-width:auto;padding:8px 16px;font-size:12px">← 뒤로</button><button class="back-btn" data-action="go-home" style="flex:none;min-width:auto;padding:8px 16px;font-size:12px">🏠 처음으로</button></div>
+    </div>
+
+    <!-- ━━━ 완료 ━━━ -->
+    <div id="screen-__done" class="screen"><div style="font-size:64px;margin-bottom:16px">✅</div><h2>접수가 완료되었습니다.</h2></div>
+
+    <!-- ━━━ 팝업 ━━━ -->
+    <div id="reception-popup" class="reception-popup" style="display:none">
+      <div class="popup-content">
+        <div style="font-size:48px;margin-bottom:12px">✅</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px">접수되었습니다.</div>
+        <div id="popup-wait-msg" style="font-size:14px;color:#64748b"></div>
+      </div>
+    </div>
+
+</div><!-- /kiosk-portrait -->
+
+<!-- ══════════ 바디맵 전체화면 모달 (프로그램과 동일) ══════════ -->
+<div class="bm-modal" id="bmModal">
+  <div class="bm-inner">
+  <div class="bm-header">
+    <div>
+      <div class="bm-header-title">🧍 바디맵 — 아픈 부위를 알려주세요</div>
+      <div class="bm-header-sub">터치(클릭) 한 번: 불편한 곳 체크 · 터치(클릭) 두 번: 통증의 정도를 숫자로 입력</div>
+    </div>
+    <div class="bm-header-right">
+      <button class="bm-close-btn" data-action="bm-cancel">취소</button>
+      <button class="bm-confirm-btn" data-action="bm-confirm">확인</button>
+    </div>
+  </div>
+  <div class="bm-body">
+    <!-- 왼쪽: 얼굴/치아/손/발 -->
+    <div class="bm-left">
+      <div class="bm-pair" style="flex:1">
+        <div class="bm-zone" data-bm-key="face" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/face_adult.png"><div class="bm-markers"></div></div>
+        <div class="bm-zone" data-bm-key="teeth" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/adult_teeth.png"><div class="bm-markers"></div></div>
+      </div>
+      <div class="bm-pair" style="flex:0.55">
+        <div class="bm-zone" data-bm-key="handTop" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/hands-top.png"><div class="bm-markers"></div></div>
+        <div class="bm-zone" data-bm-key="palm" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/palm.png"><div class="bm-markers"></div></div>
+      </div>
+      <div class="bm-pair" style="flex:0.7">
+        <div class="bm-zone" data-bm-key="footTop" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/foot_top.png"><div class="bm-markers"></div></div>
+        <div class="bm-zone" data-bm-key="footBottom" style="flex:1"><img crossorigin="anonymous" src="../assets/bodymap/foot_bottom.png"><div class="bm-markers"></div></div>
+      </div>
+    </div>
+    <!-- 오른쪽: 전신 -->
+    <div class="bm-right">
+      <div class="bm-zone" data-bm-key="body" style="height:98%;display:inline-block"><img crossorigin="anonymous" src="../assets/bodymap/adult_body.png" style="height:100%;width:auto"><div class="bm-markers"></div></div>
+    </div>
+  </div>
+  <div class="bm-sel-bar" id="bmSelBar">
+    <span class="bm-hint-text">선택된 부위가 여기에 표시됩니다</span>
+  </div>
+  </div><!-- /bm-inner -->
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   키오스크 JavaScript (기본형 세로)
+   ══════════════════════════════════════════ */
+var RELAY_URL = "";
+var RELAY_CHANNEL = "";
+var PEOPLE_DATA = [
+  {"uid":"s1","name":"김민준","type":"student","grade":1,"cls":1,"num":1,"gender":"M"},
+  {"uid":"s2","name":"이서연","type":"student","grade":1,"cls":1,"num":2,"gender":"F"},
+  {"uid":"s3","name":"박지훈","type":"student","grade":1,"cls":2,"num":1,"gender":"M"},
+  {"uid":"s4","name":"최수아","type":"student","grade":1,"cls":2,"num":2,"gender":"F"},
+  {"uid":"s5","name":"정우진","type":"student","grade":2,"cls":1,"num":1,"gender":"M"},
+  {"uid":"s6","name":"강하은","type":"student","grade":2,"cls":1,"num":2,"gender":"F"},
+  {"uid":"s7","name":"조민서","type":"student","grade":2,"cls":2,"num":1,"gender":"F"},
+  {"uid":"s8","name":"윤도현","type":"student","grade":3,"cls":1,"num":1,"gender":"M"},
+  {"uid":"s9","name":"한예린","type":"student","grade":3,"cls":1,"num":2,"gender":"F","level":"고","department":"간호과"},
+  {"uid":"st1","name":"김보건","type":"staff","position":"보건교사"},
+  {"uid":"st2","name":"이담임","type":"staff","position":"담임교사"}
+];
+
+var FLOW = [
+  {id:"s_personal",type:"personal_info",parentId:null,options:[]},
+  {id:"s_purpose",headerName:"방문 목적 선택",type:"choice",parentId:null,options:[
+    {id:"o_p1",label:"불편한 곳이 있어서 왔어요.",emoji:"🤕",target:"__done",hasBodymapInsert:true},
+    {id:"o_p2",label:"다른 이유로 왔어요.",emoji:"💬",target:"__done"}
+  ]}
+];
+
+/* ── 상태 ── */
+var _selectedPerson = null, _selectedOptions = [], _bodymapData = [], _waitCount = 0;
+var _currentScreen = "s_personal", _navHistory = [];
+var _waitQueue = []; /* 대기인원 목록 */
+
+function _personInfoText(p) {
+  if (!p) return '';
+  if (p.type === 'staff') return p.position || '교직원';
+  var parts = [];
+  if (p.level) parts.push(p.level);
+  if (p.department) parts.push(p.department);
+  if (p.grade) parts.push(p.grade + '-' + (p.cls || 0));
+  return parts.join(' ');
+}
+
+function updateQueueDisplay() {
+  var tq = document.getElementById("topQueue"); if (tq) tq.textContent = _waitCount;
+}
+
+/* ── 배경 이미지 순환 (빌드 시 base64 주입) ── */
+/* 빌드 시 base64로 교체됨. 로컬 테스트용 상대 경로 */
+var BG_IMAGES = [
+  "../assets/backgrounds/poppy_field_at_sunrise.webp",
+  "../assets/backgrounds/village_of_cats.webp",
+  "../assets/backgrounds/jeju_by-monet.webp",
+  "../assets/backgrounds/a_tree_on_the_hill.webp",
+  "../assets/backgrounds/21st_century_classroom.webp",
+  "../assets/backgrounds/fruits_and_flowers_on_the_table.webp",
+  "../assets/backgrounds/colorful.webp",
+  "../assets/backgrounds/students going school.webp",
+  "../assets/backgrounds/the_starry_night_reimagined.webp",
+  "../assets/backgrounds/classroom_in_session.webp",
+  "../assets/backgrounds/poppies_in_georgia_okeeffe_style.webp",
+  "../assets/backgrounds/ambulances_on_the_street.webp"
+];
+var _bgIdx = 0;
+function rotateBg() {
+  var el = document.getElementById("bgImage");
+  if (el && BG_IMAGES.length) {
+    var next = Math.floor(Math.random() * BG_IMAGES.length);
+    while (next === _bgIdx && BG_IMAGES.length > 1) next = Math.floor(Math.random() * BG_IMAGES.length);
+    _bgIdx = next;
+    el.style.opacity = "0";
+    setTimeout(function() { el.style.backgroundImage = "url(" + BG_IMAGES[_bgIdx] + ")"; el.style.opacity = "1"; }, 1500);
+  }
+}
+(function() {
+  var el = document.getElementById("bgImage");
+  if (el && BG_IMAGES.length) {
+    _bgIdx = Math.floor(Math.random() * BG_IMAGES.length);
+    el.style.backgroundImage = "url(" + BG_IMAGES[_bgIdx] + ")";
+  }
+  setInterval(rotateBg, 300000); /* 5분마다 랜덤 배경 변경 */
+})();
+
+/* ═══════════════════════════════════
+   화면 전환
+   ═══════════════════════════════════ */
+function goScreen(id) {
+  _navHistory.push(_currentScreen);
+  _currentScreen = id;
+  document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
+  var el = document.getElementById("screen-" + id);
+  if (el) el.classList.add("active");
+}
+function goBack() {
+  if (_navHistory.length) {
+    var prev = _navHistory.pop();
+    _currentScreen = prev;
+    document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
+    var el = document.getElementById("screen-" + prev);
+    if (el) el.classList.add("active"); else resetToPersonal();
+  } else resetToPersonal();
+}
+
+/* ═══════════════════════════════════
+   인적사항 드릴다운 (프로그램 상세 검색과 동일)
+   ═══════════════════════════════════ */
+var _people = [], _drillTab = "student", _drillSelGrade = 0, _drillSelCls = 0;
+setTimeout(function() { drillShowTab("student"); }, 0);
+
+function drillShowTab(type) {
+  _drillTab = type;
+  document.getElementById("drillTabStu").className = "drill-tab" + (type === "student" ? " active" : "");
+  document.getElementById("drillTabStaff").className = "drill-tab" + (type === "staff" ? " active" : "");
+  var body = document.getElementById("drillBody"); if (!body) return;
+  _drillSelGrade = 0; _drillSelCls = 0;
+  if (type === "staff") {
+    var staff = PEOPLE_DATA.filter(function(p) { return p.type === "staff"; }).sort(function(a, b) { return a.name.localeCompare(b.name); });
+    _people = staff;
+    var h = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">';
+    staff.forEach(function(p, i) { h += '<span class="drill-sel-chip" data-action="drill-select" data-idx="' + i + '">' + p.name + (p.position ? " (" + p.position + ")" : "") + '</span>'; });
+    body.innerHTML = h + '</div>';
+  } else {
+    var grades = []; PEOPLE_DATA.forEach(function(p) { if (p.type === "student" && p.grade && grades.indexOf(p.grade) === -1) grades.push(p.grade); });
+    grades.sort(function(a, b) { return a - b; });
+    var h = '<div class="drill-grade-grid">';
+    grades.forEach(function(g) { h += '<button class="drill-grade-btn" data-action="drill-grade" data-grade="' + g + '">' + g + '학년</button>'; });
+    body.innerHTML = h + '</div><div id="drillGradeBody"></div>';
+  }
+}
+
+function drillSelectGrade(grade) {
+  _drillSelGrade = grade; _drillSelCls = 0;
+  document.querySelectorAll(".drill-grade-btn").forEach(function(b) { b.className = "drill-grade-btn" + (parseInt(b.dataset.grade) === grade ? " active" : ""); });
+  var gb = document.getElementById("drillGradeBody"); if (!gb) return;
+  var stu = PEOPLE_DATA.filter(function(p) { return p.type === "student" && p.grade === grade; });
+  var classes = {}; stu.forEach(function(p) { if (!classes[p.cls]) classes[p.cls] = []; classes[p.cls].push(p); });
+  var h = '<div style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:4px">';
+  Object.keys(classes).sort(function(a, b) { return a - b; }).forEach(function(c) {
+    var list = classes[c].sort(function(a, b) { return a.num - b.num; });
+    h += '<div class="drill-cls-panel" data-action="drill-cls" data-cls="' + c + '"><div class="drill-cls-title">' + grade + '학년 ' + c + '반 (' + list.length + '명)</div><div style="display:flex;flex-wrap:wrap;gap:4px">';
+    list.forEach(function(s) {
+      var extra = s.level ? ' [' + s.level + (s.department ? ' ' + s.department : '') + ']' : '';
+      h += '<span class="drill-chip">' + s.num + '번 ' + extra + s.name + '</span>';
+    });
+    h += '</div></div>';
+  });
+  gb.innerHTML = h + '</div>';
+}
+
+function drillSelectClass(cls) {
+  _drillSelCls = parseInt(cls);
+  var gb = document.getElementById("drillGradeBody"); if (!gb) return;
+  var students = PEOPLE_DATA.filter(function(p) { return p.type === "student" && p.grade === _drillSelGrade && p.cls === _drillSelCls; }).sort(function(a, b) { return a.num - b.num; });
+  _people = students;
+  var h = '<div style="border:2px solid #06b6d4;border-radius:12px;padding:14px;background:#f0fdfa">';
+  h += '<div style="font-size:13px;font-weight:700;color:#0891b2;margin-bottom:10px">' + _drillSelGrade + '학년 ' + _drillSelCls + '반 (' + students.length + '명) <span data-action="drill-back-grade" style="font-size:10px;color:#94a3b8;cursor:pointer;margin-left:8px">← 반 목록으로</span></div>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  students.forEach(function(p, i) {
+    var extra = p.level ? ' [' + p.level + (p.department ? ' ' + p.department : '') + ']' : '';
+    h += '<span class="drill-sel-chip" data-action="drill-select" data-idx="' + i + '">' + p.num + '번 ' + extra + p.name + '</span>';
+  });
+  gb.innerHTML = h + '</div></div>';
+}
+
+function selectPerson(idx) {
+  _selectedPerson = _people[idx];
+  _selectedOptions = []; _bodymapData = [];
+  goScreen("s_purpose");
+}
+
+/* ═══════════════════════════════════
+   플로우 옵션 액션
+   ═══════════════════════════════════ */
+function fdOptAction(secId, optId) {
+  var sec = FLOW.find(function(s) { return s.id === secId; }); if (!sec) return;
+  var opt = (sec.options || []).find(function(o) { return o.id === optId; }); if (!opt) return;
+
+  /* 바디맵 삽입이 있으면 전체화면 바디맵 모달 열기 */
+  if (opt.hasBodymapInsert) {
+    _selectedOptions.push({ secId: secId, optId: optId, label: opt.label });
+    openBodymapModal();
+    return;
+  }
+
+  /* 바디맵 없으면 즉시 접수 */
+  _selectedOptions.push({ secId: secId, optId: optId, label: opt.label });
+  submitAndReset(secId);
+}
+
+/* 릴레이로는 UID 만 전송 — 개인정보(이름·학년·반·번호·성별) 는 절대 서버를 거치지 않음.
+ * nurse PC 가 받은 UID 로 자기 DB(S.people) 에서 풀네임 등 인적사항을 조회하여 표시. */
+function _personIdOnly(p) { return p ? { uid: p.uid || p.id || '' } : {}; }
+
+function submitAndReset(secId) {
+  sendReception({ person: _personIdOnly(_selectedPerson), options: _selectedOptions, bodymap: _bodymapData, symptoms: [], treatments: [], time: new Date().toISOString() });
+  showReceptionPopup();
+}
+
+function showReceptionPopup() {
+  var popup = document.getElementById("reception-popup");
+  var msg = document.getElementById("popup-wait-msg");
+  _waitCount++;
+  /* 대기 목록에 방문자 추가 */
+  if (_selectedPerson) {
+    _waitQueue.push({ name: _selectedPerson.name, info: _personInfoText(_selectedPerson) });
+  }
+  updateQueueDisplay();
+  msg.textContent = "현재 대기 인원 " + _waitCount + "명입니다.";
+  popup.style.display = "flex";
+  setTimeout(function() { popup.style.display = "none"; resetToPersonal(); }, 1500);
+}
+
+function resetToPersonal() {
+  _selectedPerson = null; _selectedOptions = []; _bodymapData = [];
+  _navHistory = []; _currentScreen = "s_personal";
+  document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
+  document.getElementById("screen-s_personal").classList.add("active");
+  drillShowTab("student");
+}
+
+/* ═══════════════════════════════════
+   바디맵 전체화면 모달 (프로그램과 동일 7개 패널)
+   좌표 데이터도 프로그램과 동일
+   ═══════════════════════════════════ */
+/* 좌표 갱신 2026-05-28 — 프로그램(emergency-view.js)·편집기(bodymap-anchors-preview.html) 와 1:1 동기. 키오스크 포맷은 {cx,cy,l} 만 사용 (w/h/shape 미사용 — 최근접 점 매칭). */
+var BM_BODY_PARTS = [
+  {cx:25.04,cy:19.4,l:"목"},
+  {cx:14.76,cy:20.6,l:"오른쪽 어깨"},
+  {cx:35.9,cy:20.7,l:"왼쪽 어깨"},
+  {cx:19.31,cy:28.3,l:"오른쪽 가슴"},
+  {cx:33.1,cy:28.3,l:"왼쪽 가슴"},
+  {cx:6.28,cy:48.9,l:"오른쪽 손목"},
+  {cx:8.84,cy:38,l:"오른쪽 팔꿈치"},
+  {cx:44.4,cy:48.8,l:"왼쪽 손목"},
+  {cx:18.44,cy:60.8,l:"오른쪽 윗허벅지"},
+  {cx:32.53,cy:60.4,l:"왼쪽 윗허벅지"},
+  {cx:18.7,cy:67.9,l:"오른쪽 아랫허벅지"},
+  {cx:34.2,cy:67.7,l:"왼쪽 아랫허벅지"},
+  {cx:19,cy:72.3,l:"오른쪽 무릎"},
+  {cx:17.8,cy:88,l:"오른쪽 아랫정강이"},
+  {cx:36.3,cy:88,l:"왼쪽 아랫정강이"},
+  {cx:17.6,cy:92,l:"오른쪽 발목"},
+  {cx:36.4,cy:92.2,l:"왼쪽 발목"},
+  {cx:74.6,cy:6.6,l:"뒷머리"},
+  {cx:74.3,cy:15.9,l:"뒷목"},
+  {cx:67.5,cy:26.9,l:"왼쪽 견갑골"},
+  {cx:82.07,cy:26.8,l:"오른쪽 견갑골"},
+  {cx:74.51,cy:25.9,l:"윗등"},
+  {cx:74.69,cy:44.6,l:"허리"},
+  {cx:59.09,cy:39.1,l:"왼쪽 팔꿈치 뒤"},
+  {cx:91.97,cy:39.16,l:"오른쪽 팔꿈치 뒤"},
+  {cx:68.16,cy:53.2,l:"왼쪽 엉덩이"},
+  {cx:81.75,cy:52.9,l:"오른쪽 엉덩이"},
+  {cx:66.7,cy:72.4,l:"왼쪽 오금"},
+  {cx:83.3,cy:72.4,l:"오른쪽 오금"},
+  {cx:66.8,cy:80.5,l:"왼쪽 윗종아리"},
+  {cx:83.3,cy:80.6,l:"오른쪽 윗종아리"},
+  {cx:65.8,cy:88.09,l:"왼쪽 아랫종아리"},
+  {cx:82.9,cy:88.22,l:"오른쪽 아랫종아리"},
+  {cx:84.25,cy:20.9,l:"오른쪽 어깨"},
+  {cx:65.4,cy:21.3,l:"왼쪽 어깨"},
+  {cx:68.73,cy:93.83,l:"왼쪽 아킬레스건"},
+  {cx:67.3,cy:96.8,l:"왼쪽 뒤꿈치"},
+  {cx:80.2,cy:97.5,l:"오른쪽 뒤꿈치"},
+  {cx:65.48,cy:94.1,l:"왼쪽 복숭아뼈"},
+  {cx:84.77,cy:94.55,l:"오른쪽 복숭아뼈"},
+  {cx:81.16,cy:94.65,l:"오른쪽 아킬레스건"},
+  {cx:82.51,cy:63.1,l:"오른쪽 뒷허벅지"},
+  {cx:68.19,cy:63.2,l:"왼쪽 뒷허벅지"},
+  {cx:74.73,cy:36.5,l:"중간등"},
+  {cx:68,cy:34.95,l:"왼쪽 등"},
+  {cx:81.94,cy:35.28,l:"오른쪽 등"},
+  {cx:67.6,cy:44.44,l:"왼쪽 옆구리"},
+  {cx:82.88,cy:44.58,l:"오른쪽 옆구리"},
+  {cx:59.4,cy:30.2,l:"왼쪽 상완 뒤"},
+  {cx:90.21,cy:30.05,l:"오른쪽 상완 뒤"},
+  {cx:57.4,cy:44.3,l:"왼쪽 전완 뒤"},
+  {cx:92.67,cy:44.2,l:"오른쪽 전완 뒤"},
+  {cx:56.8,cy:48.5,l:"왼쪽 손목"},
+  {cx:94.24,cy:48.6,l:"오른쪽 손목"},
+  {cx:55.7,cy:53.8,l:"왼손"},
+  {cx:95.02,cy:54.5,l:"오른손"},
+  {cx:60.7,cy:97.6,l:"왼발 외측"},
+  {cx:86.5,cy:97.3,l:"오른발 외측"},
+  {cx:34.4,cy:72.5,l:"왼쪽 무릎"},
+  {cx:34.7,cy:79.9,l:"왼쪽 정강이"},
+  {cx:18.7,cy:80.2,l:"오른쪽 정강이"},
+  {cx:31,cy:52.1,l:"왼쪽 사타구니"},
+  {cx:21.73,cy:52.4,l:"오른쪽 사타구니"},
+  {cx:26.15,cy:52.19,l:"생식기"},
+  {cx:16.04,cy:52.36,l:"오른쪽 골반 옆"},
+  {cx:36.1,cy:51.9,l:"왼쪽 골반 옆"},
+  {cx:25.61,cy:48.7,l:"허리"},
+  {cx:18.04,cy:45.9,l:"우하복부"},
+  {cx:34.1,cy:46,l:"좌하복부"},
+  {cx:26.46,cy:46,l:"중앙하복부"},
+  {cx:26.43,cy:41.7,l:"중앙복부"},
+  {cx:18.75,cy:36.7,l:"우상복부"},
+  {cx:33.1,cy:36.8,l:"좌상복부"},
+  {cx:33.9,cy:41.8,l:"좌측 중앙복부"},
+  {cx:18.38,cy:41.65,l:"우측 중앙복부"},
+  {cx:26.34,cy:36.7,l:"중앙상복부"},
+  {cx:26.7,cy:28.1,l:"가슴 중앙"},
+  {cx:43.7,cy:45,l:"왼쪽 전박 내측"},
+  {cx:8.46,cy:44.2,l:"오른쪽 전박 내측"},
+  {cx:45.5,cy:54.2,l:"왼손"},
+  {cx:5.93,cy:54.2,l:"오른손"},
+  {cx:41.8,cy:39.5,l:"왼쪽 팔꿈치"},
+  {cx:40.67,cy:31.6,l:"왼쪽 상완내측"},
+  {cx:11.06,cy:31.4,l:"오른쪽 상완내측"},
+  {cx:11.29,cy:24.9,l:"오른쪽 어깨"},
+  {cx:40.29,cy:24.6,l:"왼쪽 어깨"},
+  {cx:21.8,cy:10.1,l:"오른쪽 눈"},
+  {cx:28.72,cy:9.71,l:"왼쪽 눈"},
+  {cx:25.43,cy:11.35,l:"코"},
+  {cx:25.63,cy:13.9,l:"입"},
+  {cx:17.9,cy:4.3,l:"오른쪽 두부"},
+  {cx:33.9,cy:4.5,l:"왼쪽 두부"},
+  {cx:26.1,cy:3.6,l:"중앙 두부"},
+  {cx:17.6,cy:11.2,l:"오른쪽 귀"},
+  {cx:33.07,cy:10.62,l:"왼쪽 귀"},
+  {cx:21.58,cy:13.19,l:"오른쪽 뺨"},
+  {cx:29.45,cy:12.68,l:"왼쪽 뺨"},
+  {cx:25.7,cy:7.9,l:"이마"},
+  {cx:25.6,cy:15.8,l:"턱"},
+  {cx:36.7,cy:96.2,l:"왼발"},
+  {cx:16.5,cy:96.3,l:"오른발"},
+  {cx:59,cy:94.7,l:"왼발 외측"},
+  {cx:89.3,cy:95.1,l:"오른발 외측"},
+  {cx:67.36,cy:91.72,l:"왼쪽 발목"},
+  {cx:84.21,cy:91.85,l:"오른쪽 발목"}
+];
+var BM_FACE_PARTS = [
+  {cx:50.2,cy:12.8,l:"전두부"},
+  {cx:18.9,cy:12.7,l:"오른쪽 전두부"},
+  {cx:80.8,cy:12.9,l:"왼쪽 전두부"},
+  {cx:49.1,cy:29.8,l:"이마"},
+  {cx:30.3,cy:37.7,l:"오른쪽 눈썹"},
+  {cx:68.5,cy:37.1,l:"왼쪽 눈썹"},
+  {cx:49.6,cy:40.5,l:"미간"},
+  {cx:31.4,cy:46.7,l:"오른쪽 눈"},
+  {cx:68.4,cy:46.3,l:"왼쪽 눈"},
+  {cx:8.6,cy:32.9,l:"오른쪽 관자놀이"},
+  {cx:90.8,cy:32.6,l:"왼쪽 관자놀이"},
+  {cx:9.5,cy:51.8,l:"오른쪽 귀"},
+  {cx:89.7,cy:50.7,l:"왼쪽 귀"},
+  {cx:51.1,cy:50.3,l:"콧등"},
+  {cx:50.1,cy:57.9,l:"코끝"},
+  {cx:46.3,cy:57.3,l:"오른쪽 콧볼"},
+  {cx:54.2,cy:56.8,l:"왼쪽 콧볼"},
+  {cx:22.8,cy:58.4,l:"오른쪽 볼"},
+  {cx:78.4,cy:58.1,l:"왼쪽 볼"},
+  {cx:50,cy:64.1,l:"윗입술"},
+  {cx:50.2,cy:66.85,l:"아랫입술"},
+  {cx:22.1,cy:68.9,l:"오른쪽 턱선"},
+  {cx:78,cy:68.2,l:"왼쪽 턱선"},
+  {cx:39.76,cy:70.9,l:"왼쪽 턱"},
+  {cx:51.07,cy:88.7,l:"목/인후"},
+  {cx:30.3,cy:41.3,l:"오른쪽 눈거풀"},
+  {cx:68.4,cy:40.4,l:"왼쪽 눈거풀"},
+  {cx:37.2,cy:53.3,l:"오른쪽 광대뼈"},
+  {cx:65,cy:52.9,l:"왼쪽 광대뼈"},
+  {cx:50.1,cy:61.6,l:"인중"},
+  {cx:33.6,cy:64.1,l:"오른쪽 입 주변"},
+  {cx:66.6,cy:64.29,l:"왼쪽 입 주변"},
+  {cx:41.52,cy:75.25,l:"왼쪽 턱"},
+  {cx:57.8,cy:47.7,l:"왼쪽 눈 옆"},
+  {cx:42.6,cy:48,l:"오른쪽 눈 옆"},
+  {cx:20.3,cy:46.5,l:"오른쪽 눈 옆"},
+  {cx:80.1,cy:46.4,l:"왼쪽 눈 옆"},
+  {cx:19,cy:38.9,l:"오른쪽 눈썹 옆"},
+  {cx:79.6,cy:39.7,l:"왼쪽 눈썹 옆"},
+  {cx:36.1,cy:57.8,l:"오른쪽 광대뼈 아래"},
+  {cx:65.4,cy:57.9,l:"왼쪽 광대뼈 아래"},
+  {cx:61.83,cy:70.89,l:"오른쪽 턱"},
+  {cx:62.09,cy:75.33,l:"오른쪽 턱"},
+  {cx:73.12,cy:63.09,l:"왼쪽 볼"},
+  {cx:31.02,cy:88.58,l:"목 오른편"},
+  {cx:70.33,cy:88.69,l:"목 왼편"}
+];
+var BM_TEETH_PARTS = [
+  {cx:49.61,cy:14.93,l:"윗 앞니"},
+  {cx:33.35,cy:16.5,l:"오른쪽 윗 측절치"},
+  {cx:26.47,cy:18.76,l:"오른쪽 윗 송곳니"},
+  {cx:73.34,cy:18.66,l:"왼쪽 윗 송곳니"},
+  {cx:49.8,cy:36,l:"목젖"},
+  {cx:49.4,cy:59.57,l:"혀 중간"},
+  {cx:50.02,cy:78.85,l:"아랫 앞니"},
+  {cx:37.6,cy:78.56,l:"오른쪽 아랫 측절치"},
+  {cx:61.87,cy:78.7,l:"왼쪽 아랫 측절치"},
+  {cx:50.1,cy:26.2,l:"중앙 구개"},
+  {cx:61.66,cy:27.29,l:"왼쪽 구개"},
+  {cx:38.22,cy:27.42,l:"오른쪽 구개"},
+  {cx:65.98,cy:16.36,l:"왼쪽 윗 측절치"},
+  {cx:28.19,cy:43.86,l:"오른쪽 편도"},
+  {cx:71.41,cy:44.19,l:"왼쪽 편도"},
+  {cx:50.03,cy:71.7,l:"혀 끝"},
+  {cx:50.01,cy:45,l:"인후"},
+  {cx:39.97,cy:36.83,l:"인후"},
+  {cx:59.44,cy:36.48,l:"인후"},
+  {cx:50.5,cy:4.5,l:"윗 입술"},
+  {cx:78.52,cy:9.59,l:"윗 입술 왼편"},
+  {cx:21.49,cy:9.62,l:"윗 입술 오른편"},
+  {cx:69.17,cy:77.53,l:"왼쪽 아래 송곳니"},
+  {cx:30.16,cy:77.24,l:"오른쪽 아래 송곳니"},
+  {cx:24.35,cy:74.59,l:"오른쪽 아래 제1소구치"},
+  {cx:75.55,cy:74.62,l:"왼쪽 아래 제1소구치"},
+  {cx:23.3,cy:68.8,l:"오른쪽 아래 제2소구치"},
+  {cx:76.86,cy:68.42,l:"왼쪽 아래 제2소구치"},
+  {cx:20.36,cy:64.38,l:"오른쪽 아래 제1대구치"},
+  {cx:18.18,cy:59.98,l:"오른쪽 아래 제2대구치"},
+  {cx:15.69,cy:54.91,l:"오른쪽 아래 제3대구치"},
+  {cx:79.49,cy:64.13,l:"왼쪽 아래 제1대구치"},
+  {cx:81.22,cy:59.98,l:"왼쪽 아래 제2대구치"},
+  {cx:84.33,cy:54.89,l:"왼쪽 아래 제3대구치"},
+  {cx:79.39,cy:28.29,l:"왼쪽 위 제2소구치"},
+  {cx:76.35,cy:25.21,l:"왼쪽 위 제1소구치"},
+  {cx:20.46,cy:28.23,l:"오른쪽 위 제2소구치"},
+  {cx:20.12,cy:21.83,l:"오른쪽 위 제1소구치"},
+  {cx:16.08,cy:25.03,l:"오른쪽 위 제2소구치"},
+  {cx:84.04,cy:24.56,l:"왼쪽 위 제2소구치"},
+  {cx:79.62,cy:20.69,l:"왼쪽 위 제1소구치"},
+  {cx:15.7,cy:34.71,l:"오른쪽 위 제2대구치"},
+  {cx:17.2,cy:31.22,l:"오른쪽 위 제1대구치"},
+  {cx:14.54,cy:37.71,l:"오른쪽 위 제3대구치"},
+  {cx:85.36,cy:38.37,l:"왼쪽 위 제3대구치"},
+  {cx:84.08,cy:35.1,l:"왼쪽 위 제2대구치"},
+  {cx:81.89,cy:31.56,l:"왼쪽 위 제1대구치"},
+  {cx:33.42,cy:93.1,l:"아랫 입술 우측"},
+  {cx:49.9,cy:9.9,l:"윗 잇몸"},
+  {cx:50.97,cy:85.07,l:"아랫 잇몸"},
+  {cx:35.25,cy:60.17,l:"혀 중간 우측"},
+  {cx:64.16,cy:60.42,l:"혀 중간 좌측"},
+  {cx:80.82,cy:71.75,l:"왼쪽 아래 제2소구치"},
+  {cx:28.74,cy:71.75,l:"오른쪽 아래 제1소구치"},
+  {cx:15.05,cy:45.41,l:"오른쪽 구강 안쪽"},
+  {cx:84.7,cy:45.8,l:"왼쪽 구강 안쪽"},
+  {cx:24.7,cy:25,l:"오른쪽 위 제1소구치"},
+  {cx:87.23,cy:28.47,l:"왼쪽 위 제1대구치"},
+  {cx:88.83,cy:31.45,l:"왼쪽 위 제2대구치"},
+  {cx:12.97,cy:28.07,l:"오른쪽4 위 제1대구치"},
+  {cx:66.37,cy:93.41,l:"아랫 입술 좌측"},
+  {cx:19.19,cy:72.59,l:"오른쪽 아래 제2소구치"},
+  {cx:14.95,cy:68.33,l:"오른쪽 아래 제1대구치"},
+  {cx:84.62,cy:68.04,l:"왼쪽 아래 제1소구치"},
+  {cx:87.56,cy:63.59,l:"오른쪽 아래 제2대구치"}
+];
+var BM_HAND_TOP_PARTS = [
+  {cx:23.8,cy:49.7,l:"왼손 손등 상단"},
+  {cx:24,cy:69.3,l:"왼손 손등 중앙"},
+  {cx:24.5,cy:89.5,l:"왼손 손목"},
+  {cx:75.6,cy:49.07,l:"오른손 손등 상단"},
+  {cx:75.6,cy:67.6,l:"오른손 손등 중앙"},
+  {cx:76.1,cy:87.7,l:"오른손 손목"},
+  {cx:67,cy:87.2,l:"오른쪽 손목 내측"},
+  {cx:15.9,cy:89.4,l:"왼쪽 손목 외측"},
+  {cx:33.1,cy:89.3,l:"왼쪽 손목 내측"},
+  {cx:84.9,cy:87.7,l:"오른쪽 손목 외측"},
+  {cx:33.7,cy:49.58,l:"왼쪽 손등 상단 내측"},
+  {cx:12.17,cy:52.6,l:"왼쪽 손등 상단 외측"},
+  {cx:36.98,cy:69,l:"왼쪽 손등 중앙 내측"},
+  {cx:12.5,cy:69.3,l:"왼쪽 손등 중앙 외측"},
+  {cx:44.16,cy:38.1,l:"왼쪽 엄지 원위부(위)"},
+  {cx:40.6,cy:55.7,l:"왼쪽 엄지 근위부(위)"},
+  {cx:42.28,cy:46.9,l:"왼쪽 엄지 중간부(위)"},
+  {cx:32.6,cy:9.6,l:"왼쪽 검지 원위부(위)"},
+  {cx:32.5,cy:20.6,l:"왼쪽 검지 중간부(위)"},
+  {cx:32.2,cy:31.9,l:"왼쪽 검지 근위부(위)"},
+  {cx:21.7,cy:5.5,l:"왼쪽 중지 원위부(위)"},
+  {cx:22,cy:16.4,l:"왼쪽 중지 중간부(위)"},
+  {cx:23,cy:30.8,l:"왼쪽 중지 근위부(위)"},
+  {cx:11.2,cy:12.2,l:"왼쪽 약지 원위부(위)"},
+  {cx:13,cy:23,l:"왼쪽 약지 중간부(위)"},
+  {cx:14.4,cy:33.5,l:"왼쪽 약지 근위부(위)"},
+  {cx:2.6,cy:27.5,l:"왼쪽 소지 원위부(위)"},
+  {cx:4.9,cy:33.8,l:"왼쪽 소지 중간부(위)"},
+  {cx:6.7,cy:41.2,l:"왼쪽 소지 근위부(위)"},
+  {cx:96.8,cy:27.7,l:"오른쪽 소지 원위부(위)"},
+  {cx:94.73,cy:36.8,l:"오른쪽 소지 중간부(위)"},
+  {cx:91.4,cy:46,l:"오른쪽 소지 근위부(위)"},
+  {cx:88.1,cy:12.1,l:"오른쪽 약지 원위부(위)"},
+  {cx:85.4,cy:34.99,l:"오른쪽 약지 근위부(위)"},
+  {cx:87.09,cy:24.3,l:"오른쪽 약지 중간부(위)"},
+  {cx:78.7,cy:6.2,l:"오른쪽 중지 원위부(위)"},
+  {cx:77.4,cy:31.7,l:"오른쪽 중지 근위부(위)"},
+  {cx:78.2,cy:18.4,l:"오른쪽 중지 중간부(위)"},
+  {cx:67.8,cy:9.5,l:"오른쪽 검지 원위부(위)"},
+  {cx:68,cy:21.7,l:"오른쪽 검지 중간부(위)"},
+  {cx:68,cy:31.97,l:"오른쪽 검지 근위부(위)"},
+  {cx:55.2,cy:38.3,l:"오른쪽 엄지 원위부(위)"},
+  {cx:58.24,cy:45.9,l:"오른쪽 엄지 중간부(위)"},
+  {cx:58.7,cy:54.58,l:"오른쪽 엄지 근위부(위)"},
+  {cx:66.4,cy:48.67,l:"오른쪽 손등 상단 내측"},
+  {cx:87.1,cy:55.1,l:"오른쪽 손등 상단 외측"},
+  {cx:63.12,cy:67.3,l:"오른쪽 손등 중앙 내측"},
+  {cx:86.1,cy:67.6,l:"오른쪽 손등 중앙 외측"},
+  {cx:45.9,cy:39.4,l:"왼쪽 엄지 손톱"},
+  {cx:32.2,cy:7,l:"왼쪽 검지 손톱"},
+  {cx:21,cy:4.7,l:"왼쪽 중지 손톱"},
+  {cx:11.1,cy:10.3,l:"왼쪽 약지 손톱"},
+  {cx:2.4,cy:26.6,l:"왼쪽 소지 손톱"},
+  {cx:54.1,cy:39.8,l:"오른쪽 엄지 손톱"},
+  {cx:68.4,cy:6.8,l:"오른쪽 검지 손톱"},
+  {cx:79.2,cy:4.4,l:"오른쪽 중지 손톱"},
+  {cx:88.73,cy:10.2,l:"오른쪽 약지 손톱"},
+  {cx:97.5,cy:26.7,l:"오른쪽 소지 손톱"},
+  {cx:84.5,cy:45.48,l:"오른쪽 손등 상단 외측"},
+  {cx:14.48,cy:42.17,l:"왼쪽 약지 근위부(위)"}
+];
+var BM_PALM_PARTS = [
+  {cx:18.64,cy:9.09,l:"완손 검지 원위부"},
+  {cx:19.22,cy:20.8,l:"완손 검지 중간부"},
+  {cx:18.8,cy:31.9,l:"완손 검지 근위부"},
+  {cx:29.34,cy:7.81,l:"완손 중지 원위부"},
+  {cx:28.38,cy:20.31,l:"완손 중지 중간부"},
+  {cx:27.07,cy:31.78,l:"완손 중지 근위부"},
+  {cx:39.97,cy:12.2,l:"완손 약지 원위부"},
+  {cx:36.47,cy:25.87,l:"완손 약지 중간부"},
+  {cx:34.4,cy:34.77,l:"완손 약지 근위부"},
+  {cx:45.62,cy:27.92,l:"완손 소지 원위부"},
+  {cx:43.36,cy:37.08,l:"완손 소지 중간부"},
+  {cx:40.93,cy:44.37,l:"완손 소지 근위부"},
+  {cx:25,cy:89.7,l:"완손 손목"},
+  {cx:93.91,cy:36.37,l:"오른손 엄지 원위부"},
+  {cx:80.93,cy:8.27,l:"오른손 검지 원위부"},
+  {cx:80.91,cy:21.22,l:"오른손 검지 중간부"},
+  {cx:70.29,cy:8.16,l:"오른손 중지 원위부"},
+  {cx:72.16,cy:21.14,l:"오른손 중지 중간부"},
+  {cx:73.43,cy:31.54,l:"오른손 중지 근위부"},
+  {cx:61.27,cy:14.02,l:"오른손 약지 근위부"},
+  {cx:54.23,cy:28.55,l:"오른손 소지 원위부"},
+  {cx:58.28,cy:46.11,l:"오른손 소지 근위부"},
+  {cx:74.28,cy:45.79,l:"오른손 손바닥 상단"},
+  {cx:76,cy:57.3,l:"오른손 손바닥 중앙"},
+  {cx:75.2,cy:90.43,l:"오른손 손목"},
+  {cx:33.2,cy:89.1,l:"완쪽 손목 내측"},
+  {cx:66.8,cy:89.8,l:"오른쪽 손목 내측"},
+  {cx:16.7,cy:89.4,l:"완쪽 손목 외측"},
+  {cx:83.5,cy:89.9,l:"오른쪽 손목 외측"},
+  {cx:24.5,cy:75.5,l:"완쪽 손꿈치"},
+  {cx:75.8,cy:75.9,l:"오른쪽 손꿈치"},
+  {cx:75.3,cy:67.2,l:"오른쪽 손바닥 하단"},
+  {cx:25.8,cy:67.5,l:"완쪽 손바닥 하단"},
+  {cx:25.1,cy:56.7,l:"완쪽 손바닥 중앙"},
+  {cx:24.72,cy:44.38,l:"완쪽 손바닥 상단"},
+  {cx:63.3,cy:25.86,l:"오른손 약지 중간부"},
+  {cx:8.6,cy:47.39,l:"완쪽 엄지 근위부"},
+  {cx:7.5,cy:43.21,l:"완쪽 엄지 중간부"},
+  {cx:6.11,cy:37.42,l:"완쪽 엄지 원위부"},
+  {cx:56.48,cy:37.8,l:"오른손 소지 중간부"},
+  {cx:65.38,cy:35.33,l:"오른손 약지 근위부"},
+  {cx:81.51,cy:31.83,l:"오른손 검지 근위부"},
+  {cx:92.56,cy:44.67,l:"오른손 엄지 중간부"},
+  {cx:91.39,cy:49.16,l:"오른손 엄지 근위부"},
+  {cx:77.1,cy:38.54,l:"오른쪽 손바닥 상단"}
+];
+var BM_FOOT_TOP_PARTS = [
+  {cx:40.2,cy:14.8,l:"왼발 엄지발가락"},
+  {cx:27.5,cy:15.85,l:"왼발 검지 발가락"},
+  {cx:18.61,cy:17.97,l:"왼발 중지 발가락"},
+  {cx:11.1,cy:19.6,l:"왼발 약지 발가락"},
+  {cx:3.1,cy:22.6,l:"왼발 소지 발가락"},
+  {cx:23.6,cy:37.5,l:"왼발 앞발등"},
+  {cx:23.2,cy:56.3,l:"왼발 중간 발등"},
+  {cx:25.9,cy:75.7,l:"왼발 뒷발등"},
+  {cx:26.2,cy:92.2,l:"왼발 발목"},
+  {cx:59.27,cy:14.09,l:"오른발 엄지발가락"},
+  {cx:72.3,cy:14.81,l:"오른발 검지 발가락"},
+  {cx:81,cy:15.37,l:"오른발 중지 발가락"},
+  {cx:89,cy:18.37,l:"오른발 약지 발가락"},
+  {cx:98.3,cy:21.42,l:"오른발 소지 발가락"},
+  {cx:75.5,cy:36.5,l:"오른발 앞발등"},
+  {cx:76.8,cy:57.4,l:"오른발 중간 발등"},
+  {cx:74.9,cy:76.89,l:"오른발 뒷발등"},
+  {cx:75.3,cy:92.3,l:"오른발 발목"},
+  {cx:36.9,cy:91.5,l:"왼쪽 발목 내측"},
+  {cx:14.1,cy:92,l:"왼쪽 발목 외측"},
+  {cx:40.8,cy:75.6,l:"왼쪽 안쪽 복숭아뼈"},
+  {cx:63.49,cy:92.23,l:"오른쪽 발목 내측"},
+  {cx:87.36,cy:91.8,l:"오른쪽 발목 외측"},
+  {cx:86.7,cy:76.97,l:"오른쪽 바깥쪽 복숭아뼈"},
+  {cx:62.4,cy:77.31,l:"오른쪽 안쪽 복숭아뼈"},
+  {cx:9.7,cy:76,l:"왼쪽 바깥쪽 복숭아뼈"},
+  {cx:61.2,cy:6.5,l:"오른쪽 엄지 발톱"},
+  {cx:72.8,cy:6.7,l:"오른쪽 검지 발톱"},
+  {cx:81.7,cy:9.5,l:"오른쪽 중지 발톱"},
+  {cx:89.3,cy:14,l:"오른쪽 약지 발톱"},
+  {cx:96,cy:19.7,l:"오른쪽 소지 발톱"},
+  {cx:4.1,cy:19.4,l:"왼쪽 소지 발톱"},
+  {cx:10.9,cy:14.1,l:"왼쪽 약지 발톱"},
+  {cx:18.2,cy:9.4,l:"왼쪽 중지 발톱"},
+  {cx:27,cy:7.1,l:"왼쪽 검지 발톱"},
+  {cx:39.1,cy:6.3,l:"왼쪽 엄지 발톱"}
+];
+var BM_FOOT_BOTTOM_PARTS = [
+  {cx:24.6,cy:39.84,l:"왼발 아치"},
+  {cx:26.09,cy:58.2,l:"왼발 발바닥 중앙"},
+  {cx:28.8,cy:83.3,l:"왼발 뒤꿈치"},
+  {cx:60.83,cy:9.9,l:"오른발 엄지 발가락 (발바닥면)"},
+  {cx:73.2,cy:11.4,l:"오른발 검지 발가락 (발바닥면)"},
+  {cx:81.8,cy:12.21,l:"오른발 중지 발가락 (발바닥면)"},
+  {cx:76.4,cy:36.6,l:"오른발 아치"},
+  {cx:76.63,cy:55.6,l:"오른발 발바닥 중앙"},
+  {cx:71.5,cy:82.3,l:"오른발 뒤꿈치"},
+  {cx:88.9,cy:18.62,l:"오른쪽 약지 발가락 (발바닥면)"},
+  {cx:95.8,cy:23.75,l:"오른쪽 소지 발가락 (발바닥면)"},
+  {cx:58.5,cy:81.8,l:"오른발 뒤꿈치 내측"},
+  {cx:86.3,cy:79.6,l:"오른발 뒤꿈치 외측"},
+  {cx:41.8,cy:82.4,l:"왼발 뒤꿈치 내측"},
+  {cx:14.2,cy:83.2,l:"왼발 뒤꿈치 외측"},
+  {cx:39.36,cy:10.31,l:"왼쪽 엄지 발가락 (발바닥면)"},
+  {cx:28.01,cy:11.5,l:"왼쪽 검지 발가락 (발바닥면)"},
+  {cx:19.65,cy:12.57,l:"왼쪽 중지 발가락 (발바닥면)"},
+  {cx:12.01,cy:18.32,l:"왼쪽 약지 발가락 (발바닥면)"},
+  {cx:3.63,cy:23.9,l:"왼쪽 소지 발가락 (발바닥면)"},
+  {cx:69.32,cy:24.22,l:"오른발 발바닥 앞꿈치"},
+  {cx:32.15,cy:25.73,l:"왼발 발바닥 앞꿈치"},
+  {cx:11.99,cy:28.74,l:"왼발 발바닥 앞꿈치"},
+  {cx:92.79,cy:13.96,l:"오른쪽 약지 발가락 (발바닥면)"},
+  {cx:96.83,cy:17.61,l:"오른쪽 소지 발가락 (발바닥면)"},
+  {cx:7.61,cy:13.26,l:"왼쪽 약지 발가락 (발바닥면)"},
+  {cx:14.13,cy:7.46,l:"왼쪽 중지 발가락 (발바닥면)"},
+  {cx:9.92,cy:58.15,l:"왼발 발바닥 중앙 (외측)"},
+  {cx:40.16,cy:58.07,l:"왼발 발바닥 중앙 (내측)"},
+  {cx:91.68,cy:55.54,l:"오른발 발바닥 중앙 (외측)"},
+  {cx:61.16,cy:55.58,l:"오른발 발바닥 중앙 (내측)"}
+];
+
+var BM_ZONE_MAP = {
+  body: BM_BODY_PARTS, face: BM_FACE_PARTS, teeth: BM_TEETH_PARTS,
+  handTop: BM_HAND_TOP_PARTS, palm: BM_PALM_PARTS,
+  footTop: BM_FOOT_TOP_PARTS, footBottom: BM_FOOT_BOTTOM_PARTS
+};
+
+var _nrsColors = ["#22c55e","#4ade80","#a3e635","#facc15","#fbbf24","#f59e0b","#f97316","#ef4444","#dc2626","#991b1b"];
+
+function openBodymapModal() {
+  document.getElementById("bmModal").classList.add("active");
+  bmRenderAll();
+}
+
+function closeBodymapModal() {
+  var modal = document.getElementById("bmModal");
+  modal.classList.remove("active");
+  /* transition 끝날 때까지 pointer-events 차단은 CSS가 처리 */
+}
+
+/* object-fit:contain의 실제 이미지 영역 계산 */
+function bmActualRect(img) {
+  var r = img.getBoundingClientRect();
+  var nw = img.naturalWidth || r.width, nh = img.naturalHeight || r.height;
+  var ratio = nw / nh, cRatio = r.width / r.height;
+  var aw, ah, ox, oy;
+  if (ratio > cRatio) { aw = r.width; ah = r.width / ratio; ox = 0; oy = (r.height - ah) / 2; }
+  else { ah = r.height; aw = r.height * ratio; ox = (r.width - aw) / 2; oy = 0; }
+  return { left: r.left + ox, top: r.top + oy, width: aw, height: ah };
+}
+
+function bmNearest(parts, xPct, yPct) {
+  var best = null, bd = Infinity;
+  parts.forEach(function(p) { var d = (xPct - p.cx) * (xPct - p.cx) + (yPct - p.cy) * (yPct - p.cy); if (d < bd) { bd = d; best = p; } });
+  return best ? best.l : "미지정";
+}
+
+function bmRenderAll() {
+  /* 마커 렌더링 */
+  document.querySelectorAll(".bm-zone .bm-markers").forEach(function(ov) { ov.innerHTML = ""; });
+  _bodymapData.forEach(function(mk, mi) {
+    var zone = document.querySelector('.bm-zone[data-bm-key="' + mk.imgKey + '"] .bm-markers');
+    if (!zone) return;
+    var dot = document.createElement("div"); dot.className = "bm-marker";
+    dot.style.left = mk.x + "%"; dot.style.top = mk.y + "%";
+    if (mk.nrs === 0) { dot.style.background = "#22c55e"; dot.textContent = "✓"; }
+    else { dot.style.background = _nrsColors[Math.min((mk.nrs || 1) - 1, 9)]; dot.textContent = mk.nrs; }
+    dot.dataset.idx = mi;
+    zone.appendChild(dot);
+  });
+  /* 태그 바 */
+  var bar = document.getElementById("bmSelBar");
+  if (_bodymapData.length === 0) { bar.innerHTML = '<span class="bm-hint-text">선택된 부위가 여기에 표시됩니다</span>'; return; }
+  var h = '';
+  _bodymapData.forEach(function(mk, mi) {
+    h += '<span class="bm-tag" data-action="bm-remove" data-idx="' + mi + '">' + mk.label + (mk.nrs ? " (NRS " + mk.nrs + ")" : "") + ' ✕</span>';
+  });
+  bar.innerHTML = h;
+}
+
+/* 이미지 투명 영역 체크 — 색이 있는 부분만 클릭 허용 (프로그램과 동일) */
+function bmHasPixel(img, xPct, yPct) {
+  try {
+    if (!img._bmCache) {
+      var cv = document.createElement("canvas");
+      cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      var ctx = cv.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      img._bmCache = { ctx: ctx, w: img.naturalWidth, h: img.naturalHeight };
+    }
+    var cx = Math.floor(xPct / 100 * img._bmCache.w);
+    var cy = Math.floor(yPct / 100 * img._bmCache.h);
+    var r = 3; /* 반경 3px 검사 */
+    var sx = Math.max(0, cx - r), sy = Math.max(0, cy - r);
+    var sw = Math.min(img._bmCache.w - sx, r * 2 + 1);
+    var sh = Math.min(img._bmCache.h - sy, r * 2 + 1);
+    if (sw > 0 && sh > 0) {
+      var id = img._bmCache.ctx.getImageData(sx, sy, sw, sh).data;
+      for (var i = 3; i < id.length; i += 4) {
+        if (id[i] > 30) return true; /* 알파값 > 30 → 색이 있는 영역 */
+      }
+    }
+    return false;
+  } catch (ex) { return true; /* CORS 등 오류 시 허용 */ }
+}
+
+/* 바디맵 존 클릭 */
+document.getElementById("bmModal").addEventListener("click", function(e) {
+  var zone = e.target.closest(".bm-zone");
+  if (!zone || e.target.classList.contains("bm-marker")) return;
+  var key = zone.dataset.bmKey;
+  var parts = BM_ZONE_MAP[key]; if (!parts) return;
+  var img = zone.querySelector("img"); if (!img) return;
+  var ar = bmActualRect(img);
+  var xPct = (e.clientX - ar.left) / ar.width * 100;
+  var yPct = (e.clientY - ar.top) / ar.height * 100;
+  if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return;
+  /* 투명 영역 클릭 무시 */
+  if (!bmHasPixel(img, xPct, yPct)) return;
+  var label = bmNearest(parts, xPct, yPct);
+  var existing = _bodymapData.findIndex(function(d) { return d.imgKey === key && d.label === label; });
+  if (existing >= 0) { _bodymapData.splice(existing, 1); }
+  else { _bodymapData.push({ imgKey: key, x: xPct, y: yPct, label: label, nrs: 0 }); }
+  bmRenderAll();
+});
+
+/* 마커 클릭 → NRS 팝업 (클릭 위치 전달) */
+document.getElementById("bmModal").addEventListener("click", function(e) {
+  if (!e.target.classList.contains("bm-marker")) return;
+  e.stopPropagation();
+  var idx = parseInt(e.target.dataset.idx);
+  var mk = _bodymapData[idx]; if (!mk) return;
+  showNrsPopup(mk.label, idx, e.clientX, e.clientY);
+}, true);
+
+/* NRS 팝업 — 프로그램과 동일: 클릭 위치 옆에 작은 팝업, 번호 클릭 시 즉시 적용 */
+function showNrsPopup(label, idx, clientX, clientY) {
+  var mk = _bodymapData[idx]; if (!mk) return;
+  var old = document.getElementById("bmNrsPop"); if (old) old.remove();
+  var pop = document.createElement("div"); pop.id = "bmNrsPop";
+  var px = (clientX || 400) + 10, py = (clientY || 300) - 20;
+  if (px + 320 > window.innerWidth) px = window.innerWidth - 330;
+  if (py + 100 > window.innerHeight) py = window.innerHeight - 110;
+  if (py < 10) py = 10;
+  pop.style.cssText = "position:fixed;left:" + px + "px;top:" + py + "px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:12000;display:flex;flex-direction:column;gap:4px;align-items:center";
+  pop.innerHTML = '<div style="font-size:10px;color:#94a3b8">통증 척도(NRS)</div>'
+    + '<div style="display:flex;gap:4px" id="bmNrsButtons"></div>'
+    + '<img crossorigin="anonymous" src="../assets/bodymap/scale.png" style="width:280px;margin-top:2px;border-radius:4px" onerror="this.style.display=\'none\'">';
+  var btns = pop.querySelector("#bmNrsButtons");
+  for (var n = 1; n <= 10; n++) {
+    (function(nrs) {
+      var btn = document.createElement("button"); btn.textContent = nrs;
+      btn.style.cssText = "width:26px;height:26px;border-radius:50%;border:none;font-size:11px;font-weight:800;color:#fff;cursor:pointer;background:" + _nrsColors[Math.min(nrs - 1, 9)] + ";transition:transform .1s";
+      btn.addEventListener("mouseenter", function() { btn.style.transform = "scale(1.2)"; });
+      btn.addEventListener("mouseleave", function() { btn.style.transform = "scale(1)"; });
+      btn.addEventListener("click", function(ev) {
+        ev.stopPropagation();
+        _bodymapData[idx].nrs = nrs;
+        pop.remove();
+        bmRenderAll();
+      });
+      btns.appendChild(btn);
+    })(n);
+  }
+  /* 바깥 클릭으로 닫기 */
+  setTimeout(function() {
+    document.addEventListener("click", function closeNrs(ev) {
+      if (!pop.contains(ev.target)) { pop.remove(); document.removeEventListener("click", closeNrs); }
+    });
+  }, 50);
+  document.body.appendChild(pop);
+}
+
+/* ── 릴레이 ── */
+function sendReception(payload) {
+  if (!RELAY_URL || !RELAY_CHANNEL) return;
+  fetch(RELAY_URL + "/api/v1/kiosk/reception/" + encodeURIComponent(RELAY_CHANNEL), {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+  }).catch(function() {});
+}
+
+/* ═══════════════════════════════════
+   릴레이 WebSocket — 호출 시 대기인원 감소
+   ═══════════════════════════════════ */
+function removeFromQueue(personName) {
+  var idx = -1;
+  for (var i = 0; i < _waitQueue.length; i++) {
+    if (_waitQueue[i].name === personName) { idx = i; break; }
+  }
+  if (idx >= 0) {
+    _waitQueue.splice(idx, 1);
+    _waitCount = Math.max(0, _waitCount - 1);
+    updateQueueDisplay();
+  }
+}
+
+/* nurse_call payload 는 UID 만 들어있다 (서버에 개인정보 0).
+ * 키오스크가 PEOPLE_DATA 에서 풀네임/학년/반 조회. */
+function _lookupByUid(uid){
+  if(!uid || !Array.isArray(PEOPLE_DATA)) return null;
+  for (var i = 0; i < PEOPLE_DATA.length; i++) {
+    var p = PEOPLE_DATA[i];
+    if (p && (p.uid === uid || p.id === uid)) return p;
+  }
+  return null;
+}
+function showNurseCallBanner(payload) {
+  if (!payload) return;
+  /* 후방 호환: 옛 서버는 person_name 직접 보냈으나, 새 서버는 person.uid 만 보냄 */
+  var name = payload.person_name || "";
+  var gc   = payload.grade_class || "";
+  if (!name && payload.person && payload.person.uid) {
+    var p = _lookupByUid(payload.person.uid);
+    if (p) {
+      name = p.name || "방문자";
+      if (p.type === "staff") {
+        gc = p.position || "";
+      } else {
+        var parts = [];
+        if (p.grade) parts.push(p.grade + "학년");
+        if (p.cls)   parts.push(p.cls + "반");
+        if (p.num)   parts.push(p.num + "번");
+        gc = parts.join(" ");
+      }
+    } else {
+      name = "방문자";
+    }
+  }
+  if (!name) name = "방문자";
+  var msg = payload.message || "들어오세요.";
+  /* 대기열에서 해당 학생 제거 */
+  removeFromQueue(name);
+  /* 호출 배너 표시 */
+  var old = document.getElementById("nurseCallBanner"); if (old) old.remove();
+  var ov = document.createElement("div"); ov.id = "nurseCallBanner";
+  ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease";
+  ov.innerHTML = '<div style="background:#fff;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 16px 64px rgba(0,0,0,0.3);max-width:80vw">'
+    + '<div style="font-size:72px;margin-bottom:16px">📢</div>'
+    + '<div style="font-size:20px;color:#64748b;margin-bottom:8px">' + gc + '</div>'
+    + '<div style="font-size:36px;font-weight:800;color:#1e293b;margin-bottom:16px">' + name + ' 학생</div>'
+    + '<div style="font-size:28px;color:#0891b2;font-weight:700">' + msg + '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(function() { if (ov.parentNode) ov.remove(); }, 8000);
+}
+
+if (RELAY_URL && RELAY_CHANNEL) {
+  (function() {
+    function connect() {
+      var ws = new WebSocket(RELAY_URL.replace(/^http/, "ws") + "/ws?channel=" + encodeURIComponent(RELAY_CHANNEL) + "&role=kiosk");
+      ws.onmessage = function(e) {
+        try {
+          var m = JSON.parse(e.data);
+          if (m.type === "waitCount" || m.type === "queue_update") {
+            var c = (m.payload && m.payload.waiting_count) || m.count || 0;
+            _waitCount = c;
+            updateQueueDisplay();
+          } else if (m.type === "nurse_call") {
+            showNurseCallBanner(m.payload);
+          } else if (m.type === "roster_updated") {
+            /* 명단 갱신 */
+          }
+        } catch (x) {}
+      };
+      ws.onclose = function() { setTimeout(connect, 5000); };
+      ws.onerror = function() {};
+    }
+    connect();
+  })();
+}
+
+/* ═══════════════════════════════════
+   이벤트 위임
+   ═══════════════════════════════════ */
+document.addEventListener("click", function(ev) {
+  var t = ev.target.closest("[data-action]"); if (!t) return;
+  var act = t.getAttribute("data-action");
+  switch (act) {
+    case "go-screen": goScreen(t.getAttribute("data-target")); break;
+    case "go-back": goBack(); break;
+    case "go-home": resetToPersonal(); break;
+    case "fd-opt-action": fdOptAction(t.getAttribute("data-sec-id"), t.getAttribute("data-opt-id")); break;
+    case "drill-tab": drillShowTab(t.getAttribute("data-type")); break;
+    case "drill-grade": drillSelectGrade(parseInt(t.getAttribute("data-grade"))); break;
+    case "drill-cls": drillSelectClass(t.getAttribute("data-cls")); break;
+    case "drill-select": selectPerson(parseInt(t.getAttribute("data-idx"))); break;
+    case "drill-back-grade": drillSelectGrade(_drillSelGrade); break;
+    case "bm-cancel": closeBodymapModal(); break;
+    case "bm-confirm": closeBodymapModal(); submitAndReset("s_purpose"); break;
+    case "bm-remove":
+      var ri = parseInt(t.getAttribute("data-idx"));
+      _bodymapData.splice(ri, 1); bmRenderAll();
+      break;
+  }
+});
+</script>
+</body>
+</html>

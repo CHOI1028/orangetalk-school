@@ -1,0 +1,77 @@
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
+  <style>
+    /* 오렌지팜 외부 사이트 이동 CTA 버튼 — hover 애니메이션.
+     * 버튼들이 absolute + translate 로 중앙/세로정렬 되어 있어 transform 을 덮어쓰면 위치가 튐.
+     * 그래서 transform 은 건드리지 않고 box-shadow / filter / glow 로만 강조. */
+    .orange-cta-btn{transition:box-shadow .22s ease,filter .22s ease;will-change:filter,box-shadow}
+    .orange-cta-btn:hover{
+      box-shadow:0 12px 26px rgba(234,88,12,0.62),0 0 0 4px rgba(234,88,12,0.20)!important;
+      filter:brightness(1.08) saturate(1.10);
+      animation:orangeCtaPulse 1.6s ease-in-out infinite;
+    }
+    .orange-cta-btn:active{box-shadow:0 4px 10px rgba(234,88,12,0.45)!important;filter:brightness(0.98)}
+    @keyframes orangeCtaPulse{
+      0%,100%{box-shadow:0 12px 26px rgba(234,88,12,0.62),0 0 0 4px rgba(234,88,12,0.20)}
+      50%{box-shadow:0 14px 30px rgba(234,88,12,0.75),0 0 0 7px rgba(234,88,12,0.10)}
+    }
+  </style>
+  <div id="view-orange" class="view">
+    <div style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
+      <div class="magic-index-tab active" id="orangeSubTab1" data-orange-tab="mall" style="z-index:2;cursor:pointer"><img src="assets/logo/logo_big.png" style="height:14px;width:auto;object-fit:contain;vertical-align:-3px;display:inline-block;margin-right:4px">오렌지몰</div>
+      <div class="magic-index-tab" id="orangeSubTabTutorial" data-orange-tab="together" style="cursor:pointer">🤝 함께하는 보건일지</div>
+      <div class="magic-index-tab" id="orangeSubTabQna" data-orange-tab="qna" style="cursor:pointer">❓ Q&amp;A</div>
+      <div class="magic-index-tab" id="orangeSubTabDownload" data-orange-tab="download" style="cursor:pointer">📦 업데이트 자료실</div>
+      <div class="magic-index-tab" id="orangeSubTabIntro" data-orange-tab="intro" style="cursor:pointer">💬 개발 이야기</div>
+    </div>
+    <div class="magic-chart-body" style="padding:16px">
+      <!-- 탭1: 오렌지몰 — link_banner.png 배경. 이미지 안의 "오렌지팜 바로가기" 텍스트 영역이 클릭 영역. -->
+      <div id="orangeSubMall" class="magic-sub-content active" style="display:block">
+        <div id="orangeMallCanvas" style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/link_banner.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
+          <button id="orangeMallBtn" class="orange-cta-btn" type="button" title="오렌지몰 바로가기" style="position:absolute;right:9%;top:43%;transform:translateY(-50%);padding:12px 32px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">오렌지팜 바로가기</button>
+
+        </div>
+      </div>
+      <!-- 탭2: 함께하는 보건일지 — together.png 배경 + "이야기 하러가기" 버튼 -->
+      <div id="orangeSubTogether" class="magic-sub-content" style="display:none">
+        <div style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/together.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
+          <button id="orangeTogetherBtn" class="orange-cta-btn" type="button" title="함께하는 보건일지 페이지로 이동" style="position:absolute;left:6%;top:81.73%;transform:translateY(-50%);padding:12px 48px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">이야기 하러가기</button>
+        </div>
+      </div>
+      <!-- 탭3: Q&A — question.png 배경 + "자주 묻는 질문 보기" 버튼 -->
+      <div id="orangeSubQna" class="magic-sub-content" style="display:none">
+        <div style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/question.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
+          <button id="orangeQnaBtn" class="orange-cta-btn" type="button" title="Q&amp;A 페이지로 이동" style="position:absolute;left:12.37%;top:81.73%;transform:translate(-50%,-50%);padding:12px 28px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">자주 묻는 질문 보기</button>
+        </div>
+      </div>
+      <!-- 탭4: 업데이트 자료실 — update_board.png 배경 + "최신 자료 보기" 버튼 -->
+      <div id="orangeSubDownload" class="magic-sub-content" style="display:none">
+        <div style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/update_board.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
+          <button id="orangeDownloadBtn" class="orange-cta-btn" type="button" title="업데이트 자료실로 이동" style="position:absolute;left:12.23%;top:81.81%;transform:translate(-50%,-50%);padding:12px 52px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">최신 자료 보기</button>
+        </div>
+      </div>
+      <!-- 탭5: 개발 이야기 -->
+      <div id="orangeSubIntro" class="magic-sub-content" style="display:none">
+        <div class="cc" style="margin-bottom:14px;padding:0 16px 16px">
+          <div class="st" style="margin-top:14px">💬 개발 이야기 — 오렌지톡 소개와 철학</div>
+          <div id="introTextCol" style="line-height:2;font-size:13px;color:var(--t1);user-select:text;-webkit-user-select:text;cursor:auto">
+            <p style="margin-top:14px;margin-bottom:12px"><strong style="color:var(--cyan)">오렌지톡</strong>은 현직 보건교사(김재웅)가 인공지능 개발자인 아내(이기영)의 조언을 얻어 보건교사를 위해 개발한 보건일지입니다.</p>
+            <p style="margin-bottom:6px">보건교사 입장에서 더 안전하고 효율적인 업무를 위해 개발하였습니다.</p>
+            <p style="margin-bottom:6px">현장의 실제 업무 흐름에서 출발하였습니다.</p>
+            <p style="margin-bottom:24px"><strong style="color:var(--cyan)">현직자의 집단지성</strong>을 기반으로 편리하고 직관적인 업무를 위해 지속적으로 업데이트를 해나가고자 합니다.</p>
+            <p style="margin-bottom:6px">그동안 우리 업무 관련 시스템은 상위 기관 중심으로 구축·보급되면서 현장의 다양한 요구가 충분히 반영되기 어려운 한계가 있었습니다.</p>
+            <p style="margin-bottom:24px">또한 일부 프로그램은 특정 기업의 비즈니스 모델과 결합되어 등급에 따라 이용 방식이 제한되는 경우도 있었습니다.</p>
+            <p style="margin-bottom:6px">저는 선생님들이 학교 환경에서 <strong style="color:var(--cyan)">어떠한 사소한 차등도 경험하지 않기를</strong> 진심으로 바라고 있습니다.</p>
+            <p style="margin-bottom:6px">또한 학생·교직원의 모든 데이터는 외부 민간 서버가 아닌 <strong style="color:var(--cyan)">학교 내부에 저장</strong>되어 데이터의 통제권을 학교에 두어야 할 뿐만 아니라,</p>
+            <p style="margin-bottom:24px">개인정보 위탁에 따른 불필요한 행정 부담도 경감되어야 한다고 생각합니다.</p>
+            <p style="margin-bottom:12px">오렌지톡으로 <strong style="color:var(--cyan)">학교 중심, 보건교사 중심의 독립적인 열린 플랫폼</strong>을 만들어가겠습니다.</p>
+            <p style="margin-top:20px;margin-bottom:12px;font-size:11px;color:var(--t2);background:rgba(234,179,8,0.08);border-left:3px solid rgba(234,179,8,0.5);padding:10px 12px;border-radius:4px;line-height:1.7">근무 시간(8:20~16:40)에는 학교로 연락이 불가합니다.<br>어떠한 경우에도 문의는 <strong style="color:var(--cyan)">jwkim2353@gmail.com</strong>으로 부탁드립니다.</p>
+            <p style="margin-top:16px;font-size:11px;color:color-mix(in srgb, var(--t1) 88%, white 12%);background:color-mix(in srgb, var(--cyan) 12%, transparent);border:1px solid color-mix(in srgb, var(--cyan) 34%, transparent);border-radius:8px;padding:8px 10px;display:inline-block;line-height:1.6">만든이: 국방항공고등학교 보건교사 김재웅, 충청남도</p>
+            <p style="margin-top:6px;font-size:11px;color:color-mix(in srgb, var(--t1) 88%, white 12%);background:color-mix(in srgb, var(--cyan) 12%, transparent);border:1px solid color-mix(in srgb, var(--cyan) 34%, transparent);border-radius:8px;padding:8px 10px;display:inline-block;line-height:1.6">기술자문: 한국전자통신연구원 (ETRI) 공학박사 이기영</p>
+            <p style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+              <button id="storyAuthorBtn" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;border:1.5px solid var(--cyan);background:rgba(6,182,212,0.08);color:var(--cyan);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:var(--f)">👤 보건교사 김재웅 소개</button>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

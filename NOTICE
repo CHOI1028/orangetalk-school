@@ -1,0 +1,133 @@
+OrangeTalk (오렌지톡)
+Copyright (c) 2026 Orangepharm Co., Ltd. (오렌지팜 주식회사). All rights reserved.
+
+This product includes the following third-party open-source components.
+Each component is used under the terms of its respective license, which
+governs that component only. The OrangeTalk application as a whole is
+proprietary software — see LICENSE / LICENSE-KO.
+
+---------------------------------------------------------------------
+Runtime dependencies
+---------------------------------------------------------------------
+
+Electron
+  License : MIT
+  Website : https://www.electronjs.org/
+
+better-sqlite3
+  License : MIT
+  Website : https://github.com/WiseLibs/better-sqlite3
+
+Express
+  License : MIT
+  Website : https://expressjs.com/
+
+compression
+  License : MIT
+  Website : https://github.com/expressjs/compression
+
+ExcelJS
+  License : MIT
+  Website : https://github.com/exceljs/exceljs
+
+googleapis (Node.js client)
+  License : Apache-2.0
+  Website : https://github.com/googleapis/google-api-nodejs-client
+
+html2canvas
+  License : MIT
+  Website : https://html2canvas.hertzen.com/
+
+jsPDF
+  License : MIT
+  Website : https://github.com/parallax/jsPDF
+
+multer
+  License : MIT
+  Website : https://github.com/expressjs/multer
+
+pdf.js (pdfjs-dist)
+  License : Apache-2.0
+  Website : https://mozilla.github.io/pdf.js/
+
+qrcode-generator
+  License : MIT
+  Website : https://github.com/kazuhikoarase/qrcode-generator
+
+ws
+  License : MIT
+  Website : https://github.com/websockets/ws
+
+SheetJS (xlsx)
+  License : Apache-2.0
+  Website : https://sheetjs.com/
+
+electron-updater
+  License : MIT
+  Website : https://www.electron.build/auto-update
+
+---------------------------------------------------------------------
+Build / development dependencies
+---------------------------------------------------------------------
+
+electron-builder
+  License : MIT
+
+javascript-obfuscator
+  License : BSD-2-Clause
+
+---------------------------------------------------------------------
+Fonts
+---------------------------------------------------------------------
+
+Pretendard Variable
+  License : SIL Open Font License 1.1 (OFL-1.1)
+  Author  : 길형진 (Kil Hyung-jin)
+  Website : https://github.com/orioncactus/pretendard
+
+---------------------------------------------------------------------
+Icons / images
+---------------------------------------------------------------------
+
+Twemoji (국기 SVG)
+  License : MIT (code) / CC-BY-4.0 (graphics)
+  Website : https://github.com/jdecked/twemoji
+
+---------------------------------------------------------------------
+Map / POI services
+---------------------------------------------------------------------
+
+Kakao Maps JavaScript SDK
+  Terms   : Kakao Developers Terms of Service (non-commercial free tier)
+  Website : https://apis.map.kakao.com/
+
+---------------------------------------------------------------------
+Public data APIs (attribution)
+---------------------------------------------------------------------
+
+기상청 (KMA) — 단기예보, 기상특보 API
+  Source  : 공공데이터포털 (data.go.kr)
+
+에어코리아 (Air Korea) — 대기질 정보 API
+  Source  : 공공데이터포털 (data.go.kr)
+
+건강보험심사평가원 (HIRA) — 병·의원 찾기 API
+  Source  : 공공데이터포털 (data.go.kr)
+
+중앙응급의료센터 (NEMC) — 응급의료기관 API
+  Source  : 공공데이터포털 (data.go.kr)
+
+교육부 나이스(NEIS) Open API — 급식·학사일정·시간표
+  Source  : https://open.neis.go.kr/
+
+Open-Meteo — 기상 정보 API
+  License : CC-BY-4.0
+  Website : https://open-meteo.com/
+
+ipwho.is — IP 기반 위치 조회
+  Website : https://ipwho.is/
+
+---------------------------------------------------------------------
+
+For full license texts of the above components, refer to the respective
+project websites or the bundled node_modules/<package>/LICENSE files.

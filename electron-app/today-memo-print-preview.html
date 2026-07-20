@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<!-- 일지 출력 "매일 한 페이지" + 오늘의 메모 인쇄 시안 (실제 구현된 레이아웃 그대로 재현) -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>매일 한 페이지 인쇄 시안 — 오늘의 메모 포함</title>
+<style>
+body{margin:0;background:#64748b;font-family:"Pretendard Variable",Pretendard,"Noto Sans KR","맑은 고딕",sans-serif;padding:28px}
+.note{max-width:1050px;margin:0 auto 14px;color:#fff;font-size:12.5px}
+.page{background:#fff;max-width:1050px;margin:0 auto;padding:34px 40px;box-shadow:0 10px 30px rgba(0,0,0,0.35);border-radius:4px}
+table{border-collapse:collapse}
+</style>
+</head>
+<body>
+<div class="note">🖨 <b>인쇄 시안</b> — 일지 출력 → <b>매일 한 페이지</b> 선택 시 1일 = 1페이지. "오늘의 메모"가 켜져 있고 그 날짜에 내용이 있으면 타이틀 바로 아래에 함께 인쇄됩니다. (내용 없는 날은 메모 표 없이 기존과 동일)</div>
+<div class="page">
+
+  <!-- 타이틀 블록 (기존 그대로) -->
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0891b2;padding-bottom:8px;margin-bottom:10px">
+    <div>
+      <div style="font-size:18pt;font-weight:800;letter-spacing:-0.5px;color:#0f172a">📋 보건일지</div>
+      <div style="font-size:11px;color:#475569;margin-top:2px">국방항공고등학교 · 2026년 6월 10일 (수)</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:#64748b">방문자 수</div>
+      <div style="font-size:18px;font-weight:800;color:#0891b2">14<span style="font-size:11px;color:#475569;margin-left:3px">명</span></div>
+      <div style="font-size:10px;color:#475569">학생 12 · 교직원 2</div>
+    </div>
+  </div>
+
+  <!-- ★ 오늘의 메모 (신규 — 토글 ON + 내용 있을 때만) -->
+  <div style="font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:10px 0 4px;display:flex;align-items:center;gap:6px">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#84cc16,#65a30d);color:#fff;font-size:11px">📝</span>
+    오늘의 메모
+  </div>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:6px 0 10px">
+    <tr>
+      <th style="background:#eef2f6;color:#475569;font-size:10.5px;font-weight:700;padding:5px 8px;border:1px solid #cbd5e1;text-align:center">오늘의 업무</th>
+      <th style="background:#eef2f6;color:#475569;font-size:10.5px;font-weight:700;padding:5px 8px;border:1px solid #cbd5e1;text-align:center">오늘의 수업</th>
+      <th style="background:#eef2f6;color:#475569;font-size:10.5px;font-weight:700;padding:5px 8px;border:1px solid #cbd5e1;text-align:center">오늘의 행사</th>
+      <th style="background:#eef2f6;color:#475569;font-size:10.5px;font-weight:700;padding:5px 8px;border:1px solid #cbd5e1;text-align:center">병원 이송</th>
+    </tr>
+    <tr style="height:52px">
+      <td style="background:#fff;border:1px solid #cbd5e1;padding:6px 8px;font-size:10.5px;line-height:1.6;vertical-align:top;white-space:pre-wrap;word-break:break-all;color:#0f172a">요보호학생 명단 정리
+보건실 약품 재고 점검</td>
+      <td style="background:#fff;border:1px solid #cbd5e1;padding:6px 8px;font-size:10.5px;line-height:1.6;vertical-align:top;white-space:pre-wrap;word-break:break-all;color:#0f172a">3교시 1-2반 심폐소생술 교육</td>
+      <td style="background:#fff;border:1px solid #cbd5e1;padding:6px 8px;font-size:10.5px;line-height:1.6;vertical-align:top;white-space:pre-wrap;word-break:break-all;color:#0f172a">체육대회 예행연습 (운동장)</td>
+      <td style="background:#fff;border:1px solid #cbd5e1;padding:6px 8px;font-size:10.5px;line-height:1.6;vertical-align:top;white-space:pre-wrap;word-break:break-all;color:#0f172a">2-3 김○○ 손가락 열상 → ○○정형외과 (보호자 인계 14:20)</td>
+    </tr>
+  </table>
+
+  <!-- 일간 방문 통계 (기존 그대로) -->
+  <div style="font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:10px 0 4px;display:flex;align-items:center;gap:6px">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:11px">📊</span>
+    일간 방문 통계
+  </div>
+  <div style="font-size:11px;font-weight:700;color:#0e7490;margin:8px 0 4px;display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:3px;height:12px;background:linear-gradient(180deg,#06b6d4,#0891b2);border-radius:2px"></span>증상 분류별</div>
+  <div style="border:1px solid #cbd5e1;border-radius:6px;overflow:hidden">
+    <table style="width:100%">
+      <tr>
+        <th style="border:1px solid #cbd5e1;padding:4px 6px;font-size:9.5px;background:#f1f5f9;font-weight:700;color:#475569">구분</th>
+        <th style="border:1px solid #cbd5e1;padding:4px 6px;font-size:9.5px;background:#f1f5f9;font-weight:700;color:#475569">소화기</th>
+        <th style="border:1px solid #cbd5e1;padding:4px 6px;font-size:9.5px;background:#f1f5f9;font-weight:700;color:#475569">근골격</th>
+        <th style="border:1px solid #cbd5e1;padding:4px 6px;font-size:9.5px;background:#f1f5f9;font-weight:700;color:#475569">피부</th>
+        <th style="border:1px solid #cbd5e1;padding:4px 6px;font-size:9.5px;background:#f1f5f9;font-weight:700;color:#0891b2">계</th>
+      </tr>
+      <tr>
+        <td style="border:1px solid #cbd5e1;padding:4px 6px;font-size:10px;text-align:center;font-weight:700">건수</td>
+        <td style="border:1px solid #cbd5e1;padding:4px 6px;font-size:10px;text-align:center">4</td>
+        <td style="border:1px solid #cbd5e1;padding:4px 6px;font-size:10px;text-align:center">6</td>
+        <td style="border:1px solid #cbd5e1;padding:4px 6px;font-size:10px;text-align:center">4</td>
+        <td style="border:1px solid #cbd5e1;padding:4px 6px;font-size:10px;text-align:center;font-weight:800;color:#0891b2">14</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 방문 상세 (기존 그대로, 축약) -->
+  <div style="font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:14px 0 4px;display:flex;align-items:center;gap:6px">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:11px">📝</span>
+    방문 상세
+  </div>
+  <div style="border:1px solid #cbd5e1;border-radius:6px;overflow:hidden">
+    <table style="width:100%">
+      <tr>
+        <th style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;background:#f1f5f9;font-weight:700;color:#475569;text-align:center">순</th>
+        <th style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;background:#f1f5f9;font-weight:700;color:#475569;text-align:center">학년반</th>
+        <th style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;background:#f1f5f9;font-weight:700;color:#475569;text-align:center">이름</th>
+        <th style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;background:#f1f5f9;font-weight:700;color:#475569;text-align:center">입실</th>
+        <th style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;background:#f1f5f9;font-weight:700;color:#475569;text-align:center">증상</th>
+        <th style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;background:#f1f5f9;font-weight:700;color:#475569;text-align:center">처치</th>
+      </tr>
+      <tr>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">1</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">2-3</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">김○○</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">09:12</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px">열상 (손가락2(우))</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px">지혈 / 소독 / 병원 이송</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">2</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">1-2</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">박○○</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px;text-align:center">10:05</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px">복통</td>
+        <td style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10.5px">온찜질 / 안정</td>
+      </tr>
+      <tr><td colspan="6" style="border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;text-align:center;color:#94a3b8">… (이하 방문 기록 계속)</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

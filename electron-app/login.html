@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. --><html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>오렌지톡 - 로그인</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#e8ecf1;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;-webkit-app-region:drag}
+.login-card{background:#151d2b;border:1px solid #243044;border-radius:16px;padding:40px 36px;width:380px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.4);-webkit-app-region:no-drag}
+.login-card h1{font-size:22px;font-weight:800;margin-bottom:6px}
+.login-card .subtitle{font-size:12px;color:#8899aa;margin-bottom:24px}
+.login-card .emoji{font-size:48px;margin-bottom:16px;display:block}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px 20px;background:#ffffff;color:#333;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;-webkit-app-region:no-drag}
+.google-btn:hover{background:#f0f0f0;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.google-btn:active{transform:translateY(0)}
+.google-btn img{width:20px;height:20px}
+.status{margin-top:16px;font-size:11px;color:#5a6a7a;min-height:20px}
+.status.error{color:#ef4444}
+.status.success{color:#22c55e}
+.setup-guide{margin-top:8px;font-size:10px;line-height:1.5;color:#7f8ea1;display:none;text-align:left;background:rgba(0,0,0,0.2);border:1px solid rgba(127,142,161,0.25);border-radius:8px;padding:8px 10px}
+.version{margin-top:20px;font-size:10px;color:#3a4a5a}
+.close-btn{position:fixed;top:12px;right:12px;width:28px;height:28px;border:none;background:rgba(255,255,255,0.06);color:#5a6a7a;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;-webkit-app-region:no-drag;transition:all .15s}
+.close-btn:hover{background:rgba(239,68,68,0.2);color:#ef4444}
+</style>
+</head>
+<body>
+<button class="close-btn" onclick="window.close()">✕</button>
+<div class="login-card">
+  <span class="emoji">💚</span>
+  <h1>오렌지톡</h1>
+  <button class="google-btn" id="loginBtn" onclick="doLogin()">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Google 계정으로 로그인
+  </button>
+  <div class="status" id="loginStatus"></div>
+  <div class="setup-guide" id="setupGuide"></div>
+  <div class="version">v1.0.0</div>
+</div>
+
+<script>
+async function checkOAuthConfig(){
+  var btn=document.getElementById('loginBtn');
+  var status=document.getElementById('loginStatus');
+  var guide=document.getElementById('setupGuide');
+  try{
+    var cfg=await window.electronAPI.authConfigStatus();
+    if(cfg&&cfg.hasConfig){
+      guide.style.display='none';
+      status.className='status';
+      status.textContent='로그인 준비가 완료되었습니다.';
+      btn.disabled=false;
+      return;
+    }
+  }catch(e){}
+  btn.disabled=true;
+  status.className='status error';
+  status.textContent='OAuth 설정이 없어 로그인할 수 없습니다.';
+  guide.style.display='block';
+  guide.textContent='electron-app/oauth-client.json 파일을 만들고 clientId, clientSecret, redirectUri를 입력하세요.';
+}
+
+async function doLogin(){
+  var btn=document.getElementById('loginBtn');
+  var status=document.getElementById('loginStatus');
+  btn.disabled=true;
+  btn.textContent='로그인 중...';
+  status.className='status';
+  status.textContent='Google 로그인 창이 열립니다...';
+  
+  try{
+    var result=await window.electronAPI.googleLogin();
+    if(result.success){
+      status.className='status success';
+      status.textContent='환영합니다, '+result.user.name+'님!';
+      setTimeout(function(){window.electronAPI.openMain();},800);
+    }else{
+      status.className='status error';
+      status.textContent='로그인 실패: '+result.error;
+      btn.disabled=false;
+      btn.innerHTML='<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Google 계정으로 로그인';
+    }
+  }catch(e){
+    status.className='status error';
+    status.textContent='오류: '+e.message;
+    btn.disabled=false;
+    btn.innerHTML='다시 시도';
+  }
+}
+
+checkOAuthConfig();
+</script>
+</body>
+</html>

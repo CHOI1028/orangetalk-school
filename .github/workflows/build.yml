@@ -1,0 +1,101 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: electron-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: electron-app
+        run: npm ci --omit=optional
+
+      - name: Rebuild native modules for Electron
+        working-directory: electron-app
+        run: npx electron-builder install-app-deps
+
+      # 로컬 빌드와 동일한 파이프라인을 재현합니다.
+      # 1) 더미 oauth-client.json (bundle-credentials 입력)
+      # 2) bundle-credentials: oauth-client.json → src/main/services/bundled-credentials.js (AES-256-GCM)
+      # 3) obfuscate: main/preload/src 전체 + health_diary.html 인라인 스크립트 난독화
+      - name: Prepare dummy OAuth credentials
+        working-directory: electron-app
+        shell: bash
+        run: |
+          if [ ! -f oauth-client.json ]; then
+            node -e "require('fs').writeFileSync('oauth-client.json', JSON.stringify({clientId:'disabled',clientSecret:'disabled'}, null, 2))"
+          fi
+
+      - name: Bundle credentials
+        working-directory: electron-app
+        run: node scripts/bundle-credentials.js
+
+      # 코드 보호 — main/preload/src 전체 + health_diary.html 인라인 스크립트 난독화.
+      # (이전에 V3 오탐 회피 명목으로 잠시 꺼두었으나, 학교 PC 설치 실패의 진짜 원인은
+      #  옛 DB 경로 마이그레이션 문제였고 이번 세션에서 v1 베이스라인 + idempotent 마이그레이션
+      #  골격으로 해결됨 → 난독화는 다시 활성화해도 안전.)
+      - name: Obfuscate JavaScript
+        working-directory: electron-app
+        run: node scripts/obfuscate.js
+
+      # --publish always 로 build.publish 에 정의된 Public 릴리즈 저장소
+      # (jwkim2353/my-health-diary) 로 exe·blockmap·latest.yml 자동 업로드.
+      # GH_TOKEN 은 해당 저장소에 write 권한이 있는 PAT 이어야 합니다.
+      - name: Build Windows installer (x64) and publish to public release repo
+        working-directory: electron-app
+        run: npx electron-builder --win --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+
+      # 연습용 더미데이터 zip 을 같은 release 에 자산으로 첨부 — 사용자가 인스톨러와 함께 다운로드 가능.
+      # electron-builder 가 이미 release 를 생성·자산 업로드한 상태이므로 동일 태그 release 에 추가 첨부만 수행.
+      #
+      # ⚠ 자산명 인코딩 정책:
+      #   GitHub Release Asset API 는 자산명에 non-ASCII 문자(한글 등)를 허용하지 않고 서버에서 강제로
+      #   underscore 로 변환한다 (서버 측 정책, 우회 불가). 이전 v1.0.0-beta.5 빌드에서 한글 zip 파일을
+      #   그대로 업로드 → "_.zip" 으로 자산명 깨짐. 재발 방지를 위해 *항상 영문 임시 파일로 복사한 뒤*
+      #   업로드한다. 사용자가 보는 자산명은 인스톨러와 일관된 `OrangeTalk-Practice-Data.zip`.
+      - name: Attach practice dummy-data zip to release (영문 자산명 강제)
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          SRC_ZIP="dummy-data/연습용_더미데이터.zip"
+          if [ ! -f "$SRC_ZIP" ]; then
+            echo "⚠ $SRC_ZIP 파일이 없어 건너뜀"
+            exit 0
+          fi
+          STAGE_DIR="${RUNNER_TEMP:-/tmp}"
+          ASSET_NAME="OrangeTalk-Practice-Data.zip"
+          STAGED="$STAGE_DIR/$ASSET_NAME"
+          cp "$SRC_ZIP" "$STAGED"
+          gh release upload "$TAG" "$STAGED" \
+            --repo jwkim2353/my-health-diary \
+            --clobber
+          rm -f "$STAGED"
+          echo "✅ $ASSET_NAME 첨부 완료 (tag=$TAG)"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            electron-app/dist/*.exe
+            electron-app/dist/*.exe.blockmap
+            electron-app/dist/latest.yml

@@ -1,0 +1,10 @@
+{
+  "_comment": "API 키 번들 — 빌드 시 install된 앱에 임베드됨. 실제 사용 시 api-keys.json 파일을 만들어 키를 채우세요. (api-keys.json은 .gitignore에 포함됨)",
+  "kma_api_key": "기상청 단기예보 인증키 (data.go.kr 공통)",
+  "airkorea_api_key": "에어코리아 미세먼지 인증키 (data.go.kr 공통)",
+  "drug_api_key": "식약처 의약품 인증키 (data.go.kr 공통)",
+  "hira_api_key": "건강보험심사평가원 병원/약국 인증키 (data.go.kr 공통)",
+  "emergency_api_key": "국립중앙의료원 응급의료 인증키 (data.go.kr 공통)",
+  "kakao_rest_api_key": "",
+  "kakao_js_api_key": ""
+}

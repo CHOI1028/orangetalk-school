@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<!-- 오늘의 메모 기능 목업 (미리보기 전용 — 앱 코드 아님) -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>오늘의 메모 — 미리보기</title>
+<style>
+:root{
+  --card:#ffffff; --bg2:#f8fafc; --bdr:#e2e8f0;
+  --t1:#0f172a; --t2:#475569; --t3:#94a3b8;
+  --f:"Pretendard Variable",Pretendard,"Noto Sans KR","맑은 고딕",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#eef2f7;font-family:var(--f);font-size:13px;color:var(--t1);padding:24px}
+.canvas{background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:16px;max-width:1280px;margin:0 auto;position:relative}
+.note{max-width:1280px;margin:0 auto 12px;font-size:11.5px;color:var(--t2)}
+
+/* ── 상단 행: 검색 + 버튼들 + 전광판 ── */
+.toprow{display:flex;align-items:center;gap:3px}
+.search-wrap{width:300px;position:relative;flex-shrink:0}
+.search-wrap input{width:100%;font-size:11px;padding:8px 60px 8px 30px;background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;font-family:var(--f);outline:none}
+.search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--t3)}
+.adv-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer}
+.tbtn{white-space:nowrap;height:32px;padding:0 8px;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:4px;border-radius:6px;cursor:pointer;border:1px solid;transition:all .15s;font-family:var(--f);flex-shrink:0}
+.b-people{background:rgba(236,72,153,0.06);color:#a8456e;border-color:rgba(236,72,153,0.15)}
+.b-med{background:rgba(245,158,11,0.12);color:#d97706;border-color:rgba(245,158,11,0.3)}
+.b-drug{background:rgba(14,165,233,0.1);color:#0284c7;border-color:rgba(14,165,233,0.3)}
+/* 오늘의 메모 토글 — OFF 회색 / ON 연두 */
+#memoToggle{background:rgba(148,163,184,0.12);color:#64748b;border-color:rgba(148,163,184,0.35)}
+#memoToggle.on{background:rgba(132,204,22,0.16);color:#4d7c0f;border-color:rgba(132,204,22,0.5)}
+/* 전광판 (우측 끝 고정 흉내) */
+.signboard{margin-left:auto;flex-shrink:0;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.06);border-radius:8px;padding:5px 12px;font-size:10.5px;line-height:1.5;color:#15803d;font-weight:700;text-align:center}
+.signboard small{display:block;font-weight:600;color:var(--t2)}
+
+/* ── 2행 툴바 ── */
+.toolrow{display:flex;align-items:center;gap:3px;margin-top:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.g-btn{background:rgba(34,197,94,0.12);color:#16a34a;border:1px solid rgba(34,197,94,0.3)}
+.date-label{background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.25);min-width:140px;justify-content:center;font-weight:700;font-size:11px;height:32px;padding:0 10px;display:inline-flex;align-items:center;border-radius:6px;white-space:nowrap}
+.w-btn{background:var(--bg2);color:var(--t2);border:1px solid var(--bdr)}
+
+/* ── 오늘의 메모 아코디언 (가로 전체 폭) ── */
+#memoAccordion{display:none;margin-top:8px}
+#memoAccordion.show{display:block}
+.acc-head{display:flex;align-items:center;gap:8px;width:100%;background:rgba(132,204,22,0.08);border:1px solid rgba(132,204,22,0.4);border-radius:8px;padding:7px 12px;cursor:pointer;user-select:none;font-weight:700;color:#4d7c0f;font-size:12px;transition:background .15s}
+.acc-head:hover{background:rgba(132,204,22,0.14)}
+.acc-chevron{font-size:10px;transition:transform .18s;display:inline-block}
+.acc-head.open .acc-chevron{transform:rotate(90deg)}
+.acc-gear{margin-left:auto;border:1px solid var(--bdr);background:var(--card);border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;line-height:1}
+.acc-gear:hover{border-color:#84cc16;background:rgba(132,204,22,0.10)}
+.acc-body{display:none;border:1px solid var(--bdr);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}
+.acc-body.open{display:block}
+.acc-head.open{border-radius:8px 8px 0 0}
+table.memo-grid{width:100%;border-collapse:collapse;table-layout:fixed}
+table.memo-grid th{background:#eef2f6;color:var(--t2);font-size:11.5px;font-weight:700;padding:7px 10px;border:1px solid var(--bdr);border-top:none;text-align:center}
+table.memo-grid td{background:#fff;border:1px solid var(--bdr);border-bottom:none;padding:0;vertical-align:top}
+table.memo-grid td .cell{width:100%;min-height:74px;padding:8px 10px;font-size:12px;line-height:1.6;font-family:var(--f);color:var(--t1);outline:none;white-space:pre-wrap;word-break:break-all}
+table.memo-grid td .cell:empty::before{content:attr(data-ph);color:var(--t3)}
+table.memo-grid td .cell:focus{background:rgba(132,204,22,0.04)}
+
+/* ── 톱니 설정 팝오버 ── */
+#gearPop{display:none;position:absolute;z-index:60;background:var(--card);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18);width:330px;overflow:hidden}
+#gearPop.show{display:block}
+#gearPop .gp-head{padding:10px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800}
+#gearPop .gp-body{padding:12px 16px}
+#gearPop .gp-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12px}
+#gearPop .gp-row label{width:56px;color:var(--t2);font-weight:700;font-size:11.5px;flex-shrink:0}
+#gearPop input[type=text]{flex:1;border:1px solid var(--bdr);border-radius:6px;padding:6px 9px;font-size:12px;font-family:var(--f);outline:none}
+#gearPop input[type=text]:focus{border-color:#84cc16}
+.colseg{display:flex;gap:4px}
+.colseg button{border:1px solid var(--bdr);background:var(--bg2);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);color:var(--t2)}
+.colseg button.sel{background:rgba(132,204,22,0.16);color:#4d7c0f;border-color:rgba(132,204,22,0.5)}
+.gp-foot{display:flex;justify-content:flex-end;gap:6px;padding:10px 16px;border-top:1px solid var(--bdr)}
+.gp-foot button{border-radius:6px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f)}
+.gp-cancel{border:1px solid var(--bdr);background:transparent;color:var(--t2)}
+.gp-ok{border:1px solid rgba(132,204,22,0.5);background:rgba(132,204,22,0.16);color:#4d7c0f}
+
+/* 표 자리 (컨텍스트용) */
+.fake-table{margin-top:8px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t3);text-align:center;padding:46px 0;font-size:12px}
+</style>
+</head>
+<body>
+<div class="note">🔍 <b>미리보기</b> — ① "📝 오늘의 메모" 클릭 = ON(연두)/OFF(회색) 토글 → ON 시 아래에 가로 아코디언 등장(기본 닫힘) ② 아코디언 클릭 = 펼침/접기 ③ ⚙ = 칸 수(3~5)·제목 수정</div>
+<div class="canvas">
+
+  <!-- 상단 행 -->
+  <div class="toprow">
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input placeholder="이름 검색 (선택 후 Enter)">
+      <button class="adv-btn">상세 검색</button>
+    </div>
+    <button class="tbtn b-people">👥 인원 데이터 관리</button>
+    <button class="tbtn b-med">🗺️ 의료기관 탐색</button>
+    <button class="tbtn b-drug">💊 약품 검색</button>
+    <!-- ★ 신규: 오늘의 메모 토글 -->
+    <button class="tbtn" id="memoToggle" title="오늘의 메모 ON/OFF">📝 오늘의 메모</button>
+    <!-- 전광판 (우측 끝) -->
+    <div class="signboard">2026학년도<small>학생 254 · 교직원 31</small></div>
+  </div>
+
+  <!-- 2행 툴바 -->
+  <div class="toolrow">
+    <button class="tbtn g-btn">◀</button>
+    <span class="date-label">오늘의 보건일지</span>
+    <button class="tbtn g-btn">▶</button>
+    <button class="tbtn w-btn">💬 상용 메시지</button>
+    <button class="tbtn w-btn">🔧 열 필드 설정</button>
+    <button class="tbtn w-btn">📦 물품 대여 대장</button>
+    <button class="tbtn w-btn">🖨 커스텀 양식 출력</button>
+    <button class="tbtn w-btn">📋 일지 출력</button>
+    <button class="tbtn w-btn">↑ 오름차순</button>
+    <button class="tbtn w-btn">↓ 내림차순</button>
+  </div>
+
+  <!-- ★ 오늘의 메모 아코디언 (토글 ON 시 표시 / 기본 닫힘) -->
+  <div id="memoAccordion">
+    <div class="acc-head" id="accHead">
+      <span class="acc-chevron">▶</span>
+      <span>📝 오늘의 메모</span>
+      <span style="font-weight:600;font-size:10.5px;color:var(--t2)">— 클릭하여 펼치기 · 일 단위 일지 출력에 포함됩니다</span>
+      <button class="acc-gear" id="gearBtn" title="칸 수·제목 설정">⚙</button>
+    </div>
+    <div class="acc-body" id="accBody">
+      <table class="memo-grid" id="memoGrid"></table>
+    </div>
+  </div>
+
+  <!-- 톱니 설정 팝오버 -->
+  <div id="gearPop">
+    <div class="gp-head">⚙ 오늘의 메모 설정</div>
+    <div class="gp-body">
+      <div class="gp-row"><label>칸 수</label>
+        <div class="colseg" id="colSeg">
+          <button data-n="3">3칸</button><button data-n="4" class="sel">4칸</button><button data-n="5">5칸</button>
+        </div>
+      </div>
+      <div id="titleRows"></div>
+    </div>
+    <div class="gp-foot">
+      <button class="gp-cancel" id="gearCancel">취소</button>
+      <button class="gp-ok" id="gearOk">적용</button>
+    </div>
+  </div>
+
+  <!-- 컨텍스트: 일지 표 자리 -->
+  <div class="fake-table">(보건일지 표 영역)</div>
+</div>
+
+<script>
+'use strict';
+/* 상태 */
+var DEFAULT_TITLES = ['오늘의 업무','오늘의 수업','오늘의 행사','병원 이송'];
+var state = { on:false, open:false, cols:4, titles:DEFAULT_TITLES.slice(), contents:['','','','',''] };
+
+var memoToggle = document.getElementById('memoToggle');
+var acc = document.getElementById('memoAccordion');
+var accHead = document.getElementById('accHead');
+var accBody = document.getElementById('accBody');
+var grid = document.getElementById('memoGrid');
+var gearBtn = document.getElementById('gearBtn');
+var gearPop = document.getElementById('gearPop');
+
+/* 표 렌더 — 2층(제목·회색) + 1층(내용·흰색 입력) */
+function renderGrid(){
+  var ths='', tds='';
+  for(var i=0;i<state.cols;i++){
+    var t = state.titles[i] || ('칸 '+(i+1));
+    ths += '<th>'+esc(t)+'</th>';
+    tds += '<td><div class="cell" contenteditable="true" data-i="'+i+'" data-ph="내용을 입력하세요...">'+esc(state.contents[i]||'')+'</div></td>';
+  }
+  grid.innerHTML = '<tr>'+ths+'</tr><tr>'+tds+'</tr>';
+  grid.querySelectorAll('.cell').forEach(function(c){
+    c.addEventListener('input', function(){ state.contents[+c.dataset.i] = c.innerText; });
+  });
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});}
+
+/* ① ON/OFF 토글 */
+memoToggle.addEventListener('click', function(){
+  state.on = !state.on;
+  memoToggle.classList.toggle('on', state.on);
+  acc.classList.toggle('show', state.on);
+  if(!state.on){ state.open=false; accHead.classList.remove('open'); accBody.classList.remove('open'); gearPop.classList.remove('show'); }
+});
+
+/* ② 아코디언 펼침/접기 (기본 닫힘) */
+accHead.addEventListener('click', function(e){
+  if(e.target.closest('#gearBtn')) return;
+  state.open = !state.open;
+  accHead.classList.toggle('open', state.open);
+  accBody.classList.toggle('open', state.open);
+  if(state.open) renderGrid();
+});
+
+/* ③ 톱니 설정 */
+var draft = { cols:4, titles:[] };
+function openGear(){
+  draft.cols = state.cols;
+  draft.titles = state.titles.slice();
+  document.querySelectorAll('#colSeg button').forEach(function(b){ b.classList.toggle('sel', +b.dataset.n===draft.cols); });
+  renderTitleRows();
+  var r = gearBtn.getBoundingClientRect();
+  var canvasR = document.querySelector('.canvas').getBoundingClientRect();
+  gearPop.style.top = (r.bottom - canvasR.top + 6) + 'px';
+  gearPop.style.right = (canvasR.right - r.right) + 'px';
+  gearPop.classList.add('show');
+}
+function renderTitleRows(){
+  var box = document.getElementById('titleRows'); var h='';
+  for(var i=0;i<draft.cols;i++){
+    h += '<div class="gp-row"><label>'+(i+1)+'번 제목</label><input type="text" data-ti="'+i+'" value="'+esc(draft.titles[i]||DEFAULT_TITLES[i]||('칸 '+(i+1)))+'"></div>';
+  }
+  box.innerHTML = h;
+  box.querySelectorAll('input').forEach(function(inp){
+    inp.addEventListener('input', function(){ draft.titles[+inp.dataset.ti]=inp.value; });
+  });
+}
+gearBtn.addEventListener('click', function(e){ e.stopPropagation(); gearPop.classList.contains('show') ? gearPop.classList.remove('show') : openGear(); });
+document.getElementById('colSeg').addEventListener('click', function(e){
+  var b=e.target.closest('button[data-n]'); if(!b)return;
+  draft.cols=+b.dataset.n;
+  document.querySelectorAll('#colSeg button').forEach(function(x){x.classList.toggle('sel', x===b);});
+  renderTitleRows();
+});
+document.getElementById('gearCancel').addEventListener('click', function(){ gearPop.classList.remove('show'); });
+document.getElementById('gearOk').addEventListener('click', function(){
+  state.cols = draft.cols;
+  state.titles = draft.titles.slice();
+  gearPop.classList.remove('show');
+  if(!state.open){ state.open=true; accHead.classList.add('open'); accBody.classList.add('open'); }
+  renderGrid();
+});
+document.addEventListener('click', function(e){
+  if(gearPop.classList.contains('show') && !e.target.closest('#gearPop') && !e.target.closest('#gearBtn')) gearPop.classList.remove('show');
+});
+</script>
+</body>
+</html>
