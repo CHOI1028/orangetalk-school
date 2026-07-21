@@ -23,7 +23,7 @@ export function showLoginScreen() {
   document.getElementById('spSetup').classList.remove('show');
   loadUserList();
 }
-
+/* 로그인 완료 후 스플래시를 닫고 메인 화면을 초기화하는 함수 */
 function hideSplash() {
   localStorage.setItem('ec_session', 'active');
   const s = document.getElementById('splash');
