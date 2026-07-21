@@ -1,26 +1,114 @@
 <!DOCTYPE html>
 <!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
-<html><head><meta charset="UTF-8">
-<style>
-/* 절대 픽셀 고정 — viewport 단위(vh/vw/%)·max-width/max-height·flex 모두 제거.
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* 절대 픽셀 고정 — viewport 단위(vh/vw/%)·max-width/max-height·flex 모두 제거.
  * 이전엔 vh·flex 가 OS 의 DPI 스케일 / DWM 합성 / 창 첫 paint 직전 임시 사이즈에 따라
  * 미세하게 흔들렸음. 박스를 픽셀로 박아두면 어떤 환경에서도 동일 크기.
  * 창 자체는 620×395 (useContentSize), 콘텐츠는 그 안에 absolute 정중앙. */
-html,body{margin:0;padding:0;width:620px;height:395px;overflow:hidden;background:transparent;user-select:none}
-*{box-sizing:border-box}
-.splash-wrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:520px;height:344px;-webkit-app-region:drag}
-.splash-logo{position:absolute;left:0;top:0;width:520px;height:312px;background:url('assets/splash-logo.png') center/contain no-repeat}
-.loading{position:absolute;left:0;bottom:0;width:520px;height:24px;line-height:24px;color:#8899aa;font-size:13px;font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;letter-spacing:1.5px;text-align:center;padding-left:4px}
-.loading .text{display:inline-block;vertical-align:middle;margin-right:3px}
-.dot{display:inline-block;width:8px;text-align:center;vertical-align:middle;animation:pulse 1.6s ease-in-out infinite;font-size:20px;line-height:24px;font-weight:bold;color:#06b6d4}
-.dot:nth-child(2){animation-delay:0s}
-.dot:nth-child(3){animation-delay:0.25s}
-.dot:nth-child(4){animation-delay:0.5s}
-@keyframes pulse{0%,100%{opacity:0.15}50%{opacity:1}}
-</style>
-</head><body>
-<div class="splash-wrap">
-  <div class="splash-logo" role="img" aria-label="오렌지톡"></div>
-  <div class="loading"><span class="text">로딩중</span><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
-</div>
-</body></html>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 620px;
+      height: 395px;
+      overflow: hidden;
+      background: transparent;
+      user-select: none
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    .splash-wrap {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 520px;
+      height: 336px;
+      -webkit-app-region: drag;
+      background: transparent;
+    }
+
+    .splash-logo {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 520px;
+      height: 312px;
+      background: url('assets/splash-logo.png') center/contain no-repeat
+    }
+
+    .loading {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 520px;
+      height: 24px;
+      line-height: 24px;
+      background: #0a0e17;
+      color: #e6500a;
+      font-size: 13px;
+      font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+      letter-spacing: 1.5px;
+      text-align: center;
+      padding-left: 4px;
+    }
+
+    .loading .text {
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 3px
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      text-align: center;
+      vertical-align: middle;
+      animation: pulse 1.6s ease-in-out infinite;
+      font-size: 20px;
+      line-height: 24px;
+      font-weight: bold;
+      color: #469646
+    }
+
+    .dot:nth-child(2) {
+      animation-delay: 0s
+    }
+
+    .dot:nth-child(3) {
+      animation-delay: 0.25s
+    }
+
+    .dot:nth-child(4) {
+      animation-delay: 0.5s
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.15
+      }
+
+      50% {
+        opacity: 1
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="splash-wrap">
+    <div class="splash-logo" role="img" aria-label="오렌지톡"></div>
+    <div class="loading"><span class="text">로딩중</span><span class="dot">.</span><span class="dot">.</span><span
+        class="dot">.</span></div>
+  </div>
+</body>
+
+</html>
