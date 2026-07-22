@@ -85,42 +85,53 @@ function _renderEmptyUserList(isFirstRun, container, title, msg) {
 
 /* ── 사용자 목록 로드 & 렌더링 ── */
 function loadUserList() {
-  const container = document.getElementById('spUserList');
-  const msg = document.getElementById('spPinMsg');
-  const title = document.getElementById('spLoginTitle');
+  //1.화면 요소 가져오기
+  const container = document.getElementById('spUserList');//사용자 목록이 표시될 영역
+  const msg = document.getElementById('spPinMsg');// 입력 오류나 안내 메세지가 표시될 영역
+  const title = document.getElementById('spLoginTitle');//로그인 화면 제목 영역
   if (!container) return;
-
+  //2.Electron 환경인지 확인
   if (!window.electronAPI || !window.electronAPI.userGetActive) {
     /* electronAPI 없는 환경 (웹 테스트 등) — 바로 진입 */
     container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">Electron 환경이 아닙니다.</div>';
     setTimeout(hideSplash, 1000);
     return;
   }
-
+  //3.활성 사용자 목록 요청
   window.electronAPI.userGetActive().then(function (res) {
+    //4.조회 실패 여부 확인
     if (!res || !res.success) { container.innerHTML = ''; return; }
+    //5.조회 성공 시 실제 사용자 배열 가져오기
     const users = res.data || [];
-
+    //6.등록된 사용자가 없는 경우
     if (users.length === 0) {
       _renderEmptyUserList(true, container, title, msg);
       return;
     }
-
+    //7.사용자가 있을 때 제목 변경
     title.textContent = '사용자를 선택하세요';
     if (msg) msg.textContent = '';
-    /* 아바타 로드 후 렌더 */
+    //8.사용자별 아바타 가져오기
     const avatarPromises = users.map(function (u) {
+      //8-1.아바타 가져오기 전 Electron API 존재 여부 확인
       if (!window.electronAPI || !window.electronAPI.dbGet) return Promise.resolve(null);
-      return window.electronAPI.dbGet('common', 'user_avatar_' + u.id).then(function (r) { return r && r.success ? r.data : null; }).catch(function () { return null; });
+      //8-2.아바타 DB 조회 및 결과 처리
+      return window.electronAPI.dbGet('common', 'user_avatar_' + u.id).then(function (r) { return r && r.success ? r.data : null; })
+        //8-3.조회 실패 시 null 반환
+        .catch(function () { return null; });
     });
+    //9.모든 아바타 조회 완료 후 사용자 카드 렌더링
     Promise.all(avatarPromises).then(function (avatars) {
+      //10.사용자 카드 HTML 생성 및 삽입
       container.innerHTML = users.map(function (u, i) {
         const initials = (u.name || '?').substring(0, 1);
         const av = avatars[i];
         const circleContent = av
           ? '<img src="' + av + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
           : initials;
-        return '<div class="sp-user-card" data-uid="' + u.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .15s">'
+        return
+        //11.사용자 카드 HTML 구조 생성
+        '<div class="sp-user-card" data-uid="' + u.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .15s">'
           + '<div class="sp-avatar" data-uid="' + u.id + '" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;cursor:pointer">' + circleContent + '</div>'
           + '<div style="flex:1;min-width:0">'
           + '<div style="font-size:13px;font-weight:700;color:var(--t1)">' + escHtml(u.name) + '</div>'
@@ -130,15 +141,18 @@ function loadUserList() {
           + '</div>';
       }).join('');
       /* addEventListener for user cards */
+      //12.각 사용자 카드에 클릭 및 마우스 이벤트 추가
       container.querySelectorAll('.sp-user-card').forEach(function (card) {
         const uid = parseInt(card.getAttribute('data-uid'), 10);
         card.addEventListener('click', function () { _loginAsUser(uid); });
         card.addEventListener('mouseenter', function () { this.style.borderColor = 'var(--cyan)'; this.style.background = 'rgba(6,182,212,0.06)'; });
         card.addEventListener('mouseleave', function () { this.style.borderColor = 'var(--bdr)'; this.style.background = ''; });
+        //13.아바타 클릭 시 사진 변경 팝업 이벤트 추가
         const avatar = card.querySelector('.sp-avatar');
         if (avatar) avatar.addEventListener('click', function (e) { e.stopPropagation(); _showAvatarPopup(this, uid); });
       });
     });
+    //14.사용자 목록 로드 후, 첫 번째 사용자 자동 로그인 (선택 사항)
   }).catch(function (err) {
     console.error('[LOGIN] 사용자 목록 로드 실패:', err);
     container.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:11px">사용자 목록을 불러올 수 없습니다.</div>';
@@ -149,15 +163,21 @@ function loadUserList() {
 function _levelGroup(level) { return level || 'elementary'; }
 const _levelNames = { elementary: '초등학교', middle: '중학교', high: '고등학교', kindergarten: '유치원', special: '특수학교' };
 
-/* ── 사용자 선택 → 로그인 ── */
+/* ── 사용자 선택 → 로그인 완료 후 프로그램 초기화 작업을 한꺼번에 수행 */
+//1.사용자 ID를 받아 로그인 처리
 function _loginAsUser(userId) {
   if (!window.electronAPI) return;
+  //2.사용자 정보를 Electron API를 통해 가져오기
   window.electronAPI.userGetById(userId).then(function (res) {
+    //3.사용자 정보가 없으면 로그인 중단
     if (!res || !res.success || !res.data) { alert('사용자 정보를 찾을 수 없습니다.'); return; }
+    //4.사용자 데이터 꺼내기
     const user = res.data;
 
+    //5.현재 사용자 상태를 S._currentUser에 저장
     S._currentUser = { id: user.id, name: user.name, position: user.position, school_name: user.school_name, school_level: user.school_level, edu_office: user.edu_office };
     /* _userProfile 동기화 — 설정 탭에서 참조 */
+    //6.설정 화면용 사용자 프로필 동기화
     S._userProfile = S._userProfile || {};
     S._userProfile.name = user.name;
     S._userProfile.position = user.position || '';
@@ -169,26 +189,32 @@ function _loginAsUser(userId) {
      * 이전 사용자의 도장이 잠시 보이는 것을 막는다.
      * 직후 data-loader 가 현재 사용자의 suffixed 키로부터 다시 채움. */
     try {
+      //7.이전 사용자의 개인 키 제거
       ['ec_vp_stamps', 'ec_vp_signs', 'ec_vp_lastSlot_stamp', 'ec_vp_lastSlot_sign'].forEach(function (k) {
         try { localStorage.removeItem(k); } catch (_) { }
       });
     } catch (_) { }
     /* 헤더 1층 phase 0 (교육청·학교·직위·이름) 즉시 갱신 — 첫 설치 후 "보건교사" 만 단독 표시되던 버그 fix */
+    //8.헤더 사용자 정보 갱신
     try { bus.emit('header:refresh-user'); } catch (e) { }
+    //9.공통 설정에 사용자 정보 반영
     if (typeof S.settings !== 'undefined') {
       S.settings.schoolName = user.school_name || S.settings.schoolName;
       S.settings.nurse1 = user.name;
       S.settings.schoolLevel = user.school_level || S.settings.schoolLevel;
       S.settings.eduOffice = user.edu_office || S.settings.eduOffice;
       try {
+        //10.설정 정보를 저장
         localStorage.setItem('ec_settings', JSON.stringify(S.settings));
         if (window.electronAPI && window.electronAPI.dbSet) window.electronAPI.dbSet('common', 'settings', S.settings);
       } catch (e) { }
     }
+    //11.현재 사용자로 지정
     window.electronAPI.userSetCurrent(userId).then(function () {
       /* userSetCurrent 가 main/server 측 마이그레이션을 트리거한 직후 — 사용자별 suffixed 키로
        * 개인 데이터(vp_stamps 등) 가 자리잡았다. localStorage 를 그 데이터로 다시 채운다. */
       try {
+        //12.현재 사용자의 개인 데이터 다시 불러오기
         import('../../core/data-loader.js').then(function (m) {
           if (m && typeof m.reloadPersonalKeysFromDB === 'function') m.reloadPersonalKeysFromDB();
         });
@@ -196,7 +222,9 @@ function _loginAsUser(userId) {
     }).catch(function () { });
     /* 동료 협업 세션에 학교·직위·이름 등록 → 상대방 전광판에 표시됨 */
     try {
+      //13.협업 화면에 사용자 신원 등록
       import('../../core/data-loader.js').then(function (m) {
+        //14.잘못 저장된 과거 보건일지 이름 수정
         if (m && typeof m.registerCollabIdentity === 'function') m.registerCollabIdentity();
       });
     } catch (e) { }
@@ -205,8 +233,10 @@ function _loginAsUser(userId) {
       window.electronAPI.recordsDailyFixNurse(user.position, user.name).catch(function () { });
     }
     /* 온보딩 마법사 제거됨 — 최초 설치자는 설정/인원 데이터 관리에서 직접 세팅 */
+    //15.로그인 완료 후 화면 닫기
     hideSplash();
     /* 1.0.4 학교 정보 heartbeat — 첫 부팅 시 1회만, 실패해도 사용자 영향 X. */
+    //16.heartbeat 전송
     try { maybeSendHeartbeat(); } catch (_) { }
     /* 🍚 급식 자동 팝업 스케줄러 시작 (설정 ON 일 때만 실제 동작) — 2026-06-17 */
     try { import('../../core/school-meal.js').then(function (m) { if (m.maybeStartMealScheduler) m.maybeStartMealScheduler(); }); } catch (_) { }
@@ -214,6 +244,7 @@ function _loginAsUser(userId) {
     try { import('../../core/academic-schedule.js').then(function (m) { if (m.maybeStartAcademicScheduler) m.maybeStartAcademicScheduler(); }); } catch (_) { }
     /* 📚 수업 자동 팝업 스케줄러 시작 (설정 ON 일 때만) — 2026-06-17 */
     try { import('../../core/class-popup.js').then(function (m) { if (m.maybeStartClassScheduler) m.maybeStartClassScheduler(); }); } catch (_) { }
+  //17.로그인 처리 전체가 실패한 경우
   }).catch(function (err) { alert('로그인 실패: ' + err.message); });
 }
 

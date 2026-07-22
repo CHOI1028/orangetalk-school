@@ -97,14 +97,14 @@ class HealthDiaryDB {
      * 옛 코드에서 schema_version 만 올리고 ALTER 가 누락된 모순 상태(=현재 사용자 DB)도
      * 다음 실행 한 번이면 자동 복구됨. _ensureColumn 자체가 PRAGMA 로 컬럼 존재 확인 후
      * 없을 때만 ALTER 라서 안전. */
-    this._ensureColumn('daily_records',     'bst',              'bst TEXT DEFAULT ""');
-    this._ensureColumn('emergency_records', 'vital_bst',        'vital_bst TEXT DEFAULT ""');
-    this._ensureColumn('daily_records',     'treatment_by_sym', 'treatment_by_sym TEXT DEFAULT ""');
+    this._ensureColumn('daily_records', 'bst', 'bst TEXT DEFAULT ""');
+    this._ensureColumn('emergency_records', 'vital_bst', 'vital_bst TEXT DEFAULT ""');
+    this._ensureColumn('daily_records', 'treatment_by_sym', 'treatment_by_sym TEXT DEFAULT ""');
     /* v1 베이스라인에 포함되지만 옛 빌드(베타 초기) 로 설치된 사용자 DB 에는
      * 누락돼 있을 수 있는 컬럼들 — _prepareStatements 가 참조하므로 self-heal 필수.
      * 보고 케이스: 2026-05-14 SqliteError "table students_info has no column named vip" */
     this._ensureColumn('students_info', 'vip', "vip TEXT DEFAULT ''");
-    this._ensureColumn('staff',         'vip', "vip TEXT DEFAULT ''");
+    this._ensureColumn('staff', 'vip', "vip TEXT DEFAULT ''");
     /* v4 — 오늘의 메모 (날짜별 칸 내용). CREATE TABLE IF NOT EXISTS 라 매 부팅 무해. */
     this._ensureTable(`
       CREATE TABLE IF NOT EXISTS today_memos (
@@ -1048,7 +1048,7 @@ class HealthDiaryDB {
     this.tx = {
       studentImportBatch: db.transaction((students, infos) => {
         for (const s of students) this.stmt.studentsUpsert.run(s);
-        for (const si of infos)   this.stmt.siUpsert.run(si);
+        for (const si of infos) this.stmt.siUpsert.run(si);
       }),
       staffImportBatch: db.transaction((rows) => {
         for (const row of rows) this.stmt.staffUpsert.run(row);
@@ -1136,7 +1136,7 @@ class HealthDiaryDB {
     const name = (data.name || '').trim();
     if (!name) errors.push('이름은 필수입니다');
     /* 성별: 남/여만 허용 (정규화 후) */
-    const _gMap = {'남자':'남','여자':'여','녀자':'여','녀':'여','남성':'남','여성':'여','M':'남','F':'여','m':'남','f':'여','male':'남','female':'여','Male':'남','Female':'여'};
+    const _gMap = { '남자': '남', '여자': '여', '녀자': '여', '녀': '여', '남성': '남', '여성': '여', 'M': '남', 'F': '여', 'm': '남', 'f': '여', 'male': '남', 'female': '여', 'Male': '남', 'Female': '여' };
     const rawGender = (data.gender || '').trim();
     const normGender = _gMap[rawGender] || rawGender;
     if (normGender && normGender !== '남' && normGender !== '여') errors.push('성별은 남 또는 여만 가능합니다: ' + rawGender);
@@ -1181,7 +1181,7 @@ class HealthDiaryDB {
     const position = (data.position || '').trim();
     if (!position) errors.push('직위는 필수입니다');
     /* 성별: 남/여만 허용 (정규화 후) */
-    const _gMap = {'남자':'남','여자':'여','녀자':'여','녀':'여','남성':'남','여성':'여','M':'남','F':'여','m':'남','f':'여','male':'남','female':'여','Male':'남','Female':'여'};
+    const _gMap = { '남자': '남', '여자': '여', '녀자': '여', '녀': '여', '남성': '남', '여성': '여', 'M': '남', 'F': '여', 'm': '남', 'f': '여', 'male': '남', 'female': '여', 'Male': '남', 'Female': '여' };
     const rawGender = (data.gender || '').trim();
     const normGender = _gMap[rawGender] || rawGender;
     if (normGender && normGender !== '남' && normGender !== '여') errors.push('성별은 남 또는 여만 가능합니다: ' + rawGender);
@@ -1221,21 +1221,21 @@ class HealthDiaryDB {
     const KEEP = new Set(['schema_meta', 'sqlite_sequence', 'users']);
     const KEEP_FILES = new Set([
       /* 사용자(보건교사) 정보 — 공장초기화에도 절대 보존 */
-      'users_backup.json','users_backup.json.bak',
+      'users_backup.json', 'users_backup.json.bak',
       /* 약품/의료 템플릿 */
-      'medical-data.json','medical-data.json.bak',   /* 증상·처치·약품 매핑 (사용자 편집 반영) */
-      'medications_list.json','medications_list.json.bak',   /* 약품 상세정보 캐시 */
+      'medical-data.json', 'medical-data.json.bak',   /* 증상·처치·약품 매핑 (사용자 편집 반영) */
+      'medications_list.json', 'medications_list.json.bak',   /* 약품 상세정보 캐시 */
       /* 날씨·미세먼지 사용자 설정 (지역명·소스) — DB 공장초기화와 무관 */
-      'user_region.json','user_region.json.bak',
-      'weather_source.json','weather_source.json.bak',
+      'user_region.json', 'user_region.json.bak',
+      'weather_source.json', 'weather_source.json.bak',
       /* 열 너비·침상·시간표·설정 UI */
-      'col_widths.json','col_widths.json.bak',
-      'bed_config.json','bed_config.json.bak',
-      'bg_mode.json','bg_mode.json.bak','bg_selected.json','bg_selected.json.bak','font_scale.json','font_scale.json.bak',
+      'col_widths.json', 'col_widths.json.bak',
+      'bed_config.json', 'bed_config.json.bak',
+      'bg_mode.json', 'bg_mode.json.bak', 'bg_selected.json', 'bg_selected.json.bak', 'font_scale.json', 'font_scale.json.bak',
       /* 부서/교육청 매핑 */
-      'deptMapping.json','deptMapping.json.bak',
+      'deptMapping.json', 'deptMapping.json.bak',
       /* 키오스크 UI 설정 */
-      'kiosk_settings.json','kiosk_settings.json.bak'
+      'kiosk_settings.json', 'kiosk_settings.json.bak'
     ]);
     let backupPath = '';
     let deletedFiles = 0;
@@ -1256,7 +1256,7 @@ class HealthDiaryDB {
             this.db.exec(`DELETE FROM "${row.name}"`);
             deleted.push(row.name);
           }
-          try { this.db.exec(`DELETE FROM sqlite_sequence`); } catch (_) {}
+          try { this.db.exec(`DELETE FROM sqlite_sequence`); } catch (_) { }
         });
         tx();
       } finally {
@@ -1276,26 +1276,26 @@ class HealthDiaryDB {
             const _isProtectedKey = (k) => {
               if (!k) return false;
               return /_api_key(_applied)?$/.test(k)
-                  || /_applied$/.test(k)
-                  || /_station(_applied)?$/.test(k)
-                  || /^(kma|airkorea|drug|hira|emergency|kakao|infectious)_/.test(k)
-                  || /^(weather|user_region|weatherRegion|school_address|school_lat|school_lng)/.test(k)
-                  /* 인증코드(라이선스) — 공장초기화·DB 교체 후에도 절대 재인증 요구 X. (사용자 보고 2026-05-31 — 락아웃 사고 방지) */
-                  || /^cdkey_/.test(k);
+                || /_applied$/.test(k)
+                || /_station(_applied)?$/.test(k)
+                || /^(kma|airkorea|drug|hira|emergency|kakao|infectious)_/.test(k)
+                || /^(weather|user_region|weatherRegion|school_address|school_lat|school_lng)/.test(k)
+                /* 인증코드(라이선스) — 공장초기화·DB 교체 후에도 절대 재인증 요구 X. (사용자 보고 2026-05-31 — 락아웃 사고 방지) */
+                || /^cdkey_/.test(k);
             };
             for (const tbl of t) {
               try {
                 /* common 테이블만 키 단위 보존, 나머지 blob 테이블은 전체 삭제 */
                 if (tbl.name === 'common') {
                   let cols = [];
-                  try { cols = ads.prepare(`PRAGMA table_info("${tbl.name}")`).all().map(c => c.name); } catch(_) {}
+                  try { cols = ads.prepare(`PRAGMA table_info("${tbl.name}")`).all().map(c => c.name); } catch (_) { }
                   if (cols.includes('key')) {
                     const rows = ads.prepare(`SELECT key FROM "${tbl.name}"`).all();
                     const delStmt = ads.prepare(`DELETE FROM "${tbl.name}" WHERE key = ?`);
                     let kept = 0, dropped = 0;
                     for (const r of rows) {
                       if (_isProtectedKey(r.key)) { kept++; continue; }
-                      try { delStmt.run(r.key); dropped++; } catch(_) {}
+                      try { delStmt.run(r.key); dropped++; } catch (_) { }
                     }
                     deleted.push('blob:' + tbl.name + '(' + dropped + '/' + (kept + dropped) + ' 삭제, ' + kept + ' 보존)');
                     continue;
@@ -1303,7 +1303,7 @@ class HealthDiaryDB {
                 }
                 ads.exec(`DELETE FROM "${tbl.name}"`);
                 deleted.push('blob:' + tbl.name);
-              } catch(_) {}
+              } catch (_) { }
             }
           } finally { ads.close(); }
         } catch (e) { console.warn('[DB] app_data_store 초기화 실패:', e.message); }
@@ -1319,16 +1319,16 @@ class HealthDiaryDB {
               if (e.name === 'backups' || e.name === 'exports') continue;  /* 백업/내보내기 폴더는 사용자가 관리 */
               _rmJsonFiles(full);
               /* 빈 디렉터리(연도 폴더 등) 정리 */
-              try { if (fs.readdirSync(full).length === 0) fs.rmdirSync(full); } catch(_) {}
+              try { if (fs.readdirSync(full).length === 0) fs.rmdirSync(full); } catch (_) { }
             } else if (e.isFile()) {
               if (KEEP_FILES.has(e.name)) continue;
               /* API 키 파일은 변형(.bak / _applied.json / kakao_js_api_key 등)도 모두 보존 —
                  공장초기화는 보건일지 데이터만 비우는 작업이지 외부 API 인증과 무관하다. */
-              if (/_api_key(\.|$)/.test(e.name) || e.name.indexOf('api_key')>=0) continue;
+              if (/_api_key(\.|$)/.test(e.name) || e.name.indexOf('api_key') >= 0) continue;
               /* 날씨/미세먼지 사용자 설정도 보존 — 지역·소스·측정소 변형 모두 */
               if (/^(user_region|weather_source|airkorea_station|kma_station)(\.|$)/.test(e.name)) continue;
               if (e.name.endsWith('.json') || e.name.endsWith('.json.bak')) {
-                try { fs.unlinkSync(full); deletedFiles++; } catch(_) {}
+                try { fs.unlinkSync(full); deletedFiles++; } catch (_) { }
               }
             }
           }
@@ -1390,7 +1390,7 @@ class HealthDiaryDB {
           }
           /* AUTOINCREMENT 카운터는 일부 테이블만 리셋 — 다른 테이블의 시퀀스는 건들지 않기 위해 개별 처리 */
           for (const tblName of toDelete) {
-            try { this.db.prepare(`DELETE FROM sqlite_sequence WHERE name=?`).run(tblName); } catch (_) {}
+            try { this.db.prepare(`DELETE FROM sqlite_sequence WHERE name=?`).run(tblName); } catch (_) { }
           }
         });
         tx();
