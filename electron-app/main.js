@@ -90,7 +90,7 @@ function createLoginWindow() {
   const win = new BrowserWindow({
     width: 480,
     height: 520,
-    resizable: false,
+    resizable: true,
     frame: false,
     transparent: false,
     backgroundColor: '#0a0e17',

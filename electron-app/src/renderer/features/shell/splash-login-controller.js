@@ -129,9 +129,8 @@ function loadUserList() {
         const circleContent = av
           ? '<img src="' + av + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
           : initials;
-        return
         //11.사용자 카드 HTML 구조 생성
-        '<div class="sp-user-card" data-uid="' + u.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .15s">'
+        return '<div class="sp-user-card" data-uid="' + u.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .15s">'
           + '<div class="sp-avatar" data-uid="' + u.id + '" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;cursor:pointer">' + circleContent + '</div>'
           + '<div style="flex:1;min-width:0">'
           + '<div style="font-size:13px;font-weight:700;color:var(--t1)">' + escHtml(u.name) + '</div>'
@@ -244,7 +243,7 @@ function _loginAsUser(userId) {
     try { import('../../core/academic-schedule.js').then(function (m) { if (m.maybeStartAcademicScheduler) m.maybeStartAcademicScheduler(); }); } catch (_) { }
     /* 📚 수업 자동 팝업 스케줄러 시작 (설정 ON 일 때만) — 2026-06-17 */
     try { import('../../core/class-popup.js').then(function (m) { if (m.maybeStartClassScheduler) m.maybeStartClassScheduler(); }); } catch (_) { }
-  //17.로그인 처리 전체가 실패한 경우
+    //17.로그인 처리 전체가 실패한 경우
   }).catch(function (err) { alert('로그인 실패: ' + err.message); });
 }
 
@@ -428,6 +427,7 @@ document.getElementById('btnSetupDone').addEventListener('click', function () {
       if (typeof S.settings !== 'undefined') Object.assign(S.settings, s);
     } catch (e) { }
     /* 등록 후: 로그인 (DB에 데이터 없으면 _loginAsUser 내에서 온보딩 표시) */
+    //등록 성공 후 사용자 ID를 가져와 로그인 처리
     const _userId = res.data.id;
     _loginAsUser(_userId);
   }).catch(function (err) { alert('등록 실패: ' + err.message); });

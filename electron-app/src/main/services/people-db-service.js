@@ -12,7 +12,7 @@ const { HealthDiaryDB } = require('./database');
  */
 
 /* 성별 정규화 맵 (upsert에서 공유) */
-const GENDER_MAP = {'남자':'남','여자':'여','녀자':'여','녀':'여','남성':'남','여성':'여','M':'남','F':'여','m':'남','f':'여','male':'남','female':'여','Male':'남','Female':'여'};
+const GENDER_MAP = { '남자': '남', '여자': '여', '녀자': '여', '녀': '여', '남성': '남', '여성': '여', 'M': '남', 'F': '여', 'm': '남', 'f': '여', 'male': '남', 'female': '여', 'Male': '남', 'Female': '여' };
 
 /* ══════════ StudentsDBService ══════════ */
 
@@ -113,8 +113,10 @@ class StudentsDBService {
           /* 같은 자리(학교급+학과+학년+반+번호)에 다른 이름 = 당해년도 자리 고유성 위반 → 실수로 보고 거부.
              (사용자 확정 2026-06-13: 개별·일괄 공통. 다른 학과의 같은 학년·반·번호는 자리가 달라 정상 등록됨.) */
           const _seatLoc = (data.department ? data.department + ' ' : '') + _g + '학년 ' + _c + '반 ' + _n + '번';
-          return { success: false, code: 'SEAT_TAKEN', seatName: (seatRow.name || ''),
-                   error: _seatLoc + ' ' + (seatRow.name || '') + ' 학생이 이미 있습니다. (같은 자리에 다른 이름은 등록할 수 없습니다)' };
+          return {
+            success: false, code: 'SEAT_TAKEN', seatName: (seatRow.name || ''),
+            error: _seatLoc + ' ' + (seatRow.name || '') + ' 학생이 이미 있습니다. (같은 자리에 다른 이름은 등록할 수 없습니다)'
+          };
         } else {
           /* 그 자리의 기존 학생이 전출(is_enrolled=0)된 상태 → 자리가 비었으므로 새 학생 등록 허용 */
           uid = HealthDiaryDB.generateStudentUid(this._db.db);
@@ -124,7 +126,7 @@ class StudentsDBService {
       }
     }
 
-    const _normGender = GENDER_MAP[(data.gender||'').trim()] || (data.gender||'').trim();
+    const _normGender = GENDER_MAP[(data.gender || '').trim()] || (data.gender || '').trim();
 
     /* 생년월일·메모 보존 정책: 입력이 비어있으면 DB 기존 값 유지 (덮어쓰기 방지) */
     const existingStu = this._db.stmt.studentsGetByUid.get(uid);
@@ -200,8 +202,10 @@ class StudentsDBService {
     });
     tx();
     if (validationErrors.length > 0) {
-      return { success: false, count: results.length, errors: validationErrors,
-        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n') };
+      return {
+        success: false, count: results.length, errors: validationErrors,
+        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n')
+      };
     }
     return { success: true, count: results.length };
   }
@@ -241,11 +245,11 @@ class StudentsDBService {
          신학년 첫 업로드(올해 비어 uid 없음)는 이 분기를 안 타고 아래 직전연도 비교 매칭으로 감. */
       if (s.uid) { safeList.push(s); continue; }
       const incomingBirth = (s.birth_date || s.birthDate || s.birth || '').trim();
-      const normGender = GENDER_MAP[(s.gender||'').trim()] || (s.gender||'').trim();
+      const normGender = GENDER_MAP[(s.gender || '').trim()] || (s.gender || '').trim();
       /* 번호가 있는 행(전입·번호변경 등 자리가 명확) → 이미 올해 명단에 있는 동명이인은 '다른 사람'이므로 제외(=신규/전입 보존).
          번호가 없는 행(외부 이관) → 제외하지 않음 → 같은 반 동명이인을 매칭(보류)할 수 있게 함 (사용자 요청 2026-06-09). */
       const hasNum = (s.student_num != null && String(s.student_num).trim() !== '' && String(s.student_num).trim() !== '0')
-                  || (s.num != null && String(s.num).trim() !== '' && String(s.num).trim() !== '0');
+        || (s.num != null && String(s.num).trim() !== '' && String(s.num).trim() !== '0');
       const matches = (findByName.all({ name: s.name }) || [])
         .filter(m => !claimedUids.has(String(m.uid)) && !(hasNum && _enrolledThisYear(m.uid)));
 
@@ -391,7 +395,7 @@ class StudentsDBService {
        학과가 입력된 고등학교는 같은 학과 안에서만 동명이인으로 묶는다. */
     const groups = {};
     rows.forEach(r => {
-      const key = (r.level||'') + '|' + (r.department||'') + '|' + (r.grade||'') + '|' + (r.name||'');
+      const key = (r.level || '') + '|' + (r.department || '') + '|' + (r.grade || '') + '|' + (r.name || '');
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
@@ -420,7 +424,7 @@ class StudentsDBService {
            AND s.name = ?
            AND s.uid NOT IN (${placeholders})
          ORDER BY si.class_num, si.student_num`;
-      const candidates = db.prepare(sql).all(prevYr, head.level||'', head.department||'', prevGrade, head.name, ...newUids);
+      const candidates = db.prepare(sql).all(prevYr, head.level || '', head.department || '', prevGrade, head.name, ...newUids);
       if (!candidates.length) return; /* 작년 후보 없음 — 매칭할 게 없으니 그룹 제외 */
       result.push({
         type: 'student',
@@ -469,7 +473,7 @@ class StudentsDBService {
       db.prepare('UPDATE infection_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       db.prepare('UPDATE counseling_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       /* import_staging — 외부 데이터 가져오기 중간 상태(매칭만 됨, daily_records 반영 전) 의 안전망 */
-      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch(_){}
+      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch (_) { }
       /* survey_responses 는 UNIQUE(school_year, form_id, student_persistent_id) 제약이 있음 —
        *  prev uid 행이 이미 같은 (year, form) 으로 있는 경우 currentUid 행을 삭제 (prev 의 응답 보존).
        *  그렇지 않으면 person_uid + student_persistent_id 둘 다 갱신. */
@@ -477,15 +481,15 @@ class StudentsDBService {
       const checkSurvey = db.prepare('SELECT id FROM survey_responses WHERE person_uid = ? AND school_year = ? AND form_id = ?');
       const delSurvey = db.prepare('DELETE FROM survey_responses WHERE id = ?');
       const updSurvey = db.prepare('UPDATE survey_responses SET person_uid = ?, student_persistent_id = ? WHERE id = ?');
-      for (const sr of surveyRows){
+      for (const sr of surveyRows) {
         const dup = checkSurvey.get(prevUid, sr.school_year, sr.form_id);
-        if (dup){ delSurvey.run(sr.id); }
-        else    { updSurvey.run(prevUid, prevUid, sr.id); }
+        if (dup) { delSurvey.run(sr.id); }
+        else { updSurvey.run(prevUid, prevUid, sr.id); }
       }
       /* student_persistent_id 가 currentUid 였던 잔여 행도 일관성 위해 갱신 (person_uid 가 NULL 인 옛 행 대비) */
       try {
         db.prepare('UPDATE survey_responses SET student_persistent_id = ? WHERE student_persistent_id = ? AND person_uid IS NULL').run(prevUid, currentUid);
-      } catch(_){}
+      } catch (_) { }
       /* 2. 현재 uid 의 모든 students_info 행 → prev uid 로 이관 (school_year 충돌 시 prev 의 행 우선) */
       const infoRows = db.prepare('SELECT * FROM students_info WHERE uid = ?').all(currentUid);
       const checkExist = db.prepare('SELECT id FROM students_info WHERE uid = ? AND school_year = ?');
@@ -510,19 +514,19 @@ class StudentsDBService {
         const exists = checkExist.get(prevUid, r.school_year);
         if (exists) {
           updateInfo.run(
-            r.grade, r.class_num, r.student_num, r.level||'', r.department||'',
-            r.guardian_type||'', r.guardian_contact||'', r.homeroom_teacher||'',
-            r.is_enrolled, r.is_care, r.care_reason||'', r.dust_disease||'', r.care_memo||'',
-            r.med_consent||'Y', r.emergency_consent||'Y', r.vip||'', r.extra_json||'{}',
+            r.grade, r.class_num, r.student_num, r.level || '', r.department || '',
+            r.guardian_type || '', r.guardian_contact || '', r.homeroom_teacher || '',
+            r.is_enrolled, r.is_care, r.care_reason || '', r.dust_disease || '', r.care_memo || '',
+            r.med_consent || 'Y', r.emergency_consent || 'Y', r.vip || '', r.extra_json || '{}',
             now, prevUid, r.school_year
           );
         } else {
           insertInfo.run(
             prevUid, r.school_year, r.grade, r.class_num, r.student_num,
-            r.level||'', r.department||'', r.guardian_type||'', r.guardian_contact||'',
-            r.homeroom_teacher||'', r.is_enrolled, r.is_care, r.care_reason||'',
-            r.dust_disease||'', r.care_memo||'', r.med_consent||'Y',
-            r.emergency_consent||'Y', r.vip||'', r.extra_json||'{}', now, now
+            r.level || '', r.department || '', r.guardian_type || '', r.guardian_contact || '',
+            r.homeroom_teacher || '', r.is_enrolled, r.is_care, r.care_reason || '',
+            r.dust_disease || '', r.care_memo || '', r.med_consent || 'Y',
+            r.emergency_consent || 'Y', r.vip || '', r.extra_json || '{}', now, now
           );
         }
       }
@@ -721,7 +725,7 @@ class StaffDBService {
     const rows = db.prepare('SELECT * FROM staff WHERE school_year = ? AND is_active = 1 ORDER BY name, position').all(yr);
     const groups = {};
     rows.forEach(r => {
-      const key = (r.name||'') + '|' + (r.position||'');
+      const key = (r.name || '') + '|' + (r.position || '');
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
@@ -739,7 +743,7 @@ class StaffDBService {
            AND IFNULL(s.position,'') = ?
            AND s.uid NOT IN (${placeholders})
          ORDER BY s.school_year DESC`;
-      const candidates = db.prepare(sql).all(head.name, head.position||'', ...newUids);
+      const candidates = db.prepare(sql).all(head.name, head.position || '', ...newUids);
       if (!candidates.length) return;
       result.push({
         type: 'staff',
@@ -773,19 +777,19 @@ class StaffDBService {
       db.prepare('UPDATE emergency_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       db.prepare('UPDATE infection_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       db.prepare('UPDATE counseling_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
-      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch(_){}
+      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch (_) { }
       const surveyRows = db.prepare('SELECT id, school_year, form_id FROM survey_responses WHERE person_uid = ?').all(currentUid);
       const checkSurvey = db.prepare('SELECT id FROM survey_responses WHERE person_uid = ? AND school_year = ? AND form_id = ?');
       const delSurvey = db.prepare('DELETE FROM survey_responses WHERE id = ?');
       const updSurvey = db.prepare('UPDATE survey_responses SET person_uid = ?, student_persistent_id = ? WHERE id = ?');
-      for (const sr of surveyRows){
+      for (const sr of surveyRows) {
         const dup = checkSurvey.get(prevUid, sr.school_year, sr.form_id);
-        if (dup){ delSurvey.run(sr.id); }
-        else    { updSurvey.run(prevUid, prevUid, sr.id); }
+        if (dup) { delSurvey.run(sr.id); }
+        else { updSurvey.run(prevUid, prevUid, sr.id); }
       }
       try {
         db.prepare('UPDATE survey_responses SET student_persistent_id = ? WHERE student_persistent_id = ? AND person_uid IS NULL').run(prevUid, currentUid);
-      } catch(_){}
+      } catch (_) { }
       /* 현재 uid 의 staff 행 → prev uid 의 staff 행으로 정보 갱신 (직위·학년도 최신화 + is_active=1) */
       const cur = db.prepare('SELECT * FROM staff WHERE uid = ?').get(currentUid);
       if (cur) {
@@ -793,8 +797,8 @@ class StaffDBService {
           `UPDATE staff SET school_year=?, position=?, gender=?, birth_date=?,
                             family_relation=?, family_phone=?, is_active=1, updated_at=?
             WHERE uid = ?`
-        ).run(cur.school_year, cur.position||'', cur.gender||'', cur.birth_date||'',
-              cur.family_relation||'', cur.family_phone||'', now, prevUid);
+        ).run(cur.school_year, cur.position || '', cur.gender || '', cur.birth_date || '',
+          cur.family_relation || '', cur.family_phone || '', now, prevUid);
         db.prepare('DELETE FROM staff WHERE uid = ?').run(currentUid);
       }
     });
@@ -834,7 +838,7 @@ class StaffDBService {
        * 둘 중 하나라도 다르면 다른 사람으로 간주 (사용자 확정 방침 2026-06-13).
        * 성별·생년월일은 식별자가 아니라 보조 정보 — tiebreak 에만 사용. */
       const inName = (data.name || '').trim();
-      const inPos  = (data.position || '').trim();
+      const inPos = (data.position || '').trim();
       const byNamePos = this._db.db.prepare(
         'SELECT * FROM staff WHERE name = ? AND position = ? ORDER BY school_year DESC'
       ).all(inName, inPos);
@@ -891,8 +895,10 @@ class StaffDBService {
     });
     tx();
     if (validationErrors.length > 0) {
-      return { success: false, count: results.length, errors: validationErrors,
-        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n') };
+      return {
+        success: false, count: results.length, errors: validationErrors,
+        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n')
+      };
     }
     return { success: true, count: results.length };
   }
