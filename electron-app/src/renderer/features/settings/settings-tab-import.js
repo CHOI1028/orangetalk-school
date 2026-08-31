@@ -89,15 +89,16 @@ export function _renderImportTab(){
   html+='</div></div>';
   html+='<div id="pastAmbiguousSection" style="display:none;margin-top:14px;border-top:1px solid var(--bdr);padding-top:12px">';
   html+='<div style="font-size:12.5px;font-weight:700;color:var(--cyan);margin-bottom:6px">③ 동명이인 처리</div>';
-  html+='<p style="font-size:11.5px;color:var(--t2);margin-bottom:8px;line-height:1.6">같은 이름의 학생이 여러 명인 경우, 올바른 학생을 선택해주세요.</p>';
+  html+='<p style="font-size:11.5px;color:var(--t2);margin-bottom:8px;line-height:1.6">같은 이름이 여러 명인 경우, 올바른 인원을 선택해주세요.</p>';
   html+='<div id="pastAmbiguousList" style="max-height:300px;overflow-y:auto;scrollbar-width:thin"></div>';
   html+='</div>';
 
   /* ③-2 미매칭 — 현재 명단에 없는 학생(전학/졸업/자퇴 등): 매칭 안 함, 안내만 표시.
    *   필요 시 사용자가 명단에 추가 후 "🔗 미매칭 매칭하기" 로 수동 연결 가능. */
   html+='<div id="pastUnmatchedSection" style="display:none;margin-top:14px;border-top:1px solid var(--bdr);padding-top:12px">';
-  html+='<div style="font-size:12.5px;font-weight:700;color:var(--cyan);margin-bottom:6px">③-2 명단에 없는 학생 (매칭 안 됨)</div>';
-  html+='<p style="font-size:11.5px;color:var(--t2);margin-bottom:8px;line-height:1.6">현재 명단에 등록되지 않은 학생(예: 전학·졸업·자퇴) 의 기록은 매칭하지 않고 건너뜁니다. 보관이 필요하면 해당 학생을 명단에 추가하신 뒤 아래 "수동 매칭" 버튼을 사용하세요.</p>';
+  /* 외부 데이터 가져오기는 학생·교직원 기록이 함께 들어오므로 문구를 양쪽 모두로 표기 (사용자 지시 2026-08-26) */
+  html+='<div style="font-size:12.5px;font-weight:700;color:var(--cyan);margin-bottom:6px">③-2 명단에 없는 학생 또는 교직원 (매칭 안 됨)</div>';
+  html+='<p style="font-size:11.5px;color:var(--t2);margin-bottom:8px;line-height:1.6">현재 명단에 등록되지 않은 학생이나 교직원 (예. 전학, 자퇴, 졸업, 전근, 퇴직 등)의 기록은 매칭하지 않고 건너뜁니다. 보관이 필요하면 해당 인원을 명단에 추가하신 뒤 아래 "수동 매칭" 버튼을 사용하세요.</p>';
   html+='<div id="pastUnmatchedList" style="max-height:240px;overflow-y:auto;border:1px solid var(--bdrl);border-radius:8px;background:rgba(220,38,38,0.03);margin-bottom:8px"></div>';
   html+='<div style="display:flex;align-items:center;gap:8px"><span id="pastUnmatchedSummary" style="font-size:12px;color:var(--t2);flex:1"></span><button id="pastUnmatchedOpenBtn" class="btn btn-sm" data-tooltip="현재 등록된 인원에게 강제로 수동 매칭을 진행합니다." style="padding:7px 12px;font-size:11px;font-weight:700;background:rgba(6,182,212,0.10);color:var(--cyan);border:1px solid rgba(6,182,212,0.40);border-radius:7px;cursor:pointer">🔗 일괄 수동 매칭</button></div>';
   html+='</div>';
@@ -412,7 +413,10 @@ async function _importShowMatchStats(){
       if(unmatched>0){
         unmatchSec.style.display='';
         if(unmatchSum) unmatchSum.textContent='총 '+unmatched+'건의 인원이 자동 매칭되지 않았습니다.';
-        /* 명단에 없는 학생 안내 리스트 — "X학년 Y반 Z번 김민준 학생이 명단에 없어서 매칭하지 않았습니다." */
+        /* 명단에 없어 매칭하지 않은 인원 안내 (사용자 요청 2026-08-26) —
+         *  한 사람마다 "…학생이 명단에 없어서 매칭하지 않았습니다." 를 반복하던 목록을
+         *  안내 한 줄 + 쉼표로 이어지는 인원 나열로 바꿈. 학생·교직원이 섞여 들어오므로 '학생' 이라고
+         *  단정하지 않고, 교직원 행의 grade('교원'·'직원')에 '학년' 을 붙이던 오표기도 함께 수정. */
         try {
           const listEl = document.getElementById('pastUnmatchedList');
           if(listEl){
@@ -421,25 +425,27 @@ async function _importShowMatchStats(){
             if(groups.length === 0){
               listEl.innerHTML = '';
             } else {
-              let lh = '';
-              groups.forEach(function(g){
+              const items = groups.map(function(g){
                 const grade = (g.grade != null && String(g.grade).trim() !== '') ? String(g.grade).trim() : '';
                 const cls   = (g.class_num != null && String(g.class_num).trim() !== '') ? String(g.class_num).trim() : '';
                 const num   = (g.student_num != null && String(g.student_num).trim() !== '') ? String(g.student_num).trim() : '';
                 const name  = (g.name && String(g.name).trim()) || '(이름 없음)';
                 const recCnt = (g.records && g.records.length) || 0;
                 let ident = '';
-                if(grade) ident += grade+'학년 ';
+                /* 숫자 학년만 '학년' 을 붙인다 — '교원'·'직원' 은 그대로 */
+                if(grade) ident += /^\d+$/.test(grade) ? (grade+'학년 ') : (grade+' ');
                 if(cls)   ident += cls+'반 ';
                 if(num)   ident += num+'번 ';
-                ident += escHtml(name);
-                lh += '<div style="padding:8px 12px;border-bottom:1px solid var(--bdrl);font-size:11.5px;color:var(--t1);display:flex;align-items:center;gap:8px">'
-                    + '<span style="color:#dc2626;font-weight:700;flex-shrink:0">⚠</span>'
-                    + '<span style="flex:1"><b>'+ident+'</b> 학생이 명단에 없어서 매칭하지 않았습니다.</span>'
-                    + '<span style="font-size:10px;color:var(--t3);background:var(--bg2);padding:2px 7px;border-radius:10px;flex-shrink:0">'+recCnt+'건</span>'
-                    + '</div>';
+                ident += name;
+                return '<span style="display:inline-block;white-space:nowrap"><b style="color:var(--t1)">'+escHtml(ident)+'</b>'
+                     + '<span style="font-size:10px;color:var(--t3)"> ('+recCnt+'건)</span></span>';
               });
-              listEl.innerHTML = lh;
+              listEl.innerHTML =
+                '<div style="padding:10px 12px;font-size:11.5px;color:var(--t2);line-height:1.9">'
+                + '<div style="margin-bottom:6px"><span style="color:#dc2626;font-weight:700">⚠</span> '
+                + '명단에 없어서 매칭하지 않은 인원은 다음과 같습니다 <span style="font-size:10px;color:var(--t3)">(총 '+groups.length+'명)</span>:</div>'
+                + '<div>' + items.join('<span style="color:var(--t3)">, </span>') + '</div>'
+                + '</div>';
             }
           }
         } catch(e){ console.error('[unmatched-list]', e); }
@@ -695,7 +701,7 @@ async function _importPastApply(){
       if(skipped>0)extra+=' (검증 실패 '+skipped+'건 스킵)';
       if(placeheldDup>0)extra+=' (명단 미등록 중복 '+placeheldDup+'건 자동 스킵)';
       const placeheldNote = placeheld>0
-        ? '<div style="margin-top:6px;color:#b45309;font-size:11px;font-weight:600">⚠ 명단에 없는 학생 '+placeheld+'건은 임시 보관 상태로 삽입했습니다 — "📋 매칭 처리 내역" 에서 매칭하거나 삭제하세요.</div>'
+        ? '<div style="margin-top:6px;color:#b45309;font-size:11px;font-weight:600">⚠ 명단에 없는 인원 '+placeheld+'건은 임시 보관 상태로 삽입했습니다 — "📋 매칭 처리 내역" 에서 매칭하거나 삭제하세요.</div>'
         : '';
       let html='<div style="color:#16a34a;font-size:11px;font-weight:600">✅ '+applied+'건이 보건일지에 반영되었습니다.'+extra+'</div>'+placeheldNote;
       /* 진단용: 검증 실패가 있으면 처음 몇 건의 실제 사유를 노출 → 어떤 엑셀 컬럼이 문제인지 즉시 보임 */
@@ -942,7 +948,7 @@ export async function _loadAmbiguousStandalone(){
     /* 인라인 카드 → 모달 진입 버튼 한 개로 변경.
      * 카드 리스트는 클릭 누락·중복 매칭 위험이 있어 한 건씩 모달에서 처리하도록 일원화. */
     el.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:6px 0">'
-      +'<div style="flex:1;font-size:12px;color:var(--t2);line-height:1.6">⚠ 동명이인 미해결 <b style="color:#ca8a04">'+n+'건</b> — 한 건씩 어느 학생의 기록인지 확인이 필요합니다.</div>'
+      +'<div style="flex:1;font-size:12px;color:var(--t2);line-height:1.6">⚠ 동명이인 미해결 <b style="color:#ca8a04">'+n+'건</b> — 한 건씩 어느 인원의 기록인지 확인이 필요합니다.</div>'
       +'<button id="amOpenModalBtn" class="btn btn-sm" style="padding:9px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:7px;cursor:pointer;box-shadow:0 2px 6px rgba(245,158,11,0.25)">🔗 동명이인 매칭 ('+n+'건)</button>'
       +'</div>';
     const btn=document.getElementById('amOpenModalBtn');

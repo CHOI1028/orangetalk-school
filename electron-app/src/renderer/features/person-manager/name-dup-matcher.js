@@ -216,7 +216,13 @@ function _renderBody(){
     g.prevCandidates.forEach(function(prev){
       const lvS = _LV_SHORT[prev.level] || prev.level || '';
       bh += '<div class="ndm-prev-card" data-ndm-cur="'+escHtml(cur.uid)+'" data-ndm-prev="'+escHtml(prev.uid)+'" style="padding:10px 12px;border:1.5px solid var(--bdr);border-radius:10px;background:var(--card);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s">';
-      bh += '<div style="font-size:10px;font-weight:700;color:var(--cyan);margin-bottom:4px">작년 ('+escHtml(String(prev.school_year||''))+'학년도)</div>';
+      /* 후보 연도 라벨 — 교직원은 uid 당 단일 행이라 재직 연도가 갱신되고, 비활성 처리된 올해 행도
+         후보로 잡힐 수 있다. 실제 직전 학년도일 때만 '작년' 이라고 부른다 (오표기 수정 2026-08-26). */
+      const _pyr = String(prev.school_year || '');
+      const _yrLabel = (_pyr && _pyr === String(_academicYear() - 1))
+        ? ('작년 (' + escHtml(_pyr) + '학년도)')
+        : (_pyr ? (escHtml(_pyr) + '학년도 기록') : '이전 기록');
+      bh += '<div style="font-size:10px;font-weight:700;color:var(--cyan);margin-bottom:4px">'+_yrLabel+'</div>';
       if (isStaff){
         bh += '<div style="font-size:12.5px;font-weight:700;color:var(--t1);margin-bottom:3px">'+escHtml(prev.position||'(직위 미입력)')+' '+escHtml(prev.name)+'</div>';
       } else {

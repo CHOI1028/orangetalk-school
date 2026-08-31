@@ -146,11 +146,17 @@ export function _recToDbRow(r){
    *  · 빈 객체/없음 → 빈 문자열 (옛 record 와 동일하게 폴백, _toDailyRecord 가 {} 로 복원). */
   const _tbsJson = (r.treatmentBySym && typeof r.treatmentBySym==='object' && !Array.isArray(r.treatmentBySym) && Object.keys(r.treatmentBySym).length)
     ? JSON.stringify(r.treatmentBySym) : '';
+  /* v5 — 신체사정: {items:[...], details:{...}} JSON. 선택 항목도 상세도 없으면 빈 문자열(옛 record 와 동일 폴백, _toDailyRecord 가 null 로 복원). */
+  const _paJson = (r.physicalAssessment && typeof r.physicalAssessment==='object' && !Array.isArray(r.physicalAssessment) && (
+      (Array.isArray(r.physicalAssessment.items) && r.physicalAssessment.items.length) ||
+      (r.physicalAssessment.details && typeof r.physicalAssessment.details==='object' && Object.keys(r.physicalAssessment.details).length)
+    )) ? JSON.stringify(r.physicalAssessment) : '';
   return {id:dbId,school_year:sy,person_uid:pUid,person_type:pType,
     visit_date:r.date||'',time_in:r.timeIn||'',time_out:r.timeOut||'',
     symptoms:Array.isArray(r.symptoms)?JSON.stringify(r.symptoms):(r.symptoms||'[]'),
     treatment:tr,
     treatment_by_sym:_tbsJson,
+    physical_assessment:_paJson,
     medication:r.medication||'',department:r.dept||'',
     body_temp:r.temp||'',blood_pressure:r.bp||'',
     pulse:r.pulse||'',respiration:r.resp||r.respiration||'',spo2:r.spo2||'',bst:r.bst||'',
@@ -159,4 +165,37 @@ export function _recToDbRow(r){
     bed:r.bed||'',
     bodymap_json:JSON.stringify(Array.isArray(bm)?bm:[]),
     extra_json:JSON.stringify(_ej)};
+}
+
+/* ── 상담 처치란(counselLog.treatmentText) 공용 헬퍼 (2026-08-25) ──
+ *  상담 처치 문구는 flat(rec.treatment)에만 합류하고 treatmentBySym 맵에는 없다.
+ *  다중 증상 분층(증상별) 렌더는 맵 기준으로만 그리므로 상담 몫이 화면·출력에서 누락되던 버그의
+ *  공용 수정 지점 — 각 분층 렌더가 상담 증상 층에 이 문구를 직접 합류시킨다 (사용자 보고 2026-08-25). */
+export function counselTreatText(rec){
+  return (rec&&rec.counselLog&&rec.counselLog.treatmentText)?String(rec.counselLog.treatmentText).trim():'';
+}
+/* 저장 라벨 "상담" / "상담[학업 관련 상담]" / "상담(메모)" 모두 base='상담' */
+export function isCounselSymLabel(sym){
+  return String(sym||'').split('[')[0].split('(')[0].trim()==='상담';
+}
+
+/* ── 인물↔레코드 매칭 공용 헬퍼 (사용자 피드백 2026-08-26: 과거 방문 이력 누락) ──
+ *  이력 조회들이 r.studentId===stuId 엄격 비교만 사용해
+ *  ① studentId 숫자/문자 타입 혼재 ② personUid 만 같고 studentId 가 다른 레코드
+ *  (신학년도 재업로드·명단 재등록 등)가 이력에서 빠졌다.
+ *  같은 인물의 uid·구id 를 키 집합으로 만들어 personUid/studentId 어느 쪽이든 O(1) 매칭한다. */
+export function stuKeySet(stuIdOrUid){
+  const set=new Set();
+  if(stuIdOrUid!=null&&stuIdOrUid!=='')set.add(String(stuIdOrUid));
+  const s=getStu(stuIdOrUid);
+  if(s&&!s._notFound){
+    if(s.uid!=null&&s.uid!=='')set.add(String(s.uid));
+    if(s.id!=null&&s.id!=='')set.add(String(s.id));
+  }
+  return set;
+}
+export function recInStuKeys(r,keySet){
+  if(!r||!keySet)return false;
+  return (r.studentId!=null&&keySet.has(String(r.studentId)))
+      || (r.personUid!=null&&keySet.has(String(r.personUid)));
 }

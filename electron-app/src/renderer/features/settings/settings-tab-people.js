@@ -296,6 +296,9 @@ export function handleStudentFile(file){
   const _apModal=document.getElementById('addPersonModal');
   const vArea=(_apModal&&_apModal.querySelector('#studentValidationArea'))||document.getElementById('studentValidationArea');
   if(vArea){vArea.style.display='none';vArea.innerHTML='';}
+  /* 새 파일 업로드 시 이전 상태 메시지(저장 오류 등)를 지운다 — 오류 메시지는 자동 숨김이 안 돼
+   *  비교 결과 화면에 "저장 오류: 저장 실패" 잔상으로 남던 문제 (사용자 보고 2026-07-15). */
+  { const _um=document.getElementById('studentUploadMsg'); if(_um){ if(_um._autoHideTimer)clearTimeout(_um._autoHideTimer); _um.style.display='none'; _um.textContent=''; } }
   const reader=new FileReader();
   reader.onload=function(e){
     try{
@@ -537,10 +540,30 @@ function _smartCompareStudentsCore(vArea, newStudents, yr, dbStudents, priorStud
     const _claimedPrior=new Set();
     const _stillNew=[];
     newOnes.forEach(function(ex){
-      const cands=(_priorByName[String(ex.name||'').trim()]||[]).filter(function(d){
+      let cands=(_priorByName[String(ex.name||'').trim()]||[]).filter(function(d){
         const u=d.uid||d.id;
         return !_claimedPrior.has(u) && !claimedDbUids.has(u);
       });
+      /* ── 학년-1 게이트 (사용자 지시 2026-08-26) ──
+         진급은 반드시 한 학년씩이므로 '올해 3학년'의 작년은 2학년뿐이다.
+         작년 1학년·4학년 동명이인은 명백히 다른 사람이라 진급 후보에서 제외한다.
+         (옛 동작: 이름으로 1명만 잡히면 학년을 보지 않고 진급 처리 → 그 사람의 uid 를 실어보내
+          백엔드 검증까지 우회하며 졸업생·타학년 동명이인의 보건일지가 엉뚱한 학생에게 붙었다.)
+         작년 학년 값이 없는 후보는 판정 불가로 보아 게이트 통과자가 없을 때만 폴백으로 쓴다. */
+      const _exG=parseInt(ex.grade,10);
+      if(!isNaN(_exG) && _exG>0){
+        const _gated=cands.filter(function(d){ const g=parseInt(d.grade,10); return !isNaN(g) && g===_exG-1; });
+        const _unknown=cands.filter(function(d){ return isNaN(parseInt(d.grade,10)); });
+        cands=_gated.length?_gated:_unknown;
+      }
+      /* 성별로 좁힘 — 어느 한쪽이 비어 있으면 판정 불가로 보아 살려둔다(옛 데이터·미입력 보호) */
+      if(cands.length>1){
+        const _exGen=String(ex.gender||'').trim();
+        if(_exGen){
+          const _sg=cands.filter(function(d){ const dg=String(d.gender||'').trim(); return !dg || dg===_exGen; });
+          if(_sg.length) cands=_sg;
+        }
+      }
       if(cands.length===1){
         const pd=cands[0];
         const exB=(ex.birth_date||'').trim(), pdB=_dbBirth(pd);
@@ -956,6 +979,8 @@ function _saveStudentsToDb(newStudents, yr, vArea){
 export function handleStaffFile(file){
   if(!file)return;
   setPeopleUploadFileName('staff',file.name||'선택된 파일');
+  /* 새 파일 업로드 시 이전 상태 메시지(저장 오류 등) 클리어 — 학생과 동일 (사용자 보고 2026-07-15) */
+  { const _um=document.getElementById('staffUploadMsg'); if(_um){ if(_um._autoHideTimer)clearTimeout(_um._autoHideTimer); _um.style.display='none'; _um.textContent=''; } }
   const reader=new FileReader();
   reader.onload=function(e){
     try{

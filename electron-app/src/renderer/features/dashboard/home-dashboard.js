@@ -95,7 +95,10 @@ function _saveSelectedWidgets(arr){
 function _academicYear(){
   const n=new Date();return n.getMonth()>=2?n.getFullYear():n.getFullYear()-1;
 }
-function _todayStr(){return new Date().toISOString().slice(0,10);}
+/* '오늘'은 반드시 로컬(한국) 날짜로 계산한다. toISOString() 은 UTC 라 KST(UTC+9) 자정~오전 9시
+ *  사이에는 하루 어제로 밀려, 캔버스 달력 오늘 동그라미·오늘 일정·알람이 어긋났다(2026-07-15 수정).
+ *  사이드바 달력이 쓰는 toDateStr(new Date()) 과 동일한 로컬 기준으로 통일. */
+function _todayStr(){ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); }
 
 /* 인사말은 home-greetings.js 모듈에서 가져옴 (getGreeting) */
 function _userName(){
@@ -940,11 +943,17 @@ function _wTopMeds(recs){
 function _wFrequent(ay){
   /* 이번 주 3회 이상 방문 학생 */
   const now=new Date();
-  const mon=new Date(now);mon.setDate(now.getDate()-now.getDay()+1);
-  const monStr=mon.toISOString().slice(0,10);
+  /* 월요일 시작 — getDay()-1 방식은 일요일(getDay()=0)에 기준이 "내일"이 되어 목록이 항상 비던 버그 (2026-08-27 수정) */
+  const mon=new Date(now);mon.setDate(now.getDate()-((now.getDay()+6)%7));
+  const monStr=_ymd(mon);   /* UTC(toISOString) 금지 — 오전엔 주 시작이 하루 밀림. 로컬 기준 (2026-07-15) */
   const weekRecs=(Array.isArray(S.records)?S.records:[]).filter(function(r){return r.date>=monStr;});
   const counts={};
-  weekRecs.forEach(function(r){counts[r.studentId]=(counts[r.studentId]||0)+1;});
+  weekRecs.forEach(function(r){
+    /* 학생 위젯이므로 교직원 방문 제외 — 학년별·주의 학생 위젯과 동일 기준 (2026-08-27 수정) */
+    const s=typeof getStu==='function'?getStu(r.studentId):null;
+    if(!s||s.type!=='student')return;
+    counts[r.studentId]=(counts[r.studentId]||0)+1;
+  });
   const freq=Object.keys(counts).filter(function(id){return counts[id]>=3;}).sort(function(a,b){return counts[b]-counts[a];}).slice(0,5);
   if(!freq.length)return '<span style="color:var(--t3)">이번 주 3회 이상 방문 학생 없음</span>';
   return freq.map(function(id){
@@ -1264,8 +1273,8 @@ function _wWeekTrend(){
   const now=new Date();
   const thisWeekStart=new Date(now);thisWeekStart.setDate(now.getDate()-now.getDay()+1);
   const lastWeekStart=new Date(thisWeekStart);lastWeekStart.setDate(lastWeekStart.getDate()-7);
-  const twStr=thisWeekStart.toISOString().slice(0,10);
-  const lwStr=lastWeekStart.toISOString().slice(0,10);
+  const twStr=_ymd(thisWeekStart);   /* UTC(toISOString) 금지 — 오전엔 주 시작이 하루 밀림. 로컬 기준 (2026-07-15) */
+  const lwStr=_ymd(lastWeekStart);
   const allRecs=Array.isArray(S.records)?S.records:[];
   const thisWeek=allRecs.filter(function(r){return r.date>=twStr;}).length;
   const lastWeek=allRecs.filter(function(r){return r.date>=lwStr&&r.date<twStr;}).length;
@@ -1302,50 +1311,93 @@ function _setGcalEnabled(b){
 let _localEvents={};      /* {YYYY-MM-DD:[{id,title,time,color,memo}]} */
 let _localRanges=[];      /* [{id,title,start,end,color}] — 사용자 기간 일정(기말고사 등). 칸 배경색으로 표시 (2026-06-22) */
 let _localEventsLoaded=false;
+/* ── 저장 포맷 v2 (2026-08-12) ─────────────────────────────────────────────
+ * 단일 일정 {__ts:<epoch ms>, ev:{날짜:[...]}} / 기간 일정 {__ts, rv:[...]} —
+ * 갱신 시각을 페이로드와 한 덩어리(원자적)로 묶어 DB본·localStorage 캐시본 중 최신본을 판별.
+ * 배경(사용자 제보): DB 쓰기가 한 번 실패하면 두 본이 어긋나고, 부팅 때 어느 쪽을 읽느냐에
+ * 따라 캘린더 메모가 사라졌다/되돌아왔다 반복 + 낡은 본 위에서 편집하면 최신 메모 영구 유실.
+ * 옛 형식(순수 {날짜:[...]} / [...])도 그대로 인식(ts=0 취급, 자연스럽게 v2 로 이행). */
+function _evUnwrap(v){
+  if(v&&typeof v==='object'&&!Array.isArray(v)&&v.ev&&typeof v.ev==='object')return {ts:(+v.__ts||0),data:v.ev};
+  if(v&&typeof v==='object'&&!Array.isArray(v))return {ts:0,data:v};   /* 옛 형식 */
+  return null;
+}
+function _rvUnwrap(v){
+  if(v&&typeof v==='object'&&!Array.isArray(v)&&Array.isArray(v.rv))return {ts:(+v.__ts||0),data:v.rv};
+  if(Array.isArray(v))return {ts:0,data:v};                            /* 옛 형식 */
+  return null;
+}
+/* 승자 결정 — 비어있지 않은 쪽 우선, 둘 다 있으면 __ts 최신 우선, 동률은 DB 우선(기존 동작 보존) */
+function _pickFresh(dbW,lsW,sizeFn){
+  const dn=dbW?sizeFn(dbW.data):0, ln=lsW?sizeFn(lsW.data):0;
+  if(dn&&ln)return (lsW.ts>dbW.ts)?lsW:dbW;
+  return dn?dbW:(ln?lsW:null);
+}
 async function _loadLocalEvents(){
   if(_localEventsLoaded)return _localEvents;
   try{
+    let dbEv=null,dbRv=null,lsEv=null,lsRv=null;
     if(window.electronAPI&&window.electronAPI.dbGet){
-      const res=await window.electronAPI.dbGet('common','home_local_events');
-      if(res&&res.success&&res.data&&typeof res.data==='object'){
-        _localEvents=res.data;
-      } else if(res&&res.success&&res.value&&typeof res.value==='object'){
-        _localEvents=res.value;
+      try{
+        const res=await window.electronAPI.dbGet('common','home_local_events');
+        dbEv=_evUnwrap((res&&res.success)?(res.data!=null?res.data:res.value):null);
+      }catch(e){console.error('[home-cal] DB 이벤트 로드 실패',e);}
+      try{
+        const rr=await window.electronAPI.dbGet('common','home_local_ranges');
+        dbRv=_rvUnwrap((rr&&rr.success)?(rr.data!=null?rr.data:rr.value):null);
+      }catch(e){console.error('[home-cal] DB 기간일정 로드 실패',e);}
+    }
+    try{const raw=localStorage.getItem('ec_home_local_events');if(raw)lsEv=_evUnwrap(JSON.parse(raw));}catch(e){}
+    try{const rawR=localStorage.getItem('ec_home_local_ranges');if(rawR)lsRv=_rvUnwrap(JSON.parse(rawR));}catch(e){}
+    const wEv=_pickFresh(dbEv,lsEv,function(d){return Object.keys(d).length;});
+    const wRv=_pickFresh(dbRv,lsRv,function(d){return d.length;});
+    if(wEv)_localEvents=wEv.data;
+    if(wRv)_localRanges=wRv.data;
+    /* 치유 — 두 본이 어긋나 있으면 승자로 양쪽 통일. 이후 120초 주기 미러(localStorage→DB)가
+     * 낡은 캐시로 좋은 DB본을 되덮거나, 낡은 본 위에서 편집해 최신 메모를 잃는 사고를 차단. */
+    try{
+      if(wEv){
+        const wrapped={__ts:(wEv.ts||Date.now()),ev:wEv.data};
+        if(!lsEv||!lsEv.ts||JSON.stringify(lsEv.data)!==JSON.stringify(wEv.data))localStorage.setItem('ec_home_local_events',JSON.stringify(wrapped));
+        if(window.electronAPI&&window.electronAPI.dbSet&&(!dbEv||!dbEv.ts||JSON.stringify(dbEv.data)!==JSON.stringify(wEv.data)))await window.electronAPI.dbSet('common','home_local_events',wrapped);
       }
-      /* 기간 일정 — 별도 키 */
-      const rr=await window.electronAPI.dbGet('common','home_local_ranges');
-      const rv=(rr&&rr.success)?(rr.data!=null?rr.data:rr.value):null;
-      if(Array.isArray(rv))_localRanges=rv;
-    }
-    /* 폴백 — IPC 없거나 비어있으면 localStorage 캐시 */
-    if(!_localEvents||!Object.keys(_localEvents).length){
-      const raw=localStorage.getItem('ec_home_local_events');
-      if(raw){try{_localEvents=JSON.parse(raw)||{};}catch(e){}}
-    }
-    if(!_localRanges||!_localRanges.length){
-      const rawR=localStorage.getItem('ec_home_local_ranges');
-      if(rawR){try{const p=JSON.parse(rawR); if(Array.isArray(p))_localRanges=p;}catch(e){}}
-    }
+      if(wRv){
+        const wrappedR={__ts:(wRv.ts||Date.now()),rv:wRv.data};
+        if(!lsRv||!lsRv.ts||JSON.stringify(lsRv.data)!==JSON.stringify(wRv.data))localStorage.setItem('ec_home_local_ranges',JSON.stringify(wrappedR));
+        if(window.electronAPI&&window.electronAPI.dbSet&&(!dbRv||!dbRv.ts||JSON.stringify(dbRv.data)!==JSON.stringify(wRv.data)))await window.electronAPI.dbSet('common','home_local_ranges',wrappedR);
+      }
+    }catch(e){console.error('[home-cal] 치유 저장 실패(치명 아님)',e);}
   }catch(e){console.error('[home-cal] load failed',e);}
   _localEventsLoaded=true;
   return _localEvents;
 }
 async function _saveLocalEvents(){
+  /* 로드 완료 전 저장 차단(2026-08-12) — 빈 초기 메모리({})가 DB·캐시의 실데이터를 덮는 사고 방지.
+   *  모든 편집 경로는 저장 전에 await _loadLocalEvents() 를 이미 거치므로 정상 흐름은 막히지 않음. */
+  if(!_localEventsLoaded){console.warn('[home-cal] 로드 전 저장 시도 차단');return;}
+  const payload={__ts:Date.now(),ev:_localEvents};
+  /* DB 저장과 localStorage 캐시를 각각 독립 try 로 분리 — DB 쓰기(dbSet)가 예외를 던져도
+   *  캐시는 반드시 남겨 종료 시 유실을 막는다(과거: 한 try 라 dbSet 예외 시 캐시 저장까지 건너뜀). (2026-07-15) */
   try{
     if(window.electronAPI&&window.electronAPI.dbSet){
-      await window.electronAPI.dbSet('common','home_local_events',_localEvents);
+      await window.electronAPI.dbSet('common','home_local_events',payload);
     }
-    /* 폴백 + 캐시 */
-    localStorage.setItem('ec_home_local_events',JSON.stringify(_localEvents));
-  }catch(e){console.error('[home-cal] save failed',e);}
+  }catch(e){console.error('[home-cal] save(DB) failed',e);}
+  try{
+    localStorage.setItem('ec_home_local_events',JSON.stringify(payload));
+  }catch(e){console.error('[home-cal] save(cache) failed',e);}
 }
 async function _saveLocalRanges(){
+  if(!_localEventsLoaded){console.warn('[home-cal] 로드 전 기간일정 저장 시도 차단');return;}
+  const payload={__ts:Date.now(),rv:_localRanges};
   try{
     if(window.electronAPI&&window.electronAPI.dbSet){
-      await window.electronAPI.dbSet('common','home_local_ranges',_localRanges);
+      await window.electronAPI.dbSet('common','home_local_ranges',payload);
     }
-    localStorage.setItem('ec_home_local_ranges',JSON.stringify(_localRanges));
-  }catch(e){console.error('[home-cal] save ranges failed',e);}
+  }catch(e){console.error('[home-cal] save ranges(DB) failed',e);}
+  try{
+    localStorage.setItem('ec_home_local_ranges',JSON.stringify(payload));
+  }catch(e){console.error('[home-cal] save ranges(cache) failed',e);}
 }
 /* 'YYYY-MM-DD' day 가 어느 기간 일정에 속하나 — 칸 배경색·라벨용. 가장 마지막(위에 그릴) 1건 반환. */
 function _rangeForDay(ds){
@@ -2777,9 +2829,12 @@ function _hcdListHtml(ds){
   }
   return h;
 }
-function _homeOpenDayPopup(ds){
+async function _homeOpenDayPopup(ds){
   const ex=document.getElementById('homeCalDayPopup');
   if(ex)ex.remove();
+  /* 로컬 일정 로드가 끝나기 전에 팝업에서 저장하면, 빈 _localEvents 를 DB 에 통째로 덮어써
+   *  이전 날짜 일정이 유실될 수 있다 → 팝업을 열기(편집 가능해지기) 전에 로드를 보장한다. (2026-07-15) */
+  if(!_localEventsLoaded){ await _loadLocalEvents(); }
   const events=_localEvents[ds]||[];
   /* 오렌지톡 일정이 구글에 올린 이벤트는 'Google Calendar' 섹션에서 제외 → '오렌지톡 일정' 섹션에만 표시 (중복 방지, 2026-07-02) */
   const gcalEvents=(_homeCalEvents[ds]||[]).filter(function(gev){ return !(_localEvents[ds]||[]).some(function(lev){ return (lev.gid&&lev.gid===gev.id) || (lev.gcalMap && Object.keys(lev.gcalMap).some(function(k){return lev.gcalMap[k]===gev.id;})); }); });
@@ -2977,6 +3032,8 @@ async function _homeBackfillLocalToGcal(){
 async function _homeDayDraftSave(ds,ov){
   const titleEl=document.getElementById('hcdTitle');
   if(!titleEl||!ov)return;
+  /* 로드 미완 상태에서 저장 시 빈 _localEvents 로 DB 덮어쓰기 방지 — 저장 전 로드 보장. (2026-07-15) */
+  if(!_localEventsLoaded){ await _loadLocalEvents(); }
   const title=(titleEl.value||'').trim();
   const timeEl=document.getElementById('hcdTime');
   const memoEl=document.getElementById('hcdMemo');
@@ -3012,6 +3069,8 @@ function _evTimeStatic(ev){
   return '';
 }
 async function _homeAddLocalEvent(ds,ov){
+  /* 로드 미완 상태에서 저장 시 빈 _localEvents 로 DB 덮어쓰기 방지 — 저장 전 로드 보장. (2026-07-15) */
+  if(!_localEventsLoaded){ await _loadLocalEvents(); }
   const titleEl=document.getElementById('hcdTitle');
   const timeEl=document.getElementById('hcdTime');
   const memoEl=document.getElementById('hcdMemo');
@@ -3033,6 +3092,8 @@ async function _homeAddLocalEvent(ds,ov){
 }
 /* 오렌지톡(로컬) 일정 수정 — 제목·시간·메모·색상. gid 있으면 구글에도 반영. (사용자 요청 2026-07-02) */
 async function _homeEditLocalEvent(ds, idx, dayOv){
+  /* 로드 미완 상태에서 편집·저장 시 빈 _localEvents 로 DB 덮어쓰기 방지 — 로드 보장. (2026-07-15) */
+  if(!_localEventsLoaded){ await _loadLocalEvents(); }
   const list=_localEvents[ds]||[];
   const ev=list[idx];
   if(!ev)return;
@@ -4797,6 +4858,30 @@ function _hmSet(arr, source){
    *  source 가 'home' 이면 홈이 직접 갱신했으므로 홈 핸들러는 skip, 떠다니는 쪽만 따라옴(반대도 동일). */
   try{ bus.emit('home:memos-changed', source||'home'); }catch(_){}
 }
+/* ── 포스트잇 DB 백업 복구 (2026-08-12) ──────────────────────────────────
+ * ec_home_memos 는 localStorage 가 정본이고 _hmSet 이 DB(common)에도 백업을 써 왔지만,
+ * 그 백업을 읽는 코드가 없었다(死藏). 캐시가 유실되면(프로필 손상 등) _hmGet 의 빈 3개 시드가
+ * 자리를 차지해 사용자 메모가 증발한 것처럼 보였음(사용자 제보 2026-08-12).
+ * 부팅 시 1회: 캐시에 실제 텍스트가 하나도 없을 때만 DB 백업에서 복구.
+ * 실제 텍스트가 있는 캐시는 절대 덮지 않는다(사용자가 전부 비운 경우 DB 백업도 빈 상태라 복구 안 함). */
+let _hmRestoreTried=false;
+async function _hmRestoreFromDb(){
+  if(_hmRestoreTried)return; _hmRestoreTried=true;
+  try{
+    if(!(window.electronAPI&&window.electronAPI.dbGet))return;
+    const _hasText=function(a){return Array.isArray(a)&&a.some(function(m){return m&&typeof m.text==='string'&&m.text.trim();});};
+    let ls=null;
+    try{ls=JSON.parse(localStorage.getItem(_HOME_MEMO_KEY)||'null');}catch(e){}
+    if(_hasText(ls))return;                       /* 캐시에 실데이터 있음 — 복구 불필요 */
+    const res=await window.electronAPI.dbGet('common',_HOME_MEMO_KEY);
+    const db=(res&&res.success)?(res.data!=null?res.data:res.value):null;
+    if(!_hasText(db))return;                      /* 백업에도 실데이터 없음 */
+    localStorage.setItem(_HOME_MEMO_KEY,JSON.stringify(db));
+    console.log('[home-memo] DB 백업에서 포스트잇 '+db.length+'건 복구');
+    try{ bus.emit('home:memos-changed','db-restore'); }catch(_){}
+  }catch(e){console.error('[home-memo] DB 백업 복구 실패',e);}
+}
+_hmRestoreFromDb();
 function _renderHomeMemos(){
   const items=_hmGet();
   if(!items.length){

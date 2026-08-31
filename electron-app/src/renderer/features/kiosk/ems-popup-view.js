@@ -10,7 +10,7 @@ import { openBedManager } from '../newsletter/bed-management-view.js';
 import { bus } from '../../core/event-bus.js';
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { playQuickMenuSound } from '../../core/ui-utils.js';
-import { _makeDraggable, openSymptomCategoryPopup } from '../symptom/symptom-view.js';
+import { _makeDraggable, openSymptomCategoryPopup, _symShowHistory } from '../symptom/symptom-view.js';
 import { openVisitPass } from '../visit-pass/visit-pass-view.js';
 import { hideHeaderTooltip, showHeaderTooltipRight, ecSaveRecords } from '../emergency/emergency-view.js';
 'use strict';
@@ -62,6 +62,7 @@ bus.on('ems:refresh',function(recId){
       +'<div class="ems-msg-link" data-action="bed-manager">🛏 침상 이용 등록</div>'
       +'<div class="ems-msg-link" data-action="symptom">💊 증상 선택 및 처치 열기</div>'
       +'<div class="ems-msg-link" data-action="jump-date">📅 특정 날짜로 이동</div>'
+      +'<div class="ems-msg-link" data-action="full-history">📖 전체 방문 이력 보기</div>'
       +'<div class="ems-msg-link'+(hasSurvey?'':' disabled')+'"'+(hasSurvey?' data-action="survey"':' style="opacity:0.4;cursor:default" data-action="survey-disabled"')+'>📋 올해 건강 조사 설문 보기</div>'
       +'<div class="ems-msg-link danger" data-action="ems-msg">🚑 구급대에 보낼 메시지 작성</div>'
       +'<div class="ems-msg-link danger" data-action="delete">🗑 삭제</div>';
@@ -77,6 +78,7 @@ bus.on('ems:refresh',function(recId){
         case 'bed-manager':openBedManager(stuId);break;
         case 'symptom':{const rc2=S.records.find(function(r){return r.studentId===stuId&&r.date===S.selectedDate;});if(rc2){openSymptomCategoryPopup(rc2.id);}else{bus.emit('toast:show', {text: '해당 날짜에 기록이 없습니다.'});}break;}
         case 'jump-date':_dailyJumpToDate(stuId);break;
+        case 'full-history':_symShowHistory(stuId);break;   /* 전체 방문 이력 팝업 (사용자 요청 2026-08-26) */
         case 'survey':svOpenPanel('stats',{studentId:stuId});break;
         case 'ems-msg':openEmsMsg(stuId);break;
         case 'delete':_dailyDeleteRecord(stuId);break;

@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
 import { S } from '../../core/app-state.js';
-import { getStu, escHtml, closeModalGracefully, createEmptyState, saveRecordNow } from '../../core/helpers.js';
+import { getStu, escHtml, closeModalGracefully, createEmptyState, saveRecordNow, toDateStr } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
 import { _makeDraggable, _symRenderTreatPanel } from '../symptom/symptom-view.js';
 import { getStuAutoLine } from '../../core/student-utils.js';
@@ -1405,7 +1405,9 @@ function _bedConfirmAssign(bedId){
   if(!stu){ bus.emit('toast:show', {text: '학생 정보를 찾을 수 없습니다'}); return; }
   /* 과거 날짜 침상 등록 — 침상 이용 현황 사이드 카드/알람은 오늘 기록에만 의미.
      S.selectedDate 가 오늘이 아니면 _bedUsage 에 등록하지 않고 처치 칩만 기록 (단순 이력). */
-  const _todayStr=new Date().toISOString().slice(0,10);
+  /* 로컬 날짜 사용(2026-08-12) — toISOString() 은 UTC 라 KST 자정~오전 9시 사이 '오늘' 등록이
+     과거 날짜로 오판되어 침상 이용 현황에 등록되지 않던 버그 수정 */
+  const _todayStr=toDateStr(new Date());
   const _isPast=typeof S.selectedDate==='string'&&S.selectedDate&&S.selectedDate!==_todayStr;
   if(!_isPast){
     /* check if bed already occupied — 오늘 등록일 때만 적용 */
@@ -1456,7 +1458,7 @@ function _bedConfirmAssign(bedId){
     const _bedObj=S._bedConfig.beds.find(function(b){return b.id===bedId;});
     const _bedIdx=S._bedConfig.beds.indexOf(_bedObj);
     const _bedLab=_bedObj?_bedLabel(_bedObj,_bedIdx):'침상';
-    const _today=typeof S.selectedDate==='string'?S.selectedDate:(new Date().toISOString().slice(0,10));
+    const _today=typeof S.selectedDate==='string'?S.selectedDate:toDateStr(new Date());
     let _targetRec=null;
     /* 1) 증상 팝업에서 열린 pending 레코드 우선 */
     if(S._pendingBedRestRecId&&Array.isArray(S.records)){

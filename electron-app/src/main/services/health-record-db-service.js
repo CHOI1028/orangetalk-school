@@ -33,6 +33,15 @@ class HealthRecordDBService {
       else tbs = {};
     } catch (_) { tbs = {}; }
     if (!tbs || typeof tbs !== 'object' || Array.isArray(tbs)) tbs = {};
+    /* physical_assessment (v5) — 신체사정 { items:["시진",…], details:{"시진":"…"} }. 옛 record/오류 시 null 폴백. */
+    let pa = r.physical_assessment;
+    try {
+      if (typeof pa === 'string' && pa.trim()) pa = JSON.parse(pa);
+      else if (pa && typeof pa === 'object') { /* already parsed */ }
+      else pa = null;
+    } catch (_) { pa = null; }
+    if (pa && (typeof pa !== 'object' || Array.isArray(pa))) pa = null;
+    if (pa) { if (!Array.isArray(pa.items)) pa.items = []; if (!pa.details || typeof pa.details !== 'object' || Array.isArray(pa.details)) pa.details = {}; }
     /* extra_json 에서 treatment_memo (자유 서술형 처치) + 미매칭 placeholder 식별정보 + v3 증상별 약품 매핑 추출 */
     let _ej = {};
     try { if (typeof r.extra_json === 'string') _ej = JSON.parse(r.extra_json) || {}; else if (r.extra_json) _ej = r.extra_json; } catch (_) { _ej = {}; }
@@ -65,6 +74,8 @@ class HealthRecordDBService {
       symptoms: syms || [],
       treatment: _treatArr,
       treatmentBySym: tbs,
+      /* 신체사정 (v5) — {items,details} 또는 null. 옛 record 는 null → 렌더러가 '신체사정 없음' 으로 표시. */
+      physicalAssessment: pa,
       treatmentMemo: _ej.treatment_memo || '',
       medsBySym: _mbs,
       medDosesBySym: _mdbs,
@@ -177,6 +188,13 @@ class HealthRecordDBService {
         treatment_by_sym: typeof r.treatment_by_sym === 'string'
           ? r.treatment_by_sym
           : (r.treatmentBySym && Object.keys(r.treatmentBySym).length ? JSON.stringify(r.treatmentBySym) : ''),
+        /* v5 신체사정 — {items,details}. 빈 항목이면 빈 문자열(옛 record 호환). */
+        physical_assessment: typeof r.physical_assessment === 'string'
+          ? r.physical_assessment
+          : (r.physicalAssessment && typeof r.physicalAssessment === 'object' && !Array.isArray(r.physicalAssessment) && (
+              (Array.isArray(r.physicalAssessment.items) && r.physicalAssessment.items.length) ||
+              (r.physicalAssessment.details && typeof r.physicalAssessment.details === 'object' && Object.keys(r.physicalAssessment.details).length)
+            ) ? JSON.stringify(r.physicalAssessment) : ''),
         medication: r.medication || '',
         department: r.department || r.dept || '',
         body_temp: r.body_temp || r.bodyTemp || r.temp || '',
@@ -257,6 +275,13 @@ class HealthRecordDBService {
       treatment_by_sym: typeof r.treatment_by_sym === 'string'
         ? r.treatment_by_sym
         : (r.treatmentBySym && Object.keys(r.treatmentBySym).length ? JSON.stringify(r.treatmentBySym) : ''),
+      /* v5 신체사정 — {items,details}. 빈 항목이면 빈 문자열(옛 record 호환). */
+      physical_assessment: typeof r.physical_assessment === 'string'
+        ? r.physical_assessment
+        : (r.physicalAssessment && typeof r.physicalAssessment === 'object' && !Array.isArray(r.physicalAssessment) && (
+            (Array.isArray(r.physicalAssessment.items) && r.physicalAssessment.items.length) ||
+            (r.physicalAssessment.details && typeof r.physicalAssessment.details === 'object' && Object.keys(r.physicalAssessment.details).length)
+          ) ? JSON.stringify(r.physicalAssessment) : ''),
       medication: r.medication || '',
       department: r.department || r.dept || '',
       body_temp: r.body_temp || r.bodyTemp || r.temp || '',

@@ -1098,8 +1098,8 @@ export function switchStorySub(tab){
    탭: 오렌지몰(mall) / 함께하는 보건일지(together) / Q&A(qna) / 업데이트 자료실(download) / 개발이야기(intro).
    모든 탭이 in-app 패널 전환. 사이트 이동은 각 패널 내부 버튼 클릭 시에만. */
 export function switchOrangeSub(tab){
-  const panels={mall:'orangeSubMall',together:'orangeSubTogether',qna:'orangeSubQna',download:'orangeSubDownload',intro:'orangeSubIntro'};
-  const tabs={mall:'orangeSubTab1',together:'orangeSubTabTutorial',qna:'orangeSubTabQna',download:'orangeSubTabDownload',intro:'orangeSubTabIntro'};
+  const panels={mall:'orangeSubMall',together:'orangeSubTogether',qna:'orangeSubQna',download:'orangeSubDownload'};
+  const tabs={mall:'orangeSubTab1',together:'orangeSubTabTutorial',qna:'orangeSubTabQna',download:'orangeSubTabDownload'};
   /* 패널은 in-app 탭만 토글 */
   Object.keys(panels).forEach(function(k){
     const p=document.getElementById(panels[k]);
@@ -1562,15 +1562,15 @@ function _renderTopmenuTabInline(){
 
 /* ═══ 화면 배율(글자크기) 설정 — Radial Gauge Premium ═══ */
 function _renderZoomScaleTabInline(){
-  const z = window.ecZoom || { get:function(){return 1.0;}, enabled:function(){return true;}, MIN:1.0, MAX:1.3 };
+  const z = window.ecZoom || { get:function(){return 1.0;}, enabled:function(){return true;}, MIN:1.0, MAX:1.6 };
   const cur = z.get();
   const on  = z.enabled();
   const pct = Math.round(cur*100);
   const C   = 2 * Math.PI * 60;                                /* 원주 ≈ 376.99 */
-  const off = (C * (1 - (pct-100)/25)).toFixed(2);             /* 100→C, 125→0 */
+  const off = (C * (1 - (pct-100)/60)).toFixed(2);             /* 100→C, 160→0 (상한 160%) */
 
   let html = '<div class="settings-panel-title">🔍 배율(글자크기) 설정</div>';
-  html += '<div class="settings-panel-desc">화면 전체(헤더·메인·하단·팝업)를 100% ~ 125% 범위에서 동일 비율로 확대합니다. 확대 후 화면 밖 영역은 좌우·상하 스크롤로 이동합니다.</div>';
+  html += '<div class="settings-panel-desc">화면 전체(헤더·메인·하단·팝업)를 100% ~ 160% 범위에서 동일 비율로 확대합니다. 확대 후 화면 밖 영역은 좌우·상하 스크롤로 이동합니다.</div>';
 
   /* ── 메인 카드 ── */
   html += '<div id="zoomCard" class="cc" style="padding:24px;margin-bottom:14px;background:linear-gradient(135deg,#fafbff 0%,#fff 100%);border:1px solid #e8eaf6">';
@@ -1579,7 +1579,7 @@ function _renderZoomScaleTabInline(){
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">'
     +   '<div>'
     +     '<div style="font-size:14px;font-weight:700;color:#1a1a2e">🔍 화면 배율</div>'
-    +     '<div id="zoomEnableHint" style="font-size:11px;color:#8a8aa0;margin-top:2px">'+(on?'100 — 125 % · Ctrl+마우스휠로도 조절':'비활성화 — 항상 100%로 표시')+'</div>'
+    +     '<div id="zoomEnableHint" style="font-size:11px;color:#8a8aa0;margin-top:2px">'+(on?'100 — 160 % · Ctrl+마우스휠로도 조절':'비활성화 — 항상 100%로 표시')+'</div>'
     +   '</div>'
     +   '<label class="switch" style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0">'
     +     '<input type="checkbox" id="zoomEnableToggle" data-no-auto-save '+(on?'checked':'')+' style="opacity:0;width:0;height:0">'
@@ -1610,7 +1610,7 @@ function _renderZoomScaleTabInline(){
   /* − [presets] + */
   html += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center">'
     +   '<button class="zoom-stepper-btn" data-no-auto-save data-step="-1" aria-label="축소" style="width:36px;height:36px;border-radius:50%;border:1px solid #e8eaf6;background:#fff;color:#7c3aed;font-size:16px;font-weight:300;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:all .15s;display:flex;align-items:center;justify-content:center">−</button>';
-  [100,110,120,125].forEach(function(p){
+  [100,120,140,160].forEach(function(p){
     const active = p===pct;
     html += '<button class="zoom-preset-btn" data-no-auto-save data-pct="'+p+'"'+(active?' data-active="1"':'')+' style="padding:0 14px;height:36px;border-radius:18px;border:1px solid '+(active?'#7c3aed':'#e8eaf6')+';background:'+(active?'linear-gradient(135deg,#a78bfa,#7c3aed)':'#fff')+';color:'+(active?'#fff':'#1a1a2e')+';font-size:11px;font-weight:'+(active?'700':'600')+';cursor:pointer;'+(active?'box-shadow:0 2px 8px rgba(124,58,237,0.3);':'')+'transition:all .15s;font-variant-numeric:tabular-nums">'+p+'</button>';
   });
@@ -1621,7 +1621,7 @@ function _renderZoomScaleTabInline(){
 
   /* 안내 */
   html += '<div class="cc" style="padding:11px 14px;background:rgba(124,58,237,0.04);border:1px dashed rgba(124,58,237,0.22);font-size:11px;color:var(--t2);line-height:1.75">'
-    + '⌨ <b>Ctrl + 마우스휠</b>로 즉시 확대/축소 · 범위 100% ~ 125% (5% 단위)<br>'
+    + '⌨ <b>Ctrl + 마우스휠</b>로 즉시 확대/축소 · 범위 100% ~ 160% (5% 단위)<br>'
     + '🖱 헤더·메인·팝업 모두 동일 비율로 확대되며, 화면을 벗어난 영역은 좌우·상하 스크롤로 이동'
     + '</div>';
 
@@ -1653,7 +1653,7 @@ function _bindZoomScaleTab(){
       slider.style.boxShadow  = on?'0 2px 8px rgba(124,58,237,0.3)':'inset 0 1px 2px rgba(0,0,0,0.08)';
     }
     if(knob){ knob.style.left = on?'20px':'2px'; }
-    if(hint){ hint.textContent = on?'100 — 130 % · Ctrl+마우스휠로도 조절':'비활성화 — 항상 100%로 표시'; }
+    if(hint){ hint.textContent = on?'100 — 160 % · Ctrl+마우스휠로도 조절':'비활성화 — 항상 100%로 표시'; }
   }
   function _refreshActive(pct){
     document.querySelectorAll('.zoom-preset-btn').forEach(function(b){
@@ -1670,7 +1670,7 @@ function _bindZoomScaleTab(){
   }
   function _sync(pct){
     if(big) big.textContent = pct;
-    if(arc) arc.setAttribute('stroke-dashoffset', (C * (1 - (pct-100)/25)).toFixed(2));
+    if(arc) arc.setAttribute('stroke-dashoffset', (C * (1 - (pct-100)/60)).toFixed(2));
     _refreshActive(pct);
   }
   if(toggle && !toggle._bound){
@@ -1698,7 +1698,7 @@ function _bindZoomScaleTab(){
     b.addEventListener('click', function(){
       const dir = Number(this.getAttribute('data-step'))||0;
       const cur = Math.round(z.get()*100);
-      const next = Math.max(100, Math.min(125, cur + dir*5));
+      const next = Math.max(100, Math.min(160, cur + dir*5));
       z.set(next/100);
       _sync(next);
     });

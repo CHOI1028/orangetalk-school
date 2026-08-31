@@ -687,6 +687,13 @@ body.sidebar-right .main{order:1}
 body.sidebar-off .app{grid-template-columns:1fr}
 body.sidebar-off .sidebar{display:none}
 body.sidebar-off .side-peek-handle{display:none}
+/* 매직 스테이션 — 플래너 제거 후 사이드바가 비므로 접고 본문(설문/연수)이 전체 폭을 차지 (2026-08-20).
+   sidebar-right / side-peek-mode 등 어떤 사이드바 설정이든 매직 뷰에서는 전체폭 우선. */
+body[data-active-view='magic'] .app{grid-template-columns:1fr!important;gap:0!important}
+body[data-active-view='magic'] .sidebar{display:none!important}
+body[data-active-view='magic'] .side-peek-handle{display:none!important}
+/* 설문 목록 표(현재/과거·설문 통계) — 데이터 행 간격 확대: 관리 버튼이 셀 테두리에 닿지 않도록 (2026-08-21) */
+.sv-list-table tbody td{padding-top:10px;padding-bottom:10px;vertical-align:middle}
 /* 사이드바 overflow 제거 — 검색창 포커스 shadow가 잘리지 않도록.
    콘텐츠가 뷰포트보다 높으면 페이지 자체 스크롤로 처리됨 (일반적 패턴). */
 .sidebar{position:sticky;top:92px;scrollbar-width:none;z-index:5}
@@ -926,8 +933,12 @@ body.light .rec-table th{background:#edf0f4}
 .rec-table th .filter-icon{font-size:9px;color:var(--t3);margin-left:3px;opacity:0.5}
 .rec-table th:hover .filter-icon{opacity:1;color:var(--cyan)}
 .rec-table td{padding:2px 6px;border-bottom:1px solid var(--bdrl);color:var(--t1);font-size:11px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
-/* V/S 시간대별 표를 펼친 record 행 — 아래 구분선 제거(표와 한 사람으로 묶음). 구분선은 표 행 아래에만. (2026-06-15) */
-.rec-table tr.vs-expanded-row td{border-bottom:none}
+/* 처치 칸 V/S·신체사정 '자세히' 표가 펼쳐진 행 — 처치 칸(col-8)의 높이 제한(chip-clamp)을 풀어 표가 안 잘리게. (2026-07-21) */
+.rec-table tr.detail-open td[data-col-index="8"]{max-height:none!important;overflow:visible!important}
+.rec-table tr.detail-open td[data-col-index="8"] .chip-clamp{max-height:none!important;overflow:visible!important}
+/* 처치 칸 안 '자세히' 표 — 칸 폭보다 넓으면 칸 안에서 가로 스크롤(표가 칸을 넘겨 밀려나지 않게). */
+.rec-table .inline-detail-table{display:block;max-width:100%;overflow-x:auto}
+.rec-table .inline-detail-table>table{margin:0}
 .rec-table td[data-col-index="14"]{overflow:visible}
 .rec-table td[data-col-index="6"],.rec-table td[data-col-index="7"],.rec-table td[data-col-index="8"]{overflow:hidden;max-height:30px;position:relative}
 .rec-table td[data-col-index="6"]>*,.rec-table td[data-col-index="8"]>*{display:inline}
@@ -3143,7 +3154,7 @@ body:not(.light) .sym-fav-acc-head{
   transition:transform 0.25s ease;display:inline-block;
 }
 body:not(.light) .sym-fav-acc-head .chev{color:#22c55e}
-.sym-fav-acc:hover .sym-fav-acc-head .chev{transform:rotate(180deg)}
+/* v4 (2026-08-12) — 항상 펼침 고정: chev hover 회전 제거 (▼ = 펼침 상태 고정 표시) */
 .sym-fav-acc-head .title{font-size:12px;font-weight:800;color:var(--t1)}
 .sym-fav-acc-head .cat{color:var(--t3);font-weight:600;font-size:11px}
 .sym-fav-acc-head .count{
@@ -3154,21 +3165,12 @@ body:not(.light) .sym-fav-acc-head .chev{color:#22c55e}
 }
 body:not(.light) .sym-fav-acc-head .count{color:#86efac;background:rgba(34,197,94,0.18)}
 .sym-fav-acc-body{
-  /* v3 (사용자 결정 2026-05-21 갱신) — 초기 닫힘 + hover/.open 펼침.
-   *   · 마우스 hover → 열림 (CSS :hover)
-   *   · .open 클래스 부착 (JS) → 열림 유지 (클릭/패널 재렌더 후 마우스 위치 보존용)
-   *   · 닫힘 시 부드럽게 — cubic-bezier 로 자연 가속/감속. */
-  max-height:0;overflow:hidden;
-  padding:0 12px;
-  display:flex;flex-wrap:wrap;gap:6px;
-  transition:max-height 0.40s cubic-bezier(.4,0,.2,1), padding 0.30s ease;
-}
-.sym-fav-acc:hover .sym-fav-acc-body,
-.sym-fav-acc.open .sym-fav-acc-body{
-  max-height:600px;
+  /* v4 (사용자 결정 2026-08-12) — 항상 펼침 고정. v3 의 초기 닫힘 + hover/.open 펼침 폐지.
+   *   max-height 제한도 제거 — 칩이 많아도 잘리지 않음. */
   padding:8px 12px 12px;
+  display:flex;flex-wrap:wrap;gap:6px;
 }
-.sym-fav-acc-head{cursor:pointer}  /* 제목 클릭 토글용 */
+.sym-fav-acc-head{cursor:default}  /* v4 — 토글 폐지로 클릭 대상 아님 */
 .sym-fav-acc-head .chev{
   transform:rotate(0deg);
   transition:transform 0.30s ease;

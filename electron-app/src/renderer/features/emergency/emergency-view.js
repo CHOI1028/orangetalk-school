@@ -2639,8 +2639,13 @@ function _bmTagAngleOf(m){
 }
 function _bmTagPos(el,cx,cy,angleDeg){
   const a=(angleDeg||0)*Math.PI/180, R=14;
-  el.style.left=(cx+R*Math.cos(a))+'px';
-  el.style.top=(cy+R*Math.sin(a))+'px';
+  /* CSS zoom 보정: cx,cy 는 getBoundingClientRect 의 시각(확대) 좌표지만, position:fixed 태그의
+   * style.left/top 은 레이아웃 단위(렌더 시 ×배율)라 배율로 나눠야 한다. 안 나누면 고배율에서
+   * 태그가 화면 밖으로 밀려 부위명이 안 뜬다. 100%면 1이라 무해. (2026-07-21 160% 대응) */
+  let _zf=1;
+  try{ if(window.ecZoom && window.ecZoom.enabled && window.ecZoom.enabled()) _zf=window.ecZoom.get()||1; }catch(_){}
+  el.style.left=((cx+R*Math.cos(a))/_zf)+'px';
+  el.style.top=((cy+R*Math.sin(a))/_zf)+'px';
   el.style.transform='translate('+(-50+50*Math.cos(a)).toFixed(2)+'%,'+(-50+50*Math.sin(a)).toFixed(2)+'%)';
 }
 /* 태그 회전 — 태그를 끌면 마커 둘레를 따라 360° 어느 각도로든 회전(atan2). document 레벨 capture 로 한 번만 등록
@@ -3384,7 +3389,8 @@ const DAILY_COLS=[
   {idx:8,key:'treatment',label:'처치'},
   {idx:10,key:'timeIn',label:'입실'},
   {idx:11,key:'timeOut',label:'퇴실'},
-  {idx:12,key:'vitals',label:'V/S'},
+  /* V/S(idx 12) 열은 열 선택에서 제거 — V/S 는 처치 칸의 'V/S 측정' 칩 + 아래 인라인 표로 표시(2026-07-21).
+     기존 사용자 저장 순서에 남은 12 는 getDailyColOrder 필터가 걸러낸다. */
   {idx:13,key:'nurse',label:'처치자'},
   {idx:14,key:'memo',label:'주의사항(메모)'}
 ];
@@ -3399,6 +3405,11 @@ function getDailyColOrder(){
   const def=DAILY_COLS.map(function(c){return c.idx;});
   if(!Array.isArray(saved)) return def;
   saved=saved.map(function(v){return parseInt(v,10);}).filter(function(v){return !isNaN(v);});
+  /* ★ 이행 안전(2026-07-21): DAILY_COLS 에서 제거된 열(예: 옛 V/S idx 12)이 저장 순서에 남아 있어도
+   *   여기서 걸러낸다. 하위 소비부는 모두 if(!col)/if(th) 가드가 있어 크래시는 없지만, 고아 idx 가
+   *   _lastVisIdx 등으로 새어들어가 레이아웃이 어긋나는 것을 원천 차단. */
+  const _validIdx=def;
+  saved=saved.filter(function(v){return _validIdx.indexOf(v)!==-1;});
   def.forEach(function(v){if(saved.indexOf(v)===-1)saved.push(v);});
   return saved.filter(function(v,i,a){return a.indexOf(v)===i;});
 }

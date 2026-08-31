@@ -1,1074 +1,819 @@
 <!DOCTYPE html>
-<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
-<html lang="ko">
-
+<!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. --><html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: file: https: http:; media-src 'self' data:; connect-src 'self' http: https: ws: wss:; frame-src 'self' http: https:; object-src 'none'; base-uri 'self';">
-  <title>오렌지톡</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Pretendard Variable 사전 로드 — Windows·Mac 모두 첫 페인트부터 동일 서체 렌더링 보장 -->
-  <!-- crossorigin 속성 제거: file:// URL 에서 @font-face 와 credentials mode 가 어긋나 preload 가 재사용되지 않는 콘솔 경고 해결 -->
-  <link rel="preload" href="assets/fonts/PretendardVariable.woff2" as="font" type="font/woff2">
-  <!-- Google Fonts 논블로킹 로딩 (2026-06-07): media="print"→onload 로 페이지 렌더를 막지 않는다.
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: file: https: http:; media-src 'self' data:; connect-src 'self' http: https: ws: wss:; frame-src 'self' http: https:; object-src 'none'; base-uri 'self';">
+<title>오렌지톡</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Pretendard Variable 사전 로드 — Windows·Mac 모두 첫 페인트부터 동일 서체 렌더링 보장 -->
+<!-- crossorigin 속성 제거: file:// URL 에서 @font-face 와 credentials mode 가 어긋나 preload 가 재사용되지 않는 콘솔 경고 해결 -->
+<link rel="preload" href="assets/fonts/PretendardVariable.woff2" as="font" type="font/woff2">
+<!-- Google Fonts 논블로킹 로딩 (2026-06-07): media="print"→onload 로 페이지 렌더를 막지 않는다.
      학교 등에서 Google 이 느리거나 차단돼도 페이지는 즉시 로컬 폰트(Segoe UI·맑은 고딕·Pretendard)로 뜨고,
      Google 폰트가 도착하면 그때 적용된다. CSP 가 'unsafe-inline' 허용이라 onload 동작. -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Jua&display=swap"
-    rel="stylesheet" media="print" onload="this.media='all';this.onload=null">
-  <noscript>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Jua&display=swap"
-      rel="stylesheet">
-  </noscript>
-  <script src="./node_modules/xlsx/dist/xlsx.full.min.js"></script>
-  <script src="./node_modules/pdfjs-dist/build/pdf.min.js"></script>
-  <script>if (typeof pdfjsLib !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = './node_modules/pdfjs-dist/build/pdf.worker.min.js';</script>
-  <!-- 웹 브라우저 모드: Electron preload 대신 web-api-bridge 로드 (동기, module보다 먼저) -->
-  <script>
-    if (!window.electronAPI) {
-      document.write('<scr' + 'ipt src="/web-server/web-api-bridge.js"><\/scr' + 'ipt>');
-    }
-  </script>
-  <script type="module" src="src/renderer/main.js"></script>
-  <!-- [BACKUP] 체격검사 마법사 — _backup_features/physical-exam/ 에 보관됨. 추후 재삽입 가능 -->
-  <!-- [BACKUP] 건강설문 — _backup_features/survey/ 에 보관됨. 추후 재삽입 가능 -->
-  <!-- visit-pass-editor 3파일 → visit-pass-editor.js에 통합됨 -->
-  <!-- newsletter-editor 3파일 → newsletter-misc-view.js에 통합됨 -->
-  <!-- [BACKUP] 가정통신문 마법사 — 추후 공개 예정 -->
-  <!-- [BACKUP] 가정통신문 의존 — survey-newsletter-editor.js 주석 시 함께 비활성 -->
-  <link rel="stylesheet" href="src/renderer/styles/health-diary.css">
-  <script src="./node_modules/html2canvas/dist/html2canvas.min.js"></script>
-  <script src="./node_modules/jspdf/dist/jspdf.umd.min.js"></script>
-  <script src="./node_modules/qrcode-generator/dist/qrcode.js"></script><!-- 키오스크 접속 URL QR 코드 (2026-06-12) -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Jua&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Jua&display=swap" rel="stylesheet"></noscript>
+<script src="./node_modules/xlsx/dist/xlsx.full.min.js"></script>
+<script src="./node_modules/pdfjs-dist/build/pdf.min.js"></script>
+<script>if(typeof pdfjsLib!=='undefined')pdfjsLib.GlobalWorkerOptions.workerSrc='./node_modules/pdfjs-dist/build/pdf.worker.min.js';</script>
+<!-- 웹 브라우저 모드: Electron preload 대신 web-api-bridge 로드 (동기, module보다 먼저) -->
+<script>
+if(!window.electronAPI){
+  document.write('<scr'+'ipt src="/web-server/web-api-bridge.js"><\/scr'+'ipt>');
+}
+</script>
+<script type="module" src="src/renderer/main.js"></script>
+<!-- [BACKUP] 체격검사 마법사 — _backup_features/physical-exam/ 에 보관됨. 추후 재삽입 가능 -->
+<!-- [BACKUP] 건강설문 — _backup_features/survey/ 에 보관됨. 추후 재삽입 가능 -->
+<!-- visit-pass-editor 3파일 → visit-pass-editor.js에 통합됨 -->
+<!-- newsletter-editor 3파일 → newsletter-misc-view.js에 통합됨 -->
+<!-- [BACKUP] 가정통신문 마법사 — 추후 공개 예정 -->
+<!-- [BACKUP] 가정통신문 의존 — survey-newsletter-editor.js 주석 시 함께 비활성 -->
+<link rel="stylesheet" href="src/renderer/styles/health-diary.css">
+<script src="./node_modules/html2canvas/dist/html2canvas.min.js"></script>
+<script src="./node_modules/jspdf/dist/jspdf.umd.min.js"></script>
+<script src="./node_modules/qrcode-generator/dist/qrcode.js"></script><!-- 키오스크 접속 URL QR 코드 (2026-06-12) -->
 
-  <!-- ═══ Electron 모드 감지: 인-도큐먼트 스플래시 로고를 첫 페인트부터 숨김 ═══
+<!-- ═══ Electron 모드 감지: 인-도큐먼트 스플래시 로고를 첫 페인트부터 숨김 ═══
      Electron 에서는 별도 투명 스플래시 창(splash.html)이 로고를 담당하므로, health_diary 내부의
      #spCenter 로고는 숨겨 둔다(그래야 첫 화면에 흰 배경 위 로고가 안 보이고, 투명 창의 로고만 보임). -->
-  <style>
-    html.electron #spCenter {
-      display: none !important
-    }
-  </style>
-  <script>if (window.electronAPI) document.documentElement.classList.add('electron');</script>
+<style>html.electron #spCenter{display:none!important}</style>
+<script>if(window.electronAPI)document.documentElement.classList.add('electron');</script>
 </head>
-
 <body class="light">
-  <script>
-    /* ═══ 테마 복원 — 저장된 모드로 즉시 전환 (flash 방지) ═══ */
-    (function () {
-      try {
-        var t = localStorage.getItem('ec_theme');
-        if (t && t.charAt(0) === '"') { try { t = JSON.parse(t); localStorage.setItem('ec_theme', t); } catch (e) { } }
-        if (t === 'dark') document.body.classList.remove('light');
-        else document.body.classList.add('light');
-      } catch (e) { }
-    })();
-  </script>
+<script>
+/* ═══ 테마 복원 — 저장된 모드로 즉시 전환 (flash 방지) ═══ */
+(function(){
+  try{
+    var t=localStorage.getItem('ec_theme');
+    if(t&&t.charAt(0)==='"'){try{t=JSON.parse(t);localStorage.setItem('ec_theme',t);}catch(e){}}
+    if(t==='dark') document.body.classList.remove('light');
+    else document.body.classList.add('light');
+  }catch(e){}
+})();
+</script>
 
-  <!-- ═══ 상용 메시지 팝업 ═══ -->
-  <div class="qm-overlay" id="qmOverlay">
-    <div class="qm-container">
-      <div class="qm-left">
-        <div class="qm-left-header">
-          <div class="qm-left-title">💬 상용 메시지</div>
-          <div class="qm-left-sub">자주 보내는 메시지를 관리하세요</div>
-        </div>
-        <div class="qm-cat-list" id="qmCatList"></div>
-        <div class="qm-left-footer"></div>
+<!-- ═══ 상용 메시지 팝업 ═══ -->
+<div class="qm-overlay" id="qmOverlay">
+  <div class="qm-container">
+    <div class="qm-left">
+      <div class="qm-left-header">
+        <div class="qm-left-title">💬 상용 메시지</div>
+        <div class="qm-left-sub">자주 보내는 메시지를 관리하세요</div>
       </div>
-      <div class="qm-right">
-        <div class="qm-right-header">
-          <div class="qm-right-cat-title" id="qmRightTitle">카테고리를 선택하세요</div>
-          <div class="qm-right-actions" id="qmRightActions"></div>
-        </div>
-        <div class="qm-var-chips" id="qmVarChips" style="display:none">
-          <span style="font-size:10px;color:var(--t3);font-weight:700;margin-right:4px;line-height:1">변수 삽입:</span>
-          <span class="qm-var-chip" data-var="{학생명}">학생명</span>
-          <span class="qm-var-chip" data-var="{학년반}">학년반</span>
-          <span class="qm-var-chip" data-var="{번호}">번호</span>
-          <span class="qm-var-chip" data-var="{날짜}">날짜</span>
-          <span class="qm-var-chip" data-var="{시간}">시간</span>
-          <span class="qm-var-chip" data-var="{입실시간}">입실시간</span>
-          <span class="qm-var-chip" data-var="{퇴실시간}">퇴실시간</span>
-          <span class="qm-var-chip" data-var="{증상}">증상</span>
-        </div>
-        <div style="padding:4px 18px;font-size:9px;color:var(--t3);border-bottom:1px solid var(--bdr)">작성 즉시 자동 저장됩니다.
-        </div>
-        <div class="qm-msg-list" id="qmMsgList">
-          <div class="qm-empty">
-            <div class="qm-empty-icon">💬</div>
-            <div class="qm-empty-text">왼쪽에서 카테고리를 선택하세요</div>
-          </div>
-        </div>
+      <div class="qm-cat-list" id="qmCatList"></div>
+      <div class="qm-left-footer"></div>
+    </div>
+    <div class="qm-right">
+      <div class="qm-right-header">
+        <div class="qm-right-cat-title" id="qmRightTitle">카테고리를 선택하세요</div>
+        <div class="qm-right-actions" id="qmRightActions"></div>
+      </div>
+      <div class="qm-var-chips" id="qmVarChips" style="display:none">
+        <span style="font-size:10px;color:var(--t3);font-weight:700;margin-right:4px;line-height:1">변수 삽입:</span>
+        <span class="qm-var-chip" data-var="{학생명}">학생명</span>
+        <span class="qm-var-chip" data-var="{학년반}">학년반</span>
+        <span class="qm-var-chip" data-var="{번호}">번호</span>
+        <span class="qm-var-chip" data-var="{날짜}">날짜</span>
+        <span class="qm-var-chip" data-var="{시간}">시간</span>
+        <span class="qm-var-chip" data-var="{입실시간}">입실시간</span>
+        <span class="qm-var-chip" data-var="{퇴실시간}">퇴실시간</span>
+        <span class="qm-var-chip" data-var="{증상}">증상</span>
+      </div>
+      <div style="padding:4px 18px;font-size:9px;color:var(--t3);border-bottom:1px solid var(--bdr)">작성 즉시 자동 저장됩니다.</div>
+      <div class="qm-msg-list" id="qmMsgList">
+        <div class="qm-empty"><div class="qm-empty-icon">💬</div><div class="qm-empty-text">왼쪽에서 카테고리를 선택하세요</div></div>
       </div>
     </div>
   </div>
-  <div class="qm-toast" id="qmToast"></div>
+</div>
+<div class="qm-toast" id="qmToast"></div>
 
-  <div id="splash">
-    <div class="sp-center" id="spCenter">
-      <div class="sp-img-wrap">
-        <!-- 이미지 자연 크기 1250×750. width/height 모두 명시 + aspect-ratio 로 디코딩 전에도 박스 슬롯 확정 → 깜빡임 0 -->
-        <img id="splashImg" src="assets/splash-logo.png" alt="오렌지톡" width="520" height="312"
-          style="width:520px;height:312px;max-width:90vw;aspect-ratio:1250/750;display:block;object-fit:contain">
-      </div>
-      <div class="sp-loading sp-dot-anim"><span class="sp-loading-text">로딩중</span><span class="sp-dot">.</span><span
-          class="sp-dot">.</span><span class="sp-dot">.</span></div>
+<div id="splash">
+  <div class="sp-center" id="spCenter">
+    <div class="sp-img-wrap">
+      <!-- 이미지 자연 크기 1250×750. width/height 모두 명시 + aspect-ratio 로 디코딩 전에도 박스 슬롯 확정 → 깜빡임 0 -->
+      <img id="splashImg" src="assets/splash-logo.png" alt="오렌지톡" width="520" height="312" style="width:520px;height:312px;max-width:90vw;aspect-ratio:1250/750;display:block;object-fit:contain">
     </div>
-    <div class="sp-left" id="spLeft">
-      <div class="sp-subtitle">오렌지톡</div>
-      <div class="sp-desc">보건교사를 위해<br>보건교사가 만든 보건일지</div>
-      <div class="sp-tagline">누구도 차별하지 않는 보건실 업무 도구</div>
-    </div>
-    <div class="sp-right" id="spRight">
-      <div class="sp-mode" id="spMode" style="display:none"></div>
-      <div class="sp-login" id="spLogin">
-        <div class="sp-pin-title" id="spLoginTitle">사용자를 선택하세요</div>
-        <div id="spUserList"
-          style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:320px;max-height:240px;overflow-y:auto;padding:4px 0">
-        </div>
-        <div class="sp-pin-msg" id="spPinMsg"></div>
-        <div class="sp-pin-btns">
-          <button id="btnSetup">+ 사용자 등록</button>
-          <button id="btnDeleteUser" style="background:transparent;color:var(--t3);border:1px solid var(--bdr)">🗑 사용자
-            삭제</button>
-        </div>
-      </div>
-      <div class="sp-setup" id="spSetup">
-        <div class="sp-setup-title">사용자 등록</div>
-        <div class="sp-form" style="width:100%;max-width:420px">
-          <!-- 1단계: 소속 유형(학교급) 선택 -->
-          <label>소속 유형을 선택해 주세요.</label>
-          <div id="setupSchoolLevelRow" style="display:flex;gap:6px;flex-wrap:wrap">
-            <button type="button" class="sp-level-btn" data-level="elementary">초등학교</button>
-            <button type="button" class="sp-level-btn" data-level="middle">중학교</button>
-            <button type="button" class="sp-level-btn" data-level="high">고등학교</button>
-            <button type="button" class="sp-level-btn" data-level="special">특수학교</button>
-            <button type="button" class="sp-level-btn" data-level="kindergarten">유치원</button>
-          </div>
-          <button class="sp-form-back" id="setupStep1Back" style="margin-top:8px">← 뒤로</button>
-          <!-- 2단계: 교육청 또는 지역 (동적) -->
-          <div id="setupStep2" style="display:none;flex-direction:column;gap:6px;width:100%">
-            <label id="setupStep2Label">소속 교육청을 선택해 주세요</label>
-            <select id="setupEduOffice" class="pink">
-              <option value="">-- 선택하세요 --</option>
-            </select>
-          </div>
-          <!-- 나머지 입력 -->
-          <div id="setupStep3" style="display:none;flex-direction:column;gap:11px;width:100%">
-            <label id="setupSchoolLabel">학교 이름</label><input id="setupSchool" placeholder="예: 행복고등학교">
-            <label>사용자 이름</label><input id="setupName" placeholder="이름">
-            <label>직위</label>
-            <select id="setupPosition" class="pink">
-              <option value="보건교사">보건교사</option>
-              <option value="보건지원강사">보건지원강사</option>
-              <option value="">직접 입력</option>
-            </select>
-            <input id="setupPositionCustom" placeholder="직위를 입력하세요" style="display:none;margin-top:6px">
-            <button class="sp-form-btn" id="btnSetupDone">등록 완료</button>
-            <button class="sp-form-back" id="btnSetupBack">← 뒤로</button>
-          </div>
-        </div>
-      </div>
-      <!-- PIN 복구 화면 제거됨 — 사용자 선택 로그인으로 전환 -->
-    </div>
+    <div class="sp-loading sp-dot-anim"><span class="sp-loading-text">로딩중</span><span class="sp-dot">.</span><span class="sp-dot">.</span><span class="sp-dot">.</span></div>
   </div>
-
-
-
-  <!-- ═══ FIXED HEADER ═══ -->
-  <header class="top-header">
-    <div class="header-row1">
-      <span class="cycling-brand" id="cyclingBrand"></span>
-      <div class="header-right-cluster">
-        <div class="header-meta">
-          <span class="header-date"><span id="headerDate"></span><span class="header-weather"
-              id="headerWeather"></span></span>
-          <div id="headerUserInfo"
-            style="font-size:12px;color:#e2e8f0;margin-top:3px;letter-spacing:0.3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-          </div>
-        </div>
-        <div class="header-btn-stack">
-          <button class="settings-btn" id="headerSettingsBtn">⚙ 설정</button>
-          <button class="theme-btn" id="themeBtn">🌙 다크모드</button>
-          <button class="settings-btn" id="headerLockBtn">🏠 처음화면</button>
-        </div>
+  <div class="sp-left" id="spLeft">
+    <div class="sp-subtitle">오렌지톡</div>
+    <div class="sp-desc">보건교사를 위해<br>보건교사가 만든 보건일지</div>
+    <div class="sp-tagline">누구도 차별하지 않는 보건실 업무 도구</div>
+  </div>
+  <div class="sp-right" id="spRight">
+    <div class="sp-mode" id="spMode" style="display:none"></div>
+    <div class="sp-login" id="spLogin">
+      <div class="sp-pin-title" id="spLoginTitle">사용자를 선택하세요</div>
+      <div id="spUserList" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:320px;max-height:240px;overflow-y:auto;padding:4px 0"></div>
+      <div class="sp-pin-msg" id="spPinMsg"></div>
+      <div class="sp-pin-btns">
+        <button id="btnSetup">+ 사용자 등록</button>
+        <button id="btnDeleteUser" style="background:transparent;color:var(--t3);border:1px solid var(--bdr)">🗑 사용자 삭제</button>
       </div>
     </div>
-    <div class="header-row2">
-      <button class="nav-link" data-view="home" data-color="cyan">🏠 대시보드</button>
-      <button class="nav-link active" data-view="daily" data-color="blue">📋 보건일지</button>
-      <button class="nav-link" data-view="dashboard" data-color="orange">📈 방문 통계</button>
-      <button class="nav-link" data-view="orange" data-color="orange" aria-label="오렌지팜" title="오렌지팜"><img
-          src="assets/logo/orangefarm_logo.png" alt="오렌지팜"
-          style="height:22px;width:auto;object-fit:contain;display:inline-block;vertical-align:middle;margin:-4px 0"></button>
-      <button class="nav-link" data-view="magic" data-color="green">📒 매직 스테이션</button>
-      <span class="nav-spacer"></span>
-    </div>
-  </header>
-
-  <div class="app">
-
-    <!-- ═══ SIDEBAR (persistent) ═══ -->
-    <div class="sidebar">
-      <!-- 키오스크 상태 표시 -->
-      <div id="kioskSidePanel" style="display:none;margin-top:26px;margin-bottom:14px">
-        <div class="cc" id="kioskSideContent" style="padding:10px;position:relative">
-          <div style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px"><span data-kiosk-dot
-              style="width:8px;height:8px;border-radius:50%;background:var(--gs);box-shadow:0 0 4px rgba(34,197,94,0.5);flex-shrink:0"></span>
-            <span data-kiosk-label style="color:var(--gs)">키오스크 활성</span>
-          </div>
+    <div class="sp-setup" id="spSetup">
+      <div class="sp-setup-title">사용자 등록</div>
+      <div class="sp-form" style="width:100%;max-width:420px">
+        <!-- 1단계: 소속 유형(학교급) 선택 -->
+        <label>소속 유형을 선택해 주세요.</label>
+        <div id="setupSchoolLevelRow" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="sp-level-btn" data-level="elementary">초등학교</button>
+          <button type="button" class="sp-level-btn" data-level="middle">중학교</button>
+          <button type="button" class="sp-level-btn" data-level="high">고등학교</button>
+          <button type="button" class="sp-level-btn" data-level="special">특수학교</button>
+          <button type="button" class="sp-level-btn" data-level="kindergarten">유치원</button>
         </div>
-      </div>
-      <!-- 위젯 보관함 버튼 (사이드바) -->
-      <div id="gp2WidgetStoreBtn" style="display:none;margin-top:8px">
-        <button id="gp2WidgetStoreBtnEl" class="sidebar-hover-btn"
-          style="width:100%;padding:8px 12px;font-size:11px;font-weight:700;background:var(--card);color:var(--t1);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px;transition:all 0.15s">📦
-          위젯 보관함 <span style="font-size:9px;color:var(--t3);margin-left:auto">클릭하여 열기</span></button>
-      </div>
-      <!-- Google Drive 저장 경로 버튼 (사이드바) -->
-      <div id="gp2DrivePathBtn" style="display:none;margin-top:6px">
-        <button id="gp2DrivePathBtnEl" class="sidebar-hover-btn"
-          style="width:100%;padding:8px 12px;font-size:11px;font-weight:700;background:var(--card);color:var(--t1);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px;transition:all 0.15s"><svg
-            width="16" height="14" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H1.2c0 1.55.4 3.1 1.2 4.5l4.2 9.35z"
-              fill="#0066DA" />
-            <path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.5c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z"
-              fill="#00AC47" />
-            <path
-              d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85l5.85 10.6 7.85 13.2z"
-              fill="#EA4335" />
-            <path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#00832D" />
-            <path
-              d="M59.85 53h27.45c0-1.55-.4-3.1-1.2-4.5L74.4 28.8 57.4 1.2C56.05 2 54.9 3.1 54.1 4.5L30.7 48.5c-.8 1.4-1.2 2.95-1.2 4.5h30.35z"
-              fill="#2684FC" />
-            <path
-              d="M73.4 28.8l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 28.8z"
-              fill="#FFBA00" />
-          </svg> Google Drive 저장 경로 <span id="gp2DrivePathLabel"
-            style="font-size:9px;color:var(--t3);margin-left:auto">미설정</span></button>
-      </div>
-      <!-- 플래너 날짜 위젯 (사이드바) -->
-      <div id="gp2DateWidgets" class="cc" style="display:none;margin-top:8px;padding:10px 12px;cursor:default">
-        <div id="gp2DwToday" style="margin-bottom:8px"></div>
-        <div id="gp2DwMonth" style="margin-bottom:8px"></div>
-        <div id="gp2DwYear" style="margin-bottom:8px"></div>
-        <div id="gp2DwSemester" style="margin-bottom:8px"></div>
-        <div id="gp2DwSchoolYear"></div>
-      </div>
-      <div class="mcal" id="mainCalendar"></div>
-      <div class="search-box" id="sidebarSearchBox" style="position:relative">
-        <input type="text" placeholder="이름 검색 (방문이력 검색)" id="sideSearch" style="padding-right:60px">
-        <button id="advSearchSidebarBtn" class="adv-search-hover-btn"
-          style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1">상세
-          검색</button>
-      </div>
-      <div id="sideSearchResults" class="search-results"></div>
-      <div class="cc" id="sideUpdateNews"
-        style="padding:10px 14px;margin-top:8px;display:none;border-left:3px solid var(--cyan)">
-        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">📢 업데이트 소식</div>
-        <div style="font-size:10px;color:var(--t2);line-height:2">
-          <div><span class="mono" style="color:var(--t3)">03.17</span> v3.0 — 전면 UI 재설계</div>
-          <div><span class="mono" style="color:var(--t3)">03.16</span> v2.0 — 응급처치/감염병/방문증</div>
-          <div><span class="mono" style="color:var(--t3)">03.15</span> v1.0 — 최초 릴리스</div>
-        </div>
-      </div>
-      <div class="cc" id="sideStoryPostList" style="padding:10px 14px;margin-top:8px;display:none">
-        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">📝 소식 글 리스트</div>
-        <div id="sideStoryPostBody" style="max-height:440px;overflow-y:auto;scrollbar-width:thin"></div>
-      </div>
-      <div class="cc" id="sideRecentCard" style="padding:10px 14px;margin-top:8px;display:none">
-        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">최근 방문</div>
-        <div class="compact-list" id="recentCompact" style="max-height:160px;overflow-y:auto;scrollbar-width:thin">
-        </div>
-        <div id="sideChartToggle"
-          style="font-size:10px;color:var(--t3);cursor:pointer;margin-top:8px;text-align:center;padding:4px;border-radius:4px;transition:all 0.15s">
-          ▼ 통계 차트 보기</div>
-        <div id="sideCharts" style="display:none;margin-top:8px">
-          <div id="sideGenderPie" style="margin-bottom:8px"></div>
-          <div id="sideDeptBar"></div>
-        </div>
-      </div>
-      <div class="cc" id="sideVisitHistory" style="padding:10px 14px;margin-top:8px;display:none">
-        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px" id="visitHistoryTitle">선택한 학생의 보건실
-          방문 이력</div>
-        <div class="visit-history-card" id="visitHistoryBody"></div>
-      </div>
-      <div class="cc" id="sideBedUsage" style="padding:10px 14px;margin-top:8px;display:none">
-        <div id="sideBedHeader"></div>
-        <div id="sideBedBody"></div>
-      </div>
-
-    </div>
-
-    <!-- ═══ MAIN ═══ -->
-    <div class="main">
-
-      <!-- VIEW: HOME (🏠 대시보드 — 위젯 기반 홈 화면) -->
-      <div id="view-home" class="view">
-        <div class="magic-chart-body" style="padding:16px" id="homeWidgetArea"></div>
-      </div>
-
-      <!-- VIEW: DASHBOARD (📈 방문 통계) -->
-      <div id="view-dashboard-host" data-fragment="src/renderer/views/view-dashboard.html"></div>
-
-      <!-- VIEW: DAILY RECORD -->
-      <div id="view-daily-host" data-fragment="src/renderer/views/view-daily.html"></div>
-
-      <!-- VIEW: STATS -->
-      <div id="view-stats" class="view">
-        <div
-          style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div>
-            <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.3px">통계</h1>
-            <p style="font-size:12px;color:var(--t3);margin-top:2px" id="statsPeriodLabel">이번 주 통계</p>
-          </div>
-        </div>
-        <div class="export-bar">
-          <button class="btn btn-primary btn-sm" id="exportDiaryBtn">📄 보건일지 출력</button>
-          <select class="form-input" id="exportFormat" style="width:90px;font-size:10.5px;padding:5px">
-            <option value="pdf">PDF</option>
-            <option value="excel">Excel</option>
+        <button class="sp-form-back" id="setupStep1Back" style="margin-top:8px">← 뒤로</button>
+        <!-- 2단계: 교육청 또는 지역 (동적) -->
+        <div id="setupStep2" style="display:none;flex-direction:column;gap:6px;width:100%">
+          <label id="setupStep2Label">소속 교육청을 선택해 주세요</label>
+          <select id="setupEduOffice" class="pink">
+            <option value="">-- 선택하세요 --</option>
           </select>
-          <input type="date" class="form-input" id="exportFrom" style="width:130px;font-size:10.5px;padding:5px">
-          <span style="color:var(--t3);font-size:11px">~</span>
-          <input type="date" class="form-input" id="exportTo" style="width:130px;font-size:10.5px;padding:5px">
-          <button class="btn btn-outline btn-sm" id="importDataBtn">📥 이관</button>
         </div>
-        <div class="stats-period-tabs" style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
-          <div class="stats-period-tab magic-index-tab active" data-period="today">오늘</div>
-          <div class="stats-period-tab magic-index-tab" data-period="week">주간</div>
-          <div class="stats-period-tab magic-index-tab" data-period="month">월간</div>
-          <div class="stats-period-tab magic-index-tab" data-period="semester">학기</div>
-          <div class="stats-period-tab magic-index-tab" data-period="year">연도</div>
-        </div>
-        <div class="stat-row" id="statsTopRow"></div>
-        <div class="g2">
-          <div class="cc">
-            <div class="st">방문 추이</div>
-            <div id="statsTrendChart" style="height:160px"></div>
-          </div>
-          <div class="cc">
-            <div class="st">증상 TOP 5</div>
-            <div class="bar-chart" id="topSymptomChart"></div>
-          </div>
-        </div>
-        <div class="g2">
-          <div class="cc">
-            <div class="st">학년별 분포</div>
-            <div class="donut-wrap" id="gradeDonut"></div>
-          </div>
-          <div class="cc">
-            <div class="st">처치 요약</div>
-            <div style="overflow-x:auto">
-              <table class="rec-table" id="treatSummaryTable">
-                <thead>
-                  <tr>
-                    <th>처치 항목</th>
-                    <th>건수</th>
-                    <th>비율</th>
-                    <th>분포</th>
-                  </tr>
-                </thead>
-                <tbody id="treatBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- VIEW: 교무수첩 (#23-24) -->
-      <!-- VIEW: 매직 스테이션 (fragment) -->
-      <div id="view-magic-host" data-fragment="src/renderer/views/view-magic.html"></div>
-
-
-      <!-- VIEW: 오렌지톡 (#25-29) -->
-      <div id="view-story-host" data-fragment="src/renderer/views/view-story.html"></div>
-
-      <!-- VIEW: 오렌지팜 -->
-      <div id="view-orange-host" data-fragment="src/renderer/views/view-orange.html"></div>
-
-    </div><!-- /main -->
-  </div><!-- /app -->
-
-  <footer><span id="footerText"></span></footer>
-  <div id="globalSaveToast" class="global-save-toast">모든 내용이 저장되었습니다.</div>
-  <div id="infCalWrap" style="display:none;position:fixed;z-index:9999"></div>
-  <div id="clockPickerWrap"
-    style="display:none;position:fixed;z-index:2147483600;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.22),0 2px 8px rgba(0,0,0,0.1);width:248px;color:#111;overflow:hidden">
-  </div>
-  <!-- 위젯 보관함 팝업 (body 직속) -->
-  <div id="gp2WidgetStore"
-    style="display:none;position:fixed;z-index:11000;width:92vw;max-width:1100px;background:linear-gradient(145deg,#2a2d35 0%,#1e2028 50%,#16181d 100%);border:0.5px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.05);overflow:hidden">
-    <div
-      style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr)">
-      <span style="font-size:13px;font-weight:800;color:var(--t1)">📦 위젯 보관함</span>
-      <span style="font-size:10px;color:var(--t3)">클릭하면 플래너에 추가됩니다</span>
-    </div>
-    <div style="padding:10px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px" id="gp2StoreItems"></div>
-  </div>
-
-  <div class="modal-overlay" id="settingsModal">
-    <div class="modal-content" style="width:900px;max-width:95vw;padding:0;overflow:hidden">
-      <div class="modal-header"
-        style="margin:0;padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))">
-        <span class="modal-title">⚙ 설정</span>
-      </div>
-      <div class="settings-notion">
-        <div class="settings-sidebar" id="settingsSidebar">
-          <div
-            style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">
-            정보</div>
-          <div class="settings-sidebar-item active" data-cat="version" style="padding-left:28px;font-size:11px"><img
-              src="assets/logo/logo_orange.gif"
-              style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:-6px"> 버전·업데이트</div>
-          <div class="settings-sidebar-item" data-cat="cdkey" style="padding-left:28px;font-size:11px">🔐 오렌지톡 인증코드
-          </div>
-          <div class="settings-sidebar-item" data-cat="copyright" style="padding-left:28px;font-size:11px">📜 저작권</div>
-          <div style="height:1px;background:var(--bdr);margin:6px 12px;opacity:0.5"></div>
-          <div
-            style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">
-            시스템 설정</div>
-          <div class="settings-sidebar-item" data-cat="background" style="padding-left:28px;font-size:11px">🖼 배경 이미지
-          </div>
-          <div class="settings-sidebar-item" data-cat="glass" style="padding-left:28px;font-size:11px">🪟 글래스모피즘</div>
-          <!-- 상단 회전문구 사이드바 항목 제거 (오렌지팜 요청 2026-05-27) — 회전 자체를 없애므로 편집 탭도 함께 숨김 -->
-          <!--<div class="settings-sidebar-item" data-cat="headermsg" style="padding-left:28px;font-size:11px">✨ 상단 회전문구</div>-->
-          <div class="settings-sidebar-item" data-cat="topmenu" style="padding-left:28px;font-size:11px">📑 상단 메뉴</div>
-          <div class="settings-sidebar-item" data-cat="mealacad" style="padding-left:28px;font-size:11px">🍽️ 팝업 설정
-          </div>
-          <div class="settings-sidebar-item" data-cat="sidebarpos" style="padding-left:28px;font-size:11px">🧭 사이드바 위치
-            설정</div>
-          <div class="settings-sidebar-item" data-cat="zoomscale" style="padding-left:28px;font-size:11px">🔍 배율(글자크기)
-            설정</div>
-          <div class="settings-sidebar-item" data-cat="schoolyear" style="padding-left:28px;font-size:11px">📅 학기·학년도 설정
-          </div>
-          <div class="settings-sidebar-item" data-cat="apikeys" style="padding-left:28px;font-size:11px">🔑 API Key 관리
-          </div>
-          <div
-            style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">
-            일지 & 데이터</div>
-          <div class="settings-sidebar-item" data-cat="privacy" style="padding-left:28px;font-size:11px">🔒 개인정보 보호 설계
-            원칙</div>
-          <div class="settings-sidebar-item" data-cat="diary" style="padding-left:28px;font-size:11px">📋 보건일지 설정</div>
-          <div class="settings-sidebar-item" data-cat="kiosk" style="padding-left:28px;font-size:11px">📱 키오스크 설정</div>
-          <div class="settings-sidebar-item" data-cat="datasync" style="padding-left:28px;font-size:11px">🤝 동료와 협업
-          </div>
-          <div class="settings-sidebar-item" data-cat="import" style="padding-left:28px;font-size:11px">📥 외부 데이터</div>
-          <div class="settings-sidebar-item" data-cat="retention" style="padding-left:28px;font-size:11px">🛡 백업과 삭제
-          </div>
-          <div class="settings-sidebar-item" data-cat="custombackup" style="padding-left:28px;font-size:11px">🎨 커스텀 백업과
-            반영</div>
-          <!-- 도움말 / 단축키 · 주요 기능 / 다크·라이트 모드: 추후 추가 예정 -->
-        </div>
-        <div class="settings-panel" id="settingsPanel"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ EMS MESSAGE MODAL ═══ -->
-  <div class="ems-overlay" id="emsOverlay">
-    <div class="ems-modal">
-      <div class="vp-header">
-        <span class="vp-header-title">🚑 구급대에 보낼 메시지 작성</span>
-      </div>
-      <div class="ems-body">
-        <div class="ems-left">
-          <div class="ems-info" id="emsInfoArea"></div>
-          <div class="ems-desc-area">
-            <div class="ems-desc-label" style="display:flex;justify-content:space-between;align-items:center">경위 작성 (사고
-              개요)<button id="emsResetCurrentBtn" tabindex="-1"
-                style="font-size:9px;padding:2px 8px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-family:var(--f);font-weight:600">↺
-                현재 작성한 내용 초기화</button></div>
-            <div class="ems-textarea-wrap">
-              <textarea id="emsDescInput"></textarea>
-              <div class="ems-placeholder" id="emsPlaceholder">(육하원칙에 따라 경위를 써주세요.)</div>
-            </div>
-          </div>
-          <div class="ems-slots-wrap">
-            <div class="ems-slots-title">저장된 메시지</div>
-            <div style="font-size:9px;color:var(--t3);margin-bottom:8px">메시지를 작성할 때마다 아래 네모칸에 자동 저장되어 이력으로 남으며 체크로
-              표시됩니다.</div>
-            <div class="ems-slots" id="emsSlotsArea"></div>
-          </div>
-        </div>
-        <div class="ems-right">
-          <div class="ems-preview-label">미리보기</div>
-          <div class="ems-preview" id="emsPreview"></div>
-          <div class="vp-toggle-row" id="emsPaperToggle" style="justify-content:center;margin-bottom:4px">
-            <button class="vp-toggle on" data-paper="receipt">3인치 미리보기</button>
-            <button class="vp-toggle" data-paper="a4">A4 용지 미리보기</button>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button class="ems-print-btn" id="emsEmergencyLocBtn"
-              style="flex:1;background:rgba(239,68,68,0.08);color:#dc2626;border:1px solid rgba(239,68,68,0.3)">🚨 응급실
-              위치 확인</button>
-            <button class="ems-print-btn" id="emsPrintBtn" style="flex:1">🖨 인쇄</button>
-          </div>
+        <!-- 나머지 입력 -->
+        <div id="setupStep3" style="display:none;flex-direction:column;gap:11px;width:100%">
+          <label id="setupSchoolLabel">학교 이름</label><input id="setupSchool" placeholder="예: 행복고등학교">
+          <label>사용자 이름</label><input id="setupName" placeholder="이름">
+          <label>직위</label>
+          <select id="setupPosition" class="pink"><option value="보건교사">보건교사</option><option value="보건지원강사">보건지원강사</option><option value="">직접 입력</option></select>
+          <input id="setupPositionCustom" placeholder="직위를 입력하세요" style="display:none;margin-top:6px">
+          <button class="sp-form-btn" id="btnSetupDone">등록 완료</button>
+          <button class="sp-form-back" id="btnSetupBack">← 뒤로</button>
         </div>
       </div>
     </div>
+    <!-- PIN 복구 화면 제거됨 — 사용자 선택 로그인으로 전환 -->
   </div>
+</div>
 
-  <!-- ═══ VISIT PASS MODAL ═══ -->
-  <div class="vp-overlay" id="vpOverlay">
-    <!-- 커스텀 양식 1~7 선택 시에만 표시되는 보조 안내 모달 — JS 가 vp-modal 우측 상단에 부착 위치 계산 -->
-    <div id="vpCustomFormTip"
-      style="display:none;position:fixed;width:280px;z-index:3010;background:var(--card);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,0.5);overflow:hidden;font-family:var(--f)">
-      <div
-        style="padding:10px 14px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <span>💡 커스텀 양식 사용 안내</span>
-        <button id="vpCustomFormTipClose"
-          style="width:22px;height:22px;border-radius:50%;border:1px solid var(--bdr);background:transparent;color:var(--t3);cursor:pointer;font-size:11px;line-height:1;padding:0;outline:none"
-          title="닫기">✕</button>
+
+
+<!-- ═══ FIXED HEADER ═══ -->
+<header class="top-header">
+  <div class="header-row1">
+    <span class="cycling-brand" id="cyclingBrand"></span>
+    <div class="header-right-cluster">
+      <div class="header-meta">
+        <span class="header-date"><span id="headerDate"></span><span class="header-weather" id="headerWeather"></span></span>
+        <div id="headerUserInfo" style="font-size:12px;color:#e2e8f0;margin-top:3px;letter-spacing:0.3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       </div>
-      <div style="padding:14px 16px;background:var(--card);font-size:11.5px;color:var(--t1);line-height:1.75">
-        · 제목, 라벨, 하단 문구에 마우스 커서를 올리면 <b>✏️ 편집 / ↺ 복원</b> 아이콘이 나타납니다. 이걸 편집하는 경우 편집한 대로 다음도 유지됩니다.<br>
-        · 표 라벨 오른쪽 <b>값</b>은 자유롭게 고칠 수 있지만 다음에 켜면 빈칸 또는 선택한 방문자 정보로 다음에 채워집니다.
+      <div class="header-btn-stack">
+        <button class="settings-btn" id="headerSettingsBtn">⚙ 설정</button>
+        <button class="theme-btn" id="themeBtn">🌙 다크모드</button>
+        <button class="settings-btn" id="headerLockBtn">🏠 처음화면</button>
       </div>
     </div>
-    <div class="vp-modal">
-      <div class="vp-header">
-        <span class="vp-header-title">📋 커스텀 양식 출력</span>
+  </div>
+  <div class="header-row2">
+    <button class="nav-link" data-view="home" data-color="cyan">🏠 대시보드</button>
+    <button class="nav-link active" data-view="daily" data-color="blue">📋 보건일지</button>
+    <button class="nav-link" data-view="dashboard" data-color="orange">📈 방문 통계</button>
+    <button class="nav-link" data-view="orange" data-color="orange" aria-label="오렌지팜" title="오렌지팜"><img src="assets/logo/orangefarm_logo.png" alt="오렌지팜" style="height:22px;width:auto;object-fit:contain;display:inline-block;vertical-align:middle;margin:-4px 0"></button>
+    <button class="nav-link" data-view="magic" data-color="green">📒 매직 스테이션</button>
+    <span class="nav-spacer"></span>
+  </div>
+</header>
+
+<div class="app">
+
+<!-- ═══ SIDEBAR (persistent) ═══ -->
+<div class="sidebar">
+  <!-- 키오스크 상태 표시 -->
+  <div id="kioskSidePanel" style="display:none;margin-top:26px;margin-bottom:14px">
+    <div class="cc" id="kioskSideContent" style="padding:10px;position:relative">
+      <div style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px"><span data-kiosk-dot style="width:8px;height:8px;border-radius:50%;background:var(--gs);box-shadow:0 0 4px rgba(34,197,94,0.5);flex-shrink:0"></span> <span data-kiosk-label style="color:var(--gs)">키오스크 활성</span></div>
+    </div>
+  </div>
+  <!-- 위젯 보관함 버튼 (사이드바) -->
+  <div id="gp2WidgetStoreBtn" style="display:none;margin-top:8px">
+    <button id="gp2WidgetStoreBtnEl" class="sidebar-hover-btn" style="width:100%;padding:8px 12px;font-size:11px;font-weight:700;background:var(--card);color:var(--t1);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px;transition:all 0.15s">📦 위젯 보관함 <span style="font-size:9px;color:var(--t3);margin-left:auto">클릭하여 열기</span></button>
+  </div>
+  <!-- Google Drive 저장 경로 버튼 (사이드바) -->
+  <div id="gp2DrivePathBtn" style="display:none;margin-top:6px">
+    <button id="gp2DrivePathBtnEl" class="sidebar-hover-btn" style="width:100%;padding:8px 12px;font-size:11px;font-weight:700;background:var(--card);color:var(--t1);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px;transition:all 0.15s"><svg width="16" height="14" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H1.2c0 1.55.4 3.1 1.2 4.5l4.2 9.35z" fill="#0066DA"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.5c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#00AC47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85l5.85 10.6 7.85 13.2z" fill="#EA4335"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#00832D"/><path d="M59.85 53h27.45c0-1.55-.4-3.1-1.2-4.5L74.4 28.8 57.4 1.2C56.05 2 54.9 3.1 54.1 4.5L30.7 48.5c-.8 1.4-1.2 2.95-1.2 4.5h30.35z" fill="#2684FC"/><path d="M73.4 28.8l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 28.8z" fill="#FFBA00"/></svg> Google Drive 저장 경로 <span id="gp2DrivePathLabel" style="font-size:9px;color:var(--t3);margin-left:auto">미설정</span></button>
+  </div>
+  <!-- 플래너 날짜 위젯 (사이드바) -->
+  <div id="gp2DateWidgets" class="cc" style="display:none;margin-top:8px;padding:10px 12px;cursor:default">
+    <div id="gp2DwToday" style="margin-bottom:8px"></div>
+    <div id="gp2DwMonth" style="margin-bottom:8px"></div>
+    <div id="gp2DwYear" style="margin-bottom:8px"></div>
+    <div id="gp2DwSemester" style="margin-bottom:8px"></div>
+    <div id="gp2DwSchoolYear"></div>
+  </div>
+  <div class="mcal" id="mainCalendar"></div>
+  <div class="search-box" id="sidebarSearchBox" style="position:relative">
+    <input type="text" placeholder="이름 검색 (방문이력 검색)" id="sideSearch" style="padding-right:60px">
+    <button id="advSearchSidebarBtn" class="adv-search-hover-btn" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1">상세 검색</button>
+  </div>
+  <div id="sideSearchResults" class="search-results"></div>
+  <div class="cc" id="sideUpdateNews" style="padding:10px 14px;margin-top:8px;display:none;border-left:3px solid var(--cyan)">
+    <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">📢 업데이트 소식</div>
+    <div style="font-size:10px;color:var(--t2);line-height:2">
+      <div><span class="mono" style="color:var(--t3)">03.17</span> v3.0 — 전면 UI 재설계</div>
+      <div><span class="mono" style="color:var(--t3)">03.16</span> v2.0 — 응급처치/감염병/방문증</div>
+      <div><span class="mono" style="color:var(--t3)">03.15</span> v1.0 — 최초 릴리스</div>
+    </div>
+  </div>
+  <div class="cc" id="sideStoryPostList" style="padding:10px 14px;margin-top:8px;display:none">
+    <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">📝 소식 글 리스트</div>
+    <div id="sideStoryPostBody" style="max-height:440px;overflow-y:auto;scrollbar-width:thin"></div>
+  </div>
+  <div class="cc" id="sideRecentCard" style="padding:10px 14px;margin-top:8px;display:none">
+    <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">최근 방문</div>
+    <div class="compact-list" id="recentCompact" style="max-height:160px;overflow-y:auto;scrollbar-width:thin"></div>
+    <div id="sideChartToggle" style="font-size:10px;color:var(--t3);cursor:pointer;margin-top:8px;text-align:center;padding:4px;border-radius:4px;transition:all 0.15s">▼ 통계 차트 보기</div>
+    <div id="sideCharts" style="display:none;margin-top:8px">
+      <div id="sideGenderPie" style="margin-bottom:8px"></div>
+      <div id="sideDeptBar"></div>
+    </div>
+  </div>
+  <div class="cc" id="sideVisitHistory" style="padding:10px 14px;margin-top:8px;display:none">
+    <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px" id="visitHistoryTitle">선택한 학생의 보건실 방문 이력</div>
+    <div class="visit-history-card" id="visitHistoryBody"></div>
+  </div>
+  <div class="cc" id="sideBedUsage" style="padding:10px 14px;margin-top:8px;display:none">
+    <div id="sideBedHeader"></div>
+    <div id="sideBedBody"></div>
+  </div>
+
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+
+  <!-- VIEW: HOME (🏠 대시보드 — 위젯 기반 홈 화면) -->
+  <div id="view-home" class="view">
+    <div class="magic-chart-body" style="padding:16px" id="homeWidgetArea"></div>
+  </div>
+
+  <!-- VIEW: DASHBOARD (📈 방문 통계) -->
+  <div id="view-dashboard-host" data-fragment="src/renderer/views/view-dashboard.html"></div>
+
+  <!-- VIEW: DAILY RECORD -->
+  <div id="view-daily-host" data-fragment="src/renderer/views/view-daily.html"></div>
+
+  <!-- VIEW: STATS -->
+  <div id="view-stats" class="view">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.3px">통계</h1>
+        <p style="font-size:12px;color:var(--t3);margin-top:2px" id="statsPeriodLabel">이번 주 통계</p>
       </div>
-      <div style="display:flex;flex:1 1 0;overflow:hidden;min-height:0">
-        <!-- LEFT: 형식 + 설정 -->
-        <div class="vp-left-panel"
-          style="width:240px;min-width:240px;border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow-y:auto;background:var(--bg2)">
-          <div
-            style="padding:12px 14px;font-size:11px;font-weight:700;color:var(--t3);border-bottom:1px solid var(--bdr)">
-            형식 선택</div>
-          <div class="vp-format-bar" id="vpFormatBar"
-            style="flex-direction:column;padding:8px 10px;gap:4px;border-bottom:1px solid var(--bdr);max-height:280px;overflow-y:auto;scrollbar-width:thin">
-            <button class="vp-fmt-btn active" data-fmt="default" style="text-align:left;width:100%">보건실 방문 확인증</button>
-            <button class="vp-fmt-btn" data-fmt="rest_referral" style="text-align:left;width:100%">보건실 안정 의뢰서</button>
-            <button class="vp-fmt-btn" data-fmt="meal_request" style="text-align:left;width:100%">빠른 급식 요청서</button>
-            <button class="vp-fmt-btn" data-fmt="referral" style="text-align:left;width:100%">병원 진료 의뢰서</button>
-            <!-- 커스텀 형식들이 동적으로 렌더링됨 -->
+    </div>
+    <div class="export-bar">
+      <button class="btn btn-primary btn-sm" id="exportDiaryBtn">📄 보건일지 출력</button>
+      <select class="form-input" id="exportFormat" style="width:90px;font-size:10.5px;padding:5px"><option value="pdf">PDF</option><option value="excel">Excel</option></select>
+      <input type="date" class="form-input" id="exportFrom" style="width:130px;font-size:10.5px;padding:5px">
+      <span style="color:var(--t3);font-size:11px">~</span>
+      <input type="date" class="form-input" id="exportTo" style="width:130px;font-size:10.5px;padding:5px">
+      <button class="btn btn-outline btn-sm" id="importDataBtn">📥 이관</button>
+    </div>
+    <div class="stats-period-tabs" style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
+      <div class="stats-period-tab magic-index-tab active" data-period="today">오늘</div>
+      <div class="stats-period-tab magic-index-tab" data-period="week">주간</div>
+      <div class="stats-period-tab magic-index-tab" data-period="month">월간</div>
+      <div class="stats-period-tab magic-index-tab" data-period="semester">학기</div>
+      <div class="stats-period-tab magic-index-tab" data-period="year">연도</div>
+    </div>
+    <div class="stat-row" id="statsTopRow"></div>
+    <div class="g2">
+      <div class="cc"><div class="st">방문 추이</div><div id="statsTrendChart" style="height:160px"></div></div>
+      <div class="cc"><div class="st">증상 TOP 5</div><div class="bar-chart" id="topSymptomChart"></div></div>
+    </div>
+    <div class="g2">
+      <div class="cc"><div class="st">학년별 분포</div><div class="donut-wrap" id="gradeDonut"></div></div>
+      <div class="cc"><div class="st">처치 요약</div><div style="overflow-x:auto"><table class="rec-table" id="treatSummaryTable"><thead><tr><th>처치 항목</th><th>건수</th><th>비율</th><th>분포</th></tr></thead><tbody id="treatBody"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- VIEW: 교무수첩 (#23-24) -->
+  <!-- VIEW: 매직 스테이션 (fragment) -->
+  <div id="view-magic-host" data-fragment="src/renderer/views/view-magic.html"></div>
+
+
+  <!-- VIEW: 오렌지톡 (#25-29) -->
+  <div id="view-story-host" data-fragment="src/renderer/views/view-story.html"></div>
+
+  <!-- VIEW: 오렌지팜 -->
+  <div id="view-orange-host" data-fragment="src/renderer/views/view-orange.html"></div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<footer><span id="footerText"></span></footer>
+<div id="globalSaveToast" class="global-save-toast">모든 내용이 저장되었습니다.</div>
+<div id="infCalWrap" style="display:none;position:fixed;z-index:9999"></div>
+<div id="clockPickerWrap" style="display:none;position:fixed;z-index:2147483600;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.22),0 2px 8px rgba(0,0,0,0.1);width:248px;color:#111;overflow:hidden"></div>
+<!-- 위젯 보관함 팝업 (body 직속) -->
+<div id="gp2WidgetStore" style="display:none;position:fixed;z-index:11000;width:92vw;max-width:1100px;background:linear-gradient(145deg,#2a2d35 0%,#1e2028 50%,#16181d 100%);border:0.5px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.05);overflow:hidden">
+  <div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr)">
+    <span style="font-size:13px;font-weight:800;color:var(--t1)">📦 위젯 보관함</span>
+    <span style="font-size:10px;color:var(--t3)">클릭하면 플래너에 추가됩니다</span>
+  </div>
+  <div style="padding:10px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px" id="gp2StoreItems"></div>
+</div>
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-content" style="width:900px;max-width:95vw;padding:0;overflow:hidden">
+    <div class="modal-header" style="margin:0;padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))">
+      <span class="modal-title">⚙ 설정</span>
+    </div>
+    <div class="settings-notion">
+      <div class="settings-sidebar" id="settingsSidebar">
+        <div style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">정보</div>
+        <div class="settings-sidebar-item active" data-cat="version" style="padding-left:28px;font-size:11px"><img src="assets/logo/logo_orange.gif" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:-6px"> 버전·업데이트</div>
+        <div class="settings-sidebar-item" data-cat="cdkey" style="padding-left:28px;font-size:11px">🔐 오렌지톡 인증코드</div>
+        <div class="settings-sidebar-item" data-cat="copyright" style="padding-left:28px;font-size:11px">📜 저작권</div>
+        <div style="height:1px;background:var(--bdr);margin:6px 12px;opacity:0.5"></div>
+        <div style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">시스템 설정</div>
+        <div class="settings-sidebar-item" data-cat="background" style="padding-left:28px;font-size:11px">🖼 배경 이미지</div>
+        <div class="settings-sidebar-item" data-cat="glass" style="padding-left:28px;font-size:11px">🪟 글래스모피즘</div>
+<!-- 상단 회전문구 사이드바 항목 제거 (오렌지팜 요청 2026-05-27) — 회전 자체를 없애므로 편집 탭도 함께 숨김 -->
+        <!--<div class="settings-sidebar-item" data-cat="headermsg" style="padding-left:28px;font-size:11px">✨ 상단 회전문구</div>-->
+        <div class="settings-sidebar-item" data-cat="topmenu" style="padding-left:28px;font-size:11px">📑 상단 메뉴</div>
+        <div class="settings-sidebar-item" data-cat="mealacad" style="padding-left:28px;font-size:11px">🍽️ 팝업 설정</div>
+        <div class="settings-sidebar-item" data-cat="sidebarpos" style="padding-left:28px;font-size:11px">🧭 사이드바 위치 설정</div>
+        <div class="settings-sidebar-item" data-cat="zoomscale" style="padding-left:28px;font-size:11px">🔍 배율(글자크기) 설정</div>
+        <div class="settings-sidebar-item" data-cat="schoolyear" style="padding-left:28px;font-size:11px">📅 학기·학년도 설정</div>
+        <div class="settings-sidebar-item" data-cat="apikeys" style="padding-left:28px;font-size:11px">🔑 API Key 관리</div>
+        <div style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">일지 & 데이터</div>
+        <div class="settings-sidebar-item" data-cat="privacy" style="padding-left:28px;font-size:11px">🔒 개인정보 보호 설계 원칙</div>
+        <div class="settings-sidebar-item" data-cat="diary" style="padding-left:28px;font-size:11px">📋 보건일지 설정</div>
+        <div class="settings-sidebar-item" data-cat="kiosk" style="padding-left:28px;font-size:11px">📱 키오스크 설정</div>
+        <div class="settings-sidebar-item" data-cat="datasync" style="padding-left:28px;font-size:11px">🤝 동료와 협업</div>
+        <div class="settings-sidebar-item" data-cat="import" style="padding-left:28px;font-size:11px">📥 외부 데이터</div>
+        <div class="settings-sidebar-item" data-cat="retention" style="padding-left:28px;font-size:11px">🛡 백업과 삭제</div>
+        <div class="settings-sidebar-item" data-cat="custombackup" style="padding-left:28px;font-size:11px">🎨 커스텀 백업과 반영</div>
+        <!-- 도움말 / 단축키 · 주요 기능 / 다크·라이트 모드: 추후 추가 예정 -->
+      </div>
+      <div class="settings-panel" id="settingsPanel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EMS MESSAGE MODAL ═══ -->
+<div class="ems-overlay" id="emsOverlay">
+  <div class="ems-modal">
+    <div class="vp-header">
+      <span class="vp-header-title">🚑 구급대에 보낼 메시지 작성</span>
+    </div>
+    <div class="ems-body">
+      <div class="ems-left">
+        <div class="ems-info" id="emsInfoArea"></div>
+        <div class="ems-desc-area">
+          <div class="ems-desc-label" style="display:flex;justify-content:space-between;align-items:center">경위 작성 (사고 개요)<button id="emsResetCurrentBtn" tabindex="-1" style="font-size:9px;padding:2px 8px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-family:var(--f);font-weight:600">↺ 현재 작성한 내용 초기화</button></div>
+          <div class="ems-textarea-wrap">
+            <textarea id="emsDescInput"></textarea>
+            <div class="ems-placeholder" id="emsPlaceholder">(육하원칙에 따라 경위를 써주세요.)</div>
           </div>
-          <button id="vpAddCustomSlotBtn" class="vp-custom-slot-hover-btn" style="display:none">+ 커스텀 추가</button>
-          <div class="vp-sel-group" style="padding:0">
-            <!-- Paper selection -->
-            <div class="vp-sel-bar" id="vpPaperBar">
-              <div class="vp-sel-trigger">📄 미리보기 선택 <span id="vpPaperLabel"
-                  style="color:var(--cyan);font-size:10px;margin-left:4px">3인치 영수증</span><span class="vp-arrow">▼</span>
-              </div>
-              <div class="vp-dropdown">
-                <div class="vp-toggle-row">
-                  <button class="vp-toggle" data-paper="a4">A4 용지</button>
-                  <button class="vp-toggle on" data-paper="receipt">3인치 영수증</button>
-                </div>
-                <div id="vpOrientRow" style="display:none;margin-top:6px">
-                  <div style="font-size:10px;font-weight:600;color:var(--t3);margin-bottom:4px">방향</div>
-                  <div class="vp-toggle-row">
-                    <button class="vp-toggle on" data-orient="portrait">세로</button>
-                    <button class="vp-toggle" data-orient="landscape">가로</button>
-                  </div>
-                </div>
-                <div style="margin-top:6px;font-size:10px;color:var(--t2);padding-left:2px;line-height:1.5">💡 3인치 사이즈는
-                  롤 형태의 용지 공급으로 인해 세로 길이의 의미가 없습니다.</div>
-              </div>
-            </div>
-            <!-- Content selection -->
-            <div class="vp-sel-bar" id="vpContentBar">
-              <div class="vp-sel-trigger">📝 내용 선택 <span id="vpContentLabel"
-                  style="color:var(--cyan);font-size:10px;margin-left:4px">전부</span><span class="vp-arrow">▼</span>
-              </div>
-              <div class="vp-dropdown">
-                <div class="vp-toggle-row">
-                  <button class="vp-toggle on" data-field="date" data-tip="확인증에 방문한 날짜를 표시합니다.">방문한 날짜</button>
-                  <button class="vp-toggle on" data-field="timeIn" data-tip="확인증에 보건실 입실시간을 표시합니다.">입실시간</button>
-                  <button class="vp-toggle on" data-field="timeOut" data-tip="확인증에 보건실 퇴실시간을 표시합니다.">퇴실시간</button>
-                  <button class="vp-toggle on" data-field="symtreatCombo"
-                    data-tip="클릭할 때마다 전환됩니다: 증상·처치 (합침=한 칸) → 증상·처치 (분리=두 칸) → 증상·처치 (끔=표시 안 함). (합침/분리 모드는 양식별로 저장)">증상·처치
-                    (합침)</button>
-                  <button class="vp-toggle on" data-field="bodymap"
-                    data-tip="확인증에 바디맵으로 표시한 부위(예: 왼쪽 어깨)를 표시합니다. 선택한 부위 수만큼 나열됩니다.">부위</button>
-                  <button class="vp-toggle on" data-field="vs" data-tip="확인증에 V/S 측정값(체온·혈압·맥박 등)을 표시합니다.">V/S</button>
-                  <button class="vp-toggle on" data-field="teacherNurse"
-                    data-tip="보건교사 본인(○○○)의 서명/도장 줄입니다. 끄면 서명·도장까지 함께 빠집니다. 양식별로 따로 저장됩니다.">교사 확인 (보건)</button>
-                  <button class="vp-toggle on" data-field="teacherSubject"
-                    data-tip="교과담당교사 확인 줄을 넣습니다. 교과·담임은 켠 순서대로 위에서 아래로 배치됩니다. 양식별로 따로 저장됩니다.">교사 확인 (교과)</button>
-                  <button class="vp-toggle" data-field="teacherHomeroom"
-                    data-tip="담임교사 확인 줄을 넣습니다. 교과·담임은 켠 순서대로 위에서 아래로 배치됩니다. 양식별로 따로 저장됩니다.">교사 확인 (담임)</button>
-                </div>
-              </div>
-            </div>
-            <!-- Signature selection -->
-            <div class="vp-sel-bar" id="vpSigBar">
-              <div class="vp-sel-trigger">✍ 서명(도장) 방식 선택 <span id="vpSigLabel"
-                  style="color:var(--cyan);font-size:10px;margin-left:4px">생략</span><span class="vp-arrow">▼</span>
-              </div>
-              <div class="vp-dropdown">
-                <div class="vp-sig-opts">
-                  <button class="vp-sig-opt" data-sig="stamp">도장</button>
-                  <button class="vp-sig-opt active" data-sig="sign">서명</button>
-                </div>
-                <div class="vp-sig-drop" id="vpSigDrop">
-                  <span id="vpSigDropText">📁 이미지를 드래그 앤 드랍 또는 클릭<br><span style="font-size:9px;color:var(--t3)">투명 배경
-                      PNG/JPEG 권장</span></span>
-                  <div class="vp-sig-preview-wrap" id="vpSigPreviewWrap" style="display:none"><img id="vpSigPreviewImg"
-                      class="vp-sig-preview"><button class="vp-sig-del" id="vpSigDelBtn">✕</button></div>
-                </div>
-                <input type="file" id="vpSigFileInput" accept="image/*" style="display:none">
-                <button id="vpSigRemoveBgBtn"
-                  style="margin-top:4px;width:100%;padding:5px 0;border:1px solid var(--bdr);border-radius:4px;background:var(--bg);color:var(--t2);font-size:10px;font-weight:600;cursor:pointer">🪄
-                  투명 배경 만들기 / 빈 슬롯에 넣기</button>
-                <div
-                  style="margin-top:6px;padding:6px 8px;font-size:10px;color:var(--t3);background:var(--bg2);border-radius:4px;line-height:1.5">
-                  서명(도장) 이미지를 원하는 곳에 위치하도록 마우스로 클릭하여 드래그 앤 드랍해 주세요.</div>
-                <!-- 도장 저장 슬롯 (3개) -->
-                <div id="vpStampSlots" style="display:none;margin-top:6px">
-                  <div style="font-size:9px;font-weight:700;color:var(--t3);margin-bottom:3px">저장된 도장</div>
-                  <div style="display:flex;gap:8px;overflow:visible;padding:6px 2px 2px" id="vpStampGrid"></div>
-                </div>
-                <!-- 서명 저장 슬롯 (3개) -->
-                <div id="vpSignSlots" style="display:none;margin-top:6px">
-                  <div style="font-size:9px;font-weight:700;color:var(--t3);margin-bottom:3px">저장된 서명</div>
-                  <div style="display:flex;gap:8px;overflow:visible;padding:6px 2px 2px" id="vpSignGrid"></div>
-                </div>
-              </div>
-            </div>
+        </div>
+        <div class="ems-slots-wrap">
+          <div class="ems-slots-title">저장된 메시지</div>
+          <div style="font-size:9px;color:var(--t3);margin-bottom:8px">메시지를 작성할 때마다 아래 네모칸에 자동 저장되어 이력으로 남으며 체크로 표시됩니다.</div>
+          <div class="ems-slots" id="emsSlotsArea"></div>
+        </div>
+      </div>
+      <div class="ems-right">
+        <div class="ems-preview-label">미리보기</div>
+        <div class="ems-preview" id="emsPreview"></div>
+        <div class="vp-toggle-row" id="emsPaperToggle" style="justify-content:center;margin-bottom:4px">
+          <button class="vp-toggle on" data-paper="receipt">3인치 미리보기</button>
+          <button class="vp-toggle" data-paper="a4">A4 용지 미리보기</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="ems-print-btn" id="emsEmergencyLocBtn" style="flex:1;background:rgba(239,68,68,0.08);color:#dc2626;border:1px solid rgba(239,68,68,0.3)">🚨 응급실 위치 확인</button>
+          <button class="ems-print-btn" id="emsPrintBtn" style="flex:1">🖨 인쇄</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VISIT PASS MODAL ═══ -->
+<div class="vp-overlay" id="vpOverlay">
+  <!-- 커스텀 양식 1~7 선택 시에만 표시되는 보조 안내 모달 — JS 가 vp-modal 우측 상단에 부착 위치 계산 -->
+  <div id="vpCustomFormTip" style="display:none;position:fixed;width:280px;z-index:3010;background:var(--card);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,0.5);overflow:hidden;font-family:var(--f)">
+    <div style="padding:10px 14px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span>💡 커스텀 양식 사용 안내</span>
+      <button id="vpCustomFormTipClose" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--bdr);background:transparent;color:var(--t3);cursor:pointer;font-size:11px;line-height:1;padding:0;outline:none" title="닫기">✕</button>
+    </div>
+    <div style="padding:14px 16px;background:var(--card);font-size:11.5px;color:var(--t1);line-height:1.75">
+      · 제목, 라벨, 하단 문구에 마우스 커서를 올리면 <b>✏️ 편집 / ↺ 복원</b> 아이콘이 나타납니다. 이걸 편집하는 경우 편집한 대로 다음도 유지됩니다.<br>
+      · 표 라벨 오른쪽 <b>값</b>은 자유롭게 고칠 수 있지만 다음에 켜면 빈칸 또는 선택한 방문자 정보로 다음에 채워집니다.
+    </div>
+  </div>
+  <div class="vp-modal">
+    <div class="vp-header">
+      <span class="vp-header-title">📋 커스텀 양식 출력</span>
+    </div>
+    <div style="display:flex;flex:1 1 0;overflow:hidden;min-height:0">
+    <!-- LEFT: 형식 + 설정 -->
+    <div class="vp-left-panel" style="width:240px;min-width:240px;border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow-y:auto;background:var(--bg2)">
+    <div style="padding:12px 14px;font-size:11px;font-weight:700;color:var(--t3);border-bottom:1px solid var(--bdr)">형식 선택</div>
+    <div class="vp-format-bar" id="vpFormatBar" style="flex-direction:column;padding:8px 10px;gap:4px;border-bottom:1px solid var(--bdr);max-height:280px;overflow-y:auto;scrollbar-width:thin">
+      <button class="vp-fmt-btn active" data-fmt="default" style="text-align:left;width:100%">보건실 방문 확인증</button>
+      <button class="vp-fmt-btn" data-fmt="rest_referral" style="text-align:left;width:100%">보건실 안정 의뢰서</button>
+      <button class="vp-fmt-btn" data-fmt="meal_request" style="text-align:left;width:100%">빠른 급식 요청서</button>
+      <button class="vp-fmt-btn" data-fmt="referral" style="text-align:left;width:100%">병원 진료 의뢰서</button>
+      <!-- 커스텀 형식들이 동적으로 렌더링됨 -->
+    </div>
+    <button id="vpAddCustomSlotBtn" class="vp-custom-slot-hover-btn" style="display:none">+ 커스텀 추가</button>
+    <div class="vp-sel-group" style="padding:0">
+      <!-- Paper selection -->
+      <div class="vp-sel-bar" id="vpPaperBar">
+        <div class="vp-sel-trigger">📄 미리보기 선택 <span id="vpPaperLabel" style="color:var(--cyan);font-size:10px;margin-left:4px">3인치 영수증</span><span class="vp-arrow">▼</span></div>
+        <div class="vp-dropdown">
+          <div class="vp-toggle-row">
+            <button class="vp-toggle" data-paper="a4">A4 용지</button>
+            <button class="vp-toggle on" data-paper="receipt">3인치 영수증</button>
           </div>
-          <!-- 배경 및 여백 설정 (커스텀 에디터 전용) -->
-          <div id="vpeBgMarginPanel" style="display:none;border-top:1px solid var(--bdr);padding:0">
-            <!-- 배경 양식 -->
-            <div style="padding:8px 14px;border-bottom:1px solid var(--bdr)">
-              <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:6px">배경 양식</div>
-              <div id="vpeBgUploadZone"
-                style="padding:10px;border:1.5px dashed var(--bdr);border-radius:6px;text-align:center;font-size:10px;color:var(--t3);cursor:pointer;transition:all 0.15s">
-                📁 PDF / 이미지 업로드<br><span style="font-size:9px">클릭 또는 드래그</span></div>
-              <input type="file" id="vpeBgInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp" style="display:none">
-              <button id="vpeStretchBgBtn"
-                style="margin-top:4px;width:100%;padding:5px 0;border:1px solid var(--bdr);border-radius:4px;background:var(--bg);color:var(--t2);font-size:10px;font-weight:600;cursor:pointer">📐
-                배경 세로로 늘리거나 줄이기</button>
-            </div>
-            <!-- 배경 크기 -->
-            <div style="padding:6px 14px;border-bottom:1px solid var(--bdr)">
-              <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">배경 크기 <span
-                  id="vpeBgScaleVal" style="color:var(--cyan);font-weight:700">100%</span></div>
-              <div style="display:flex;align-items:center;gap:4px"><span
-                  style="font-size:9px;color:var(--t3)">50%</span>
-                <input type="range" id="vpeBgScaleSlider" min="50" max="200" value="100"
-                  style="flex:1;accent-color:var(--cyan);cursor:pointer">
-                <span style="font-size:9px;color:var(--t3)">200%</span>
-              </div>
-            </div>
-            <!-- 배경 위치 (상하) -->
-            <div style="padding:6px 14px;border-bottom:1px solid var(--bdr)">
-              <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">배경 위치 (상하) <span
-                  id="vpeBgOffsetYVal" style="color:var(--cyan);font-weight:700">0px</span></div>
-              <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3)">↑</span>
-                <input type="range" id="vpeBgOffsetYSlider" min="-200" max="200" value="0"
-                  style="flex:1;accent-color:var(--cyan);cursor:pointer">
-                <span style="font-size:9px;color:var(--t3)">↓</span>
-              </div>
-            </div>
-            <!-- 배경 위치 (좌우) -->
-            <div style="padding:6px 14px;border-bottom:1px solid var(--bdr)">
-              <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">배경 위치 (좌우) <span
-                  id="vpeBgOffsetXVal" style="color:var(--cyan);font-weight:700">0px</span></div>
-              <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3)">←</span>
-                <input type="range" id="vpeBgOffsetXSlider" min="-200" max="200" value="0"
-                  style="flex:1;accent-color:var(--cyan);cursor:pointer">
-                <span style="font-size:9px;color:var(--t3)">→</span>
-              </div>
-            </div>
-            <!-- 인쇄 여백 (상하좌우) -->
-            <div style="padding:6px 14px">
-              <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">인쇄 여백 (mm)</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-                <div style="display:flex;align-items:center;gap:4px"><span
-                    style="font-size:9px;color:var(--t3);width:16px">상</span><input type="number" id="vpeMarginTop"
-                    min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginTop"
-                    style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)">
-                </div>
-                <div style="display:flex;align-items:center;gap:4px"><span
-                    style="font-size:9px;color:var(--t3);width:16px">하</span><input type="number" id="vpeMarginBottom"
-                    min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginBottom"
-                    style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)">
-                </div>
-                <div style="display:flex;align-items:center;gap:4px"><span
-                    style="font-size:9px;color:var(--t3);width:16px">좌</span><input type="number" id="vpeMarginLeft"
-                    min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginLeft"
-                    style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)">
-                </div>
-                <div style="display:flex;align-items:center;gap:4px"><span
-                    style="font-size:9px;color:var(--t3);width:16px">우</span><input type="number" id="vpeMarginRight"
-                    min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginRight"
-                    style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)">
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="vpCustomBar"
-            style="display:none;padding:6px 20px;border-bottom:1px solid var(--bdr);align-items:center;justify-content:space-between">
-            <span id="vpAutoSaveMsg" style="font-size:10px;color:var(--t3)"></span>
-            <button class="btn btn-outline btn-sm" id="vpResetCustomFmtBtn" style="font-size:10px">↺ 초기화</button>
-          </div>
-        </div><!-- /vp-left-panel -->
-        <!-- RIGHT: 도구 + 작업 영역 -->
-        <div class="vp-right-panel"
-          style="flex:1 1 0;display:flex;flex-direction:column;overflow:hidden;min-width:0;min-height:0">
-          <!-- Default format preview -->
-          <div class="vp-preview-wrap" id="vpDefaultPreviewWrap" style="position:relative">
-            <div id="vpModeBadge"
-              style="position:absolute;top:24px;left:26px;z-index:55;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:800;font-family:var(--f);pointer-events:none;background:rgba(99,102,241,0.12);color:#6366f1;border:1px solid rgba(99,102,241,0.35)">
-              인쇄 미리 보기</div>
-            <div class="vpe-ruler-grid" id="vpDefRulerGrid">
-              <div class="vpe-ruler-corner"></div>
-              <div class="vpe-ruler-top" id="vpDefRulerTop"><canvas id="vpDefRulerTopC"></canvas></div>
-              <div class="vpe-ruler-left" id="vpDefRulerLeft"><canvas id="vpDefRulerLeftC"></canvas></div>
-              <div id="vpDefScrollArea"
-                style="overflow:auto;background:var(--bg);background-image:linear-gradient(rgba(150,150,150,0.12) 1px,transparent 1px),linear-gradient(90deg,rgba(150,150,150,0.12) 1px,transparent 1px);background-size:37.8px 37.8px">
-                <div id="vpDefZoomOuter"
-                  style="display:flex;justify-content:center;align-items:flex-start;min-width:100%;min-height:100%">
-                  <div id="vpDefZoomContainer" style="transform-origin:top center;flex-shrink:0;padding:20px">
-                    <div class="vp-preview" id="vpPreview"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div id="vpDefToolbar"
-              style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid var(--bdr);justify-content:center;flex-shrink:0">
-              <input type="range" id="vpDefZoomSlider" min="80" max="120" value="100"
-                style="width:120px;height:16px;accent-color:var(--cyan);cursor:pointer">
-              <span id="vpDefZoomLabel"
-                style="font-size:10px;font-weight:700;color:var(--t2);min-width:36px;text-align:center;cursor:pointer"
-                title="클릭하여 직접 입력">100%</span>
-              <button id="vpDefZoomFitBtn"
-                style="height:22px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-size:9px;font-weight:600;padding:0 6px">맞춤</button>
+          <div id="vpOrientRow" style="display:none;margin-top:6px">
+            <div style="font-size:10px;font-weight:600;color:var(--t3);margin-bottom:4px">방향</div>
+            <div class="vp-toggle-row">
+              <button class="vp-toggle on" data-orient="portrait">세로</button>
+              <button class="vp-toggle" data-orient="landscape">가로</button>
             </div>
           </div>
-          <!-- WYSIWYG Editor for custom formats -->
-          <div class="vp-editor" id="vpEditorWrap">
-            <!-- Style bar (shows when text object selected) -->
-            <div class="vpe-style-bar" id="vpeStyleBar">
-              <select id="vpeFontFamily" title="글꼴" style="width:120px">
-                <optgroup label="── 한글 ──">
-                  <option value="'Noto Sans KR',sans-serif">Noto Sans KR</option>
-                  <option value="'NanumGothic',sans-serif">나눔고딕</option>
-                  <option value="'NanumMyeongjo',serif">나눔명조</option>
-                  <option value="'NanumBarunGothic',sans-serif">나눔바른고딕</option>
-                  <option value="'NanumSquareRound',sans-serif">나눔스퀘어라운드</option>
-                  <option value="'Malgun Gothic','맑은 고딕',sans-serif">맑은 고딕</option>
-                  <option value="'Gulim','굴림',sans-serif">굴림</option>
-                  <option value="'Dotum','돋움',sans-serif">돋움</option>
-                  <option value="'Batang','바탕',serif">바탕</option>
-                  <option value="'Gungsuh','궁서',serif">궁서</option>
-                </optgroup>
-                <optgroup label="── Mac 기본 ──">
-                  <option value="'Apple SD Gothic Neo',sans-serif">Apple SD 고딕 Neo</option>
-                  <option value="'SF Pro Display','SF Pro',sans-serif">SF Pro</option>
-                  <option value="'Helvetica Neue',Helvetica,sans-serif">Helvetica Neue</option>
-                  <option value="Avenir,sans-serif">Avenir</option>
-                  <option value="'Avenir Next',sans-serif">Avenir Next</option>
-                  <option value="Futura,sans-serif">Futura</option>
-                  <option value="Optima,sans-serif">Optima</option>
-                  <option value="Baskerville,serif">Baskerville</option>
-                  <option value="'Hoefler Text',serif">Hoefler Text</option>
-                  <option value="Palatino,'Palatino Linotype',serif">Palatino</option>
-                  <option value="'American Typewriter',serif">American Typewriter</option>
-                  <option value="Menlo,monospace">Menlo</option>
-                  <option value="'SF Mono',monospace">SF Mono</option>
-                </optgroup>
-                <optgroup label="── Windows 기본 ──">
-                  <option value="'Segoe UI',sans-serif">Segoe UI</option>
-                  <option value="'Yu Gothic','유고딕',sans-serif">Yu Gothic</option>
-                  <option value="Calibri,sans-serif">Calibri</option>
-                  <option value="Cambria,serif">Cambria</option>
-                  <option value="Verdana,sans-serif">Verdana</option>
-                  <option value="Tahoma,sans-serif">Tahoma</option>
-                  <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
-                  <option value="'Lucida Sans Unicode','Lucida Grande',sans-serif">Lucida Sans</option>
-                  <option value="Consolas,monospace">Consolas</option>
-                </optgroup>
-                <optgroup label="── 공통 ──">
-                  <option value="Arial,sans-serif">Arial</option>
-                  <option value="'Arial Black',sans-serif">Arial Black</option>
-                  <option value="Georgia,serif">Georgia</option>
-                  <option value="'Times New Roman',Times,serif">Times New Roman</option>
-                  <option value="'Courier New',Courier,monospace">Courier New</option>
-                  <option value="Impact,sans-serif">Impact</option>
-                  <option value="'Comic Sans MS',cursive">Comic Sans MS</option>
-                  <option value="'Lucida Console',monospace">Lucida Console</option>
-                </optgroup>
+          <div style="margin-top:6px;font-size:10px;color:var(--t2);padding-left:2px;line-height:1.5">💡 3인치 사이즈는 롤 형태의 용지 공급으로 인해 세로 길이의 의미가 없습니다.</div>
+        </div>
+      </div>
+      <!-- Content selection -->
+      <div class="vp-sel-bar" id="vpContentBar">
+        <div class="vp-sel-trigger">📝 내용 선택 <span id="vpContentLabel" style="color:var(--cyan);font-size:10px;margin-left:4px">전부</span><span class="vp-arrow">▼</span></div>
+        <div class="vp-dropdown">
+          <div class="vp-toggle-row">
+            <button class="vp-toggle on" data-field="date" data-tip="확인증에 방문한 날짜를 표시합니다.">방문한 날짜</button>
+            <button class="vp-toggle on" data-field="timeIn" data-tip="확인증에 보건실 입실시간을 표시합니다.">입실시간</button>
+            <button class="vp-toggle on" data-field="timeOut" data-tip="확인증에 보건실 퇴실시간을 표시합니다.">퇴실시간</button>
+            <button class="vp-toggle on" data-field="symtreatCombo" data-tip="클릭할 때마다 전환됩니다: 증상·처치 (합침=한 칸) → 증상·처치 (분리=두 칸) → 증상·처치 (끔=표시 안 함). (합침/분리 모드는 양식별로 저장)">증상·처치 (합침)</button>
+            <button class="vp-toggle on" data-field="bodymap" data-tip="확인증에 바디맵으로 표시한 부위(예: 왼쪽 어깨)를 표시합니다. 선택한 부위 수만큼 나열됩니다.">부위</button>
+            <button class="vp-toggle on" data-field="vs" data-tip="확인증에 V/S 측정값(체온·혈압·맥박 등)을 표시합니다.">V/S</button>
+            <button class="vp-toggle on" data-field="teacherNurse" data-tip="보건교사 본인(○○○)의 서명/도장 줄입니다. 끄면 서명·도장까지 함께 빠집니다. 양식별로 따로 저장됩니다.">교사 확인 (보건)</button>
+            <button class="vp-toggle on" data-field="teacherSubject" data-tip="교과담당교사 확인 줄을 넣습니다. 교과·담임은 켠 순서대로 위에서 아래로 배치됩니다. 양식별로 따로 저장됩니다.">교사 확인 (교과)</button>
+            <button class="vp-toggle" data-field="teacherHomeroom" data-tip="담임교사 확인 줄을 넣습니다. 교과·담임은 켠 순서대로 위에서 아래로 배치됩니다. 양식별로 따로 저장됩니다.">교사 확인 (담임)</button>
+          </div>
+        </div>
+      </div>
+      <!-- Signature selection -->
+      <div class="vp-sel-bar" id="vpSigBar">
+        <div class="vp-sel-trigger">✍ 서명(도장) 방식 선택 <span id="vpSigLabel" style="color:var(--cyan);font-size:10px;margin-left:4px">생략</span><span class="vp-arrow">▼</span></div>
+        <div class="vp-dropdown">
+          <div class="vp-sig-opts">
+            <button class="vp-sig-opt" data-sig="stamp">도장</button>
+            <button class="vp-sig-opt active" data-sig="sign">서명</button>
+          </div>
+          <div class="vp-sig-drop" id="vpSigDrop">
+            <span id="vpSigDropText">📁 이미지를 드래그 앤 드랍 또는 클릭<br><span style="font-size:9px;color:var(--t3)">투명 배경 PNG/JPEG 권장</span></span>
+            <div class="vp-sig-preview-wrap" id="vpSigPreviewWrap" style="display:none"><img id="vpSigPreviewImg" class="vp-sig-preview"><button class="vp-sig-del" id="vpSigDelBtn">✕</button></div>
+          </div>
+          <input type="file" id="vpSigFileInput" accept="image/*" style="display:none">
+          <button id="vpSigRemoveBgBtn" style="margin-top:4px;width:100%;padding:5px 0;border:1px solid var(--bdr);border-radius:4px;background:var(--bg);color:var(--t2);font-size:10px;font-weight:600;cursor:pointer">🪄 투명 배경 만들기 / 빈 슬롯에 넣기</button>
+          <div style="margin-top:6px;padding:6px 8px;font-size:10px;color:var(--t3);background:var(--bg2);border-radius:4px;line-height:1.5">서명(도장) 이미지를 원하는 곳에 위치하도록 마우스로 클릭하여 드래그 앤 드랍해 주세요.</div>
+          <!-- 도장 저장 슬롯 (3개) -->
+          <div id="vpStampSlots" style="display:none;margin-top:6px">
+            <div style="font-size:9px;font-weight:700;color:var(--t3);margin-bottom:3px">저장된 도장</div>
+            <div style="display:flex;gap:8px;overflow:visible;padding:6px 2px 2px" id="vpStampGrid"></div>
+          </div>
+          <!-- 서명 저장 슬롯 (3개) -->
+          <div id="vpSignSlots" style="display:none;margin-top:6px">
+            <div style="font-size:9px;font-weight:700;color:var(--t3);margin-bottom:3px">저장된 서명</div>
+            <div style="display:flex;gap:8px;overflow:visible;padding:6px 2px 2px" id="vpSignGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 배경 및 여백 설정 (커스텀 에디터 전용) -->
+    <div id="vpeBgMarginPanel" style="display:none;border-top:1px solid var(--bdr);padding:0">
+      <!-- 배경 양식 -->
+      <div style="padding:8px 14px;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:6px">배경 양식</div>
+        <div id="vpeBgUploadZone" style="padding:10px;border:1.5px dashed var(--bdr);border-radius:6px;text-align:center;font-size:10px;color:var(--t3);cursor:pointer;transition:all 0.15s">📁 PDF / 이미지 업로드<br><span style="font-size:9px">클릭 또는 드래그</span></div>
+        <input type="file" id="vpeBgInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp" style="display:none">
+        <button id="vpeStretchBgBtn" style="margin-top:4px;width:100%;padding:5px 0;border:1px solid var(--bdr);border-radius:4px;background:var(--bg);color:var(--t2);font-size:10px;font-weight:600;cursor:pointer">📐 배경 세로로 늘리거나 줄이기</button>
+      </div>
+      <!-- 배경 크기 -->
+      <div style="padding:6px 14px;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">배경 크기 <span id="vpeBgScaleVal" style="color:var(--cyan);font-weight:700">100%</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3)">50%</span>
+        <input type="range" id="vpeBgScaleSlider" min="50" max="200" value="100" style="flex:1;accent-color:var(--cyan);cursor:pointer">
+        <span style="font-size:9px;color:var(--t3)">200%</span></div>
+      </div>
+      <!-- 배경 위치 (상하) -->
+      <div style="padding:6px 14px;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">배경 위치 (상하) <span id="vpeBgOffsetYVal" style="color:var(--cyan);font-weight:700">0px</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3)">↑</span>
+        <input type="range" id="vpeBgOffsetYSlider" min="-200" max="200" value="0" style="flex:1;accent-color:var(--cyan);cursor:pointer">
+        <span style="font-size:9px;color:var(--t3)">↓</span></div>
+      </div>
+      <!-- 배경 위치 (좌우) -->
+      <div style="padding:6px 14px;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">배경 위치 (좌우) <span id="vpeBgOffsetXVal" style="color:var(--cyan);font-weight:700">0px</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3)">←</span>
+        <input type="range" id="vpeBgOffsetXSlider" min="-200" max="200" value="0" style="flex:1;accent-color:var(--cyan);cursor:pointer">
+        <span style="font-size:9px;color:var(--t3)">→</span></div>
+      </div>
+      <!-- 인쇄 여백 (상하좌우) -->
+      <div style="padding:6px 14px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:4px">인쇄 여백 (mm)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3);width:16px">상</span><input type="number" id="vpeMarginTop" min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginTop" style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)"></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3);width:16px">하</span><input type="number" id="vpeMarginBottom" min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginBottom" style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)"></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3);width:16px">좌</span><input type="number" id="vpeMarginLeft" min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginLeft" style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)"></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--t3);width:16px">우</span><input type="number" id="vpeMarginRight" min="0" max="30" value="7" class="vpe-margin-input" data-margin-side="marginRight" style="width:100%;height:22px;border:1px solid var(--bdr);border-radius:4px;padding:0 4px;font-size:10px;background:var(--card);color:var(--t1);font-family:var(--f)"></div>
+        </div>
+      </div>
+    </div>
+    <div id="vpCustomBar" style="display:none;padding:6px 20px;border-bottom:1px solid var(--bdr);align-items:center;justify-content:space-between">
+      <span id="vpAutoSaveMsg" style="font-size:10px;color:var(--t3)"></span>
+      <button class="btn btn-outline btn-sm" id="vpResetCustomFmtBtn" style="font-size:10px">↺ 초기화</button>
+    </div>
+    </div><!-- /vp-left-panel -->
+    <!-- RIGHT: 도구 + 작업 영역 -->
+    <div class="vp-right-panel" style="flex:1 1 0;display:flex;flex-direction:column;overflow:hidden;min-width:0;min-height:0">
+    <!-- Default format preview -->
+    <div class="vp-preview-wrap" id="vpDefaultPreviewWrap" style="position:relative">
+      <div id="vpModeBadge" style="position:absolute;top:24px;left:26px;z-index:55;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:800;font-family:var(--f);pointer-events:none;background:rgba(99,102,241,0.12);color:#6366f1;border:1px solid rgba(99,102,241,0.35)">인쇄 미리 보기</div>
+      <div class="vpe-ruler-grid" id="vpDefRulerGrid">
+        <div class="vpe-ruler-corner"></div>
+        <div class="vpe-ruler-top" id="vpDefRulerTop"><canvas id="vpDefRulerTopC"></canvas></div>
+        <div class="vpe-ruler-left" id="vpDefRulerLeft"><canvas id="vpDefRulerLeftC"></canvas></div>
+        <div id="vpDefScrollArea" style="overflow:auto;background:var(--bg);background-image:linear-gradient(rgba(150,150,150,0.12) 1px,transparent 1px),linear-gradient(90deg,rgba(150,150,150,0.12) 1px,transparent 1px);background-size:37.8px 37.8px">
+          <div id="vpDefZoomOuter" style="display:flex;justify-content:center;align-items:flex-start;min-width:100%;min-height:100%">
+            <div id="vpDefZoomContainer" style="transform-origin:top center;flex-shrink:0;padding:20px">
+              <div class="vp-preview" id="vpPreview"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="vpDefToolbar" style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-top:1px solid var(--bdr);justify-content:center;flex-shrink:0">
+        <input type="range" id="vpDefZoomSlider" min="80" max="120" value="100" style="width:120px;height:16px;accent-color:var(--cyan);cursor:pointer">
+        <span id="vpDefZoomLabel" style="font-size:10px;font-weight:700;color:var(--t2);min-width:36px;text-align:center;cursor:pointer" title="클릭하여 직접 입력">100%</span>
+        <button id="vpDefZoomFitBtn" style="height:22px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-size:9px;font-weight:600;padding:0 6px">맞춤</button>
+      </div>
+    </div>
+    <!-- WYSIWYG Editor for custom formats -->
+    <div class="vp-editor" id="vpEditorWrap">
+      <!-- Style bar (shows when text object selected) -->
+      <div class="vpe-style-bar" id="vpeStyleBar">
+        <select id="vpeFontFamily" title="글꼴" style="width:120px">
+          <optgroup label="── 한글 ──">
+            <option value="'Noto Sans KR',sans-serif">Noto Sans KR</option>
+            <option value="'NanumGothic',sans-serif">나눔고딕</option>
+            <option value="'NanumMyeongjo',serif">나눔명조</option>
+            <option value="'NanumBarunGothic',sans-serif">나눔바른고딕</option>
+            <option value="'NanumSquareRound',sans-serif">나눔스퀘어라운드</option>
+            <option value="'Malgun Gothic','맑은 고딕',sans-serif">맑은 고딕</option>
+            <option value="'Gulim','굴림',sans-serif">굴림</option>
+            <option value="'Dotum','돋움',sans-serif">돋움</option>
+            <option value="'Batang','바탕',serif">바탕</option>
+            <option value="'Gungsuh','궁서',serif">궁서</option>
+          </optgroup>
+          <optgroup label="── Mac 기본 ──">
+            <option value="'Apple SD Gothic Neo',sans-serif">Apple SD 고딕 Neo</option>
+            <option value="'SF Pro Display','SF Pro',sans-serif">SF Pro</option>
+            <option value="'Helvetica Neue',Helvetica,sans-serif">Helvetica Neue</option>
+            <option value="Avenir,sans-serif">Avenir</option>
+            <option value="'Avenir Next',sans-serif">Avenir Next</option>
+            <option value="Futura,sans-serif">Futura</option>
+            <option value="Optima,sans-serif">Optima</option>
+            <option value="Baskerville,serif">Baskerville</option>
+            <option value="'Hoefler Text',serif">Hoefler Text</option>
+            <option value="Palatino,'Palatino Linotype',serif">Palatino</option>
+            <option value="'American Typewriter',serif">American Typewriter</option>
+            <option value="Menlo,monospace">Menlo</option>
+            <option value="'SF Mono',monospace">SF Mono</option>
+          </optgroup>
+          <optgroup label="── Windows 기본 ──">
+            <option value="'Segoe UI',sans-serif">Segoe UI</option>
+            <option value="'Yu Gothic','유고딕',sans-serif">Yu Gothic</option>
+            <option value="Calibri,sans-serif">Calibri</option>
+            <option value="Cambria,serif">Cambria</option>
+            <option value="Verdana,sans-serif">Verdana</option>
+            <option value="Tahoma,sans-serif">Tahoma</option>
+            <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+            <option value="'Lucida Sans Unicode','Lucida Grande',sans-serif">Lucida Sans</option>
+            <option value="Consolas,monospace">Consolas</option>
+          </optgroup>
+          <optgroup label="── 공통 ──">
+            <option value="Arial,sans-serif">Arial</option>
+            <option value="'Arial Black',sans-serif">Arial Black</option>
+            <option value="Georgia,serif">Georgia</option>
+            <option value="'Times New Roman',Times,serif">Times New Roman</option>
+            <option value="'Courier New',Courier,monospace">Courier New</option>
+            <option value="Impact,sans-serif">Impact</option>
+            <option value="'Comic Sans MS',cursive">Comic Sans MS</option>
+            <option value="'Lucida Console',monospace">Lucida Console</option>
+          </optgroup>
+        </select>
+        <div class="vpe-sep"></div>
+        <button id="vpeBold" title="굵게"><b>B</b></button>
+        <button id="vpeItalic" title="기울임"><i>I</i></button>
+        <button id="vpeUnderline" title="밑줄"><u>U</u></button>
+        <div class="vpe-sep"></div>
+        <button id="vpeAlignL" title="왼쪽 정렬">≡←</button>
+        <button id="vpeAlignC" title="가운데 정렬">≡↔</button>
+        <button id="vpeAlignR" title="오른쪽 정렬">→≡</button>
+        <div class="vpe-sep"></div>
+        <label style="font-size:10px;color:var(--t3);font-weight:600" title="글자 색">글자</label>
+        <div class="vpe-color-btn" id="vpeColorBtn" title="글자 색상">
+          <div class="vpe-color-preview" id="vpeColorPreview" style="background:#000000"></div>
+          <div class="vpe-color-dropdown" id="vpeColorDrop"><div class="vpe-color-grid" id="vpeColorGrid"></div></div>
+        </div>
+        <label id="vpeBgLabel" style="font-size:10px;color:var(--t3);font-weight:600" title="배경 색">배경</label>
+        <div class="vpe-color-btn" id="vpeBgColorBtn" title="배경 색상">
+          <div class="vpe-color-preview" id="vpeBgColorPreview" style="background:#ffffff"></div>
+          <div class="vpe-color-dropdown" id="vpeBgColorDrop"><div class="vpe-color-grid" id="vpeBgColorGrid"></div></div>
+        </div>
+        <div class="vpe-sep" id="vpeTblBorderSep" style="display:none"></div>
+        <div class="vpe-tbl-border-wrap" id="vpeTblBorderWrap">
+          <button class="vpe-tbl-border-btn" id="vpeTblBorderToggleBtn" title="표 테두리">
+            <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" stroke="currentColor" stroke-width="1.5" fill="none"/><line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1"/><line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1"/></svg>
+          </button>
+          <div class="vpe-tbl-border-drop" id="vpeTblBorderDrop">
+            <div class="vpe-tbl-border-section">
+              <div class="vpe-tbl-border-label">테두리 위치</div>
+              <div class="vpe-tbl-border-grid" id="vpeTblBorderGrid"></div>
+            </div>
+            <div class="vpe-tbl-border-section">
+              <div class="vpe-tbl-border-label">선 스타일</div>
+              <div class="vpe-tbl-border-opts">
+                <select id="vpeTblBorderStyle" title="선 모양">
+                  <option value="solid">실선 ───</option>
+                  <option value="dashed">파선 - - -</option>
+                  <option value="dotted">점선 · · ·</option>
+                  <option value="double">이중선 ═══</option>
+                </select>
+                <select id="vpeTblBorderWidthSel" title="선 굵기">
+                  <option value="1">1px (얇게)</option>
+                  <option value="2">2px (보통)</option>
+                  <option value="3">3px (굵게)</option>
+                  <option value="4">4px</option>
+                  <option value="5">5px</option>
+                </select>
+                <div class="vpe-color-btn" id="vpeTblBorderColorBtn" title="선 색상">
+                  <div class="vpe-color-preview" id="vpeTblBorderColorPreview" style="background:#000000"></div>
+                  <div class="vpe-color-dropdown" id="vpeTblBorderColorDrop"><div class="vpe-color-grid" id="vpeTblBorderColorGrid"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="vpe-sep" id="vpeBorderSep" style="display:none"></div>
+        <label id="vpeBorderLabel" style="font-size:10px;color:var(--t3);font-weight:600;display:none" title="선 굵기">굵기</label>
+        <select id="vpeBorderWidth" title="선 굵기" style="display:none;width:52px">
+          <option value="1">1px</option><option value="2">2px</option><option value="3">3px</option><option value="4">4px</option><option value="5">5px</option><option value="6">6px</option><option value="8">8px</option><option value="10">10px</option>
+        </select>
+        <label id="vpeBorderColorLabel" style="font-size:10px;color:var(--t3);font-weight:600;display:none" title="선 색상">선색</label>
+        <div class="vpe-color-btn" id="vpeBorderColorBtn" title="선 색상" style="display:none">
+          <div class="vpe-color-preview" id="vpeBorderColorPreview" style="background:#000000"></div>
+          <div class="vpe-color-dropdown" id="vpeBorderColorDrop"><div class="vpe-color-grid" id="vpeBorderColorGrid"></div></div>
+        </div>
+      </div>
+      <!-- Toolbar -->
+      <div class="vp-editor-toolbar" id="vpeToolbar">
+        <button id="vpeAddTextboxBtn" data-vpe-add="textbox" title="텍스트"><b style="font-size:14px">T</b> 텍스트</button>
+        <button id="vpeAddTableBtn" title="표">📊 표</button>
+        <button id="vpeAddLineBtn" data-vpe-add="line" title="선">─ 선</button>
+        <button id="vpeAddRectBtn" data-vpe-add="rect" title="사각형">▢ 사각형</button>
+        <button id="vpeAddCircleBtn" data-vpe-add="circle" title="원">○ 원</button>
+        <button id="vpeAddImageBtn" title="그림 추가">🖼 그림</button>
+        <button id="vpeRemoveImageBgBtn" title="선택한 이미지의 배경을 투명하게">🪄 배경제거</button>
+        <button id="vpeCropImageBtn" title="선택한 이미지 자르기">✂ 자르기</button>
+        <div class="vpe-dynfield-wrap">
+          <button id="vpeEmojiMenuToggleBtn" title="이모지 삽입">😀 이모지 ▾</button>
+          <div class="vpe-dynfield-menu" id="vpeEmojiMenu" style="width:240px;display:none;flex-wrap:wrap;gap:2px;padding:8px;max-height:200px;overflow-y:auto">
+          </div>
+        </div>
+        <div class="vpe-dynfield-wrap">
+          <button id="vpeDynMenuToggleBtn" title="동적 필드">🔗 동적 필드 ▾</button>
+          <div class="vpe-dynfield-menu" id="vpeDynMenu">
+            <button data-dyn-field="학생이름">학생이름</button>
+            <button data-dyn-field="학년반">학년반</button>
+            <button data-dyn-field="번호">번호</button>
+            <button data-dyn-field="방문날짜">방문날짜</button>
+            <button data-dyn-field="입실시간">입실시간</button>
+            <button data-dyn-field="퇴실시간">퇴실시간</button>
+            <button data-dyn-field="증상">증상</button>
+            <button data-dyn-field="처치내용">처치내용</button>
+            <button data-dyn-field="담당자명">담당자명</button>
+            <button data-dyn-field="학교명">학교명</button>
+          </div>
+        </div>
+        <div class="vpe-sep"></div>
+        <button id="vpeTableAddRowBelowBtn" title="아래에 행 추가">⬇ 행 추가</button>
+        <button id="vpeTableAddRowAboveBtn" title="위에 행 추가">⬆ 행 추가</button>
+        <button id="vpeTableAddColRightBtn" title="오른쪽에 열 추가">➡ 열 추가</button>
+        <button id="vpeTableAddColLeftBtn" title="왼쪽에 열 추가">⬅ 열 추가</button>
+        <button id="vpeTableDelRowBtn" title="행 삭제">행 삭제</button>
+        <button id="vpeTableDelColBtn" title="열 삭제">열 삭제</button>
+        <div class="vpe-sep"></div>
+        <button id="vpeMergeCellsBtn" title="셀 병합 (드래그로 선택 후)"><svg width="14" height="14" viewBox="0 0 16 16" style="vertical-align:middle;margin-right:2px"><rect x="1" y="1" width="14" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="1" x2="8" y2="16" stroke="currentColor" stroke-width="1" stroke-dasharray="2,2" opacity="0.3"/><line x1="1" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1" stroke-dasharray="2,2" opacity="0.3"/><path d="M4.5 6L8 8.5L11.5 6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M4.5 10L8 7.5L11.5 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> 셀 병합</button>
+        <button id="vpeUnmergeCellsBtn" title="병합 해제"><svg width="14" height="14" viewBox="0 0 16 16" style="vertical-align:middle;margin-right:2px"><rect x="1" y="1" width="14" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="1" x2="8" y2="16" stroke="currentColor" stroke-width="1"/><line x1="1" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1"/></svg> 병합 해제</button>
+        <div class="vpe-sep"></div>
+        <div class="vpe-color-btn" id="vpeCellBgBtn" title="셀 음영" style="width:auto;padding:0 6px;gap:4px;height:26px">
+          <svg width="14" height="14" viewBox="0 0 16 16" style="vertical-align:middle"><rect x="1" y="9" width="14" height="6" rx="1" fill="currentColor" opacity="0.3"/><path d="M8 1L3 8h10L8 1z" fill="currentColor" opacity="0.6"/></svg>
+          <span style="font-size:10px;font-weight:600">음영</span>
+          <div class="vpe-color-preview" id="vpeCellBgPreview" style="background:#ffffff;width:14px;height:14px"></div>
+          <div class="vpe-color-dropdown" id="vpeCellBgDrop">
+            <div class="vpe-color-grid" id="vpeCellBgGrid"></div>
+            <div style="margin-top:6px;display:flex;gap:4px;align-items:center">
+              <label style="font-size:10px;color:var(--t3);font-weight:600;white-space:nowrap">농도</label>
+              <select id="vpeCellBgOpacity" style="font-size:10px;padding:2px 4px;border:1px solid var(--bdr);border-radius:4px;background:var(--card);color:var(--t2);cursor:pointer">
+                <option value="100">100%</option><option value="80">80%</option><option value="60">60%</option><option value="40">40%</option><option value="20" selected>20%</option><option value="10">10%</option><option value="5">5%</option>
               </select>
-              <div class="vpe-sep"></div>
-              <button id="vpeBold" title="굵게"><b>B</b></button>
-              <button id="vpeItalic" title="기울임"><i>I</i></button>
-              <button id="vpeUnderline" title="밑줄"><u>U</u></button>
-              <div class="vpe-sep"></div>
-              <button id="vpeAlignL" title="왼쪽 정렬">≡←</button>
-              <button id="vpeAlignC" title="가운데 정렬">≡↔</button>
-              <button id="vpeAlignR" title="오른쪽 정렬">→≡</button>
-              <div class="vpe-sep"></div>
-              <label style="font-size:10px;color:var(--t3);font-weight:600" title="글자 색">글자</label>
-              <div class="vpe-color-btn" id="vpeColorBtn" title="글자 색상">
-                <div class="vpe-color-preview" id="vpeColorPreview" style="background:#000000"></div>
-                <div class="vpe-color-dropdown" id="vpeColorDrop">
-                  <div class="vpe-color-grid" id="vpeColorGrid"></div>
-                </div>
-              </div>
-              <label id="vpeBgLabel" style="font-size:10px;color:var(--t3);font-weight:600" title="배경 색">배경</label>
-              <div class="vpe-color-btn" id="vpeBgColorBtn" title="배경 색상">
-                <div class="vpe-color-preview" id="vpeBgColorPreview" style="background:#ffffff"></div>
-                <div class="vpe-color-dropdown" id="vpeBgColorDrop">
-                  <div class="vpe-color-grid" id="vpeBgColorGrid"></div>
-                </div>
-              </div>
-              <div class="vpe-sep" id="vpeTblBorderSep" style="display:none"></div>
-              <div class="vpe-tbl-border-wrap" id="vpeTblBorderWrap">
-                <button class="vpe-tbl-border-btn" id="vpeTblBorderToggleBtn" title="표 테두리">
-                  <svg width="16" height="16" viewBox="0 0 16 16">
-                    <rect x="1" y="1" width="14" height="14" stroke="currentColor" stroke-width="1.5" fill="none" />
-                    <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1" />
-                    <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1" />
-                  </svg>
-                </button>
-                <div class="vpe-tbl-border-drop" id="vpeTblBorderDrop">
-                  <div class="vpe-tbl-border-section">
-                    <div class="vpe-tbl-border-label">테두리 위치</div>
-                    <div class="vpe-tbl-border-grid" id="vpeTblBorderGrid"></div>
-                  </div>
-                  <div class="vpe-tbl-border-section">
-                    <div class="vpe-tbl-border-label">선 스타일</div>
-                    <div class="vpe-tbl-border-opts">
-                      <select id="vpeTblBorderStyle" title="선 모양">
-                        <option value="solid">실선 ───</option>
-                        <option value="dashed">파선 - - -</option>
-                        <option value="dotted">점선 · · ·</option>
-                        <option value="double">이중선 ═══</option>
-                      </select>
-                      <select id="vpeTblBorderWidthSel" title="선 굵기">
-                        <option value="1">1px (얇게)</option>
-                        <option value="2">2px (보통)</option>
-                        <option value="3">3px (굵게)</option>
-                        <option value="4">4px</option>
-                        <option value="5">5px</option>
-                      </select>
-                      <div class="vpe-color-btn" id="vpeTblBorderColorBtn" title="선 색상">
-                        <div class="vpe-color-preview" id="vpeTblBorderColorPreview" style="background:#000000"></div>
-                        <div class="vpe-color-dropdown" id="vpeTblBorderColorDrop">
-                          <div class="vpe-color-grid" id="vpeTblBorderColorGrid"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="vpe-sep" id="vpeBorderSep" style="display:none"></div>
-              <label id="vpeBorderLabel" style="font-size:10px;color:var(--t3);font-weight:600;display:none"
-                title="선 굵기">굵기</label>
-              <select id="vpeBorderWidth" title="선 굵기" style="display:none;width:52px">
-                <option value="1">1px</option>
-                <option value="2">2px</option>
-                <option value="3">3px</option>
-                <option value="4">4px</option>
-                <option value="5">5px</option>
-                <option value="6">6px</option>
-                <option value="8">8px</option>
-                <option value="10">10px</option>
-              </select>
-              <label id="vpeBorderColorLabel" style="font-size:10px;color:var(--t3);font-weight:600;display:none"
-                title="선 색상">선색</label>
-              <div class="vpe-color-btn" id="vpeBorderColorBtn" title="선 색상" style="display:none">
-                <div class="vpe-color-preview" id="vpeBorderColorPreview" style="background:#000000"></div>
-                <div class="vpe-color-dropdown" id="vpeBorderColorDrop">
-                  <div class="vpe-color-grid" id="vpeBorderColorGrid"></div>
-                </div>
-              </div>
-            </div>
-            <!-- Toolbar -->
-            <div class="vp-editor-toolbar" id="vpeToolbar">
-              <button id="vpeAddTextboxBtn" data-vpe-add="textbox" title="텍스트"><b style="font-size:14px">T</b>
-                텍스트</button>
-              <button id="vpeAddTableBtn" title="표">📊 표</button>
-              <button id="vpeAddLineBtn" data-vpe-add="line" title="선">─ 선</button>
-              <button id="vpeAddRectBtn" data-vpe-add="rect" title="사각형">▢ 사각형</button>
-              <button id="vpeAddCircleBtn" data-vpe-add="circle" title="원">○ 원</button>
-              <button id="vpeAddImageBtn" title="그림 추가">🖼 그림</button>
-              <button id="vpeRemoveImageBgBtn" title="선택한 이미지의 배경을 투명하게">🪄 배경제거</button>
-              <button id="vpeCropImageBtn" title="선택한 이미지 자르기">✂ 자르기</button>
-              <div class="vpe-dynfield-wrap">
-                <button id="vpeEmojiMenuToggleBtn" title="이모지 삽입">😀 이모지 ▾</button>
-                <div class="vpe-dynfield-menu" id="vpeEmojiMenu"
-                  style="width:240px;display:none;flex-wrap:wrap;gap:2px;padding:8px;max-height:200px;overflow-y:auto">
-                </div>
-              </div>
-              <div class="vpe-dynfield-wrap">
-                <button id="vpeDynMenuToggleBtn" title="동적 필드">🔗 동적 필드 ▾</button>
-                <div class="vpe-dynfield-menu" id="vpeDynMenu">
-                  <button data-dyn-field="학생이름">학생이름</button>
-                  <button data-dyn-field="학년반">학년반</button>
-                  <button data-dyn-field="번호">번호</button>
-                  <button data-dyn-field="방문날짜">방문날짜</button>
-                  <button data-dyn-field="입실시간">입실시간</button>
-                  <button data-dyn-field="퇴실시간">퇴실시간</button>
-                  <button data-dyn-field="증상">증상</button>
-                  <button data-dyn-field="처치내용">처치내용</button>
-                  <button data-dyn-field="담당자명">담당자명</button>
-                  <button data-dyn-field="학교명">학교명</button>
-                </div>
-              </div>
-              <div class="vpe-sep"></div>
-              <button id="vpeTableAddRowBelowBtn" title="아래에 행 추가">⬇ 행 추가</button>
-              <button id="vpeTableAddRowAboveBtn" title="위에 행 추가">⬆ 행 추가</button>
-              <button id="vpeTableAddColRightBtn" title="오른쪽에 열 추가">➡ 열 추가</button>
-              <button id="vpeTableAddColLeftBtn" title="왼쪽에 열 추가">⬅ 열 추가</button>
-              <button id="vpeTableDelRowBtn" title="행 삭제">행 삭제</button>
-              <button id="vpeTableDelColBtn" title="열 삭제">열 삭제</button>
-              <div class="vpe-sep"></div>
-              <button id="vpeMergeCellsBtn" title="셀 병합 (드래그로 선택 후)"><svg width="14" height="14" viewBox="0 0 16 16"
-                  style="vertical-align:middle;margin-right:2px">
-                  <rect x="1" y="1" width="14" height="14" rx="1" fill="none" stroke="currentColor"
-                    stroke-width="1.2" />
-                  <line x1="8" y1="1" x2="8" y2="16" stroke="currentColor" stroke-width="1" stroke-dasharray="2,2"
-                    opacity="0.3" />
-                  <line x1="1" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1" stroke-dasharray="2,2"
-                    opacity="0.3" />
-                  <path d="M4.5 6L8 8.5L11.5 6" fill="none" stroke="currentColor" stroke-width="1.2"
-                    stroke-linecap="round" />
-                  <path d="M4.5 10L8 7.5L11.5 10" fill="none" stroke="currentColor" stroke-width="1.2"
-                    stroke-linecap="round" />
-                </svg> 셀 병합</button>
-              <button id="vpeUnmergeCellsBtn" title="병합 해제"><svg width="14" height="14" viewBox="0 0 16 16"
-                  style="vertical-align:middle;margin-right:2px">
-                  <rect x="1" y="1" width="14" height="14" rx="1" fill="none" stroke="currentColor"
-                    stroke-width="1.2" />
-                  <line x1="8" y1="1" x2="8" y2="16" stroke="currentColor" stroke-width="1" />
-                  <line x1="1" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1" />
-                </svg> 병합 해제</button>
-              <div class="vpe-sep"></div>
-              <div class="vpe-color-btn" id="vpeCellBgBtn" title="셀 음영"
-                style="width:auto;padding:0 6px;gap:4px;height:26px">
-                <svg width="14" height="14" viewBox="0 0 16 16" style="vertical-align:middle">
-                  <rect x="1" y="9" width="14" height="6" rx="1" fill="currentColor" opacity="0.3" />
-                  <path d="M8 1L3 8h10L8 1z" fill="currentColor" opacity="0.6" />
-                </svg>
-                <span style="font-size:10px;font-weight:600">음영</span>
-                <div class="vpe-color-preview" id="vpeCellBgPreview" style="background:#ffffff;width:14px;height:14px">
-                </div>
-                <div class="vpe-color-dropdown" id="vpeCellBgDrop">
-                  <div class="vpe-color-grid" id="vpeCellBgGrid"></div>
-                  <div style="margin-top:6px;display:flex;gap:4px;align-items:center">
-                    <label style="font-size:10px;color:var(--t3);font-weight:600;white-space:nowrap">농도</label>
-                    <select id="vpeCellBgOpacity"
-                      style="font-size:10px;padding:2px 4px;border:1px solid var(--bdr);border-radius:4px;background:var(--card);color:var(--t2);cursor:pointer">
-                      <option value="100">100%</option>
-                      <option value="80">80%</option>
-                      <option value="60">60%</option>
-                      <option value="40">40%</option>
-                      <option value="20" selected>20%</option>
-                      <option value="10">10%</option>
-                      <option value="5">5%</option>
-                    </select>
-                    <button id="vpeCellBgClearBtn"
-                      style="flex:1;font-size:10px;padding:4px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t2);cursor:pointer">음영
-                      제거</button>
-                  </div>
-                </div>
-              </div>
-              <div class="vpe-sep"></div>
-              <button id="vpeCopyObjBtn" title="복사">📋 복사</button>
-              <button id="vpeDeleteObjBtn" title="삭제">🗑 삭제</button>
-              <div class="vpe-dropdown-wrap" style="position:relative;display:inline-block">
-                <button>📐 객체 위치</button>
-                <div class="vpe-action-dropdown">
-                  <button data-vpe-z="1">⬆ 앞으로</button>
-                  <button data-vpe-z="-1">⬇ 뒤로</button>
-                  <button id="vpeZOrderMaxBtn">⏫ 맨 앞으로</button>
-                  <button id="vpeZOrderMinBtn">⏬ 맨 뒤로</button>
-                </div>
-              </div>
-              <div class="vpe-dropdown-wrap" style="position:relative;display:inline-block">
-                <button>📏 페이지 맞춤</button>
-                <div class="vpe-action-dropdown">
-                  <button data-vpe-align="top">⬆ 맨 위</button>
-                  <button data-vpe-align="left">⬅ 왼쪽</button>
-                  <button data-vpe-align="centerH">↔ 가로 가운데</button>
-                  <button data-vpe-align="centerV">↕ 세로 가운데</button>
-                  <button data-vpe-align="right">➡ 오른쪽</button>
-                  <button data-vpe-align="bottom">⬇ 맨 아래</button>
-                </div>
-              </div>
-              <button id="vpeResetEditorBtn" title="초기화">↺ 초기화</button>
-            </div>
-            <!-- Canvas area with rulers -->
-            <div class="vp-editor-canvas-wrap" id="vpeCanvasWrap">
-              <div class="vpe-ruler-grid">
-                <div class="vpe-ruler-corner"></div>
-                <div class="vpe-ruler-top" id="vpeRulerTop"><canvas id="vpeRulerTopC"></canvas></div>
-                <div class="vpe-ruler-left" id="vpeRulerLeft"><canvas id="vpeRulerLeftC"></canvas></div>
-                <div class="vpe-canvas-scroll" id="vpeCanvasScroll">
-                  <div class="vp-editor-canvas receipt" id="vpeCanvas"></div>
-                </div>
-              </div>
-            </div>
-            <!-- Status bar -->
-            <div class="vpe-status" style="display:flex;align-items:center;justify-content:space-between">
-              <span id="vpeObjInfo" style="color:var(--t3)">객체 0개</span>
-              <span class="vpe-save-msg" id="vpeSaveMsg"></span>
-              <span style="display:flex;align-items:center;gap:4px;margin-left:auto">
-                <input type="range" id="vpeZoomSlider" min="25" max="300" value="76"
-                  style="width:80px;height:16px;accent-color:var(--cyan);cursor:pointer">
-                <span id="vpeZoomLabel"
-                  style="font-size:10px;font-weight:700;color:var(--t2);min-width:32px;text-align:center;cursor:pointer"
-                  title="클릭하여 직접 입력">76%</span>
-                <button id="vpeZoomFitBtn"
-                  style="height:22px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-size:9px;font-weight:600;padding:0 6px;font-family:var(--f)">맞춤</button>
-              </span>
+              <button id="vpeCellBgClearBtn" style="flex:1;font-size:10px;padding:4px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t2);cursor:pointer">음영 제거</button>
             </div>
           </div>
-          <!-- Print 버튼 — PDF/PNG 제거 (사용자 요청 2026-05-20). 인쇄만 제공. -->
-          <div class="vp-print-bar"
-            style="display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;padding:8px 12px">
-            <button class="vp-print-btn" id="vpPrintBtn"
-              style="flex:1;padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none">🖨
-              인쇄</button>
-            <button id="vpFactoryResetBtn" data-tip="이 양식의 제목·라벨·문구·추가 행·서명 위치 등 모든 사용자 수정을 처음 상태로 되돌립니다."
-              style="flex:1;padding:6px 12px;font-size:10px;font-weight:800;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.14);color:#ef4444;white-space:nowrap">↺
-              초기 상태로 되돌리기</button>
+        </div>
+        <div class="vpe-sep"></div>
+        <button id="vpeCopyObjBtn" title="복사">📋 복사</button>
+        <button id="vpeDeleteObjBtn" title="삭제">🗑 삭제</button>
+        <div class="vpe-dropdown-wrap" style="position:relative;display:inline-block">
+          <button>📐 객체 위치</button>
+          <div class="vpe-action-dropdown">
+            <button data-vpe-z="1">⬆ 앞으로</button>
+            <button data-vpe-z="-1">⬇ 뒤로</button>
+            <button id="vpeZOrderMaxBtn">⏫ 맨 앞으로</button>
+            <button id="vpeZOrderMinBtn">⏬ 맨 뒤로</button>
           </div>
-        </div><!-- /vp-right-panel -->
-      </div><!-- /flex container -->
-    </div>
-  </div>
-  <!-- Hidden print area -->
-  <div id="vpPrintArea" style="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden">
-  </div>
-
-  <div class="ec-form-overlay" id="ecFormOverlay">
-    <div class="ec-form-modal">
-      <div class="ec-form-header">
-        <span class="ec-form-header-title">🚑 응급처치 기록지</span>
+        </div>
+        <div class="vpe-dropdown-wrap" style="position:relative;display:inline-block">
+          <button>📏 페이지 맞춤</button>
+          <div class="vpe-action-dropdown">
+            <button data-vpe-align="top">⬆ 맨 위</button>
+            <button data-vpe-align="left">⬅ 왼쪽</button>
+            <button data-vpe-align="centerH">↔ 가로 가운데</button>
+            <button data-vpe-align="centerV">↕ 세로 가운데</button>
+            <button data-vpe-align="right">➡ 오른쪽</button>
+            <button data-vpe-align="bottom">⬇ 맨 아래</button>
+          </div>
+        </div>
+        <button id="vpeResetEditorBtn" title="초기화">↺ 초기화</button>
       </div>
-      <div class="ec-form-body" id="ecFormBody"></div>
-    </div>
-  </div>
-  <div class="ec-save-indicator" id="ecSaveIndicator"></div>
-  <div id="ecPrintArea" style="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden">
-  </div>
-
-  <div class="ec-form-overlay" id="infFormOverlay">
-    <div class="ec-form-modal">
-      <div class="ec-form-header">
-        <span class="ec-form-header-title">🦠 감염병 관리 기록지</span>
-        <button class="ec-form-close" id="closeInfFormBtn">✕</button>
+      <!-- Canvas area with rulers -->
+      <div class="vp-editor-canvas-wrap" id="vpeCanvasWrap">
+        <div class="vpe-ruler-grid">
+          <div class="vpe-ruler-corner"></div>
+          <div class="vpe-ruler-top" id="vpeRulerTop"><canvas id="vpeRulerTopC"></canvas></div>
+          <div class="vpe-ruler-left" id="vpeRulerLeft"><canvas id="vpeRulerLeftC"></canvas></div>
+          <div class="vpe-canvas-scroll" id="vpeCanvasScroll">
+            <div class="vp-editor-canvas receipt" id="vpeCanvas"></div>
+          </div>
+        </div>
       </div>
-      <div class="ec-form-body" id="infFormBody"></div>
+      <!-- Status bar -->
+      <div class="vpe-status" style="display:flex;align-items:center;justify-content:space-between">
+        <span id="vpeObjInfo" style="color:var(--t3)">객체 0개</span>
+        <span class="vpe-save-msg" id="vpeSaveMsg"></span>
+        <span style="display:flex;align-items:center;gap:4px;margin-left:auto">
+          <input type="range" id="vpeZoomSlider" min="25" max="300" value="76" style="width:80px;height:16px;accent-color:var(--cyan);cursor:pointer">
+          <span id="vpeZoomLabel" style="font-size:10px;font-weight:700;color:var(--t2);min-width:32px;text-align:center;cursor:pointer" title="클릭하여 직접 입력">76%</span>
+          <button id="vpeZoomFitBtn" style="height:22px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-size:9px;font-weight:600;padding:0 6px;font-family:var(--f)">맞춤</button>
+        </span>
+      </div>
     </div>
+    <!-- Print 버튼 — PDF/PNG 제거 (사용자 요청 2026-05-20). 인쇄만 제공. -->
+    <div class="vp-print-bar" style="display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;padding:8px 12px">
+      <button class="vp-print-btn" id="vpPrintBtn" style="flex:1;padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none">🖨 인쇄</button>
+      <button id="vpFactoryResetBtn" data-tip="이 양식의 제목·라벨·문구·추가 행·서명 위치 등 모든 사용자 수정을 처음 상태로 되돌립니다." style="flex:1;padding:6px 12px;font-size:10px;font-weight:800;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.14);color:#ef4444;white-space:nowrap">↺ 초기 상태로 되돌리기</button>
+    </div>
+    </div><!-- /vp-right-panel -->
+    </div><!-- /flex container -->
   </div>
-  <div class="ec-save-indicator" id="infSaveIndicator"></div>
-  <div id="infPrintArea" style="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden">
-  </div>
+</div>
+<!-- Hidden print area -->
+<div id="vpPrintArea" style="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden"></div>
 
-  <!-- 
+<div class="ec-form-overlay" id="ecFormOverlay">
+  <div class="ec-form-modal">
+    <div class="ec-form-header">
+      <span class="ec-form-header-title">🚑 응급처치 기록지</span>
+    </div>
+    <div class="ec-form-body" id="ecFormBody"></div>
+  </div>
+</div>
+<div class="ec-save-indicator" id="ecSaveIndicator"></div>
+<div id="ecPrintArea" style="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden"></div>
+
+<div class="ec-form-overlay" id="infFormOverlay">
+  <div class="ec-form-modal">
+    <div class="ec-form-header">
+      <span class="ec-form-header-title">🦠 감염병 관리 기록지</span>
+      <button class="ec-form-close" id="closeInfFormBtn">✕</button>
+    </div>
+    <div class="ec-form-body" id="infFormBody"></div>
+  </div>
+</div>
+<div class="ec-save-indicator" id="infSaveIndicator"></div>
+<div id="infPrintArea" style="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden"></div>
+
+<!--
   모든 JavaScript 코드는 src/renderer/features/ 하위 파일들로 분리되었습니다.
   → visit-pass-view.js, visit-pass-editor.js, diary-print-view.js
   → symptom-view.js, cell-edit-view.js, daily-autocomplete.js
@@ -1078,5 +823,4 @@
   → survey-view.js, newsletter-misc-view.js, training-view.js, planner-view.js
 -->
 </body>
-
 </html>

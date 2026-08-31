@@ -1032,6 +1032,10 @@ const handlers = {
   'capture-to-png': () => ({ success: true, useClientSide: true }),
   'clipboard-write-html': () => ({ success: true }),
   'print-to-pdf': () => ({ success: true, useClientSide: true }),
+  /* 2단계 PDF (2026-08-12) — 웹 변형은 web-api-bridge 가 printToPDFGenerate/Save 를 노출하지 않아
+   * 렌더러가 단일 printToPDF(클라이언트측) 경로로 폴백함. 패리티 원칙상 채널만 등록해 둠. */
+  'print-to-pdf-generate': () => ({ success: true, useClientSide: true }),
+  'print-to-pdf-save': () => ({ success: true, useClientSide: true }),
   'print-window-with-size': () => ({ success: true, useClientSide: true }),
   'move-window': () => ({ success: true }),
   'open-main': () => ({ success: true }),
@@ -2410,7 +2414,8 @@ const handlers = {
       }
 
       /* 단일 시트 (방문자당 한 행) */
-      const ws = wb.addWorksheet('보건일지', {
+      /* mainSheetTitle 로 탭 이름 지정 가능 — 연수 등록부 등 재사용 (main.js 와 패리티, 2026-08-25) */
+      const ws = wb.addWorksheet(payload.mainSheetTitle || '보건일지', {
         views: [{ state: 'frozen', ySplit: 8, topLeftCell: 'A9', activeCell: 'A9' }],
         pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
           margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }
@@ -2448,7 +2453,13 @@ const handlers = {
       ws.mergeCells(6, 1, 6, colCount);
       r6.getCell(1).font = { bold: true, size: 11, name: '맑은 고딕' };
       r6.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-      ws.addRow([]).height = 24;
+      /* 7행 — noteText 지정 시 우측 정렬 안내 문구 (main.js 와 패리티, 2026-08-25) */
+      const r7 = ws.addRow([payload.noteText || '']); r7.height = 24;
+      if (payload.noteText) {
+        ws.mergeCells(7, 1, 7, colCount);
+        r7.getCell(1).font = { size: 9, color: { argb: 'FF555555' }, name: '맑은 고딕' };
+        r7.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+      }
       const r8 = ws.addRow(headerLabels); r8.height = 26;
       const headerBorder = { style: 'medium', color: { argb: 'FF000000' } };
       const thinBorder = { style: 'thin', color: { argb: 'FF555555' } };
@@ -2471,6 +2482,13 @@ const handlers = {
             left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder };
         }
       });
+      /* 표 아래 안내 문구 — footerText (main.js 와 패리티, 2026-08-25) */
+      if (payload.footerText) {
+        const fr = ws.addRow([payload.footerText]); fr.height = 20;
+        ws.mergeCells(fr.number, 1, fr.number, colCount);
+        fr.getCell(1).font = { size: 9, color: { argb: 'FF555555' }, name: '맑은 고딕' };
+        fr.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      }
       ws.pageSetup.printTitlesRow = '1:8';
       const buf = await wb.xlsx.writeBuffer();
       return { success: true, bytes: Array.from(new Uint8Array(buf)) };
@@ -2526,6 +2544,100 @@ const handlers = {
       return { success: true, bytes: Array.from(new Uint8Array(buf)) };
     } catch (e) {
       console.error('[xlsx-build-counsel]', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  /* 연수 이수 현황 Excel — main.js xlsx-build-training-status 와 동일 (웹 패리티, 2026-08-25) */
+  'xlsx-build-training-status': async (payload) => {
+    try {
+      const ExcelJS = require('exceljs');
+      const wb = new ExcelJS.Workbook();
+      wb.creator = '오렌지톡';
+      const items = payload.items || [];
+      const staffRows = payload.staffRows || [];
+      const colCount = 3 + items.length * 2;
+      const titleText = payload.titleText || '보건 연수 이수 현황';
+      const noteText = payload.noteText || '';
+      const ws = wb.addWorksheet('이수 현황', {
+        views: [{ state: 'frozen', ySplit: 8, topLeftCell: 'A9', activeCell: 'A9', style: 'pageBreakPreview' }],
+        /* horizontalCentered — 표를 인쇄 페이지 가로 중앙에 배치해 좌우 여백 균등 (main.js 와 패리티, 2026-08-25) */
+        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          horizontalCentered: true,
+          margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }
+      });
+      /* 열 너비 자동 배분 — 연수 개수에 따라 균등 분배 (main.js 와 패리티, 2026-08-25) */
+      const TOTAL_CH = 150;
+      const widths = [6, 12, 12];
+      const perCol = Math.max(10, Math.floor((TOTAL_CH - 30) / Math.max(1, items.length * 2)));
+      items.forEach(function(){ widths.push(perCol, perCol); });
+      ws.columns = widths.map(function(w){ return { width: w }; });
+      const top1 = Math.max(1, Math.round(colCount * 0.7));
+      const bot1 = Math.max(1, colCount - top1);
+      const headerBorder = { style: 'medium', color: { argb: 'FF000000' } };
+      const thinBorder = { style: 'thin', color: { argb: 'FF555555' } };
+      /* 1~3행: 색상바 + 제목 (오렌지톡 표준) */
+      const r1 = ws.addRow(new Array(colCount).fill(' ')); r1.height = 8;
+      for (let i = 1; i <= colCount; i++) r1.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' } };
+      const r2 = ws.addRow([titleText]); r2.height = 32;
+      ws.mergeCells(2, 1, 2, colCount);
+      r2.getCell(1).font = { bold: true, size: 16, name: '맑은 고딕' };
+      r2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+      r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7F7' } };
+      const r3 = ws.addRow(new Array(colCount).fill(' ')); r3.height = 8;
+      for (let i = 1; i <= colCount; i++) r3.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' } };
+      /* 4행 여백 / 5행 안내 문구(우측) */
+      ws.addRow([]).height = 20;
+      const r5 = ws.addRow([noteText]); r5.height = 20;
+      if (noteText) {
+        ws.mergeCells(5, 1, 5, colCount);
+        r5.getCell(1).font = { size: 9, color: { argb: 'FF555555' }, name: '맑은 고딕' };
+        r5.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+      }
+      /* 6~8행: 3중 헤더 */
+      const row6 = ['순', '직위', '이름'];
+      items.forEach(function(it){ row6.push(it.name + (it.isLegal ? ' (법정)' : ''), ''); });
+      const r6 = ws.addRow(row6); r6.height = 24;
+      const row7 = ['', '', ''];
+      items.forEach(function(it){ row7.push(it.pctText || '', ''); });
+      const r7 = ws.addRow(row7); r7.height = 20;
+      const row8 = ['', '', ''];
+      items.forEach(function(){ row8.push('연수기관', '이수번호'); });
+      const r8 = ws.addRow(row8); r8.height = 22;
+      ws.mergeCells(6, 1, 8, 1); ws.mergeCells(6, 2, 8, 2); ws.mergeCells(6, 3, 8, 3);
+      items.forEach(function(_, i){ const c = 4 + i * 2; ws.mergeCells(6, c, 6, c + 1); ws.mergeCells(7, c, 7, c + 1); });
+      [r6, r7, r8].forEach(function(row, ri){
+        for (let i = 1; i <= colCount; i++) {
+          const c = row.getCell(i);
+          c.font = { bold: true, size: 9, name: '맑은 고딕' };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ri === 1 ? 'FFF0F8FF' : 'FFE8F4F8' } };
+          c.border = { top: ri === 0 ? headerBorder : thinBorder, bottom: ri === 2 ? headerBorder : thinBorder,
+            left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder };
+        }
+      });
+      /* 이수율 색상 (100%=초록, 진행=파랑, 0%=회색) */
+      items.forEach(function(it, i){
+        if (it.pctColor) r7.getCell(4 + i * 2).font = { bold: true, size: 9, name: '맑은 고딕', color: { argb: it.pctColor } };
+      });
+      /* 데이터 행 */
+      staffRows.forEach(function(rowVals, ri){
+        const tr = ws.addRow(rowVals); tr.height = 18;
+        const isLast = ri === staffRows.length - 1;
+        for (let i = 1; i <= colCount; i++) {
+          const c = tr.getCell(i);
+          c.font = { size: 9, name: '맑은 고딕' };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+          c.border = { top: thinBorder, bottom: isLast ? headerBorder : thinBorder,
+            left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder };
+        }
+      });
+      ws.pageSetup.printTitlesRow = '1:8';
+      try { ws.pageSetup.printArea = 'A1:' + ws.getColumn(colCount).letter + ws.lastRow.number; } catch (_) {}
+      const buf = await wb.xlsx.writeBuffer();
+      return { success: true, bytes: Array.from(new Uint8Array(buf)) };
+    } catch (e) {
+      console.error('[xlsx-build-training-status]', e);
       return { success: false, error: e.message };
     }
   },

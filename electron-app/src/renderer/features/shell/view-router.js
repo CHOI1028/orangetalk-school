@@ -7,7 +7,7 @@ import { renderHomeDashboard } from '../dashboard/home-dashboard.js';
 import { floatingPostitOnViewChange } from '../dashboard/floating-postit.js';
 import { S } from '../../core/app-state.js';
 import { renderStats } from '../stats/stats-view.js';
-import { gp2Init, _magicApplyBounce } from '../planner/planner-view.js';
+import { _magicApplyBounce, _magicSwitchSub } from '../planner/planner-view.js';
 import { kioskUpdateSidebar, kioskRenderHome } from '../kiosk/kiosk-view.js';
 import { svSwitchSub } from '../survey/survey-view.js';
 import { trSwitchSub } from '../training/training-view.js';
@@ -21,7 +21,9 @@ export function switchView(view, btn){
   /* 매직 스테이션은 베타 단계에서 미공개 — 진입 차단 + 토스트만 표시.
      내부 개발/테스트 우회: DevTools 콘솔에서
        localStorage.setItem('ec_magic_unlock','1')   ← 잠금 해제
-       localStorage.removeItem('ec_magic_unlock')    ← 다시 잠금 */
+       localStorage.removeItem('ec_magic_unlock')    ← 다시 잠금
+     (main 브랜치 = 잠금 유지. magic-station-open 병합 시 이 게이트가 열린 버전으로
+      덮이지 않도록 주의 — 정식 빌드는 반드시 이 잠금 상태로. 2026-08-25) */
   if (view === 'magic' && localStorage.getItem('ec_magic_unlock') !== '1') {
     bus.emit('toast:show', { text: '매직 스테이션은 준비 중입니다.', kind: 'info' });
     return;
@@ -47,8 +49,9 @@ export function switchView(view, btn){
   if(view==='daily'){ if(typeof _dailyResetEntryOverlay==='function')_dailyResetEntryOverlay(); bus.emit('render:daily'); _focusDailyCatSearch(); }
   if(view==='stats') renderStats();
   /* 오렌지팜 진입 시 버튼 위치는 view-orange.html 의 CSS(right:1%, top:30%) 에 맡김 */
-  if(view==='magic'){gp2Init();const wsb=document.getElementById('gp2WidgetStoreBtn');if(wsb)wsb.style.display='block';const dpb=document.getElementById('gp2DrivePathBtn');if(dpb)dpb.style.display='block';const dw=document.getElementById('gp2DateWidgets');if(dw)dw.style.display='block';setTimeout(function(){_magicApplyBounce();},100);}
-  else{const wsb2=document.getElementById('gp2WidgetStoreBtn');if(wsb2)wsb2.style.display='none';const ws2=document.getElementById('gp2WidgetStore');if(ws2)ws2.style.display='none';const dpb2=document.getElementById('gp2DrivePathBtn');if(dpb2)dpb2.style.display='none';const dw2=document.getElementById('gp2DateWidgets');if(dw2)dw2.style.display='none';}
+  /* 플래너 제거 후 매직 스테이션 진입 기본 탭 = 설문. (플래너 전용 위젯 버튼은 표시하지 않음) */
+  if(view==='magic'){_magicSwitchSub('survey',document.getElementById('magicSubTabSurvey'));setTimeout(function(){_magicApplyBounce();},100);}
+  const _wsb2=document.getElementById('gp2WidgetStoreBtn');if(_wsb2)_wsb2.style.display='none';const _ws2=document.getElementById('gp2WidgetStore');if(_ws2)_ws2.style.display='none';const _dpb2=document.getElementById('gp2DrivePathBtn');if(_dpb2)_dpb2.style.display='none';const _dw2=document.getElementById('gp2DateWidgets');if(_dw2)_dw2.style.display='none';
   bus.emit('render:calendar');
   kioskUpdateSidebar();
   bus.emit('render:sidebar');

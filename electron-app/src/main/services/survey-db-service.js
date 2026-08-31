@@ -149,7 +149,8 @@ class SurveyResponseService {
       school_year: yr,
       form_id: r.form_id,
       form_version: r.form_version || 1,
-      student_id: r.student_id || null,
+      /* 스키마 컬럼명은 person_uid — 옛 student_id 키로 넘기면 named param 불일치로 예외 (2026-08-27 수정) */
+      person_uid: r.person_uid || r.student_id || null,
       student_persistent_id: r.student_persistent_id || (r.student_name + '_' + (r.birth_date || '')),
       student_name: r.student_name,
       birth_date: r.birth_date || '',
@@ -184,7 +185,8 @@ class SurveyResponseService {
           school_year: yr,
           form_id: formId,
           form_version: r.form_version || 1,
-          student_id: r.student_id || null,
+          /* 스키마 컬럼명은 person_uid — 옛 student_id 키로 넘기면 named param 불일치로 예외 (2026-08-27 수정) */
+          person_uid: r.person_uid || r.personUid || r.student_id || null,
           student_persistent_id: pid,
           student_name: name,
           birth_date: r.birth_date || r.birthDate || '',

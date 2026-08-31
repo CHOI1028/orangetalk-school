@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
-import { getStu, escHtml, escJs, getGuardianContact, getStudentBirth, getDeptForSymptom, saveData, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr } from '../../core/helpers.js';
+import { getStu, escHtml, escJs, getGuardianContact, getStudentBirth, getDeptForSymptom, saveData, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { openA4PrintDialog, saveA4Pdf } from '../../core/a4-print-dialog.js';
 /* visit-pass-view 는 visit-pass-editor → symptom-view 의 circular dependency 가 있어
  * 물품 대여(rental-ledger)와 동일하게 dynamic import 로 우회 (커스텀 양식 칩 2026-06-12). */
@@ -537,6 +537,9 @@ export function extractMedNames(medsStr){
 }
 
 let _symOpening=false;
+/* 표(V/S·신체사정) 클릭으로 이어 열 입력 팝업 — 팝업 함수가 2번 호출돼도(중복방지 포함) 살아남도록
+ *  모듈 변수에 보관 후, 실제로 팝업을 그린 호출이 소비. (2026-08-06) */
+let _symPendingAutoOpen=null;
 let _symLockCategory=null; /* 상담실적 행 클릭 등 — 특정 상분류만 활성, 나머지 비활성 (사용자 요청 2026-06-13) */
 /* 외부 창(병원 찾기 등)에서 main 으로 포커스 복귀 직후 200ms 동안 플래그 ON.
  * 증상 팝업의 외부 클릭 닫기 핸들러가 이 플래그를 보고 무시 — popup 잘못 닫힘 방지.
@@ -601,6 +604,8 @@ function _symCheckNameDupAndProceed(rec, recId){
 export function openSymptomCategoryPopup(recId, opts){
   /* opts.lockCategory: 그 상분류만 활성, 나머지 상분류는 클릭 비활성(흐리게). (상담실적 행 클릭 진입 2026-06-13) */
   _symLockCategory=(opts&&opts.lockCategory)?opts.lockCategory:null;
+  /* autoOpen 은 어느 호출이 실제로 팝업을 그리든 살아남도록 먼저 보관(중복방지 return 전에). */
+  if(opts && opts.autoOpen) _symPendingAutoOpen=opts.autoOpen;
   /* 중복 호출 방지 (이벤트 버블링으로 2번 호출되는 문제) */
   if(_symOpening)return;
   _symOpening=true;
@@ -849,9 +854,11 @@ export function openSymptomCategoryPopup(recId, opts){
   /* 칩 데이터 수집 */
   const _hasBm=(window._bmData||{})[recId]&&(window._bmData||{})[recId].length>0;
   /* 학생 전체 일지 중 바디맵 마커 있는 일지 수 (📚 바디맵 이력 칩 카운트) */
+  /* 인물 키 집합 — studentId 타입 혼재·personUid 엇갈림 레코드도 이력에 포함 (2026-08-26 누락 수정) */
+  const _stuKeys=stuKeySet(rec.personUid||rec.studentId);
   const _bmHistCount=(function(){
     let c=0;const bd=window._bmData||{};
-    S.records.forEach(function(r){if(r.studentId===rec.studentId&&bd[r.id]&&bd[r.id].length>0)c++;});
+    S.records.forEach(function(r){if(recInStuKeys(r,_stuKeys)&&bd[r.id]&&bd[r.id].length>0)c++;});
     return c;
   })();
   const _isEcN=stu&&(stu.emergency_consent==='N'||stu.emergencyConsent==='N'||stu.ec_consent==='N');
@@ -880,12 +887,12 @@ export function openSymptomCategoryPopup(recId, opts){
     }
   } catch(_) {}
   /* 과거 방문 이력 건수 (현재 날짜 제외, 날짜 기준 고유 카운트) */
-  const _visitDates={};S.records.forEach(function(r){if(r.studentId===rec.studentId&&r.date!==rec.date)_visitDates[r.date]=1;});
+  const _visitDates={};S.records.forEach(function(r){if(recInStuKeys(r,_stuKeys)&&r.date!==rec.date)_visitDates[r.date]=1;});
   const _visitCnt=Object.keys(_visitDates).length;
   /* V/S 이력 건수 — 같은 학생의 모든 일지 중 V/S 필드(체온/혈압/맥박/호흡/SpO₂/BST) 하나라도 입력된 건수 */
   let _vsHistCount=0;
   S.records.forEach(function(r){
-    if(r.studentId!==rec.studentId)return;
+    if(!recInStuKeys(r,_stuKeys))return;
     if(r.temp||r.bp||r.pulse||r.resp||r.spo2||r.bst)_vsHistCount++;
   });
   /* V/S 데이터 수집 */
@@ -979,6 +986,11 @@ export function openSymptomCategoryPopup(recId, opts){
     /* 병원 찾기 + 구급대 메시지 — 커스텀 양식 오른편 (2행에서 이동, 2026-06-12) */
     +'<button class="sym-hdr-chip" data-tooltip="학교 인근 병원, 약국, 응급실을 검색합니다." data-tooltip-instant="1" data-action="openMedFacility" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);color:#d97706;cursor:pointer;font-family:var(--f)">🗺️ 병원 찾기</button>'
     +'<button class="sym-hdr-chip" data-tooltip="구급대에게 보낼 메시지를 작성합니다." data-tooltip-instant="1" data-action="openEmsMsg" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#dc2626;cursor:pointer;font-family:var(--f)">🚑 구급대 메시지</button>'
+    +'</div>';
+  /* 증상 빠른 검색 — 중분류 증상 초성/부분일치 검색 → 선택 시 상분류·중분류 즉시 이동 (사용자 요청 2026-08-06) */
+  h+='<div id="symQuickSearchRow" style="position:relative;margin-top:8px">'
+    +'<input id="symQuickSearchInput" type="text" autocomplete="off" spellcheck="false" placeholder="증상을 입력해 등록된 증상을 찾습니다" style="width:100%;box-sizing:border-box;font-size:12px;padding:7px 11px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);outline:none">'
+    +'<div id="symQuickSearchList" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:3px;max-height:264px;overflow-y:auto;background:var(--card);border:1px solid var(--bdr);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.28);z-index:30;scrollbar-width:thin"></div>'
     +'</div>';
   h+='</div>';  /* header 종료 */
   /* 본문: 3패널 */
@@ -1178,6 +1190,7 @@ export function openSymptomCategoryPopup(recId, opts){
     }
     else if(action==='openEmsMsg'){_symOpenEmsMsg(btn.dataset.stuId,parseInt(btn.dataset.recId));}
     else if(action==='openVs'){const _vb=btn.closest('.sym-block-pair');_symOpenVsPopup(parseInt(btn.dataset.recId),btn,_vb?_vb.dataset.symKey:undefined);}
+    else if(action==='openPhysAssess'){try{const _pb=btn.closest('.sym-block-pair');_symOpenPhysAssessPopup(parseInt(btn.dataset.recId),btn,_pb?_pb.dataset.symKey:undefined);}catch(_e){try{bus.emit('toast:show',{text:'신체사정 오류: '+(_e&&_e.message||_e)});}catch(_){}console.error('[신체사정]',_e);}}
     else if(action==='openSymTimePicker'){
       /* 입실·퇴실 시간 칩 클릭 → 시계 픽커 열기 (record.timeIn 또는 timeOut 수정).
        * 변경 시 record 즉시 갱신 + 일지 표 자동 재렌더 (openTimePicker 의 hidden input 이벤트가 처리). */
@@ -1296,7 +1309,8 @@ export function openSymptomCategoryPopup(recId, opts){
      * ArrowUp/Down 은 투약 팝업이 아이템 네비게이션용으로 사용하므로 그대로 통과시킴. */
     const _tg = e.target;
     const _isTxt = _tg && (_tg.tagName === 'INPUT' || _tg.tagName === 'TEXTAREA' || _tg.isContentEditable);
-    if(_isTxt && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
+    /* 입력창 안에서 Tab 은 전역 네비(바디맵 등)로 가지 않게 양보 — 입력칸은 자체 keydown 으로 이동 처리. (2026-08-06) */
+    if(_isTxt && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Tab')) return;
     /* 여러 줄 textarea(자유 기술 dock 등)에선 위·아래 방향키도 캐럿 줄이동이 우선 (사용자 보고 2026-05-30 — 두 줄 이상 시 ↑↓ 안 먹던 문제). */
     if(_tg && _tg.tagName === 'TEXTAREA' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
     if(document.getElementById('symMedPopup')){
@@ -1430,6 +1444,111 @@ export function openSymptomCategoryPopup(recId, opts){
       if(_dd.active){_dd.active=false;headerEl.style.cursor='grab';}
     });
   }
+  /* 증상 빠른 검색 바인딩 + 자동 포커스 (사용자 요청 2026-08-06) */
+  try{ _symBindQuickSearch(ov); }catch(_){}
+  /* 표(V/S·신체사정) 클릭으로 열린 경우 — 해당 입력 팝업을 이어서 자동으로 연다 (사용자 요청 2026-08-06).
+   *  선택된 처치의 V/S 측정/신체사정 sub-action 칩을 클릭해 기존 경로(symKey 포함)를 재사용하고,
+   *  칩을 못 찾으면 record-level 로 직접 연다. */
+  /* 표 클릭으로 이어 열 입력 팝업 — 보관해둔 autoOpen 값을 소비(어느 호출이 팝업을 그렸든 실행됨). */
+  if(_symPendingAutoOpen){
+    const _ao=_symPendingAutoOpen; _symPendingAutoOpen=null;
+    const _isPa=(_ao==='pa');
+    setTimeout(function(){
+      /* 위치 anchor — 처치 패널의 V/S 측정/신체사정 칩(원래 뜨던 위치)에 맞춘다. 없으면 헤더칩 폴백. */
+      const _anchor=ov.querySelector(_isPa?'[data-sub-action="openPhysAssess"]':'[data-sub-action="openVs"]')||ov.querySelector('.sym-hdr-chip')||ov;
+      try{
+        if(_isPa) _symOpenPhysAssessPopup(recId, _anchor, undefined);
+        else _symOpenVsPopup(recId, _anchor, undefined);
+      }catch(e){ try{ console.error('[autoOpen] 입력 팝업 열기 실패:', e); }catch(_){} }
+    }, 350);
+  }
+}
+
+/* ── 증상 빠른 검색 (사용자 요청 2026-08-06) ──
+ *  헤더 검색란: 중분류 증상 초성/부분일치 검색 → 방향키·클릭 선택 시 상분류로 이동하며 중분류 선택.
+ *  검색 대상은 일반 상분류의 중분류만(상담 제외, 사용자 결정). */
+const _SYM_QS_CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function _symQsChoOf(str){
+  return String(str||'').split('').map(function(ch){
+    const c=ch.charCodeAt(0);
+    return (c>=0xAC00&&c<=0xD7A3)?_SYM_QS_CHO[Math.floor((c-0xAC00)/588)]:ch;
+  }).join('');
+}
+function _symQsIsChoQuery(q){ return /^[ㄱ-ㅎ]+$/.test(q); }
+/* 검색 인덱스 — 일반 상분류(상담 제외)의 중분류 증상 [{sym,catId,catName}] */
+function _symQuickBuildIndex(){
+  const out=[]; const seen={};
+  try{
+    getEffectiveSymCats(false).forEach(function(cat){
+      if(!cat||cat.id==='counsel')return;
+      (cat.symptoms||[]).forEach(function(s){
+        if(!s)return; const _k=cat.id+'|'+s; if(seen[_k])return; seen[_k]=1;
+        out.push({sym:s, catId:cat.id, catName:cat.name||cat.id});
+      });
+    });
+  }catch(_){}
+  return out;
+}
+function _symBindQuickSearch(ov){
+  const inp=ov.querySelector('#symQuickSearchInput');
+  const list=ov.querySelector('#symQuickSearchList');
+  if(!inp||!list)return;
+  const index=_symQuickBuildIndex();
+  let _hi=-1, _cur=[];
+  const _hide=function(){ list.style.display='none'; list.innerHTML=''; _hi=-1; _cur=[]; };
+  const _render=function(){
+    const q=String(inp.value||'').trim();
+    if(!q){ _hide(); return; }
+    const ql=q.toLowerCase(), isCho=_symQsIsChoQuery(q);
+    const _startHit=function(it){ return String(it.sym).toLowerCase().indexOf(ql)===0 || (isCho&&_symQsChoOf(it.sym).indexOf(q)===0); };
+    const matched=index.filter(function(it){
+      const s=String(it.sym).toLowerCase();
+      if(s.indexOf(ql)>=0)return true;
+      if(isCho && _symQsChoOf(it.sym).indexOf(q)>=0)return true;
+      return false;
+    });
+    matched.sort(function(a,b){
+      const _sa=_startHit(a)?0:1, _sb=_startHit(b)?0:1;
+      if(_sa!==_sb)return _sa-_sb;
+      return String(a.sym).localeCompare(String(b.sym),'ko');
+    });
+    _cur=matched.slice(0,50); _hi=_cur.length?0:-1;
+    if(!_cur.length){ list.innerHTML='<div style="padding:10px 12px;font-size:11px;color:var(--t3);text-align:center">일치하는 증상이 없습니다</div>'; list.style.display='block'; return; }
+    list.innerHTML=_cur.map(function(it,i){
+      return '<div class="sym-qs-item" data-qi="'+i+'" style="padding:7px 11px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;'+(i===_hi?'background:rgba(6,182,212,0.12)':'')+'">'
+        +'<span style="color:var(--t3);font-size:10px;white-space:nowrap">'+escHtml(it.catName)+' ›</span>'
+        +'<span style="color:var(--t1);font-weight:600">'+escHtml(it.sym)+'</span></div>';
+    }).join('');
+    list.style.display='block';
+  };
+  const _paint=function(){
+    list.querySelectorAll('.sym-qs-item').forEach(function(el,i){ el.style.background=(i===_hi)?'rgba(6,182,212,0.12)':''; });
+    const _sel=list.querySelector('.sym-qs-item[data-qi="'+_hi+'"]'); if(_sel&&_sel.scrollIntoView)try{_sel.scrollIntoView({block:'nearest'});}catch(_){}
+  };
+  const _pick=function(i){
+    const it=_cur[i]; if(!it)return;
+    _hide(); inp.value='';
+    try{
+      _symSelectCat(it.catId);   /* 상분류 이동 */
+      if(typeof _symFindSymIdx==='function'){ if(_symFindSymIdx(it.sym)===-1)_symToggleSym(it.sym); }
+      else _symToggleSym(it.sym);   /* 중분류 선택(이미 선택돼 있으면 유지) */
+    }catch(_){}
+    try{ inp.focus(); }catch(_){}
+  };
+  inp.addEventListener('input', _render);
+  inp.addEventListener('keydown', function(e){
+    if(list.style.display==='none') return;   /* 드롭다운 닫혀 있으면 팝업 기본 네비에 맡김 */
+    if(e.key==='ArrowDown'){ e.preventDefault(); e.stopPropagation(); _hi=Math.min(_hi+1,_cur.length-1); _paint(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); e.stopPropagation(); _hi=Math.max(_hi-1,0); _paint(); }
+    else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); if(_hi>=0)_pick(_hi); }
+    else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); inp.value=''; _hide(); }
+  });
+  list.addEventListener('mousedown', function(e){
+    const it=e.target.closest('.sym-qs-item'); if(!it)return;
+    e.preventDefault(); _pick(parseInt(it.dataset.qi,10)||0);
+  });
+  /* 팝업이 뜨면 검색란에 커서 자동 포커스 */
+  setTimeout(function(){ try{ inp.focus(); }catch(_){} }, 60);
 }
 
 /* ═══ 재사용 가능한 팝업 드래그 이동 함수 ═══ */
@@ -2237,6 +2356,10 @@ function _symToggleSym(sym){
   /* v3 — 해제된 증상의 treatmentBySym 키도 함께 제거 (사용자 결정 2026-05-21).
    * 다시 추가 시 옛 처치가 의도치 않게 부활하지 않도록. */
   if(wasSelected && _removedLabel){
+    /* 해제 대상 증상이 V/S 측정·신체사정 칩을 갖고 있었는지 — 삭제 전 캡처 (연결 데이터 정리 게이트) */
+    var _rmArr=(_symTreatmentsBySym&&_symTreatmentsBySym[_removedLabel])||[];
+    var _hadVs=_rmArr.some(function(x){return String(x).indexOf('V/S 측정')!==-1;});
+    var _hadPa=_rmArr.some(function(x){return String(x).indexOf('신체사정')!==-1;});
     if(_symTreatmentsBySym && _symTreatmentsBySym[_removedLabel]){
       delete _symTreatmentsBySym[_removedLabel];
       if(typeof _symRecomputeFlatTreatments==='function')_symRecomputeFlatTreatments();
@@ -2244,6 +2367,8 @@ function _symToggleSym(sym){
     /* 약품·도즈 맵도 함께 제거 — 처치와 동일 사유(고아·부활 방지). 검증 2026-06-05. */
     if(_symMedsBySym && _symMedsBySym[_removedLabel]) delete _symMedsBySym[_removedLabel];
     if(_symMedDosesBySym && _symMedDosesBySym[_removedLabel]) delete _symMedDosesBySym[_removedLabel];
+    /* 그 증상에만 있던 V/S·신체사정이면 record-level 데이터도 함께 정리. 2026-07-20 */
+    _symClearOrphanVsPa((typeof S!=='undefined'&&S._symPopupRecId!=null)?S._symPopupRecId:null, _hadVs, _hadPa);
   }
   /* 선택 추가 시 — 키오스크 접수로 들어온 미귀속(symptom 없는) 바디맵 마커를 이 증상에 자동 귀속 (사용자 요청 2026-06-11).
    *  방문자가 키오스크에서 찍은 바디맵이, 보건교사가 중분류 증상을 고르는 즉시 그 증상에 적용되게. 키오스크 기록(memo)에 한정 — 일반 기록 동작 불변. */
@@ -2518,8 +2643,8 @@ function _symRenderSingleBlock(recId, opts){
    *   · 자유 기술 처치(_symOpenFreeTextDock 으로 사용자가 자유 입력) 와 자주 쓰는 처치(fav) 구별 위함.
    *   · 자유 기술 처치의 펜 클릭 시: _symOpenFreeTextDock(initialEntry=처치명) → 처치 라벨 자체 수정
    *   · 자주 쓰는 처치의 펜 클릭 시: _symOpenTreatMemoDock → "처치 (메모)" 형태로 메모만 부착 */
-  const FIXED_FAVS=['투약','침상 이용','V/S 측정','보건교육','병원진료 권유','추적 관찰'];
-  const CORE_FIXED=['투약','침상 이용','V/S 측정'];
+  const FIXED_FAVS=['투약','침상 이용','V/S 측정','신체사정','보건교육','병원진료 권유','추적 관찰'];
+  const CORE_FIXED=['투약','침상 이용','V/S 측정','신체사정'];
   const _REMOVED_TREATS=new Set(['인공눈물 적용','인공눈물','파스 적용','연고 적용']);
   let _userSymFav={};try{_userSymFav=JSON.parse(localStorage.getItem('ec_user_sym_fav')||'{}');}catch(e){}
   let _userSymRemoved={};try{_userSymRemoved=JSON.parse(localStorage.getItem('ec_user_sym_removed')||'{}');}catch(e){}
@@ -2582,11 +2707,18 @@ function _symRenderSingleBlock(recId, opts){
       const _vsStr = _vsValueStr(_curRec);
       if(_vsStr) _dispChip = _dispBase + ' ' + _vsStr;
     }
+    else if(_base === '신체사정'){
+      /* 선택 항목만 → "신체사정 (시진, 청진)", 소견 있으면 → "신체사정 (청진-둔탁음이 들림, 촉진-딱딱한 느낌)" */
+      const _paStr = _physAssessDisplayStr(_curRec && _curRec.physicalAssessment);
+      if(_paStr) _dispChip = _dispBase + ' ' + _paStr;
+    }
     /* 합성 fav 칩 (예: "투약[X], V/S 측정, 침상 안정, 학부모 연락") 안의 V/S 측정/침상 안정 부분을
      *  개별 클릭 가능한 sub-action 으로 변환. 그 외 텍스트는 escHtml 그대로. */
     const _renderDispChip=function(s){
       let h=escHtml(s);
       h=h.replace(/V\/S 측정/g,'<span data-sub-action="openVs" data-rec-id="'+recId+'" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" data-tooltip="V/S 측정치 입력" data-tooltip-instant="1">V/S 측정</span>');
+      /* 신체사정 칩 클릭 → 신체사정 입력 팝업 (V/S 와 동일 — 자주 쓰는 목록에서 다시 안 찾게, 사용자 요청 2026-08-06) */
+      h=h.replace(/신체사정/g,'<span data-sub-action="openPhysAssess" data-rec-id="'+recId+'" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" data-tooltip="신체사정 입력" data-tooltip-instant="1">신체사정</span>');
       h=h.replace(/침상 안정/g,'<span data-sub-action="bedRest" data-rec-id="'+recId+'" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" data-tooltip="침상 설정" data-tooltip-instant="1">침상 안정</span>');
       return h;
     };
@@ -2618,7 +2750,7 @@ function _symRenderSingleBlock(recId, opts){
    *   v3 (사용자 결정 2026-05-21): 자유 기술 식별을 위해 recommended Set 을 forEach 보다 먼저 계산함. */
   const recArr=Array.from(recommended);
   recArr.sort(function(a,b){
-    const pri={'투약':0,'침상 이용':1,'V/S 측정':2,'보건교육':3,'병원진료 권유':4,'추적 관찰':5};
+    const pri={'투약':0,'침상 이용':1,'V/S 측정':2,'신체사정':3,'보건교육':4,'병원진료 권유':5,'추적 관찰':6};
     const pa=(a in pri)?pri[a]:99;
     const pb=(b in pri)?pri[b]:99;
     return pa-pb;
@@ -2645,9 +2777,11 @@ function _symRenderSingleBlock(recId, opts){
     let treatAction='toggleTreat';
     if(t==='침상 이용')treatAction='bedRest';
     else if(t==='V/S 측정')treatAction='openVs';
+    else if(t==='신체사정')treatAction='openPhysAssess';
     const delBtn=isCore?'':'<span class="sym-chip-del" data-action="hardRemoveTreat" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상의 자주 쓰는 처치 목록에서 삭제 (Ctrl+Z로 복원 가능)" data-tooltip-instant="1">✕</span>';
     let _tipAttr='';
     if(t==='V/S 측정')_tipAttr=' data-tooltip="V/S, SpO₂, 혈당을 입력할 수 있습니다." data-tooltip-instant="1"';
+    else if(t==='신체사정')_tipAttr=' data-tooltip="시진·촉진·타진·청진을 선택하고 소견을 적을 수 있습니다." data-tooltip-instant="1"';
     else if(t==='투약')_tipAttr=' data-tooltip="일반의약품을 선택할 수 있습니다." data-tooltip-instant="1"';
     else if(t==='침상 이용'||t==='침상 안정')_tipAttr=' data-tooltip="침상 선택, 시간과 알람 지정을 할 수 있습니다." data-tooltip-instant="1"';
     favChipsHtml+='<span class="sym-sel-chip sym-fav-chip" data-action="'+treatAction+'" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-is-fixed="'+(isFixed?'1':'0')+'"'+_tipAttr+' style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;transition:all .12s;border:1px solid var(--bdr);background:transparent;color:var(--t2);font-family:var(--f)'+(isFixed?';border-style:dashed':'')+'">'+_disp+delBtn+'</span>';
@@ -2675,20 +2809,14 @@ function _symRenderSingleBlock(recId, opts){
   else blockHtml+='<span style="font-size:11.5px;color:var(--t3);font-style:italic;opacity:0.85;padding:4px 0">아직 선택된 처치 없음 — 아래에서 추가</span>';
   blockHtml+='</div>';
   blockHtml+='<hr class="sym-block-divider">';
-  /* 자유 기술 dock 이 떠있거나, 재렌더 직전에 .open 이었던 아코디언이면 HTML 단계에서 'open' 부착 → 재렌더 시 CSS transition 깜빡임 제거 (사용자 보고 2026-05-21).
-   * 두 가지 소스를 OR 로 결합:
-   *  1) _ftActive: 자유 기술 dock 이 떠있는 블록 → 입력 중 항상 열림 유지
-   *  2) _wasOpen:  _symRenderTreatPanel 직전 캡처된 .open symKey 집합 → 증상 ✕·처치 칩 클릭 등 모든 재렌더 보존 */
-  const _ftDock4Open = document.getElementById('symFreeDock');
-  const _ftActive = _ftDock4Open && (_ftDock4Open.dataset.symKey || '__legacy__') === (symKey || '__legacy__');
-  const _wasOpen = _symRenderOpenAccSymKeys && _symRenderOpenAccSymKeys.has(symKey || '__legacy__');
-  blockHtml+='<div class="sym-fav-acc'+((_ftActive||_wasOpen)?' open':'')+'">';
+  /* v4 (사용자 결정 2026-08-12) — 자주 쓰는 처치 목록은 항상 펼침 고정. hover/토글 폐지로 'open' 상시 부착. */
+  blockHtml+='<div class="sym-fav-acc open">';
   blockHtml+='<div class="sym-fav-acc-head"><span class="chev">▼</span><span class="title">자주 쓰는 처치 목록</span>';
   if(_catLabel)blockHtml+='<span class="cat">'+_catLabel+'</span>';
   blockHtml+='<span class="count">'+recArr.length+'개</span>';
   blockHtml+='</div>';
   /* 안내 — "자" 글자 위치에 맞춤 (chev 10px + gap 8px + padding 12px = ~30px) */
-  blockHtml+='<div style="padding:5px 12px 6px 30px;font-size:10.5px;color:var(--t3);font-weight:600;line-height:1.5">마우스 커서를 여기에 가져다 대면 자동으로 열리며 칩 하나 이상을 선택해주세요.</div>';
+  blockHtml+='<div style="padding:5px 12px 6px 30px;font-size:10.5px;color:var(--t3);font-weight:600;line-height:1.5">칩 하나 이상을 선택해주세요.</div>';
   blockHtml+='<div class="sym-fav-acc-body sym-fav-wrap">';
   blockHtml+=favChipsHtml;
   blockHtml+='</div>';
@@ -2746,7 +2874,8 @@ function _symCounselHasContent(log){ if(!log)return false; return ['content','ac
 let _clPersonCache={ uid:null, recs:null };
 function _symCounselPool(stuId){
   if(stuId!=null && _clPersonCache.uid===String(stuId) && Array.isArray(_clPersonCache.recs)) return _clPersonCache.recs;
-  return (S.records||[]).filter(function(r){return r&&String(r.studentId)===String(stuId);});
+  const _clKeys=stuKeySet(stuId);   /* 이력 누락 수정 (2026-08-26) */
+  return (S.records||[]).filter(function(r){return recInStuKeys(r,_clKeys);});
 }
 function _symCounselCount(stuId){
   return _symCounselPool(stuId).filter(function(r){return _symCounselHasContent(_symCounselLogOf(r));}).length;
@@ -3215,6 +3344,8 @@ function _symBindTreatPanelEvents(panel){
       const _saSk=_saBp?_saBp.dataset.symKey:'';
       if(act==='openVs'){
         _symOpenVsPopup(_rid, subAct, _saSk);
+      } else if(act==='openPhysAssess'){
+        _symOpenPhysAssessPopup(_rid, subAct, _saSk);
       } else if(act==='bedRest'){
         _symHandleBedRest(_rid, _saSk);
       }
@@ -3358,6 +3489,13 @@ function _symBindTreatPanelEvents(panel){
       } else if(_symSelectedTreatments.indexOf('V/S 측정')===-1){
         _symSelectedTreatments.push('V/S 측정');_symAutoSave();_symRenderTreatPanel();
       }
+      return;
+    }
+    const _paChip=e.target.closest('[data-action="openPhysAssess"]');
+    if(_paChip){
+      const _paBp=_paChip.closest('.sym-block-pair');
+      const _paSym=_paChip.dataset.symKey||(_paBp?_paBp.dataset.symKey:'');
+      _symOpenPhysAssessPopup(parseInt(_paChip.dataset.recId),_paChip,_paSym);
       return;
     }
     const medChip=e.target.closest('[data-action="openMedFromChip"]');
@@ -3535,65 +3673,12 @@ export function _symRenderTreatPanel(recId){
   }, 0);
 }
 
-/* v3 (사용자 결정 2026-05-21) — 자주 쓰는 처치 아코디언 hover + 3초 idle 자동 닫힘.
- *   · mouseenter → .open 부착
- *   · mouseleave → 3초 후 .open 제거 (hover 안 들어와 있을 때만)
- *   · 아코디언 내부 클릭 (자주 쓰는 처치 칩 클릭 포함) → .open 유지 + 닫힘 타이머 cancel
- *   · 한 번만 부착되는 idempotent 가드: acc._symFavHoverBound */
+/* v4 (사용자 결정 2026-08-12) — 자주 쓰는 처치 목록은 항상 펼침 고정.
+ *  v3 의 hover 열림 + 3초 idle 자동 닫힘 + 헤드 클릭 토글을 전면 폐지 — 토글 없이 언제나 열림.
+ *  CSS .sym-fav-acc-body 도 상시 펼침으로 변경. .open 클래스는 하위 호환(재렌더 보존 로직)용으로만 부착. */
 function _symBindFavAccHover(panel){
   if(!panel)return;
-  /* 전역 마우스 좌표 트래커 — 패널 재렌더 시 마우스 위치 위 아코디언 자동 펼침용 (한 번만 부착) */
-  if(!window._symMousemoveBound){
-    window._symMousemoveBound = true;
-    document.addEventListener('mousemove', function(e){
-      window._symLastMouseX = e.clientX;
-      window._symLastMouseY = e.clientY;
-    }, {passive:true});
-  }
-  panel.querySelectorAll('.sym-fav-acc').forEach(function(acc){
-    if(acc._symFavHoverBound) return;
-    acc._symFavHoverBound = true;
-    let _closeTimer = null;
-    function _cancelClose(){ if(_closeTimer){clearTimeout(_closeTimer); _closeTimer=null;} }
-    function _scheduleClose(){
-      _cancelClose();
-      _closeTimer = setTimeout(function(){
-        /* 자유 기술 dock 이 떠있고 이 아코디언이 그 dock 의 블록 소속이면 자동 닫힘 금지 (사용자 요청 2026-05-21).
-         * mouseleave 후 3초 idle close 가 dock 입력 도중 발생하면 아코디언이 갑자기 사라지는 회귀 fix. */
-        const _ftDock = document.getElementById('symFreeDock');
-        if(_ftDock){
-          const _sk = _ftDock.dataset.symKey || '__legacy__';
-          const _bp = acc.closest('.sym-block-pair');
-          if(_bp && _bp.dataset.symKey === _sk) return;
-        }
-        if(!acc.matches(':hover')) acc.classList.remove('open');
-      }, 3000);
-    }
-    acc.addEventListener('mouseenter', function(){ acc.classList.add('open'); _cancelClose(); });
-    acc.addEventListener('mouseleave', function(){ _scheduleClose(); });
-    /* v3 (사용자 결정 2026-05-21 갱신) — 제목(헤드) 클릭 시 명시적 토글 + 내부 본문 클릭 시 .open 유지.
-     *  · 헤드 클릭: open 이면 닫고, 아니면 열기 — stopPropagation 으로 acc click 으로 안 흘러감
-     *  · 본문(자주 쓰는 처치 칩 등) 클릭: .open 유지 + 닫힘 타이머 cancel. */
-    const _head = acc.querySelector('.sym-fav-acc-head');
-    if(_head){
-      _head.addEventListener('click', function(e){
-        e.stopPropagation();
-        if(acc.classList.contains('open')){
-          acc.classList.remove('open');
-          _cancelClose();
-        } else {
-          acc.classList.add('open');
-          _cancelClose();
-        }
-      });
-    }
-    acc.addEventListener('click', function(){
-      /* 본문 영역 클릭 (헤드는 위에서 stopPropagation 처리됨) — 펼침 유지 */
-      acc.classList.add('open');
-      _cancelClose();
-      if(!acc.matches(':hover')) _scheduleClose();
-    });
-  });
+  panel.querySelectorAll('.sym-fav-acc').forEach(function(acc){ acc.classList.add('open'); });
 }
 
 /* 합성 처치 문자열 — 괄호 depth 0 의 콤마로 분리. "투약[X (1T)], V/S 측정, 학부모 연락" 등 처리.
@@ -3745,6 +3830,31 @@ function _symBindTipDelegation(panel){
     if(_curEl) _closeTip();
   });
 }
+/* ── V/S·신체사정 고아 데이터 정리 ─────────────────────────────────────────
+ * 처치 칩('V/S 측정'·'신체사정')과 그 실제 데이터(record-level: vsHistory·단일 V/S 필드·physicalAssessment)는
+ * 별개 저장이다. 지금까지 칩을 지워도 데이터가 남아 일반일지 표(V/S 열·신체사정 인라인 표)에 계속 떠 있었다.
+ * → 삭제한 칩이 실제로 그 항목이었고(hadVs/hadPa), 삭제 후 어느 증상·flat 에도 그 칩이 남아있지 않으면
+ *   연결 데이터도 함께 비운다. (사용자 보고 2026-07-20)
+ * ★ hadVs/hadPa 게이트로만 동작 → '칩 없이 값만 있는' 옛/외부 import 레코드는 절대 건드리지 않음. */
+function _symChipStillHas(needle){
+  var ks=Object.keys(_symTreatmentsBySym||{});
+  for(var i=0;i<ks.length;i++){ var a=_symTreatmentsBySym[ks[i]]||[]; for(var j=0;j<a.length;j++){ if(String(a[j]).indexOf(needle)!==-1) return true; } }
+  if(Array.isArray(_symSelectedTreatments)){ for(var m=0;m<_symSelectedTreatments.length;m++){ if(String(_symSelectedTreatments[m]).indexOf(needle)!==-1) return true; } }
+  return false;
+}
+function _symClearOrphanVsPa(recId, hadVs, hadPa){
+  if((!hadVs && !hadPa) || recId==null) return;
+  var rec=Array.isArray(S.records)?S.records.find(function(r){return r.id===recId;}):null;
+  if(!rec) return;
+  if(hadVs && !_symChipStillHas('V/S 측정')){
+    rec.vsHistory=[]; rec.temp=''; rec.bp=''; rec.pulse=''; rec.resp=''; rec.respiration=''; rec.spo2=''; rec.bst='';
+    rec._dirty=true;
+  }
+  if(hadPa && !_symChipStillHas('신체사정')){
+    rec.physicalAssessment={items:[],details:{}};
+    rec._dirty=true;
+  }
+}
 function _symRemoveTreat(t, symKey){
   /* === sym-key 별 제거 (일반 처치) === */
   if(symKey && symKey !== '__legacy__' && _symTreatmentsBySym[symKey]){
@@ -3781,6 +3891,8 @@ function _symRemoveTreat(t, symKey){
       if(rec&&typeof releaseBedByStudentId==='function')releaseBedByStudentId(rec.studentId);
     }catch(_){}
   }
+  /* V/S 측정·신체사정 칩 삭제 시 — 연결된 record-level 데이터도 함께 정리 (다른 증상에 안 남았을 때만). 2026-07-20 */
+  _symClearOrphanVsPa(_symPopupRecId, String(t).indexOf('V/S 측정')!==-1, String(t).indexOf('신체사정')!==-1);
   _symAutoSave();_symRenderTreatPanel();
 }
 /* Phase 3d: 증상 base name 매칭 — "증상명(...)" (no space) 과 옛 "증상명 (...)" (space) 둘 다 인식 */
@@ -3918,6 +4030,10 @@ function _symRemoveSym(s){
   /* v3 — 해제된 증상의 treatmentBySym 키도 함께 제거 (사용자 결정 2026-05-21).
    * 다시 추가 시 옛 처치가 의도치 않게 부활하지 않도록. */
   if(_removedLabel){
+    /* 삭제 대상 증상이 V/S 측정·신체사정 칩을 갖고 있었는지 — 삭제 전 캡처 (연결 데이터 정리 게이트) */
+    var _rmArr2=(_symTreatmentsBySym&&_symTreatmentsBySym[_removedLabel])||[];
+    var _hadVs2=_rmArr2.some(function(x){return String(x).indexOf('V/S 측정')!==-1;});
+    var _hadPa2=_rmArr2.some(function(x){return String(x).indexOf('신체사정')!==-1;});
     if(_symTreatmentsBySym && _symTreatmentsBySym[_removedLabel]){
       delete _symTreatmentsBySym[_removedLabel];
       if(typeof _symRecomputeFlatTreatments==='function')_symRecomputeFlatTreatments();
@@ -3925,6 +4041,8 @@ function _symRemoveSym(s){
     /* 약품·도즈 맵도 함께 제거 — 처치와 동일 사유(고아·부활 방지). 검증 2026-06-05. */
     if(_symMedsBySym && _symMedsBySym[_removedLabel]) delete _symMedsBySym[_removedLabel];
     if(_symMedDosesBySym && _symMedDosesBySym[_removedLabel]) delete _symMedDosesBySym[_removedLabel];
+    /* 그 증상에만 있던 V/S·신체사정이면 record-level 데이터도 함께 정리. 2026-07-20 */
+    _symClearOrphanVsPa((typeof S!=='undefined'&&S._symPopupRecId!=null)?S._symPopupRecId:null, _hadVs2, _hadPa2);
   }
   /* 그 증상에 부착된 바디맵 마커도 함께 제거 (관련 부위가 더 이상 유효하지 않으므로) */
   const recId=(typeof S!=='undefined'&&S._symPopupRecId!=null)?S._symPopupRecId:null;
@@ -5055,7 +5173,7 @@ function _symOpenVsPopup(recId,anchorBtn,symKey){
       clearInterval(_obsTimer);
       const rec=S.records.find(function(r){return r.id===recId;});
       if(!rec)return;
-      const _has=!!(rec.temp||rec.bp||rec.pulse||rec.resp);
+      const _has=!!(rec.temp||rec.bp||rec.pulse||rec.resp||rec.spo2||rec.bst||(rec.vsHistory&&rec.vsHistory.length));
       if(_has){
         /* per-symptom (선택 증상 map) 으로 'V/S 측정' 귀속 — 사용자 결정 2026-05-28 (record-level 폐지).
          *  · 복합칩 안에 이미 'V/S 측정' 이 들어있으면(indexOf) 중복 추가 안 함. */
@@ -5077,10 +5195,264 @@ function _symOpenVsPopup(recId,anchorBtn,symKey){
         /* 처치 패널 재렌더 — 선택된 처치 섹션에 V/S 측정 (값들) 칩 표시 */
         _symRenderTreatPanel(recId);
       } else {
-        /* V/S 값이 하나도 없으면 (취소) 추가 안 함 */
+        /* V/S 값을 모두 비웠으면 — 남아있는 'V/S 측정' 칩도 함께 제거 (신체사정과 동일 동작).
+         *  칩만 남으면 일반일지 표에 값 없는 V/S 가 계속 떠 있음. 2026-07-20 */
+        var _removedVsChip=false;
+        if(symKey && symKey!=='__legacy__'){
+          if(_symTreatmentsBySym[symKey]){
+            var _b4=_symTreatmentsBySym[symKey].length;
+            _symTreatmentsBySym[symKey]=_symTreatmentsBySym[symKey].filter(function(x){return String(x).indexOf('V/S 측정')===-1;});
+            if(_symTreatmentsBySym[symKey].length!==_b4)_removedVsChip=true;
+            if(!_symTreatmentsBySym[symKey].length)delete _symTreatmentsBySym[symKey];
+          }
+          if(_removedVsChip){
+            _symRecomputeFlatTreatments();
+            rec.treatment=_symSelectedTreatments.slice();
+            rec.treatmentBySym=JSON.parse(JSON.stringify(_symTreatmentsBySym));
+          }
+        } else {
+          if(Array.isArray(rec.treatment)){ var _ci=rec.treatment.indexOf('V/S 측정'); if(_ci>=0){rec.treatment.splice(_ci,1);_removedVsChip=true;} }
+          var _fi=_symSelectedTreatments.indexOf('V/S 측정'); if(_fi>=0)_symSelectedTreatments.splice(_fi,1);
+        }
+        if(_removedVsChip){
+          /* 다른 증상에도 V/S 칩이 없으면 record-level V/S 데이터도 정리 */
+          _symClearOrphanVsPa(recId, true, false);
+          rec._dirty=true;
+          if(typeof saveRecordNow==='function')saveRecordNow(rec);
+          _symRenderTreatPanel(recId);
+        }
       }
     }
   },300);
+}
+
+/* ══════════════════════════════════════════
+   신체사정 — 시진·촉진·타진·청진 체크(복수) + 연필로 항목별 자유 소견.
+   V/S(_symOpenVsPopup) 와 동일 패턴: 증상 팝업 위 표시, 외부클릭 부드럽게 닫기,
+   내용 있으면 per-sym '신체사정' 칩 자동 추가. 데이터 rec.physicalAssessment={items,details},
+   DB physical_assessment 컬럼(v5) 에 JSON 저장. (2026-07-15) */
+const PHYS_ASSESS_ITEMS=['시진','촉진','타진','청진'];
+function _symPhysAssessData(rec){
+  if(!rec.physicalAssessment||typeof rec.physicalAssessment!=='object'||Array.isArray(rec.physicalAssessment))rec.physicalAssessment={items:[],details:{}};
+  if(!Array.isArray(rec.physicalAssessment.items))rec.physicalAssessment.items=[];
+  if(!rec.physicalAssessment.details||typeof rec.physicalAssessment.details!=='object'||Array.isArray(rec.physicalAssessment.details))rec.physicalAssessment.details={};
+  return rec.physicalAssessment;
+}
+function _symPhysAssessHasContent(pa){
+  return !!((pa.items&&pa.items.length)||(pa.details&&Object.keys(pa.details).some(function(k){return pa.details[k]&&String(pa.details[k]).trim();})));
+}
+/* 처치 칩 표시 문자열 — 선택만 "(시진, 청진)", 소견 있으면 "(청진-둔탁음이 들림, 촉진-딱딱한 느낌)". 고정 순서(시진→촉진→타진→청진). */
+function _physAssessDisplayStr(pa){
+  if(!pa||typeof pa!=='object'||Array.isArray(pa))return '';
+  const order=['시진','촉진','타진','청진'];
+  const items=Array.isArray(pa.items)?pa.items:[];
+  const details=(pa.details&&typeof pa.details==='object'&&!Array.isArray(pa.details))?pa.details:{};
+  const parts=order.filter(function(it){return items.indexOf(it)!==-1||(details[it]&&String(details[it]).trim());})
+    .map(function(it){const d=details[it]?String(details[it]).trim():'';return d?(it+'-'+d):it;});
+  return parts.length?'('+parts.join(', ')+')':'';
+}
+/* 저장 + per-sym '신체사정' 칩 추가/제거. saveRecordNow 가 우하단 "저장 중→저장되었습니다" 토스트 자동 발생. */
+function _symPhysAssessSave(recId,symKey){
+  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const pa=_symPhysAssessData(rec);
+  const _has=_symPhysAssessHasContent(pa);
+  if(symKey&&symKey!=='__legacy__'){
+    if(!_symTreatmentsBySym[symKey])_symTreatmentsBySym[symKey]=[];
+    const _hasChip=_symTreatmentsBySym[symKey].some(function(x){return String(x).indexOf('신체사정')!==-1;});
+    if(_has&&!_hasChip)_symTreatmentsBySym[symKey].push('신체사정');
+    else if(!_has&&_hasChip)_symTreatmentsBySym[symKey]=_symTreatmentsBySym[symKey].filter(function(x){return String(x).indexOf('신체사정')===-1;});
+    _symRecomputeFlatTreatments();
+    rec.treatment=_symSelectedTreatments.slice();
+    rec.treatmentBySym=JSON.parse(JSON.stringify(_symTreatmentsBySym));
+  } else {
+    if(!Array.isArray(rec.treatment))rec.treatment=[];
+    const _idx=rec.treatment.indexOf('신체사정');
+    if(_has&&_idx===-1)rec.treatment.push('신체사정');
+    else if(!_has&&_idx>=0)rec.treatment.splice(_idx,1);
+  }
+  rec._dirty=true;
+  if(typeof saveRecordNow==='function')saveRecordNow(rec);
+  if(typeof _symRenderTreatPanel==='function')_symRenderTreatPanel(recId);
+  /* 일반일지 표 즉시 재렌더 — 체크 해제·소견 삭제 등이 표에 바로 반영되게. (사용자 보고 2026-07-20) */
+  try{ bus.emit('render:daily'); }catch(_){}
+}
+/* 팝업 내용 렌더(체크박스 세로 + 연필). 체크/상세 변경 시 in-place 재렌더. */
+function _symRenderPhysAssessBody(popup,recId,symKey){
+  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const pa=_symPhysAssessData(rec);
+  let h='<div class="pa-pop-header" style="padding:8px 12px;border-bottom:1px solid var(--bdr);background:var(--popup-head);border-radius:8px 8px 0 0;cursor:grab;user-select:none"><span style="font-size:12.5px;font-weight:700;color:var(--t1)">🩺 신체사정</span></div>';
+  h+='<div style="padding:8px 12px 4px;font-size:11px;color:var(--t3);line-height:1.5">해당 항목을 선택하고, 오른쪽 칸에 소견을 바로 적을 수 있습니다.</div>';
+  h+='<div style="padding:4px 10px 12px;display:flex;flex-direction:column;gap:1px">';
+  PHYS_ASSESS_ITEMS.forEach(function(it){
+    const checked=pa.items.indexOf(it)!==-1;
+    const det=pa.details[it]?String(pa.details[it]):'';
+    /* 연필/dock 대신 항목 오른쪽 인라인 입력란 — 바로 소견 기입 (사용자 요청 2026-08-06) */
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:3px 2px">'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--t1);white-space:nowrap">'
+      +'<input type="checkbox" data-pa-item="'+escHtml(it)+'" '+(checked?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#06b6d4">'
+      +'<span style="font-weight:600;min-width:28px">'+it+'</span></label>'
+      +'<input type="text" data-pa-detail="'+escHtml(it)+'" value="'+escHtml(det)+'" placeholder="소견 입력" style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:5px 8px;color:var(--t1);font-size:12.5px;outline:none;font-family:var(--f)">'
+      +'</div>';
+  });
+  h+='</div>';
+  popup.innerHTML=h;
+  if(typeof _symBindTipDelegation==='function')try{_symBindTipDelegation(popup);}catch(_){}
+  popup.querySelectorAll('[data-pa-item]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      const it=cb.getAttribute('data-pa-item');
+      const _pa=_symPhysAssessData(rec);
+      const idx=_pa.items.indexOf(it);
+      if(cb.checked){if(idx<0)_pa.items.push(it);}
+      else{
+        if(idx>=0)_pa.items.splice(idx,1);
+        delete _pa.details[it];  /* 체크 해제 시 그 항목의 소견도 삭제 — 일반일지 표 잔상 방지 (2026-07-20) */
+        /* 재렌더 없이 그 항목 입력란만 비움 (포커스·깜빡임 없이) */
+        const _inp=popup.querySelector('[data-pa-detail="'+String(it).replace(/"/g,'\\"')+'"]');
+        if(_inp)_inp.value='';
+      }
+      _symPhysAssessSave(recId,symKey);
+    });
+  });
+  /* 소견 입력란 — 연필/dock 대신 인라인 입력(사용자 요청 2026-08-06). 타이핑 즉시 저장(debounce 250),
+   *  소견을 적으면 그 항목 자동 체크. 팝업 재렌더 없이 저장만 → 포커스 유지·깜빡임 없음. */
+  popup.querySelectorAll('[data-pa-detail]').forEach(function(inp){
+    let _t=null;
+    const _flush=function(){
+      if(_t){clearTimeout(_t);_t=null;}
+      const it=inp.getAttribute('data-pa-detail');
+      const _pa=_symPhysAssessData(rec);
+      const v=inp.value.trim();
+      if(v){
+        _pa.details[it]=v;
+        if(_pa.items.indexOf(it)===-1){
+          _pa.items.push(it);
+          const _cb=popup.querySelector('[data-pa-item="'+String(it).replace(/"/g,'\\"')+'"]');
+          if(_cb)_cb.checked=true;
+        }
+      } else {
+        delete _pa.details[it];
+      }
+      _symPhysAssessSave(recId,symKey);
+    };
+    inp.addEventListener('input',function(){ if(_t)clearTimeout(_t); _t=setTimeout(_flush,250); });
+    inp.addEventListener('blur',_flush);   /* 포커스 이동·팝업 닫기 시 마지막 입력 즉시 저장(유실 방지) */
+    /* 소견칸 간 이동 — Tab/↓ = 다음, Shift+Tab/↑ = 이전(끝에서 순환). stopPropagation 으로 전역 키핸들러 차단. (2026-08-06) */
+    inp.addEventListener('keydown',function(e){
+      if(e.key==='Tab' || e.key==='ArrowDown' || e.key==='ArrowUp'){
+        e.preventDefault(); e.stopPropagation();
+        const _inps=Array.prototype.slice.call(popup.querySelectorAll('[data-pa-detail]'));
+        const _ci=_inps.indexOf(inp);
+        const _dir=(e.key==='ArrowUp' || (e.key==='Tab' && e.shiftKey)) ? -1 : 1;
+        let _ni=_ci+_dir;
+        if(_ni<0)_ni=_inps.length-1;
+        if(_ni>=_inps.length)_ni=0;
+        const _nx=_inps[_ni];
+        if(_nx){ _nx.focus(); try{_nx.select();}catch(_){} }
+      }
+    });
+  });
+  const _hd=popup.querySelector('.pa-pop-header');
+  if(_hd){
+    _hd.addEventListener('mousedown',function(ev){
+      if(ev.target.closest('input,button,label'))return;
+      ev.preventDefault();ev.stopPropagation();
+      const rect=popup.getBoundingClientRect();
+      const offX=ev.clientX-rect.left, offY=ev.clientY-rect.top;
+      _hd.style.cursor='grabbing';
+      function _mv(e2){popup.style.left=(e2.clientX-offX)+'px';popup.style.top=(e2.clientY-offY)+'px';}
+      function _up(){document.removeEventListener('mousemove',_mv);document.removeEventListener('mouseup',_up);_hd.style.cursor='grab';}
+      document.addEventListener('mousemove',_mv);document.addEventListener('mouseup',_up);
+    });
+  }
+}
+/* 신체사정 팝업 열기 — 증상 팝업 위(z 10200), 외부클릭 부드럽게 닫기. */
+function _symOpenPhysAssessPopup(recId,anchorBtn,symKey){
+  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  _symPhysAssessData(rec);
+  const _ex=document.querySelector('.cell-ac-popup');if(_ex)_ex.remove();
+  const rect=(anchorBtn&&anchorBtn.getBoundingClientRect)?anchorBtn.getBoundingClientRect():{left:100,top:100,bottom:120};
+  const _W=340;   /* 항목 옆 인라인 소견 입력란 공간 확보 (2026-08-06) */
+  let _popLeft=rect.left-40;
+  if(_popLeft+_W>window.innerWidth)_popLeft=window.innerWidth-_W-8;
+  if(_popLeft<8)_popLeft=8;
+  let _popTop=rect.bottom+2;
+  if(_popTop+280>window.innerHeight)_popTop=Math.max(8,rect.top-280);
+  const popup=document.createElement('div');
+  popup.className='cell-ac-popup';
+  popup.style.cssText='position:fixed;top:'+_popTop+'px;left:'+_popLeft+'px;width:'+_W+'px;max-height:none;overflow:visible;opacity:0;transform:scale(0.95);transition:opacity .15s ease,transform .15s ease;z-index:10200';
+  document.body.appendChild(popup);
+  _symRenderPhysAssessBody(popup,recId,symKey);
+  requestAnimationFrame(function(){popup.style.opacity='1';popup.style.transform='scale(1)';});
+  const _closeOnOutside=function(ev){
+    if(!popup.isConnected){document.removeEventListener('mousedown',_closeOnOutside,true);return;}
+    if(popup.contains(ev.target))return;
+    if(anchorBtn&&anchorBtn.contains&&anchorBtn.contains(ev.target))return;
+    const _dock=document.getElementById('physAssessDetailDock');
+    if(_dock&&_dock.contains&&_dock.contains(ev.target))return;
+    popup.style.opacity='0';popup.style.transform='scale(0.95)';
+    setTimeout(function(){if(popup.parentElement)popup.remove();},160);
+    document.removeEventListener('mousedown',_closeOnOutside,true);
+  };
+  setTimeout(function(){document.addEventListener('mousedown',_closeOnOutside,true);},20);
+}
+/* 연필 → 항목별 자세히 기입 dock — 증상 자유 기술 dock 과 동일 GUI. 입력 즉시 pa.details[item] 저장.
+   Enter/외부클릭 저장, ESC 저장 안 함. */
+function _symOpenPhysAssessDetailDock(recId,anchorChip,item,symKey,parentPopup){
+  if(typeof hideHeaderTooltip==='function')try{hideHeaderTooltip();}catch(_){}
+  const existing=document.getElementById('physAssessDetailDock');
+  if(existing){ const _prev=existing.dataset.item||''; existing.remove(); if(_prev===item)return; }
+  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const pa=_symPhysAssessData(rec);
+  const _initial=pa.details[item]?String(pa.details[item]):'';
+  const dock=document.createElement('div');
+  dock.id='physAssessDetailDock';
+  dock.dataset.item=item;
+  dock.style.cssText='position:fixed;left:0;top:0;z-index:12000;background:var(--card);border:1.5px solid rgba(217,119,6,0.7);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:9px;width:480px;max-width:92vw;box-shadow:0 6px 18px rgba(0,0,0,0.45);opacity:0;visibility:hidden;transition:opacity .18s ease';
+  dock.innerHTML='<span style="font-size:14px;font-weight:800;color:#d97706;white-space:nowrap;padding-top:6px">✏️ '+escHtml(item)+' :</span>'
+    +'<textarea id="physAssessDetailInput" rows="1" placeholder="입력 즉시 자동 저장됩니다... (Enter·외부 클릭: 저장 / ESC: 저장 안 함)" style="flex:1;background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;padding:8px 12px;color:var(--t1);font-size:14px;outline:none;font-family:var(--f);resize:none;overflow-y:auto;line-height:1.5;min-height:36px;max-height:240px;box-sizing:border-box"></textarea>';
+  document.body.appendChild(dock);
+  if(typeof _symBindTipDelegation==='function')try{_symBindTipDelegation(dock);}catch(_){}
+  const inp=dock.querySelector('#physAssessDetailInput');
+  inp.value=_initial;
+  function _autoSize(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,240)+'px';}
+  function _pos(){
+    if(!dock.isConnected)return;
+    const _r=(anchorChip&&anchorChip.isConnected)?anchorChip.getBoundingClientRect():{left:120,top:140,right:160,bottom:160};
+    const _dh=dock.offsetHeight||0, _dw=dock.offsetWidth||480;
+    let _lf=_r.right, _tp=_r.top-_dh-6;
+    if(_lf+_dw>window.innerWidth-8)_lf=Math.max(8,window.innerWidth-_dw-8);
+    if(_tp<8)_tp=_r.bottom+6;
+    if(_tp+_dh>window.innerHeight-8)_tp=Math.max(8,window.innerHeight-_dh-8);
+    dock.style.left=_lf+'px';dock.style.top=_tp+'px';
+  }
+  requestAnimationFrame(function(){_autoSize();_pos();dock.style.visibility='visible';dock.style.opacity='1';setTimeout(function(){try{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}catch(_){}},0);});
+  function _save(){
+    const _pa=_symPhysAssessData(rec);
+    const v=inp.value.trim();
+    if(v){ _pa.details[item]=v; if(_pa.items.indexOf(item)===-1)_pa.items.push(item); }  /* 소견을 적으면 그 항목 자동 체크 */
+    else delete _pa.details[item];
+    _symPhysAssessSave(recId,symKey);
+    if(parentPopup&&parentPopup.isConnected)_symRenderPhysAssessBody(parentPopup,recId,symKey);
+  }
+  let _saveT=null;
+  inp.addEventListener('input',function(){_autoSize();if(_saveT)clearTimeout(_saveT);_saveT=setTimeout(_save,250);});
+  function _close(saveIt){
+    if(_saveT){clearTimeout(_saveT);_saveT=null;}
+    if(saveIt)_save();
+    dock.style.opacity='0';
+    setTimeout(function(){if(dock.parentElement)dock.remove();},160);
+    document.removeEventListener('mousedown',_outside,true);
+  }
+  function _outside(ev){
+    if(dock.contains(ev.target))return;
+    if(anchorChip&&anchorChip.contains&&anchorChip.contains(ev.target))return;
+    _close(true);
+  }
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_close(true);}
+    else if(e.key==='Escape'){e.preventDefault();_close(false);}
+  });
+  setTimeout(function(){document.addEventListener('mousedown',_outside,true);},20);
 }
 
 /* 증상 팝업 헤더에서 구급대 인계 메시지 작성으로 직접 이동 */
@@ -7969,8 +8341,9 @@ function _symUpdateBmHistChip(recId){
   if(!rec)return;
   const bd=window._bmData||{};
   let _cnt=0;
+  const _bmKeys=stuKeySet(rec.personUid||rec.studentId);   /* 이력 누락 수정 (2026-08-26) */
   (S.records||[]).forEach(function(r){
-    if(r.studentId===rec.studentId && bd[r.id] && bd[r.id].length>0) _cnt++;
+    if(recInStuKeys(r,_bmKeys) && bd[r.id] && bd[r.id].length>0) _cnt++;
   });
   _chip.textContent='📚 바디맵 이력'+(_cnt>0?' ('+_cnt+')':'');
   if(_cnt>0){
@@ -8201,9 +8574,9 @@ function _symShowVsTimeline(stuId){
   }
   const existing=document.getElementById('symVsTimelineOverlay');
   if(existing){_symCloseVsTimeline();return;}
-  const _stuIdN=parseInt(stuId,10);
-  const stu=S.people.find(function(p){return p.id===stuId||p.id===_stuIdN;})||{};
-  const visits=S.records.filter(function(r){return r.studentId===stuId||r.studentId===_stuIdN;})
+  const stu=getStu(stuId)||{};
+  const _vstKeys=stuKeySet(stuId);   /* 이력 누락 수정 (2026-08-26) — uid/구id·타입 혼재 모두 매칭 */
+  const visits=S.records.filter(function(r){return recInStuKeys(r,_vstKeys);})
                         .sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
   if(!visits.length){
     if(typeof bus!=='undefined'&&bus.emit)bus.emit('toast:show',{text:'표시할 V/S 데이터가 없습니다.'});
@@ -8374,8 +8747,9 @@ function _symOpenBmHistory(stuId,curRecId){
   if(existing){_symCloseBmHistory();return;}
   /* 바디맵 마커 보유 일지만 (모든 날짜, 현재 일지 포함) */
   const _bm=window._bmData||{};
+  const _bmhKeys=stuKeySet(stuId);   /* 이력 누락 수정 (2026-08-26) */
   const recs=S.records.filter(function(r){
-    return r.studentId===stuId&&_bm[r.id]&&_bm[r.id].length>0;
+    return recInStuKeys(r,_bmhKeys)&&_bm[r.id]&&_bm[r.id].length>0;
   }).sort(function(a,b){
     const cmp=(b.date||'').localeCompare(a.date||'');
     if(cmp)return cmp;
@@ -8465,13 +8839,14 @@ function _symCloseBmHistory(){
 }
 
 /* ── 과거 방문 이력 미니 팝업 ── */
-function _symShowHistory(stuId,curRecId){
+export function _symShowHistory(stuId,curRecId){
   const existing=document.getElementById('symHistoryOverlay');
   if(existing){_symCloseHistory();return;}
   /* 현재 레코드 제외한 과거 방문만 필터 (칩 건수와 일치 — 날짜 기준 고유 카운트) */
   const curRec=S.records.find(function(r){return r.id===curRecId;});
   const curDate=curRec?curRec.date:'';
-  const allVisits=S.records.filter(function(r){return r.studentId===stuId&&r.date!==curDate;}).sort(function(a,b){return b.date.localeCompare(a.date);});
+  const _histKeys=stuKeySet(stuId);   /* 이력 누락 수정 (2026-08-26) — uid/구id·타입 혼재 모두 매칭 */
+  const allVisits=S.records.filter(function(r){return recInStuKeys(r,_histKeys)&&r.date!==curDate;}).sort(function(a,b){return b.date.localeCompare(a.date);});
   /* 고유 날짜 수 (칩 숫자와 일치) */
   const _uniqueDates={};allVisits.forEach(function(r){_uniqueDates[r.date]=1;});
   const uniqueDateCnt=Object.keys(_uniqueDates).length;

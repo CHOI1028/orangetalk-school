@@ -7,6 +7,8 @@ import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { _makeDraggable } from '../symptom/symptom-view.js';
 import { dailyColEyeIcon, openClockPicker } from '../emergency/emergency-view.js';
 import { sortStaffList } from '../settings/settings-view.js';
+import { openPersonSearch } from '../../core/person-search-ui.js';
+import { appConfirmModal } from '../../core/ui-utils.js';
 
 /* ═══ 연수 & 교육 등록부 ═══ */
 let _trainingState={name:'',date:'',time:'',date2:'',time2:'',place:'',sortNote:'관리자는 상단에 배열, 이하 가나다 순',sortNoteOn:true,selectedIds:{},selectedType:'staff',marginTop:15,marginBottom:15,marginLeft:12,marginRight:12};
@@ -39,6 +41,12 @@ export function renderTrainingHome(){
   h+='<div style="display:flex;flex-direction:column;gap:8px">';
   /* 연수명 */
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px">연수 또는 교육명</label><input class="form-input" id="trName" value="'+escHtml(st.name)+'" placeholder="예: 감염병 예방 연수" style="width:100%;font-size:11px"></div>';
+  /* 대상 선택 — 연수명 바로 아래, 입력란과 동일한 톤(.form-input 팔레트) (사용자 요청 2026-08-25: 하단의 분홍 강조 버튼은 너무 튐) */
+  h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px">연수/교육 대상</label>'
+    +'<button data-action="openTargetSelect" style="width:100%;padding:9px 12px;font-size:11px;font-weight:600;background:var(--bg2);color:var(--t1);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);text-align:left;transition:border-color .15s" '
+    +'onmouseover="this.style.borderColor=\'var(--cyan)\'" onmouseout="this.style.borderColor=\'var(--bdr)\'">'
+    +'📋 대상 선택'+(selCount>0?' <span style="color:var(--cyan);font-weight:700">('+selCount+'명)</span>':' <span style="color:var(--t3)">— 클릭하여 선택</span>')
+    +'</button></div>';
   /* 법정 연수 체크 */
   /* 시작 날짜 + 시간 */
   h+='<div style="font-size:10px;font-weight:700;color:var(--cyan);margin-top:4px">시작</div>';
@@ -61,15 +69,24 @@ export function renderTrainingHome(){
   /* 정렬 안내 문구 */
   h+='<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><input type="checkbox" id="trSortNoteOn" '+(st.sortNoteOn?'checked':'')+' style="width:14px;height:14px;accent-color:var(--cyan)" data-action="sortNoteToggle"><label for="trSortNoteOn" style="font-size:10px;color:var(--t3)">정렬 안내 문구 표시</label></div>';
   h+='<div style="display:'+(st.sortNoteOn?'block':'none')+'" id="trSortNoteWrap"><input class="form-input" id="trSortNote" value="'+escHtml(st.sortNote)+'" placeholder="예: 관리자는 상단에 배열, 이하 가나다 순" style="width:100%;font-size:10px;margin-top:4px"></div>';
+  /* 초기화 — 등록부 입력·선택 대상 전체 비우기 (사용자 요청 2026-08-25: 다른 화면에 다녀와도 명단이 남으므로 명시적 초기화 수단 제공) */
+  h+='<button data-action="resetForm" style="width:100%;margin-top:8px;padding:8px 14px;font-size:11px;font-weight:700;background:rgba(239,68,68,0.10);color:#f87171;border:1px dashed rgba(239,68,68,0.35);border-radius:7px;cursor:pointer;font-family:var(--f)">↺ 초기화 — 등록부 내용 모두 지우기</button>';
   h+='</div>';
   h+='</div>'; /* 스크롤 폼 영역 닫기 */
   /* 고정 하단 버튼 */
   h+='<div style="flex-shrink:0;padding:10px 14px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
-  h+='<button data-action="openTargetSelect" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(236,72,153,0.15),rgba(236,72,153,0.08));color:#f9a8d4;border:1px solid rgba(236,72,153,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)">📋 연수/교육 대상 선택'+(selCount>0?' ('+selCount+'명)':'')+'</button>';
+  /* (연수/교육 대상 선택 버튼은 연수명 입력창 아래로 이동 — 2026-08-25) */
   h+='<button data-action="showMessage" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(168,85,247,0.08));color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>';
-  h+='<button data-action="exportSheets" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>';
-  h+='<button class="btn-pdf btn-block" data-action="exportPDF" style="padding:9px 14px">📄 PDF 저장</button>';
-  h+='<button class="btn-print btn-block" data-action="print" style="padding:9px 14px">🖨 인쇄</button>';
+  /* Sheets·Excel 내보내기 — 반폭 나란히, 같은 초록 (사용자 요청 2026-08-25) */
+  h+='<div style="display:flex;gap:6px">';
+  h+='<button data-action="exportSheets" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Sheets로 보내기</button>';
+  h+='<button data-action="exportExcel" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Excel로 보내기</button>';
+  h+='</div>';
+  /* PDF 저장·인쇄 — 반폭 나란히 한 줄 배치 (사용자 요청 2026-08-25) */
+  h+='<div style="display:flex;gap:6px">';
+  h+='<button class="btn-pdf" data-action="exportPDF" style="flex:1;padding:9px 8px">📄 PDF 저장</button>';
+  h+='<button class="btn-print" data-action="print" style="flex:1;padding:9px 8px">🖨 인쇄</button>';
+  h+='</div>';
   h+='</div>';
   h+='</div>'; /* 입력 폼 끝 */
 
@@ -81,18 +98,26 @@ export function renderTrainingHome(){
 
   h+='</div>'; /* 전체 flex 끝 */
   area.innerHTML=h;
-  /* 이벤트 위임 — data-action 기반 */
-  area.addEventListener('click',function(e){
-    const el=e.target.closest('[data-action]');if(!el)return;
-    const act=el.dataset.action;
-    if(act==='openCal') trOpenCal(el.dataset.field,el);
-    else if(act==='openClock') trOpenClock(el.dataset.field,e,el);
-    else if(act==='openTargetSelect') trOpenTargetSelect();
-    else if(act==='showMessage') trShowMessage();
-    else if(act==='exportSheets') trExportSheets();
-    else if(act==='exportPDF') trExportPDF();
-    else if(act==='print') trainingPrint();
-  });
+  /* 이벤트 위임 — data-action 기반.
+   * 컨테이너(#trainingArea)는 재렌더 후에도 살아남는 지속 요소라, 렌더마다 addEventListener 를 걸면
+   * 리스너가 계속 쌓여 클릭 1번에 액션이 N번 실행되는 비일관 동작을 만든다(대상 선택 팝업 1클릭/2클릭
+   * 버그와 같은 뿌리) → 최초 1회만 바인딩 (2026-08-25). 핸들러는 모듈 함수만 호출하므로 재바인딩 불필요. */
+  if(!area._trActionsBound){
+    area._trActionsBound=true;
+    area.addEventListener('click',function(e){
+      const el=e.target.closest('[data-action]');if(!el)return;
+      const act=el.dataset.action;
+      if(act==='openCal') trOpenCal(el.dataset.field,el);
+      else if(act==='openClock') trOpenClock(el.dataset.field,e,el);
+      else if(act==='openTargetSelect') trOpenTargetSelect();
+      else if(act==='showMessage') trShowMessage();
+      else if(act==='exportSheets') trExportSheets();
+      else if(act==='exportExcel') trExportExcel();
+      else if(act==='exportPDF') trExportPDF();
+      else if(act==='print') trainingPrint();
+      else if(act==='resetForm') trResetForm();
+    });
+  }
   const _sortNoteChk=document.getElementById('trSortNoteOn');
   if(_sortNoteChk)_sortNoteChk.addEventListener('change',function(){_trainingState.sortNoteOn=this.checked;_trainingReadForm();trainingRefreshPreview();});
   /* 이벤트 바인딩 */
@@ -294,16 +319,20 @@ function _trRenderCal(){
   }
   html+='</div></div>';
   wrap.innerHTML=html;
-  /* 이벤트 위임 — 달력 */
-  wrap.addEventListener('click',function(e){
-    const el=e.target.closest('[data-cal-action]');if(!el)return;
-    const act=el.dataset.calAction;
-    if(act==='prevMonth'){_trCalMonth--;if(_trCalMonth<0){_trCalMonth=11;_trCalYear--;}_trRenderCal();}
-    else if(act==='nextMonth'){_trCalMonth++;if(_trCalMonth>11){_trCalMonth=0;_trCalYear++;}_trRenderCal();}
-    else if(act==='setYear'){e.stopPropagation();_trCalYear=parseInt(el.dataset.year);_trRenderCal();}
-    else if(act==='setMonth'){e.stopPropagation();_trCalMonth=parseInt(el.dataset.month);_trRenderCal();}
-    else if(act==='selectDate'){_trSelectDate(el.dataset.date);}
-  });
+  /* 이벤트 위임 — 달력. wrap 은 재렌더 간 살아남는 지속 요소라 렌더마다 바인딩하면 리스너가 쌓여
+   * 월 이동 1클릭이 여러 달 점프하게 됨 → 최초 1회만 바인딩 (2026-08-25, 대상 선택 버그와 같은 뿌리) */
+  if(!wrap._trCalBound){
+    wrap._trCalBound=true;
+    wrap.addEventListener('click',function(e){
+      const el=e.target.closest('[data-cal-action]');if(!el)return;
+      const act=el.dataset.calAction;
+      if(act==='prevMonth'){_trCalMonth--;if(_trCalMonth<0){_trCalMonth=11;_trCalYear--;}_trRenderCal();}
+      else if(act==='nextMonth'){_trCalMonth++;if(_trCalMonth>11){_trCalMonth=0;_trCalYear++;}_trRenderCal();}
+      else if(act==='setYear'){e.stopPropagation();_trCalYear=parseInt(el.dataset.year);_trRenderCal();}
+      else if(act==='setMonth'){e.stopPropagation();_trCalMonth=parseInt(el.dataset.month);_trRenderCal();}
+      else if(act==='selectDate'){_trSelectDate(el.dataset.date);}
+    });
+  }
   /* hover 드롭다운 표시/숨김 */
   const yearWrap=wrap.querySelector('.tr-cal-year-wrap');
   if(yearWrap){
@@ -378,21 +407,35 @@ function trOpenClock(fieldId,ev,btn){
 
 /* ── 안내 메시지 미리보기 & 복사 ── */
 let _trMsgOpts={isLegal:false,signRemind:false};
-let _trMsgEditing=false;
 let _trMsgTemplate=null; /* null=기본 템플릿, string=사용자 커스텀 */
-const _trMsgDefaultTemplate='[연수 안내] 안녕하세요 선생님들, {일시}에 {연수/교육명}를 실시할 예정입니다. 장소는 {장소} 입니다. 감사합니다.';
+/* [연수 안내] 뒤 본문은 바로 아랫줄부터 (사용자 지시 2026-08-21) */
+const _trMsgDefaultTemplate='[연수 안내]\n안녕하세요 선생님들, {일시}에 {연수/교육명}를 실시할 예정입니다. 장소는 {장소} 입니다. 감사합니다.';
+const _trMsgLegacyDefault='[연수 안내] 안녕하세요 선생님들, {일시}에 {연수/교육명}를 실시할 예정입니다. 장소는 {장소} 입니다. 감사합니다.';
+/* 체크박스 옵션 문구 — 치환·역치환 양쪽에서 사용 */
+const _trMsgExtraLegal='\n\n이 연수는 법정의무연수로, 1년에 한 번 반드시 이수해야 하는 연수입니다.\n따라서 다른 복무가 없으신 선생님들께서는 연수에 꼭 참여해 주시기 바랍니다.';
+const _trMsgExtraSign='\n\n연수 참여 전, 입구의 연수 등록부에 자필 서명을 꼭 부탁드립니다.';
 
+/* 템플릿 정규화 — '[연수 안내]' 앞에 붙은 잔여물({연수/교육명} 등) 제거 + 머리말 바로 아랫줄부터 본문.
+   (변수 삽입 커서 위치 실수로 맨 앞에 연수명이 저장된 경우 복구, 사용자 지시 2026-08-21) */
+function _trMsgSanitize(tpl){
+  let t=String(tpl||'');
+  const idx=t.indexOf('[연수 안내]');
+  if(idx===-1)return t;                          /* 머리말을 직접 지운 커스텀은 그대로 존중 */
+  if(idx>0)t=t.slice(idx);                       /* 머리말 앞 잔여물 제거 */
+  t=t.replace(/^\[연수 안내\][ \t]*\n?/,'[연수 안내]\n');   /* 머리말 다음 줄부터 본문 */
+  return t;
+}
 function _trMsgGetTemplate(){
-  if(_trMsgTemplate!==null)return _trMsgTemplate;
+  if(_trMsgTemplate!==null)return _trMsgSanitize(_trMsgTemplate);
   const saved=localStorage.getItem('tr_msg_template');
-  if(saved)return saved;
+  /* 옛 한 줄짜리 기본 템플릿 저장본은 새 기본(줄바꿈)으로 이행 */
+  if(saved&&saved!==_trMsgLegacyDefault)return _trMsgSanitize(saved);
   return _trMsgDefaultTemplate;
 }
 
-function _trMsgResolveVars(tpl){
+/* {일시} 문자열 계산 — 치환·역치환 공용 */
+function _trMsgDateTimeStr(){
   const st=_trainingState;
-  const o=_trMsgOpts;
-  /* {일시} 계산 */
   let dateTimeStr='';
   if(st.date){
     const p1=st.date.split('-');
@@ -411,26 +454,47 @@ function _trMsgResolveVars(tpl){
       dateTimeStr=startPart;
     }
   }
+  return dateTimeStr;
+}
+
+function _trMsgResolveVars(tpl){
+  const st=_trainingState;
+  const o=_trMsgOpts;
+  const dateTimeStr=_trMsgDateTimeStr();
   const result=tpl
     .replace(/\{일시\}/g,dateTimeStr||'(일시 미정)')
     .replace(/\{연수\/교육명\}/g,st.name||'(연수명 미정)')
     .replace(/\{장소\}/g,st.place||'(장소 미정)');
   /* 체크박스 옵션 추가 */
   let extra='';
-  if(o.isLegal) extra+='\n\n이 연수는 법정의무연수로, 1년에 한 번 반드시 이수해야 하는 연수입니다.\n따라서 다른 복무가 없으신 선생님들께서는 연수에 꼭 참여해 주시기 바랍니다.';
-  if(o.signRemind) extra+='\n\n연수 참여 전, 입구의 연수 등록부에 자필 서명을 꼭 부탁드립니다.';
+  if(o.isLegal) extra+=_trMsgExtraLegal;
+  if(o.signRemind) extra+=_trMsgExtraSign;
   return result+extra;
+}
+
+/* 역치환 — 화면의 치환된 텍스트를 템플릿으로 되돌려 저장.
+   현재 연수의 일시·연수명·장소 문자열은 {변수} 로 복원해 다음 연수에서도 자동 채움 유지.
+   체크박스 옵션 문구는 템플릿에 저장하지 않는다 (옵션 체크로 재조립되므로). */
+function _trMsgUnresolve(text){
+  const st=_trainingState;
+  let t=String(text||'');
+  t=t.split(_trMsgExtraLegal).join('');
+  t=t.split(_trMsgExtraSign).join('');
+  const dts=_trMsgDateTimeStr();
+  t=t.split(dts||'(일시 미정)').join('{일시}');
+  t=t.split(st.name||'(연수명 미정)').join('{연수/교육명}');
+  t=t.split(st.place||'(장소 미정)').join('{장소}');
+  return t;
 }
 
 function trShowMessage(){
   _trainingReadForm();
   const o=_trMsgOpts;
-  _trMsgEditing=false;
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='trMsgOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let html='<div class="modal-content" style="width:520px;max-width:94vw;padding:0">';
   html+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:14px 18px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0;cursor:grab">';
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1)">💬 안내 메시지 미리보기 &amp; 복사</div>';
-  html+='<div style="font-size:10px;color:var(--t3);margin-top:3px">아래 옵션을 체크하면 메시지에 자동 반영됩니다. 변수 삽입 버튼으로 원하는 위치에 변수를 넣을 수 있습니다.</div></div>';
+  html+='<div style="font-size:10px;color:var(--t3);margin-top:3px">내용을 바로 수정하여 사용 가능합니다.</div></div>';
   /* 옵션 체크박스 */
   html+='<div style="padding:12px 18px;border-bottom:1px solid var(--bdr);display:flex;flex-wrap:wrap;gap:6px 14px">';
   const opts=[{key:'isLegal',label:'법정의무연수 안내'},{key:'signRemind',label:'자필 서명 안내'}];
@@ -447,24 +511,22 @@ function trShowMessage(){
   html+='</div>';
   /* 메시지 본문 (수정 가능 textarea) */
   html+='<div style="padding:18px"><textarea id="trMsgBody" style="width:100%;height:220px;padding:12px;font-size:12px;line-height:1.8;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);resize:vertical">'+escHtml(_trMsgResolveVars(_trMsgGetTemplate()))+'</textarea></div>';
-  /* 하단 — 편집 + 복사 버튼 */
+  /* 하단 — 복사 버튼만 (편집 버튼 제거: 본문 직접 수정=자동 저장, 사용자 지시 2026-08-21) */
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
-  html+='<button id="trMsgEditBtn" style="padding:7px 16px;font-size:11px;font-weight:700;background:var(--card);color:var(--t1);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>편집</button>';
   html+='<button id="trMsgCopyBtn" style="padding:7px 16px;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드에 복사</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   /* 이벤트 바인딩 */
   ov.addEventListener('click',function(e){if(e.target===ov)closeModalWithAnim(ov);});
-  /* 체크박스 이벤트 */
+  /* 체크박스 이벤트 — 옵션 문구를 즉시 반영해 재표시 (본문 수정분은 역치환 저장돼 있어 유지됨) */
   ov.querySelectorAll('.trMsgOpt').forEach(function(chk){
     chk.addEventListener('change',function(){
       _trMsgOpts[this.dataset.key]=this.checked;
-      if(!_trMsgEditing){
-        document.getElementById('trMsgBody').value=_trMsgResolveVars(_trMsgGetTemplate());
-      }
+      const ta=document.getElementById('trMsgBody');
+      if(ta)ta.value=_trMsgResolveVars(_trMsgGetTemplate());
     });
   });
-  /* 변수 삽입 버튼 이벤트 */
+  /* 변수 삽입 버튼 — 커서 위치에 {변수} 삽입 후 즉시 치환·저장 */
   ov.querySelectorAll('.trMsgVarBtn').forEach(function(btn){
     btn.addEventListener('click',function(){
       const ta=document.getElementById('trMsgBody');if(!ta)return;
@@ -473,40 +535,30 @@ function trShowMessage(){
       ta.value=ta.value.substring(0,start)+v+ta.value.substring(end);
       ta.selectionStart=ta.selectionEnd=start+v.length;
       ta.focus();
-      _trMsgEditing=true;
+      /* 저장 트리거 후 치환된 값으로 재표시 */
+      ta.dispatchEvent(new Event('input',{bubbles:true}));
+      const cur=ta.selectionStart;
+      ta.value=_trMsgResolveVars(_trMsgGetTemplate());
+      ta.selectionStart=ta.selectionEnd=Math.min(cur,ta.value.length);
     });
   });
-  /* textarea 수정 시 자동 저장 — 단 [편집] 모드(템플릿 직접 편집)일 때만 실제 저장+토스트.
-     미리보기(변수 치환) 상태 입력은 저장 대상이 아니므로 토스트도 안 띄운다(거짓 신호 제거, 사용자 지시 2026-06-15). */
+  /* 본문 직접 수정 = 자동 저장 (편집 버튼 제거, 사용자 지시 2026-08-21).
+     저장 시 현재 연수의 일시·연수명·장소는 {변수} 로 역치환해 다음 연수에서도 자동 채움 유지. */
   let _msgSaveTimer=null;
   ov.querySelector('#trMsgBody').addEventListener('input',function(){
-    if(!_trMsgEditing) return;          /* 편집 모드 아니면 저장·토스트 안 함 */
-    _trMsgTemplate=this.value;
-    localStorage.setItem('tr_msg_template',this.value);   /* 실제 저장 */
+    const tpl=_trMsgSanitize(_trMsgUnresolve(this.value));
+    _trMsgTemplate=tpl;
+    localStorage.setItem('tr_msg_template',tpl);
     globalSaveToast('저장 중…');
     if(_msgSaveTimer)clearTimeout(_msgSaveTimer);
     _msgSaveTimer=setTimeout(function(){
       globalSaveToast('모든 내용이 저장되었습니다.');
     },400);
   });
-  /* 편집 버튼: 템플릿 모드 전환 */
-  ov.querySelector('#trMsgEditBtn').addEventListener('click',function(){
-    _trMsgEditing=true;
-    const ta=document.getElementById('trMsgBody');
-    /* 변수가 치환된 상태 → 템플릿 상태로 전환 */
-    ta.value=_trMsgGetTemplate();
-    ta.focus();
-    ta.style.border='2px solid var(--cyan)';
-    this.textContent='편집 중…';
-    this.style.background='rgba(6,182,212,0.12)';
-    this.style.color='var(--cyan)';
-    /* 저장은 위 #trMsgBody input 핸들러가 편집 모드일 때 처리(중복 리스너 제거) */
-  });
-  /* 복사 버튼 */
+  /* 복사 버튼 — 남아있는 {변수} 는 치환해서 복사 */
   ov.querySelector('#trMsgCopyBtn').addEventListener('click',function(){
     const ta=document.getElementById('trMsgBody');if(!ta)return;
-    /* 복사 시 변수 치환 */
-    const text=_trMsgEditing?_trMsgResolveVars(ta.value):ta.value;
+    const text=_trMsgResolveVars(ta.value);
     navigator.clipboard.writeText(text).then(function(){
       const btn=ov.querySelector('#trMsgCopyBtn');
       if(btn){const orig=btn.innerHTML;btn.innerHTML='✓ 복사됨';setTimeout(function(){btn.innerHTML=orig;},1500);}
@@ -518,249 +570,53 @@ function trShowMessage(){
 
 function _trRefreshMsgBody(){
   const body=document.getElementById('trMsgBody');
-  if(body&&!_trMsgEditing)body.value=_trMsgResolveVars(_trMsgGetTemplate());
+  if(body)body.value=_trMsgResolveVars(_trMsgGetTemplate());
 }
 
 
 /* ── 대상 선택 팝업 ── */
+/* 상세 검색 팝업과 동일 GUI — openPersonSearch 다중 선택 모드 재사용 (사용자 요청 2026-08-25).
+ * · 열리면 검색창에 커서 자동 포커스 — 이름·초성 입력으로 바로 선택 가능
+ * · 교직원 탭: 학교급·학과·학년 비활성(회색) 표시, 최초 전체 선택, 전체 선택 체크박스
+ * · 학생 탭: 학교급 하나 선택 + 학과·학년 하나 이상 토글 — 범위의 학생 전체 선택 상태로 시작
+ * · 모든 카드 선택/해제는 반드시 1클릭 토글
+ * · 완료 버튼·바깥 클릭 모두 "선택 반영 후 닫힘" (앱 자동 저장 철학)
+ * 옛 자체 팝업은 지속 컨테이너(#trTargetBody)에 클릭 리스너가 탭 전환마다 중복 등록되어
+ * "어떤 땐 1클릭, 어떤 땐 2클릭" 비일관 토글 버그가 있었음 → 표준 UI 재사용으로 전면 대체. */
 function trOpenTargetSelect(){
   const st=_trainingState;
-  const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='trTargetOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
-  let html='<div class="modal-content" style="width:700px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;padding:0">';
-  /* 헤더 — 회색 배경 */
-  html+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:14px 18px;border-bottom:1px solid var(--bdr)">';
-  html+='<div style="font-size:14px;font-weight:800;color:var(--t1)">📋 연수/교육 대상 선택</div>';
-  html+='<div style="font-size:11px;color:var(--t3);margin-top:3px">교직원 또는 학생을 선택하세요</div>';
-  html+='</div>';
-  /* 탭 */
-  html+='<div style="display:flex;gap:4px;padding:10px 18px 0">';
-  html+='<button class="daily-cat-tab active" id="trTargetTabStaff" data-action="switchTab" data-tab="staff">교직원</button>';
-  html+='<button class="daily-cat-tab" id="trTargetTabStudent" data-action="switchTab" data-tab="student">학생</button>';
-  html+='</div>';
-  /* 본문 */
-  html+='<div id="trTargetBody" style="flex:1;overflow-y:auto;padding:14px 18px;scrollbar-width:thin;scrollbar-color:rgba(6,182,212,0.4) transparent"></div>';
-  /* 하단 버튼 */
-  html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2)">';
-  html+='<button class="btn btn-outline btn-sm" id="trTargetBackBtn" data-action="targetBack" style="display:none">← 뒤로</button>';
-  html+='<button id="trTargetDoneBtn" data-action="targetComplete" style="padding:7px 22px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f)">다음</button>';
-  html+='</div></div>';
-  ov.innerHTML=html;
-  ov.addEventListener('click',function(e){
-    if(e.target===ov){closeModalWithAnim(ov,function(){_trainingReadForm();trainingRefreshPreview();});return;}
-    const el=e.target.closest('[data-action]');if(!el)return;
-    const act=el.dataset.action;
-    if(act==='switchTab') trTargetSwitchTab(el.dataset.tab);
-    else if(act==='targetBack') trTargetBack();
-    else if(act==='targetComplete') trTargetComplete();
-  });
-  document.body.appendChild(ov);
-  trTargetSwitchTab('staff');
-}
-
-let _trTargetStep='main';
-let _trTargetSelectedGrades=[];
-function trTargetSwitchTab(type){
-  /* 탭 전환 시 이전 유형 선택 초기화 */
-  const prevType=_trainingState.selectedType;
-  if(prevType!==type){
-    S.people.forEach(function(s){
-      if(prevType==='staff'&&s.type==='staff')delete _trainingState.selectedIds[s.id];
-      if(prevType==='student'&&s.type==='student')delete _trainingState.selectedIds[s.id];
-    });
-  }
-  _trainingState.selectedType=type;
-  _trTargetStep='main';
-  const tabStaff=document.getElementById('trTargetTabStaff');
-  const tabStu=document.getElementById('trTargetTabStudent');
-  if(tabStaff)tabStaff.classList.toggle('active',type==='staff');
-  if(tabStu)tabStu.classList.toggle('active',type==='student');
-  const backBtn=document.getElementById('trTargetBackBtn');if(backBtn)backBtn.style.display='none';
-  const body=document.getElementById('trTargetBody');if(!body)return;
-  const st=_trainingState;
-  const _doneBtn=document.getElementById('trTargetDoneBtn');
-  if(_doneBtn){_doneBtn.textContent=type==='staff'?'완료':'다음';_doneBtn.style.display=type==='staff'?'inline-block':'none';}
-
-  if(type==='staff'){
-    const staffList=sortStaffList(S.people.filter(function(s){return s.type==='staff';}));
-    /* 최초 진입 시 전체 선택 */
-    const hasAnyStaffSelection=staffList.some(function(s){return st.selectedIds.hasOwnProperty(s.id);});
-    if(!hasAnyStaffSelection)staffList.forEach(function(s){st.selectedIds[s.id]=true;});
-    let allChecked=true;staffList.forEach(function(s){if(!st.selectedIds[s.id])allChecked=false;});
-    let html='<div style="margin-bottom:10px"><label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="trStaffAll"'+(allChecked?' checked':'')+' > 전체 선택</label></div>';
-    html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-    staffList.forEach(function(s){
-      const sel=!!st.selectedIds[s.id];
-      html+='<span class="sv-student-chip '+(sel?'checked':'unchecked')+'" data-sid="'+s.id+'" data-action="toggleTarget" style="padding:6px 12px;font-size:12px;font-weight:600">'
-        +(s.position||'교직원')+' '+s.name+'</span>';
-    });
-    html+='</div>';
-    body.innerHTML=html;
-    const _staffAllCb=document.getElementById('trStaffAll');
-    if(_staffAllCb)_staffAllCb.addEventListener('change',function(){trToggleAllStaff(this);});
-    body.addEventListener('click',function(e){
-      const chip=e.target.closest('[data-action="toggleTarget"]');
-      if(chip)trToggleTarget(parseInt(chip.dataset.sid),chip);
-    });
-  } else {
-    _trRenderGradeSelect(body);
-  }
-}
-
-function trToggleAllStaff(el){
-  const staffList=S.people.filter(function(s){return s.type==='staff';});
-  staffList.forEach(function(s){_trainingState.selectedIds[s.id]=el.checked;});
-  document.querySelectorAll('#trTargetBody .sv-student-chip[data-sid]').forEach(function(c){
-    c.className='sv-student-chip '+(el.checked?'checked':'unchecked');
-  });
-}
-
-function trToggleTarget(id,chip){
-  _trainingState.selectedIds[id]=!_trainingState.selectedIds[id];
-  const sel=_trainingState.selectedIds[id];
-  chip.className='sv-student-chip '+(sel?'checked':'unchecked');
-  /* 전체선택 체크박스 동기화 */
-  const allCb=document.getElementById('trStaffAll')||document.querySelector('.tr-cls-all[data-key]');
-  if(document.getElementById('trStaffAll')){
-    const staffList=S.people.filter(function(s){return s.type==='staff';});
-    let allChecked=true;staffList.forEach(function(s){if(!_trainingState.selectedIds[s.id])allChecked=false;});
-    document.getElementById('trStaffAll').checked=allChecked;
-  }
-  /* 반 전체 체크박스 동기화 */
-  if(chip.dataset.cls){
-    const clsAll=document.querySelector('.tr-cls-all[data-key="'+chip.dataset.cls+'"]');
-    if(clsAll){
-      const chips=document.querySelectorAll('.sv-student-chip[data-cls="'+chip.dataset.cls+'"]');
-      let allC=true;chips.forEach(function(c){if(!_trainingState.selectedIds[parseInt(c.dataset.sid)])allC=false;});
-      clsAll.checked=allC;
+  const initial=Object.keys(st.selectedIds).filter(function(k){return st.selectedIds[k];});
+  openPersonSearch({
+    title:'📋 연수/교육 대상 선택',
+    type: st.selectedType==='student'?'student':'staff',
+    allowStaff:true,
+    overlayId:'trTargetOverlay',
+    multiSelect:true,
+    initialSelected:initial,
+    onComplete:function(ids,type){
+      st.selectedType=type;
+      st.selectedIds={};
+      ids.forEach(function(id){ st.selectedIds[id]=true; });
+      _trainingReadForm();
+      trainingRefreshPreview();
+      renderTrainingHome();
     }
-  }
-}
-
-/* ── 학년 선택 (1단계) ── */
-function _trRenderGradeSelect(body){
-  const stuList=S.people.filter(function(s){return s.type==='student';});
-  const grades=[...new Set(stuList.map(function(s){return s.grade;}))].sort(function(a,b){return a-b;});
-  const sl=S.settings.schoolLevel||'elementary';
-  let h='<div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:14px">학년을 선택하세요</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">';
-  h+='<label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--cyan);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--t1);background:rgba(6,182,212,0.06);transition:all .15s;margin-right:12px"><input type="checkbox" id="trGradeAll"> 전체 선택</label>';
-  grades.forEach(function(g){
-    const cnt=stuList.filter(function(s){return s.grade===g;}).length;
-    const label=(sl==='kindergarten')?g+'세':g+'학년';
-    h+='<label class="tr-grade-label" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-size:12px;color:var(--t2);background:var(--bg2);transition:all .15s">'
-      +'<input type="checkbox" class="tr-grade-cb" value="'+g+'"> '+label+'<span style="font-size:10px;color:var(--t3)">('+cnt+'명)</span></label>';
-  });
-  h+='<button class="sv-btn-primary" id="trStep1Next" data-action="goClassCards" disabled style="opacity:0.5;margin-left:12px;padding:8px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f)">다음 →</button>';
-  h+='</div>';
-  body.innerHTML=h;
-  const _gradeAllCb=document.getElementById('trGradeAll');
-  if(_gradeAllCb)_gradeAllCb.addEventListener('change',function(){trToggleAllGrades(this);});
-  body.querySelectorAll('.tr-grade-cb').forEach(function(cb){cb.addEventListener('change',function(){trUpdateGradeSelection();});});
-  const _step1Next=document.getElementById('trStep1Next');
-  if(_step1Next)_step1Next.addEventListener('click',function(){trGoClassCards();});
-  body.querySelectorAll('.tr-grade-label').forEach(function(lbl){
-    lbl.addEventListener('mouseenter',function(){this.style.borderColor='var(--cyan)';});
-    lbl.addEventListener('mouseleave',function(){this.style.borderColor='var(--bdr)';});
   });
 }
 
-function trToggleAllGrades(el){
-  document.querySelectorAll('.tr-grade-cb').forEach(function(cb){cb.checked=el.checked;});
-  trUpdateGradeSelection();
-  if(el.checked)setTimeout(function(){trGoClassCards();},300);
-}
-function trUpdateGradeSelection(){
-  const cbs=document.querySelectorAll('.tr-grade-cb:checked');
-  const totalCbs=document.querySelectorAll('.tr-grade-cb');
-  const btn=document.getElementById('trStep1Next');
-  if(btn){btn.disabled=cbs.length===0;btn.style.opacity=cbs.length?'1':'0.5';}
-  const all=document.getElementById('trGradeAll');
-  if(all)all.checked=cbs.length===totalCbs.length;
-  if(cbs.length===totalCbs.length&&totalCbs.length>0){setTimeout(function(){trGoClassCards();},300);}
-}
-
-function trGoClassCards(){
-  _trTargetSelectedGrades=[];
-  document.querySelectorAll('.tr-grade-cb:checked').forEach(function(cb){_trTargetSelectedGrades.push(parseInt(cb.value));});
-  if(!_trTargetSelectedGrades.length)return;
-  _trTargetStep='class';
-  const backBtn=document.getElementById('trTargetBackBtn');if(backBtn)backBtn.style.display='';
-  const _db=document.getElementById('trTargetDoneBtn');if(_db){_db.textContent='완료';_db.style.display='inline-block';}
-  const body=document.getElementById('trTargetBody');if(!body)return;
-  _trRenderClassCards(body);
-}
-
-/* ── 반/학생 선택 (2단계) ── */
-function _trRenderClassCards(body){
-  const stuList=S.people.filter(function(s){return s.type==='student'&&_trTargetSelectedGrades.indexOf(s.grade)!==-1;});
-  const groups={};
-  stuList.forEach(function(s){const k=s.grade+'-'+s.cls;if(!groups[k])groups[k]={grade:s.grade,cls:s.cls,people:[]};groups[k].people.push(s);});
-  Object.keys(groups).forEach(function(k){groups[k].people.sort(function(a,b){return(a.num||0)-(b.num||0);});});
-  const keys=Object.keys(groups).sort();
-  const sl=S.settings.schoolLevel||'elementary';
-  const st=_trainingState;
-  /* 초기: 선택 학년 전체 선택 상태 */
-  stuList.forEach(function(s){if(!st.selectedIds.hasOwnProperty(s.id))st.selectedIds[s.id]=true;});
-  let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:var(--t1)">반/학생을 선택하세요.</div>';
-  h+='<label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="trClassAllAll" checked> 전체 선택/해제</label></div>';
-  h+='<div class="sv-class-list" style="display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-right:4px;padding-bottom:16px;scrollbar-width:thin;scrollbar-color:rgba(6,182,212,0.4) transparent">';
-  keys.forEach(function(k){
-    const g=groups[k];
-    const gradeLabel=(sl==='kindergarten')?g.grade+'세':g.grade+'학년';
-    h+='<div class="sv-class-card" style="border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;background:var(--bg2)">'
-      +'<div style="display:flex;align-items:center;margin-bottom:6px">'
-      +'<div style="font-size:12px;font-weight:700;color:var(--cyan)">'+gradeLabel+' '+g.cls+'반 ('+g.people.length+'명)</div>'
-      +'<label style="font-size:10px;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:4px;margin-left:8px"><input type="checkbox" checked class="tr-cls-all" data-key="'+k+'"> 전체</label></div>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
-    g.people.forEach(function(s){
-      const sel=st.selectedIds[s.id]!==false;
-      const care=svIsCare(s);const careText=care?svCareLabel(s):'';
-      h+='<span class="sv-student-chip '+(sel?'checked':'unchecked')+'" data-sid="'+s.id+'" data-cls="'+k+'" data-action="toggleTarget">'
-        +s.num+'번 '+s.name+(care?' <span style="font-size:9px;color:var(--yl)">*'+careText+'*</span>':'')+'</span>';
-    });
-    h+='</div></div>';
+/* ── 등록부 초기화 — 입력 내용 + 선택 대상 전체 비우기 (사용자 요청 2026-08-25) ──
+ * 실수 클릭 방어를 위해 확인 모달 후 진행. _trainingState 재할당은 안전 —
+ * 모든 소비자가 모듈 변수를 매 호출 시점에 읽고, _trLiveVars 도 getter 로 현재값을 참조한다. */
+function trResetForm(){
+  appConfirmModal(
+    '연수/교육 등록부의 입력 내용과 선택된 대상 명단이 <b>모두 지워집니다</b>.<br>계속하시겠습니까?',
+    '↺ 등록부 초기화',
+    { okLabel:'모두 지우기' }
+  ).then(function(ok){
+    if(!ok) return;
+    _trainingState={name:'',date:'',time:'',date2:'',time2:'',place:'',sortNote:'관리자는 상단에 배열, 이하 가나다 순',sortNoteOn:true,selectedIds:{},selectedType:'staff',marginTop:15,marginBottom:15,marginLeft:12,marginRight:12};
+    renderTrainingHome();   /* 폼·미리보기·대상 버튼 라벨 전부 초기 상태로 재렌더 */
   });
-  h+='</div>';
-  body.innerHTML=h;
-  const _classAllCb=document.getElementById('trClassAllAll');
-  if(_classAllCb)_classAllCb.addEventListener('change',function(){trToggleAllClasses(this);});
-  body.querySelectorAll('.tr-cls-all').forEach(function(cb){cb.addEventListener('change',function(){trToggleClass(this.dataset.key,this);});});
-  body.addEventListener('click',function(e){
-    const chip=e.target.closest('[data-action="toggleTarget"]');
-    if(chip)trToggleTarget(parseInt(chip.dataset.sid),chip);
-  });
-}
-
-function trToggleClass(key,el){
-  const chips=document.querySelectorAll('#trTargetBody .sv-student-chip[data-cls="'+key+'"]');
-  chips.forEach(function(c){
-    const sid=parseInt(c.dataset.sid);
-    _trainingState.selectedIds[sid]=el.checked;
-    c.className='sv-student-chip '+(el.checked?'checked':'unchecked');
-  });
-}
-function trToggleAllClasses(el){
-  document.querySelectorAll('#trTargetBody .sv-student-chip[data-sid]').forEach(function(c){
-    const sid=parseInt(c.dataset.sid);
-    _trainingState.selectedIds[sid]=el.checked;
-    c.className='sv-student-chip '+(el.checked?'checked':'unchecked');
-  });
-  document.querySelectorAll('.tr-cls-all').forEach(function(cb){cb.checked=el.checked;});
-}
-
-function trTargetBack(){
-  if(_trTargetStep==='class'){
-    _trTargetStep='main';
-    const backBtn=document.getElementById('trTargetBackBtn');if(backBtn)backBtn.style.display='none';
-    const _db2=document.getElementById('trTargetDoneBtn');if(_db2)_db2.textContent='다음';
-    const body=document.getElementById('trTargetBody');if(body)_trRenderGradeSelect(body);
-  }
-}
-
-function trTargetComplete(){
-  const ov=document.getElementById('trTargetOverlay');if(ov)closeModalGracefully(ov);
-  _trainingReadForm();trainingRefreshPreview();
-  renderTrainingHome();
 }
 
 /* ── 폼 읽기 ── */
@@ -901,9 +757,11 @@ function _buildTrainingPreviewHtml(){
   let h='<div style="font-family:\'Pretendard Variable\',\'Pretendard\',\'Noto Sans KR\',\'맑은 고딕\',sans-serif;color:#000;width:100%">';
   /* 제목 상단 색상선 + 제목 + 하단 색상선 — thead에 포함하여 페이지 반복 */
   const isStudent=selected.length>0&&selected[0].type==='student';
-  const half=Math.ceil(selected.length/2);
-  let maxRows=Math.max(half,selected.length-half,1);
-  if(maxRows<24)maxRows=24;
+  /* 화면 미리보기(trainingRefreshPreview)와 동일한 페이지 순번 배치 — 페이지당 좌 1~24 / 우 25~48.
+   * 옛 half 분할(좌=앞 절반, 우=뒤 절반)은 미리보기와 출력물의 좌우 배치가 달라지는 문제가 있었음 (2026-08-27 통일) */
+  const ROWS=24;
+  const totalPages=Math.max(1,Math.ceil(selected.length/(ROWS*2)));
+  const maxRows=totalPages*ROWS;
   const posLabel=isStudent?'학번':'직위';
   h+='<table style="width:100%;border-collapse:collapse;font-size:10px">';
   /* thead — 제목+정보+컬럼헤더 (인쇄 시 매 페이지 반복) */
@@ -938,7 +796,8 @@ function _buildTrainingPreviewHtml(){
       }
       return '<td style="'+bdo+pd+ctr+lB+btmS+'">'+(idx+1)+'</td><td style="'+bdo+pd+btmS+'">&nbsp;</td><td style="'+bdo+pd+btmS+'">&nbsp;</td><td style="'+bdo+pd+btmS+'">&nbsp;</td><td style="'+rB+pd+btmS+rBLast+'">&nbsp;</td>';
     }
-    h+=_trCell(ri,true)+_trCell(half+ri,false);
+    const _pg=Math.floor(ri/ROWS), _pr=ri%ROWS;
+    h+=_trCell(_pg*ROWS*2+_pr,true)+_trCell(_pg*ROWS*2+ROWS+_pr,false);
     h+='</tr>';}}
   h+='</tbody><tfoot><tr><td colspan="10" style="border:none;padding:4px 0;font-size:10px;color:#555">자필로 직접 서명 바랍니다.</td></tr></tfoot></table></div>';
   return h;
@@ -985,17 +844,15 @@ async function trExportPDF(){
 }
 
 /* ── Google Sheets 내보내기 (새 스프레드시트 자동 생성) ── */
-function trExportSheets(){
+/* ── 등록부 내보내기 공용 행 구성 — Sheets/Excel 이 같은 데이터를 쓴다 (2026-08-25 추출) ── */
+function _trBuildRegisterRows(){
   _trainingReadForm();
   const st=_trainingState;
   const selected=_trSortSelected(S.people.filter(function(s){return st.selectedIds[s.id];}));
   const isStudent=selected.length>0&&selected[0].type==='student';
   const yr=new Date().getFullYear();
   const posLabel=isStudent?'학번':'직위';
-  const isStudentExport=selected.length>0&&selected[0].type==='student';
-  const regTypeExport=isStudentExport?'교육':'연수';
   const titleText=st.name?(yr+'학년도 '+st.name+' 등록부'):'등록부';
-
   /* 시트 데이터 구성 */
   const rows=[];
   rows.push(['','','','','','','','','','']); /* 1행: 색상선 */
@@ -1006,9 +863,12 @@ function trExportSheets(){
   rows.push(['','','','','','','','','','']); /* 6행: 여백 */
   rows.push([(st.sortNoteOn&&st.sortNote)?st.sortNote:'','','','','','','','','','']); /* 7행 */
   rows.push(['순',posLabel,'성명','서명','비고','순',posLabel,'성명','서명','비고']); /* 8행 */
+  /* 화면 미리보기·인쇄/PDF 와 동일한 페이지 순번 배치 — 페이지당 좌 1~24 / 우 25~48 (2026-08-27 통일).
+   * half 는 옛 시그니처 호환용으로만 반환(행 배치에는 미사용). */
+  const ROWS=24;
+  const totalPages=Math.max(1,Math.ceil(selected.length/(ROWS*2)));
+  const maxRows=totalPages*ROWS;
   const half=Math.ceil(selected.length/2);
-  let maxRows=Math.max(half,selected.length-half,1);
-  if(maxRows<24)maxRows=24;
   for(let ri=0;ri<maxRows;ri++){
     const row=[];
     function addCell(idx){
@@ -1020,10 +880,65 @@ function trExportSheets(){
         row.push(String(idx+1),'','','','');
       }
     }
-    addCell(ri);addCell(half+ri);
+    const _pg=Math.floor(ri/ROWS), _pr=ri%ROWS;
+    addCell(_pg*ROWS*2+_pr);addCell(_pg*ROWS*2+ROWS+_pr);
     rows.push(row);
   }
   rows.push(['자필로 직접 서명 바랍니다.','','','','','','','','','']);
+  return {rows:rows,selected:selected,isStudent:isStudent,posLabel:posLabel,titleText:titleText,half:half,maxRows:maxRows};
+}
+
+/* ── Excel 로 내보내기 (등록부) — 보건일지 Excel 과 같은 main ExcelJS 빌더(xlsx-build-diary) 재사용 (2026-08-25).
+ *  색상바(파7:노3 / 초3:빨7)·제목·일시·장소·정렬 안내·굵은 테두리까지 미리보기와 같은 표준 시트로 생성.
+ *  실패 안내는 모달(무음 실패 금지), 저장은 위치 선택 다이얼로그(앱 표준). ── */
+function trExportExcel(){
+  if(!(window.electronAPI&&window.electronAPI.xlsxBuildDiary)){appConfirmModal('Excel 빌드 기능을 사용할 수 없습니다.','Excel로 내보내기',{okOnly:true,okLabel:'확인'});return;}
+  const d=_trBuildRegisterRows();
+  const st=_trainingState;
+  /* d.rows 에서 2단 데이터 행만 — 0~7행(색상선·제목·일시·안내)과 마지막 행(자필 문구)은
+   * 빌더의 titleText/schoolText/periodText/noteText/footerText 슬롯이 담당 */
+  const dataRows=d.rows.slice(8, d.rows.length-1);
+  const fileName=d.titleText.replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';
+  window.electronAPI.xlsxBuildDiary({
+    colCount:10,
+    colWidths:[36,95,70,85,70,36,95,70,85,70],
+    headerLabels:['순',d.posLabel,'성명','서명','비고','순',d.posLabel,'성명','서명','비고'],
+    dataRows:dataRows,
+    titleText:d.titleText,
+    mainSheetTitle:'등록부',
+    schoolText:'◆ 일시: '+_formatTrainingDateTime(),
+    periodText:'◆ 장소: '+(st.place||''),
+    noteText:(st.sortNoteOn&&st.sortNote)?st.sortNote:'',
+    footerText:'자필로 직접 서명 바랍니다.',
+    top1:7, bot1:3
+  }).then(function(res){
+    if(!(res&&res.success)){
+      appConfirmModal('Excel 생성에 실패했습니다.<br><span style="font-size:11px;color:var(--t3)">'+escHtml(String((res&&res.error)||''))+'</span>','Excel로 내보내기',{okOnly:true,okLabel:'확인'});
+      return;
+    }
+    _trDeliverXlsxBytes(res.bytes,fileName);
+  }).catch(function(e){appConfirmModal('Excel 생성 중 오류가 발생했습니다.<br><span style="font-size:11px;color:var(--t3)">'+escHtml(String((e&&e.message)||e))+'</span>','Excel로 내보내기',{okOnly:true,okLabel:'확인'});});
+}
+
+/* Excel bytes 전달 공용 — 위치 선택 다이얼로그(취소 무음·실패 모달) / 웹 변형은 blob 다운로드 (2026-08-25) */
+function _trDeliverXlsxBytes(bytes,fileName){
+  if(window.electronAPI&&window.electronAPI.saveBytesDialog){
+    window.electronAPI.saveBytesDialog(fileName,bytes,[{name:'Excel 통합 문서',extensions:['xlsx']}]).then(function(sv){
+      if(sv&&sv.success&&!sv.canceled)_trsToast('✓ Excel 저장 완료');
+      else if(!(sv&&sv.success))appConfirmModal('Excel 저장에 실패했습니다.<br><span style="font-size:11px;color:var(--t3)">'+escHtml(String((sv&&sv.error)||''))+'</span>','Excel로 내보내기',{okOnly:true,okLabel:'확인'});
+      /* 취소(canceled)는 무음 */
+    }).catch(function(e){appConfirmModal('Excel 저장 중 오류가 발생했습니다.<br><span style="font-size:11px;color:var(--t3)">'+escHtml(String((e&&e.message)||e))+'</span>','Excel로 내보내기',{okOnly:true,okLabel:'확인'});});
+  } else {
+    const blob=new Blob([new Uint8Array(bytes)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=fileName;a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+function trExportSheets(){
+  const _d=_trBuildRegisterRows();
+  const rows=_d.rows, selected=_d.selected, isStudent=_d.isStudent, posLabel=_d.posLabel, titleText=_d.titleText, half=_d.half, maxRows=_d.maxRows;
 
   /* 확인 팝업 */
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='trSheetsOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
@@ -1194,10 +1109,7 @@ function renderTrainingStatus(){
   const yr=new Date().getFullYear();
   const schoolName=S.settings.schoolName||'○○학교';
   const numTr=_trsItems.length;
-  /* 열 구성: 순(A) + 직위(B) + 이름(C) + [연수1: 이수기관(D), 이수번호(E)] + [연수2: F, G] + ... */
-  const fixedCols=3; /* A,B,C */
-  const totalCols=fixedCols+numTr*2;
-  const colLetters=[];for(let ci=0;ci<totalCols;ci++){colLetters.push(ci<26?String.fromCharCode(65+ci):(String.fromCharCode(64+Math.floor(ci/26))+String.fromCharCode(65+ci%26)));}
+  /* (구글 시트 모방 열문자/행번호 표는 2026-08-25 A4 미리보기(_trsBuildA4SheetHtml)로 대체됨) */
 
   let h='<div style="display:flex;height:calc(100vh - 300px);overflow:hidden">';
   /* ═══ 왼쪽: 헤더 + 스크롤 리스트 + 고정 하단 버튼 ═══ */
@@ -1230,126 +1142,68 @@ function renderTrainingStatus(){
   h+='<button data-trs-action="showMessagePopup" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(168,85,247,0.08));color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>';
   h+='<button data-trs-action="showNoticeLog" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.08));color:#fbbf24;border:1px solid rgba(245,158,11,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)">📝 안내 내역 기록에 남기기</button>';
   h+='<div style="display:flex;flex-direction:column;gap:6px">';
-  h+='<button data-trs-action="exportAllSheets" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>';
-  h+='<button class="btn-pdf btn-block" data-trs-action="exportPDF" style="padding:9px 14px">📄 PDF 저장</button>';
-  h+='<button class="btn-print btn-block" data-trs-action="trsPrint" style="padding:9px 14px">🖨 인쇄</button>';
+  /* Sheets·Excel 내보내기 — 반폭 나란히, 같은 초록 (등록부와 동일 패턴, 사용자 요청 2026-08-25) */
+  h+='<div style="display:flex;gap:6px">';
+  h+='<button data-trs-action="exportAllSheets" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Sheets로 보내기</button>';
+  h+='<button data-trs-action="trsExportExcel" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Excel로 보내기</button>';
+  h+='</div>';
+  /* PDF 저장·인쇄 — 반폭 나란히 한 줄 배치 (등록부와 동일, 2026-08-25) */
+  h+='<div style="display:flex;gap:6px">';
+  h+='<button class="btn-pdf" data-trs-action="exportPDF" style="flex:1;padding:9px 8px">📄 PDF 저장</button>';
+  h+='<button class="btn-print" data-trs-action="trsPrint" style="flex:1;padding:9px 8px">🖨 인쇄</button>';
+  h+='</div>';
   h+='</div></div>';
   h+='</div>';
 
-  /* ═══ 오른쪽: 통합 구글 시트 미리보기 ═══ */
-  h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg2)">';
+    /* ═══ 오른쪽: A4 가로 미리보기 — 등록부와 동일 형식 (사용자 요청 2026-08-25) ═══
+   * _trsBuildA4SheetHtml() 하나를 미리보기·PDF·인쇄가 그대로 공유 → "보이는 대로 인쇄" 보장 */
+  h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#e5e7eb">';
   if(numTr===0){
     h+='<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;font-weight:600">왼쪽에서 연수를 추가해 주세요.</div>';
   } else {
-    h+='<div style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center">';
-    h+='<div style="background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.1);display:inline-block;align-self:flex-start;font-family:\'Pretendard Variable\',\'Pretendard\',\'Noto Sans KR\',\'맑은 고딕\',sans-serif;color:#000">';
-    const bd='border:1px solid #c0c0c0;';const bdt='border:2px solid #333;';const pd='padding:3px 5px;';const ctr='text-align:center;';
-    const nb='border:none;'; /* no border */
-    h+='<table style="border-collapse:collapse;font-size:9px">';
-    /* 열 헤더 행 */
-    h+='<tr style="background:#f0f0f0;height:18px">';
-    h+='<td style="'+bd+ctr+'width:22px;color:#666;font-size:8px;font-weight:600;background:#f8f8f8"></td>';
-    colLetters.forEach(function(c){h+='<td style="'+bd+ctr+'color:#666;font-size:8px;font-weight:600;background:#f8f8f8;min-width:50px">'+c+'</td>';});
-    h+='</tr>';
-    /* 1행: 색상선 (좌우 테두리 없음) */
-    h+='<tr style="height:2px"><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">1</td>';
-    const halfCols=Math.ceil(totalCols/2);
-    h+='<td colspan="'+halfCols+'" style="border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;border-left:none;border-right:none;background:#2855A0;padding:0;line-height:1px;font-size:1px">&nbsp;</td>';
-    h+='<td colspan="'+(totalCols-halfCols)+'" style="border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;border-left:none;border-right:none;background:#D4A843;padding:0;line-height:1px;font-size:1px">&nbsp;</td></tr>';
-    /* 2행: 제목 (좌우 테두리 없음) */
-    h+='<tr><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">2</td>';
-    h+='<td colspan="'+totalCols+'" style="border-top:none;border-bottom:none;border-left:none;border-right:none;background:#F7F7F7;text-align:center;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:2px">'+yr+'학년도 '+escHtml(schoolName)+' 보건 연수 이수 현황</td></tr>';
-    /* 3행: 색상선 (좌우 테두리 없음) */
-    h+='<tr style="height:2px"><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">3</td>';
-    const halfCols2=Math.ceil(totalCols*3/10);
-    h+='<td colspan="'+halfCols2+'" style="border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;border-left:none;border-right:none;background:#2E8B57;padding:0;line-height:1px;font-size:1px">&nbsp;</td>';
-    h+='<td colspan="'+(totalCols-halfCols2)+'" style="border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;border-left:none;border-right:none;background:#C0392B;padding:0;line-height:1px;font-size:1px">&nbsp;</td></tr>';
-    /* 4행: 여백 (테두리 없음) */
-    h+='<tr><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">4</td>';
-    h+='<td colspan="'+totalCols+'" style="'+nb+'padding:0;height:24px"></td></tr>';
-    /* 5행: 안내 (윗줄 없음, 오른쪽 정렬) */
-    h+='<tr><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">5</td>';
-    h+='<td colspan="'+totalCols+'" style="'+nb+pd+'font-size:9px;color:#555;text-align:right">관리자는 상단에 배열, 이하 가나다 순</td></tr>';
-    /* 6행: 연수명 (바깥 굵은선, 내부 일반선) */
-    const ci='border:1px solid #c0c0c0;'; /* 내부 셀 */
-    h+='<tr><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">6</td>';
-    h+='<td rowspan="3" style="'+ci+pd+ctr+'font-weight:700;background:#e8f4f8;width:22px;vertical-align:middle;border-left:2px solid #333;border-top:2px solid #333">순</td>';
-    h+='<td rowspan="3" style="'+ci+pd+ctr+'font-weight:700;background:#e8f4f8;width:55px;vertical-align:middle;border-top:2px solid #333">직위</td>';
-    h+='<td rowspan="3" style="'+ci+pd+ctr+'font-weight:700;background:#e8f4f8;width:55px;vertical-align:middle;border-top:2px solid #333">이름</td>';
-    _trsItems.forEach(function(item,ti){
-      const isLastTr=ti===_trsItems.length-1;
-      h+='<td colspan="2" style="'+ci+pd+ctr+'font-weight:700;font-size:8px;white-space:nowrap;overflow:hidden;max-width:160px;background:#e8f4f8;border-top:2px solid #333'+(isLastTr?';border-right:2px solid #333':'')+'">'+escHtml(item.name);
-      if(item.isLegal)h+=' <span style="color:#c0392b;font-size:7px">(법정)</span>';
-      h+='</td>';
-    });
-    h+='</tr>';
-    /* 7행: 이수율 % */
-    h+='<tr><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">7</td>';
-    _trsItems.forEach(function(item,ti){
-      const comps=item.completions||{};
-      let filled=0;
-      staffList.forEach(function(s){if(comps[s.id])filled++;});
-      const pct=totalStaff>0?Math.round(filled/totalStaff*100):0;
-      const isLastTr=ti===_trsItems.length-1;
-      h+='<td colspan="2" style="'+ci+pd+ctr+'font-size:8px;font-weight:700;color:'+(pct>=100?'#16a34a':pct>0?'#2855A0':'#999')+';background:#f0f8ff'+(isLastTr?';border-right:2px solid #333':'')+'">'+pct+'% ('+filled+'/'+totalStaff+')</td>';
-    });
-    h+='</tr>';
-    /* 8행: 이수기관 / 이수번호 서브 헤더 */
-    h+='<tr style="background:#e8f4f8"><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">8</td>';
-    _trsItems.forEach(function(item,ti){
-      const isLastTr=ti===_trsItems.length-1;
-      h+='<td style="'+ci+pd+ctr+'font-weight:700;font-size:8px;width:70px">연수기관</td>';
-      h+='<td style="'+ci+pd+ctr+'font-weight:700;font-size:8px;width:70px'+(isLastTr?';border-right:2px solid #333':'')+'">이수번호</td>';
-    });
-    h+='</tr>';
-    /* 데이터 행 (바깥 굵은선, 내부 일반선) */
-    staffList.forEach(function(s,si){
-      const isLast=si===staffList.length-1;
-      const btm=isLast?'border-bottom:2px solid #333;':'';
-      h+='<tr><td style="'+bd+ctr+'font-size:8px;color:#666;background:#f8f8f8">'+(si+9)+'</td>';
-      h+='<td style="'+ci+pd+ctr+'border-left:2px solid #333;'+btm+'">'+(si+1)+'</td>';
-      h+='<td style="'+ci+pd+ctr+btm+'">'+(s.position||'교직원')+'</td>';
-      h+='<td style="'+ci+pd+ctr+btm+'font-weight:600">'+escHtml(s.name)+'</td>';
-      _trsItems.forEach(function(item,ti){
-        const inst=(item.certInstitutions&&item.certInstitutions[s.id])||'';
-        const cert=(item.completions&&item.completions[s.id])||'';
-        const isLastTr=ti===_trsItems.length-1;
-        h+='<td style="'+ci+pd+ctr+btm+'color:#555;font-size:8px">'+escHtml(inst)+'</td>';
-        h+='<td style="'+ci+pd+ctr+btm+'color:#555;font-size:8px'+(isLastTr?';border-right:2px solid #333':'')+'">'+escHtml(cert)+'</td>';
-      });
-      h+='</tr>';
-    });
-    h+='</table>';
-    h+='</div></div>';
+    h+='<div id="trsPreviewScroll" style="flex:1;overflow:auto;padding:20px">';
+    h+='<div id="trsPreviewA4Wrap" style="margin:0 auto;width:297mm">'+_trsBuildA4SheetHtml()+'</div>';
+    h+='</div>';
   }
   h+='</div>';
+
   h+='</div>';
   area.innerHTML=h;
-  /* 이벤트 위임 — renderTrainingStatus */
-  area.addEventListener('click',function(e){
-    const el=e.target.closest('[data-trs-action]');if(!el)return;
-    const act=el.dataset.trsAction;
-    if(act==='addNew') trsAddNew();
-    else if(act==='editItem') trsEditItem(parseInt(el.dataset.idx));
-    else if(act==='showMessagePopup') trsShowMessagePopup();
-    else if(act==='showNoticeLog') trsShowNoticeLog();
-    else if(act==='exportAllSheets') trsExportAllSheets();
-    else if(act==='exportPDF') trsExportPDF();
-    else if(act==='trsPrint') trsPrint();
-  });
+  /* 이벤트 위임 — renderTrainingStatus.
+   * 컨테이너(#trainingStatusArea)는 지속 요소라 렌더마다 addEventListener 를 걸면 리스너가 쌓여
+   * 클릭 1번에 편집 팝업이 N겹으로 열리고, 외부 클릭은 최상단 한 겹만 닫아 "한 번에 안 꺼지는"
+   * 버그가 됨(사용자 보고 2026-08-25) → 최초 1회만 바인딩. 핸들러는 모듈 함수만 호출. */
+  if(!area._trsActionsBound){
+    area._trsActionsBound=true;
+    area.addEventListener('click',function(e){
+      const el=e.target.closest('[data-trs-action]');if(!el)return;
+      const act=el.dataset.trsAction;
+      if(act==='addNew') trsAddNew();
+      else if(act==='editItem') trsEditItem(parseInt(el.dataset.idx));
+      else if(act==='showMessagePopup') trsShowMessagePopup();
+      else if(act==='showNoticeLog') trsShowNoticeLog();
+      else if(act==='exportAllSheets') trsExportAllSheets();
+      else if(act==='trsExportExcel') trsExportExcel();
+      else if(act==='exportPDF') trsExportPDF();
+      else if(act==='trsPrint') trsPrint();
+    });
+  }
   area.querySelectorAll('.trs-list-item').forEach(function(el){
     el.addEventListener('mouseenter',function(){this.style.background='rgba(6,182,212,0.04)';this.style.borderLeftColor='var(--cyan)';});
     el.addEventListener('mouseleave',function(){this.style.background='';this.style.borderLeftColor='transparent';});
   });
+  _trsAutoFitPreview();   /* A4 가로 페이지를 미리보기 폭에 맞게 축소 (2026-08-25) */
 }
 
 /* ── 연수 항목 편집 팝업 ── */
 function trsEditItem(idx){
   const item=_trsItems[idx];if(!item)return;
+  /* 방어 — 같은 팝업이 이미 떠 있으면 제거 후 새로 (겹침 시 외부 클릭이 한 번에 안 닫히는 문제 방지) */
+  const _old=document.getElementById('trsEditOverlay');if(_old)_old.remove();
   const ov=document.createElement('div');ov.id='trsEditOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.36);z-index:2200';
   let h='<div class="modal-content" style="width:440px;max-height:80vh;overflow-y:auto;padding:0">';
-  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><div class="modal-title">📝 연수 정보 수정</div><span data-edit-action="close" style="cursor:pointer;font-size:18px;color:var(--t3);line-height:1">✕</span></div>';
+  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><div class="modal-title">📝 연수 정보 수정</div></div>';
   h+='<div style="padding:18px 24px;display:flex;flex-direction:column;gap:10px">';
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px;font-weight:600">연수 또는 교육명</label><input class="form-input trs-edit-field" id="trsEditName" value="'+escHtml(item.name)+'" style="width:100%;font-size:12px"></div>';
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px;font-weight:600">이수 기한</label><input class="form-input trs-edit-field" id="trsEditDeadline" value="'+(item.deadline||'')+'" placeholder="YYYY-MM-DD" style="width:100%;font-size:12px"></div>';
@@ -1372,7 +1226,9 @@ function trsEditItem(idx){
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){
-    if(e.target===ov){closeModalGracefully(ov);return;}
+    /* 외부(오버레이) 클릭 — 애니메이션 없이 즉시 닫아 깜빡임 제거.
+       닫기 전 대기 중인 자동저장을 동기 플러시해 마지막 편집 유실 방지. */
+    if(e.target===ov){clearTimeout(_trsEditSaveTimer);_trsCommitEdit(idx);ov.remove();return;}
     const el=e.target.closest('[data-edit-action]');if(!el)return;
     const act=el.dataset.editAction;
     if(act==='close') closeModalGracefully(ov);
@@ -1396,20 +1252,26 @@ function _trsAddInstField(idx){
   d.querySelector('input').focus();
 }
 let _trsEditSaveTimer=null;
+/* 편집 모달의 현재 입력값을 읽어 저장 — 모달이 아직 DOM 에 있을 때만.
+   (모달이 닫힌 뒤 호출되면 요소가 null 이라 이수기한·URL·기관목록이 빈값으로 덮이는 문제를 차단) */
+function _trsCommitEdit(idx){
+  const item=_trsItems[idx];if(!item)return;
+  if(!document.getElementById('trsEditName'))return;
+  item.name=(document.getElementById('trsEditName')||{}).value||item.name;
+  item.deadline=(document.getElementById('trsEditDeadline')||{}).value||'';
+  item.siteUrl=(document.getElementById('trsEditUrl')||{}).value||'';
+  item.isLegal=(document.getElementById('trsEditLegal')||{}).checked||false;
+  const instInputs=document.querySelectorAll('.trs-inst-input');
+  item.institutions=[];
+  instInputs.forEach(function(inp){const v=inp.value.trim();if(v)item.institutions.push(v);});
+  _trsSave();
+  renderTrainingStatus();
+}
 function _trsAutoSaveEdit(idx){
   _trsToast('저장 중...');
   clearTimeout(_trsEditSaveTimer);
   _trsEditSaveTimer=setTimeout(function(){
-    const item=_trsItems[idx];if(!item)return;
-    item.name=(document.getElementById('trsEditName')||{}).value||item.name;
-    item.deadline=(document.getElementById('trsEditDeadline')||{}).value||'';
-    item.siteUrl=(document.getElementById('trsEditUrl')||{}).value||'';
-    item.isLegal=(document.getElementById('trsEditLegal')||{}).checked||false;
-    const instInputs=document.querySelectorAll('.trs-inst-input');
-    item.institutions=[];
-    instInputs.forEach(function(inp){const v=inp.value.trim();if(v)item.institutions.push(v);});
-    _trsSave();
-    renderTrainingStatus();
+    _trsCommitEdit(idx);
     _trsToast('✓ 모든 내용이 저장되었습니다.');
   },500);
 }
@@ -1493,81 +1355,191 @@ function _trsMsgCopy(){
   });
 }
 
-/* ── PDF / 인쇄 (이수 현황) ── */
-function _trsBuildPrintHtml(){
+/* ── 이수 현황 A4 시트 (공용 빌더, 2026-08-25) ──
+ * 미리보기(renderTrainingStatus)·PDF(trsExportPDF)·인쇄(trsPrint)가 이 HTML 하나를 그대로 사용
+ * → "미리보기=PDF=인쇄" 일치 (등록부 _buildTrainingPreviewHtml 와 같은 구조, 사용자 요청).
+ * A4 가로(297×210mm) 페이지 단위로 직원 행을 나누고, 매 페이지 열 머리글(연수명·이수율·연수기관/이수번호) 반복.
+ * .trs-a4-page 의 min-height 는 화면 미리보기용 — 인쇄 문서 CSS 가 0 으로 덮어 page-break 와 충돌하지 않게 한다.
+ * .trs-page-sep(점선 구분)은 화면 전용 — 인쇄 문서 CSS 에서 숨김. */
+function _trsBuildA4SheetHtml(){
   const staffList=sortStaffList(S.people.filter(function(s){return s.type==='staff';}));
   const yr=new Date().getFullYear();
   const schoolName=S.settings.schoolName||'○○학교';
-  const numTr=_trsItems.length;
-  const totalCols=3+numTr*2;
-  const bd='border:1px solid #999;';const pd='padding:4px 6px;';const ctr='text-align:center;';
-  let h='<!DOCTYPE html><html><head><meta charset="utf-8"><title>연수 이수 현황</title>';
-  const bdt2='border:2px solid #333;';
-  h+='<style>@page{size:landscape;margin:10mm 10mm 10mm 10mm}body{font-family:"Pretendard Variable","Pretendard","Noto Sans KR","맑은 고딕",sans-serif;color:#000;font-size:9px}table{border-collapse:collapse;width:100%}thead{display:table-header-group}tr{page-break-inside:avoid}</style></head><body>';
-  h+='<table>';
-  /* thead — 색상선+제목+헤더 (인쇄 시 매 페이지 반복) */
-  h+='<thead>';
-  /* 1행: 색상선 */
-  const halfC=Math.ceil(totalCols/2);
-  h+='<tr><td colspan="'+halfC+'" style="background:#2855A0;height:12px;padding:0;border:none"></td><td colspan="'+(totalCols-halfC)+'" style="background:#D4A843;height:12px;padding:0;border:none"></td></tr>';
-  /* 2행: 제목 */
-  h+='<tr><td colspan="'+totalCols+'" style="background:#F7F7F7;text-align:center;padding:10px 16px;font-size:16px;font-weight:700;letter-spacing:3px;border:none">'+yr+'학년도 '+escHtml(schoolName)+' 보건 연수 이수 현황</td></tr>';
-  /* 3행: 색상선 */
-  const halfC2=Math.ceil(totalCols*3/10);
-  h+='<tr><td colspan="'+halfC2+'" style="background:#2E8B57;height:12px;padding:0;border:none"></td><td colspan="'+(totalCols-halfC2)+'" style="background:#C0392B;height:12px;padding:0;border:none"></td></tr>';
-  /* 4행: 여백 */
-  h+='<tr><td colspan="'+totalCols+'" style="height:12px;padding:0;border:none"></td></tr>';
-  /* 5행: 안내 */
-  h+='<tr><td colspan="'+totalCols+'" style="text-align:right;font-size:9px;color:#555;border:none;padding:2px 4px">관리자는 상단에 배열, 이하 가나다 순</td></tr>';
-  /* 6행: 연수명 */
-  h+='<tr><td rowspan="3" style="font-weight:700;background:#e8f4f8;width:22px;vertical-align:middle;'+bdt2+'">순</td>';
-  h+='<td rowspan="3" style="font-weight:700;background:#e8f4f8;width:50px;vertical-align:middle;'+bdt2+'">직위</td>';
-  h+='<td rowspan="3" style="font-weight:700;background:#e8f4f8;width:50px;vertical-align:middle;'+bdt2+'">이름</td>';
-  _trsItems.forEach(function(item){
-    h+='<td colspan="2" style="font-weight:700;background:#e8f4f8;font-size:8px;'+bdt2+'">'+item.name;
-    if(item.isLegal)h+=' <span style="color:#c0392b">(법정)</span>';
-    h+='</td>';
-  });
-  h+='</tr>';
-  /* 7행: 이수율 */
-  h+='<tr>';
-  _trsItems.forEach(function(item){
-    const comps=item.completions||{};let filled=0;
-    staffList.forEach(function(s){if(comps[s.id])filled++;});
-    const pct=staffList.length>0?Math.round(filled/staffList.length*100):0;
-    h+='<td colspan="2" style="font-size:8px;font-weight:700;color:'+(pct>=100?'#16a34a':'#2855A0')+';background:#f0f8ff;'+bdt2+'">'+pct+'% ('+filled+'/'+staffList.length+')</td>';
-  });
-  h+='</tr>';
-  /* 8행: 서브헤더 */
-  h+='<tr style="background:#e8f4f8">';
-  _trsItems.forEach(function(){
-    h+='<td style="font-weight:700;font-size:8px;'+bdt2+'">연수기관</td><td style="font-weight:700;font-size:8px;'+bdt2+'">이수번호</td>';
-  });
-  h+='</tr>';
-  h+='</thead><tbody>';
-  /* 데이터 행 */
-  const ci2='border:1px solid #999;padding:4px 6px;text-align:center;';
-  staffList.forEach(function(s,si){
-    const isLast=si===staffList.length-1;
-    const btm=isLast?'border-bottom:2px solid #333;':'';
-    h+='<tr><td style="'+ci2+'border-left:2px solid #333;'+btm+'">'+(si+1)+'</td><td style="'+ci2+btm+'">'+(s.position||'교직원')+'</td><td style="font-weight:600;'+ci2+btm+'">'+s.name+'</td>';
+  const totalCols=3+_trsItems.length*2;
+  const totalStaff=staffList.length;
+  const ci='border:1px solid #c0c0c0;';
+  const pd='padding:3px 5px;';
+  /* 데이터 행 전용 — 세로 여유를 키워 빽빽함 완화 + 하단 여백 축소 (사용자 요청 2026-08-25) */
+  const pdData='padding:6px 5px;font-size:9.5px;';
+  const ctr='text-align:center;';
+  /* 페이지당 행수 — A4 가로 유효높이(190mm)에서 제목·머리글을 뺀 수치.
+   * 행 높이 28px 실측(2026-08-25 CDP) 기준 재계산: 1페이지 18행, 이후 21행.
+   * (20/24 는 페이지가 816~833px 로 794px(210mm)를 넘쳐 인쇄 페이지가 밀리는 것 실측 확인 후 하향) */
+  const ROWS_FIRST=18, ROWS_NEXT=21;
+  const chunks=[];
+  if(totalStaff===0){ chunks.push([]); }
+  else{
+    chunks.push(staffList.slice(0,ROWS_FIRST));
+    for(let i=ROWS_FIRST;i<totalStaff;i+=ROWS_NEXT) chunks.push(staffList.slice(i,i+ROWS_NEXT));
+  }
+  const FONT="font-family:'Pretendard Variable','Pretendard','Noto Sans KR','맑은 고딕',sans-serif;";
+  let h='';
+  chunks.forEach(function(chunk,pi){
+    h+='<div class="trs-a4-page" style="width:297mm;min-height:210mm;box-sizing:border-box;background:#fff;padding:10mm;'+FONT+'color:#000'+(pi>0?';page-break-before:always':'')+'">';
+    if(pi===0){
+      /* 헤더 — 색상선·제목·안내 (등록부와 동일 팔레트·테두리 정렬) */
+      h+='<div style="height:12px;display:flex;border-left:1px solid #c0c0c0;border-right:1px solid #c0c0c0;border-top:1px solid #c0c0c0"><div style="flex:7;background:#2855A0"></div><div style="flex:3;background:#D4A843"></div></div>';
+      h+='<div style="background:#F7F7F7;text-align:center;padding:10px 16px;font-size:16px;font-weight:700;letter-spacing:3px;border-left:1px solid #c0c0c0;border-right:1px solid #c0c0c0">'+yr+'학년도 '+escHtml(schoolName)+' 보건 연수 이수 현황</div>';
+      h+='<div style="height:12px;display:flex;border-left:1px solid #c0c0c0;border-right:1px solid #c0c0c0"><div style="flex:3;background:#2E8B57"></div><div style="flex:7;background:#C0392B"></div></div>';
+      h+='<div style="padding:4px 5px 8px;font-size:9px;color:#555;text-align:right;border-left:1px solid #c0c0c0;border-right:1px solid #c0c0c0">관리자는 상단에 배열, 이하 가나다 순</div>';
+    }
+    /* 표 — 매 페이지 열 머리글 반복 */
+    h+='<table style="width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed">';
+    h+='<tr>';
+    h+='<td rowspan="3" style="'+ci+pd+ctr+'font-weight:700;background:#e8f4f8;width:26px;vertical-align:middle;border-left:2px solid #333;border-top:2px solid #333">순</td>';
+    h+='<td rowspan="3" style="'+ci+pd+ctr+'font-weight:700;background:#e8f4f8;width:58px;vertical-align:middle;border-top:2px solid #333">직위</td>';
+    h+='<td rowspan="3" style="'+ci+pd+ctr+'font-weight:700;background:#e8f4f8;width:58px;vertical-align:middle;border-top:2px solid #333">이름</td>';
     _trsItems.forEach(function(item,ti){
-      const inst=(item.certInstitutions&&item.certInstitutions[s.id])||'';
-      const cert=(item.completions&&item.completions[s.id])||'';
       const isLastTr=ti===_trsItems.length-1;
-      h+='<td style="font-size:8px;'+ci2+btm+'">'+inst+'</td><td style="font-size:8px;'+ci2+btm+(isLastTr?'border-right:2px solid #333;':'')+'">'+cert+'</td>';
+      h+='<td colspan="2" style="'+ci+pd+ctr+'font-weight:700;font-size:8px;white-space:nowrap;overflow:hidden;background:#e8f4f8;border-top:2px solid #333'+(isLastTr?';border-right:2px solid #333':'')+'">'+escHtml(item.name)+(item.isLegal?' <span style="color:#c0392b;font-size:7px">(법정)</span>':'')+'</td>';
     });
     h+='</tr>';
+    h+='<tr>';
+    _trsItems.forEach(function(item,ti){
+      const comps=item.completions||{};
+      let filled=0; staffList.forEach(function(s){if(comps[s.id])filled++;});
+      const pct=totalStaff>0?Math.round(filled/totalStaff*100):0;
+      const isLastTr=ti===_trsItems.length-1;
+      h+='<td colspan="2" style="'+ci+pd+ctr+'font-size:8px;font-weight:700;color:'+(pct>=100?'#16a34a':pct>0?'#2855A0':'#999')+';background:#f0f8ff'+(isLastTr?';border-right:2px solid #333':'')+'">'+pct+'% ('+filled+'/'+totalStaff+')</td>';
+    });
+    h+='</tr>';
+    h+='<tr style="background:#e8f4f8">';
+    _trsItems.forEach(function(item,ti){
+      const isLastTr=ti===_trsItems.length-1;
+      h+='<td style="'+ci+pd+ctr+'font-weight:700;font-size:8px">연수기관</td>';
+      h+='<td style="'+ci+pd+ctr+'font-weight:700;font-size:8px'+(isLastTr?';border-right:2px solid #333':'')+'">이수번호</td>';
+    });
+    h+='</tr>';
+    /* 데이터 행 — 전역 순번 유지, 페이지 마지막 행에 하단 굵은선.
+     * 행 높이를 명시 px 로 고정 — 페이지 예산(1p 538px/18행, 이후 633px/21행)을 행이 정확히 나눠 갖게 해
+     * 미리보기·PDF 모두 하단 여백 없이 페이지를 채운다 (PDF 하단 여백 재발 보고 2026-08-25:
+     * 인쇄 문서는 min-height 를 못 쓰므로 폰트 메트릭 차이만큼 아래가 비던 문제의 결정적 해결). */
+    const _rowH = pi===0 ? 29 : 30;
+    const baseIdx = pi===0 ? 0 : ROWS_FIRST+(pi-1)*ROWS_NEXT;
+    chunk.forEach(function(s,ri){
+      const globalIdx=baseIdx+ri;
+      const btm=(ri===chunk.length-1)?'border-bottom:2px solid #333;':'';
+      h+='<tr style="height:'+_rowH+'px">';
+      h+='<td style="'+ci+pdData+ctr+'border-left:2px solid #333;'+btm+'">'+(globalIdx+1)+'</td>';
+      h+='<td style="'+ci+pdData+ctr+btm+'">'+escHtml(s.position||'교직원')+'</td>';
+      h+='<td style="'+ci+pdData+ctr+btm+'font-weight:600">'+escHtml(s.name)+'</td>';
+      _trsItems.forEach(function(item,ti){
+        const inst=(item.certInstitutions&&item.certInstitutions[s.id])||'';
+        const cert=(item.completions&&item.completions[s.id])||'';
+        const isLastTr=ti===_trsItems.length-1;
+        h+='<td style="'+ci+pdData+ctr+btm+'color:#555;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+escHtml(inst)+'</td>';
+        h+='<td style="'+ci+pdData+ctr+btm+'color:#555;overflow:hidden;white-space:nowrap;text-overflow:ellipsis'+(isLastTr?';border-right:2px solid #333':'')+'">'+escHtml(cert)+'</td>';
+      });
+      h+='</tr>';
+    });
+    if(chunk.length===0){
+      h+='<tr><td colspan="'+totalCols+'" style="'+ci+pd+ctr+'border-left:2px solid #333;border-right:2px solid #333;border-bottom:2px solid #333;padding:16px;color:#888">등록된 교직원이 없습니다.</td></tr>';
+    }
+    h+='</table>';
+    h+='<div style="text-align:center;font-size:8px;color:#999;margin-top:6px">- '+(pi+1)+' / '+chunks.length+' -</div>';
+    h+='</div>';
+    if(pi<chunks.length-1){
+      h+='<div class="trs-page-sep" style="border-top:3px dashed #ccc;margin:16px 0"></div>';
+    }
   });
-  h+='</tbody></table></body></html>';
   return h;
 }
+
+/* A4 가로 페이지(1123px@96dpi)를 미리보기 영역 폭에 맞게 축소 — 등록부 _trAutoFitPreview 와 동일 취지 */
+function _trsAutoFitPreview(){
+  setTimeout(function(){
+    const scroll=document.getElementById('trsPreviewScroll');
+    const wrap=document.getElementById('trsPreviewA4Wrap');
+    if(!scroll||!wrap)return;
+    const availW=scroll.clientWidth-40;
+    const pageW=1123;
+    const scale=Math.min(availW/pageW,1);
+    wrap.style.transform='scale('+scale+')';
+    wrap.style.transformOrigin='top center';
+  },50);
+}
+
+/* ── PDF / 인쇄 (이수 현황) ── */
+
+function _trsBuildPrintHtml(){
+  /* 미리보기와 완전히 같은 HTML(_trsBuildA4SheetHtml)을 인쇄 문서로 포장 — "보이는 대로 인쇄" (2026-08-25).
+   * @page margin 0 + 페이지 div 자체 padding(10mm) 이 여백을 담당 (PDF 는 marginsType:1(무여백)과 짝). */
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>연수 이수 현황</title>'
+    +'<style>'
+    +'@page{size:A4 landscape;margin:0}'
+    +'html,body{margin:0;padding:0}'
+    +"body{font-family:'Pretendard Variable','Pretendard','Noto Sans KR','맑은 고딕',sans-serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+    +'.trs-a4-page{min-height:0 !important}'   /* 화면용 min-height 제거 — page-break 정확성 */
+    +'.trs-page-sep{display:none}'             /* 점선 페이지 구분은 화면 전용 */
+    +'tr{page-break-inside:avoid}'
+    +'</style></head><body>'
+    +_trsBuildA4SheetHtml()
+    +'</body></html>';
+}
+/* ── 연수 이수 현황 Excel 로 내보내기 — 전용 빌더(xlsx-build-training-status) 사용,
+ *  A4 미리보기와 동일한 색상바·3중 헤더·이수율 색상 반영 (사용자 요청 2026-08-25) ── */
+function trsExportExcel(){
+  if(!(window.electronAPI&&window.electronAPI.xlsxBuildTrainingStatus)){appConfirmModal('Excel 빌드 기능을 사용할 수 없습니다.','Excel로 내보내기',{okOnly:true,okLabel:'확인'});return;}
+  if(_trsItems.length===0){appConfirmModal('먼저 <b>+ 연수 추가</b>로 연수를 등록해 주세요.','Excel로 내보내기',{okOnly:true,okLabel:'확인'});return;}
+  const staffList=sortStaffList(S.people.filter(function(s){return s.type==='staff';}));
+  const totalStaff=staffList.length;
+  const yr=new Date().getFullYear();
+  const schoolName=S.settings.schoolName||'○○학교';
+  const items=_trsItems.map(function(item){
+    const comps=item.completions||{};
+    let filled=0; staffList.forEach(function(s){if(comps[s.id])filled++;});
+    const pct=totalStaff>0?Math.round(filled/totalStaff*100):0;
+    return {
+      name:item.name,
+      isLegal:!!item.isLegal,
+      pctText:pct+'% ('+filled+'/'+totalStaff+')',
+      pctColor:pct>=100?'FF16A34A':(pct>0?'FF2855A0':'FF999999')
+    };
+  });
+  const staffRows=staffList.map(function(s,si){
+    const row=[String(si+1),s.position||'교직원',s.name];
+    _trsItems.forEach(function(item){
+      row.push((item.certInstitutions&&item.certInstitutions[s.id])||'',(item.completions&&item.completions[s.id])||'');
+    });
+    return row;
+  });
+  const titleText=yr+'학년도 '+schoolName+' 보건 연수 이수 현황';
+  /* 파일명 통일 — "2026년 ○○학교 보건 연수 이수 현황" 형식 (PDF 와 동일, 사용자 요청 2026-08-25) */
+  const fileName=(yr+'년 '+schoolName+' 보건 연수 이수 현황').replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';
+  window.electronAPI.xlsxBuildTrainingStatus({
+    titleText:titleText,
+    noteText:'관리자는 상단에 배열, 이하 가나다 순',
+    items:items,
+    staffRows:staffRows
+  }).then(function(res){
+    if(!(res&&res.success)){
+      appConfirmModal('Excel 생성에 실패했습니다.<br><span style="font-size:11px;color:var(--t3)">'+escHtml(String((res&&res.error)||''))+'</span>','Excel로 내보내기',{okOnly:true,okLabel:'확인'});
+      return;
+    }
+    _trDeliverXlsxBytes(res.bytes,fileName);
+  }).catch(function(e){appConfirmModal('Excel 생성 중 오류가 발생했습니다.<br><span style="font-size:11px;color:var(--t3)">'+escHtml(String((e&&e.message)||e))+'</span>','Excel로 내보내기',{okOnly:true,okLabel:'확인'});});
+}
+
 function trsExportPDF(){
   const html=_trsBuildPrintHtml();
   const yr=new Date().getFullYear();
-  const fileName=yr+'학년도 보건 연수 이수 현황.pdf';
+  /* 파일명 통일 — "2026년 ○○학교 보건 연수 이수 현황" 형식 (Excel 과 동일, 사용자 요청 2026-08-25) */
+  const _sn=(S.settings.schoolName||'').replace(/[\\/:*?"<>|]/g,'_');
+  const fileName=yr+'년 '+(_sn?_sn+' ':'')+'보건 연수 이수 현황.pdf';
   if(window.electronAPI&&window.electronAPI.printToPDF){
-    window.electronAPI.printToPDF(html,{fileName:fileName}).then(function(res){
+    /* landscape:true — 문서 @page(A4 landscape)와 일치. marginsType:1(무여백) 은 서비스 기본값,
+     * 여백은 페이지 div 의 10mm padding 이 담당 → 미리보기와 동일 (2026-08-25) */
+    window.electronAPI.printToPDF(html,{fileName:fileName,landscape:true}).then(function(res){
       if(res&&res.success)_trsToast('✓ PDF 저장 완료');
       else if(res&&res.error!=='cancelled')alert('PDF 저장 실패: '+res.error);
     }).catch(function(e){alert('PDF 저장 실패: '+e.message);});
@@ -1696,6 +1668,8 @@ function _trsNoticeCopyTable(){
 
 /* ── 새 연수 이수 안내 추가 팝업 ── */
 function trsAddNew(){
+  /* 방어 — 같은 팝업이 이미 떠 있으면 제거 후 새로 (겹침 시 외부 클릭이 한 번에 안 닫히는 문제 방지) */
+  const _old=document.getElementById('trsAddOverlay');if(_old)_old.remove();
   const ov=document.createElement('div');
   ov.id='trsAddOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.36);z-index:2200';
@@ -1778,14 +1752,17 @@ function _trsRenderCal(){
   }
   h+='</div></div>';
   wrap.innerHTML=h;
-  /* 이벤트 위임 — 이수 기한 달력 */
-  wrap.addEventListener('click',function(e){
-    const el=e.target.closest('[data-trs-cal]');if(!el)return;
-    const act=el.dataset.trsCal;
-    if(act==='prevYear'){_trsCalYear--;_trsRenderCal();}
-    else if(act==='nextYear'){_trsCalYear++;_trsRenderCal();}
-    else if(act==='selectDate'){_trsSelectDate(el.dataset.date);}
-  });
+  /* 이벤트 위임 — 이수 기한 달력. 지속 요소 재바인딩 금지 (리스너 누적 → 1클릭 다중 동작, 2026-08-25) */
+  if(!wrap._trsCalBound){
+    wrap._trsCalBound=true;
+    wrap.addEventListener('click',function(e){
+      const el=e.target.closest('[data-trs-cal]');if(!el)return;
+      const act=el.dataset.trsCal;
+      if(act==='prevYear'){_trsCalYear--;_trsRenderCal();}
+      else if(act==='nextYear'){_trsCalYear++;_trsRenderCal();}
+      else if(act==='selectDate'){_trsSelectDate(el.dataset.date);}
+    });
+  }
   const _monthLabel=wrap.querySelector('#trsCalMonthLabel');
   if(_monthLabel){
     _monthLabel.addEventListener('mouseenter',function(){_trsShowMonthPicker(this);});
@@ -2008,8 +1985,7 @@ async function trsExportAllSheets(){
 /* _trCalMonth/_trCalYear — 모듈 로컬 변수 */
 /* _trRefreshMsgBody — IIFE 내부 전용 */
 
-/* _trRenderGradeSelect — IIFE 내부 전용 */
-/* _trRenderClassCards — IIFE 내부 전용 */
+/* (대상 선택 자체 팝업 함수들은 2026-08-25 openPersonSearch 다중 선택 모드로 대체·제거됨) */
 
 /* _formatTrainingDate — IIFE 내부 전용 */
 /* _formatTrainingDateTime — IIFE 내부 전용 */
@@ -2040,8 +2016,6 @@ const _trLiveVars = {
 /* Snapshot-only variables (internal use) */
 /* _trMarginDrag — IIFE 내부 전용 */
 /* _trPreviewScale — IIFE 내부 전용 */
-/* _trTargetStep — IIFE 내부 전용 */
-/* _trTargetSelectedGrades — IIFE 내부 전용 */
 /* _trsItems — IIFE 내부 전용 */
 /* _trsEditSaveTimer — IIFE 내부 전용 */
 /* _trsMsgSaveTimer — IIFE 내부 전용 */

@@ -347,7 +347,7 @@ if(viewFragmentLoader){
       /* 동명이인 매칭 보류 항목 알림 — 하루 1회 */
       setTimeout(function(){
         if(!window.electronAPI || !window.electronAPI.studentsPendingAmbiguousCount) return;
-        const today = new Date().toISOString().slice(0,10);
+        const today = toDateStr(new Date());   /* 로컬 날짜 — toISOString(UTC)은 오전 9시 전 하루 밀림 (2026-08-12) */
         const lastShown = localStorage.getItem('ec_amb_notify_date') || '';
         if(lastShown === today) return;
         window.electronAPI.studentsPendingAmbiguousCount().then(function(res){

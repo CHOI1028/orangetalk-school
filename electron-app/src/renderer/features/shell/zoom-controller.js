@@ -5,7 +5,7 @@
  *      → 헤더(position:fixed)·메인·하단 모두 동일 비율로 시각·레이아웃 모두 확대.
  *   2) 확대 시에만 body { overflow:auto; min-width:unset } 인라인 오버라이드 주입
  *      → viewport propagation 으로 인한 스크롤 차단 해제 + 가로 폭 viewport 정렬.
- *   3) Ctrl+휠로 1.0 ~ 1.5 범위 조절. 100% 미만 불가.
+ *   3) Ctrl+휠로 1.0 ~ 1.6 범위 조절. 100% 미만 불가.
  * 메인 프로세스 IPC 호출 없음 — 스플래시·렌더 라이프사이클에 절대 간섭하지 않음.
  */
 'use strict';
@@ -13,7 +13,7 @@
 const _LS_FACTOR  = 'ec_zoom_factor';
 const _LS_ENABLED = 'ec_zoom_enabled';
 const MIN_ZOOM = 1.0;
-const MAX_ZOOM = 1.25;
+const MAX_ZOOM = 1.6;   /* 상한 160% (2026-07-21, 노안·대형 모니터 요청). _clamp·Ctrl+휠·setZoomFactor 모두 이 값 기준 */
 const STEP     = 0.05;
 
 let _styleEl = null;
@@ -268,7 +268,10 @@ function _apply(factor){
     const OVERLAY_SEL = SPAN_OVERLAYS + ',[data-ec-zoom-rebound="overlay"]';
     _ensureStyle().textContent =
       'html{overflow:auto!important}'
-      + 'body,body.loaded{overflow:visible!important;min-height:100vh!important}'
+      /* 세로: min-height:100vh + 콘텐츠로 넘침 → html 세로 스크롤. 가로: min-width:max-content 로
+       * body 가 '콘텐츠 실제 폭'만큼 넓어졌다고 html 에 알려야 html 가로 스크롤바가 생긴다.
+       * (루트 zoom + overflow 조합에서 세로만 잡히고 가로가 안 잡히던 문제 — 2026-07-21 160% 대응) */
+      + 'body,body.loaded{overflow:visible!important;min-height:100vh!important;min-width:max-content!important}'
       + '.top-header{position:absolute!important;left:0!important;right:auto!important;width:100%!important}'
       + '.header-row1,.header-row2{max-width:none!important}'
       /* 사이드바 sticky 해제 — zoom 활성 시 본문과 같이 스크롤되도록 (사용자 요청) */

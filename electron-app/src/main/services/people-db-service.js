@@ -12,7 +12,7 @@ const { HealthDiaryDB } = require('./database');
  */
 
 /* 성별 정규화 맵 (upsert에서 공유) */
-const GENDER_MAP = { '남자': '남', '여자': '여', '녀자': '여', '녀': '여', '남성': '남', '여성': '여', 'M': '남', 'F': '여', 'm': '남', 'f': '여', 'male': '남', 'female': '여', 'Male': '남', 'Female': '여' };
+const GENDER_MAP = {'남자':'남','여자':'여','녀자':'여','녀':'여','남성':'남','여성':'여','M':'남','F':'여','m':'남','f':'여','male':'남','female':'여','Male':'남','Female':'여'};
 
 /* ══════════ StudentsDBService ══════════ */
 
@@ -113,10 +113,8 @@ class StudentsDBService {
           /* 같은 자리(학교급+학과+학년+반+번호)에 다른 이름 = 당해년도 자리 고유성 위반 → 실수로 보고 거부.
              (사용자 확정 2026-06-13: 개별·일괄 공통. 다른 학과의 같은 학년·반·번호는 자리가 달라 정상 등록됨.) */
           const _seatLoc = (data.department ? data.department + ' ' : '') + _g + '학년 ' + _c + '반 ' + _n + '번';
-          return {
-            success: false, code: 'SEAT_TAKEN', seatName: (seatRow.name || ''),
-            error: _seatLoc + ' ' + (seatRow.name || '') + ' 학생이 이미 있습니다. (같은 자리에 다른 이름은 등록할 수 없습니다)'
-          };
+          return { success: false, code: 'SEAT_TAKEN', seatName: (seatRow.name || ''),
+                   error: _seatLoc + ' ' + (seatRow.name || '') + ' 학생이 이미 있습니다. (같은 자리에 다른 이름은 등록할 수 없습니다)' };
         } else {
           /* 그 자리의 기존 학생이 전출(is_enrolled=0)된 상태 → 자리가 비었으므로 새 학생 등록 허용 */
           uid = HealthDiaryDB.generateStudentUid(this._db.db);
@@ -126,7 +124,7 @@ class StudentsDBService {
       }
     }
 
-    const _normGender = GENDER_MAP[(data.gender || '').trim()] || (data.gender || '').trim();
+    const _normGender = GENDER_MAP[(data.gender||'').trim()] || (data.gender||'').trim();
 
     /* 생년월일·메모 보존 정책: 입력이 비어있으면 DB 기존 값 유지 (덮어쓰기 방지) */
     const existingStu = this._db.stmt.studentsGetByUid.get(uid);
@@ -159,24 +157,68 @@ class StudentsDBService {
       }
     } catch (_e) { _inh = null; }
 
-    /* class_num / student_num / grade 는 위에서 _toNumOrText 로 정규화한 _g/_c/_n 을 그대로 사용
-       (자리 매칭과 저장값이 반드시 일치해야 자리 우선 매칭이 정확) */
+    /* ── 요보호(care) 잠금 2026-08-06 ────────────────────────────────────────────
+       사용자 지시: 일반의약품/응급 '비동의' 전환 등 다른 저장이 요보호·미세먼지 기저질환
+       명단을 절대 지우지 못하도록 DB 계층 자체가 방어한다. 렌더러(S.people) 상태와 무관.
+        · _clearCare:true   → 요보호 '해제' 버튼만 보냄 → 이때만 요보호를 비운다.
+        · _careManaged:true → 요보호 '등록/수정' 저장만 보냄 → 페이로드가 권위값(빈칸 편집 허용).
+        · 두 신호가 모두 없으면(동의 변경·기본정보 수정·매칭 적용·엑셀 재업로드 등)
+          → DB의 기존 요보호값을 그대로 유지(승계 _inh > 같은해 기존행 _cur), 절대 비우지 않는다.
+       미세먼지(dust_disease)만 있는 학생은 is_care=0 을 유지(요보호 목록과 독립). */
+    const _clearCare = (data._clearCare === true || data._clearCare === 'true');
+    const _careManaged = (data._careManaged === true || data._careManaged === 'true');
+    let _cur = null;
+    try {
+      _cur = this._db.db.prepare(
+        'SELECT is_care, care_reason, dust_disease, care_memo, grade, class_num, student_num FROM students_info WHERE uid = ? AND school_year = ?'
+      ).get(uid, yr) || null;
+    } catch (_e) { _cur = null; }
+    const _pIsCare = (data.is_care != null) ? Number(data.is_care) : null;
+    const _pReason = (data.care_reason || data.condition || '').trim();
+    const _pDust   = (data.dust_disease || data.dustDisease || '').trim();
+    const _pMemo   = (data.care_memo || data.careMemo || '');
+    const _byStatus = (data.status === 'caution' || data.status === 'watch') ? 1 : null;
+    let _fIsCare, _fReason, _fDust, _fMemo;
+    if (_clearCare) {
+      _fIsCare = 0; _fReason = ''; _fDust = ''; _fMemo = '';
+    } else if (_careManaged) {
+      _fReason = _pReason;
+      _fDust   = _pDust;
+      _fMemo   = _pMemo;
+      _fIsCare = (_pIsCare != null) ? _pIsCare : ((_byStatus === 1 || _pReason) ? 1 : 0);
+    } else {
+      _fIsCare = ((_pIsCare === 1) || (_byStatus === 1) || _pReason) ? 1
+               : ((_inh && _inh.is_care != null) ? Number(_inh.is_care)
+               : ((_cur && _cur.is_care != null) ? Number(_cur.is_care) : 0));
+      _fReason = _pReason || (_inh && _inh.care_reason) || (_cur && _cur.care_reason) || '';
+      _fDust   = _pDust   || (_inh && _inh.dust_disease) || (_cur && _cur.dust_disease) || '';
+      _fMemo   = _pMemo   || (_inh && _inh.care_memo) || (_cur && _cur.care_memo) || '';
+    }
+
+    /* 학년·반·번호 소실 방어 (2026-08-19) — 어떤 저장이든 grade/class/num 이 빈 값으로 넘어오면
+       (렌더러 s.grade 가 비었거나 동의·부분 저장에서 미전달) 기존 DB값(_cur)을 유지해 학년이 지워지지
+       않게 한다. 명단 업로드(saveAll)는 grade 를 명시 전달하므로 _g 가 유효 → 페이로드값 사용
+       (자리 매칭·진급 정상). is_care 와 동일한 방어 논리. */
+    const _emptyV = function (v) { return v == null || v === ''; };
+    const _fGrade = _emptyV(_g) ? ((_cur && !_emptyV(_cur.grade)) ? _cur.grade : _g) : _g;
+    const _fClass = _emptyV(_c) ? ((_cur && !_emptyV(_cur.class_num)) ? _cur.class_num : _c) : _c;
+    const _fNum   = _emptyV(_n) ? ((_cur && !_emptyV(_cur.student_num)) ? _cur.student_num : _n) : _n;
     this._db.stmt.siUpsert.run({
       uid,
       school_year: yr,
-      grade: _g,
-      class_num: _c,
-      student_num: _n,
+      grade: _fGrade,
+      class_num: _fClass,
+      student_num: _fNum,
       level: data.level || '',
       department: data.department || '',
       guardian_type: data.guardian_type || data.guardianType || '',
       guardian_contact: data.guardian_contact || data.guardianContact || '',
       homeroom_teacher: data.homeroom_teacher || data.homeroomTeacher || '',
       is_enrolled: data.is_enrolled != null ? Number(data.is_enrolled) : 1,
-      is_care: data.is_care != null ? Number(data.is_care) : (_inh && _inh.is_care != null ? Number(_inh.is_care) : (data.status === 'caution' || data.status === 'watch' ? 1 : 0)),
-      care_reason: data.care_reason || data.condition || (_inh && _inh.care_reason) || '',
-      dust_disease: data.dust_disease || data.dustDisease || (_inh && _inh.dust_disease) || '',
-      care_memo: data.care_memo || data.careMemo || (_inh && _inh.care_memo) || '',
+      is_care: _fIsCare,
+      care_reason: _fReason,
+      dust_disease: _fDust,
+      care_memo: _fMemo,
       med_consent: data.med_consent || data.medConsent || (_inh && _inh.med_consent) || 'Y',
       emergency_consent: data.emergency_consent || data.emergencyConsent || (_inh && _inh.emergency_consent) || 'Y',
       vip: data.vip != null ? String(data.vip) : ((_inh && _inh.vip) ? String(_inh.vip) : ''),
@@ -202,10 +244,8 @@ class StudentsDBService {
     });
     tx();
     if (validationErrors.length > 0) {
-      return {
-        success: false, count: results.length, errors: validationErrors,
-        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n')
-      };
+      return { success: false, count: results.length, errors: validationErrors,
+        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n') };
     }
     return { success: true, count: results.length };
   }
@@ -213,11 +253,13 @@ class StudentsDBService {
   /* ──────────── 일괄 등록 + 동명이인 감지 + 보류 분리 ────────────
      동명이인 후보가 2명 이상이고 자동 결정 불가하면 그 학생만 등록 *보류*하고 결과에 ambiguous 로 반환.
      사용자가 모달에서 후보 결정 후 resolveAmbiguousImport() 로 등록 확정.
-     자동 매칭 우선순위:
-       1) 이름+성별 후보 1명 → 생년월일 정합성 검사 후 자동 매칭
-       2) 후보 2명+ 생년월일 정확 일치 1명 → 자동 매칭
-       3) 후보 2명+ 학년-1 일치 1명 → 자동 매칭
-       4) 그 외 → ambiguous 보류 (모든 후보 정보 + 작년 학급 반환) */
+     자동 매칭 우선순위 (사용자 확정 2026-08-26):
+       0) 이름으로 후보 수집 — 성별 무관 (성별 다른 동명이인도 수동 후보로 보이게)
+       1) 생년월일이 서로 모순되는 후보 제외
+       2) 학년-1 게이트 (무조건) — 진급은 한 학년씩이므로 작년 학년이 (올해-1) 인 후보만 통과
+       3) 생년월일 정확 일치 1명 → 자동 매칭
+       4) 성별 일치로 좁힘
+       5) 남은 후보 1명 → 자동 매칭 / 2명+ → ambiguous 보류 (모든 후보 정보 + 작년 학급 반환) */
   saveAllWithAmbiguousDetection(year, studentList) {
     const yr = this._yr(year);
     const ambiguous = [];
@@ -245,47 +287,74 @@ class StudentsDBService {
          신학년 첫 업로드(올해 비어 uid 없음)는 이 분기를 안 타고 아래 직전연도 비교 매칭으로 감. */
       if (s.uid) { safeList.push(s); continue; }
       const incomingBirth = (s.birth_date || s.birthDate || s.birth || '').trim();
-      const normGender = GENDER_MAP[(s.gender || '').trim()] || (s.gender || '').trim();
+      const normGender = GENDER_MAP[(s.gender||'').trim()] || (s.gender||'').trim();
       /* 번호가 있는 행(전입·번호변경 등 자리가 명확) → 이미 올해 명단에 있는 동명이인은 '다른 사람'이므로 제외(=신규/전입 보존).
          번호가 없는 행(외부 이관) → 제외하지 않음 → 같은 반 동명이인을 매칭(보류)할 수 있게 함 (사용자 요청 2026-06-09). */
       const hasNum = (s.student_num != null && String(s.student_num).trim() !== '' && String(s.student_num).trim() !== '0')
-        || (s.num != null && String(s.num).trim() !== '' && String(s.num).trim() !== '0');
+                  || (s.num != null && String(s.num).trim() !== '' && String(s.num).trim() !== '0');
       const matches = (findByName.all({ name: s.name }) || [])
         .filter(m => !claimedUids.has(String(m.uid)) && !(hasNum && _enrolledThisYear(m.uid)));
 
       if (matches.length === 0) { safeList.push(s); continue; }
 
-      if (matches.length === 1) {
-        const dbBirth = (matches[0].birth_date || '').trim();
-        if (dbBirth && incomingBirth && dbBirth !== incomingBirth) {
-          safeList.push(s);
-        } else {
-          claimedUids.add(String(matches[0].uid));
-          safeList.push(Object.assign({}, s, { uid: matches[0].uid }));
+      /* ── 자동 매칭 판정 (사용자 확정 2026-08-26) ──────────────────────────────
+       *  ① 생년월일 모순 제거 → ② 학년-1 게이트(무조건) → ③ 생년월일 정확일치
+       *  → ④ 성별 일치 → ⑤ 후보 1명이면 자동, 2명+ 이면 수동 매칭 보류.
+       *
+       *  ②가 핵심 — 진급은 반드시 한 학년씩이므로 "올해 3학년"의 작년은 2학년뿐이다.
+       *  작년 1학년·4학년 동명이인은 명백히 다른 사람이라 자동 매칭 대상에서 제외한다.
+       *  (옛 동작: 이름 후보가 1명이면 학년 확인 없이 매칭 → 졸업생·타학년 동명이인의
+       *   보건일지가 엉뚱한 학생에게 붙는 오연결 위험. 사용자 지적 2026-08-26.)
+       *  단, 후보 전원이 작년 재적행조차 없는 경우(작년 명단을 올린 적 없는 학교·최초 도입)는
+       *  학년 검증이 원천적으로 불가능하므로 게이트를 적용하지 않는다(기존 동작 보존). */
+      const priorYr = String(parseInt(yr, 10) - 1);
+      const _priorOf = (uid) => { try { return this._db.stmt.siGetByUidYear.get(uid, priorYr) || null; } catch (_) { return null; } };
+
+      /* ① 생년월일이 양쪽 모두 있고 서로 다르면 동일인이 아님 */
+      let pool = matches.filter(m => {
+        const b = (m.birth_date || '').trim();
+        return !(b && incomingBirth && b !== incomingBirth);
+      });
+      if (pool.length === 0) { safeList.push(s); continue; }
+
+      /* ② 학년-1 게이트 */
+      const incomingGrade = parseInt(s.grade, 10);
+      if (!isNaN(incomingGrade) && incomingGrade > 0) {
+        const withPrior = pool.map(m => ({ m, si: _priorOf(m.uid) }));
+        if (withPrior.some(x => x.si)) {
+          const gated = withPrior.filter(x => x.si && Number(x.si.grade) === incomingGrade - 1).map(x => x.m);
+          /* 게이트 통과자가 없으면 작년 재적행이 없어 학년 판정이 불가능한 후보만 남긴다.
+             그마저 없으면 pool 이 비어 신규 uid 로 등록된다(= 작년 동명이인과 다른 사람). */
+          pool = gated.length ? gated : withPrior.filter(x => !x.si).map(x => x.m);
+          if (pool.length === 0) { safeList.push(s); continue; }
         }
+      }
+
+      /* ③ 생년월일 정확 일치 1명 → 자동 확정 (가장 강한 식별자) */
+      if (incomingBirth) {
+        const exact = pool.filter(m => (m.birth_date || '').trim() === incomingBirth);
+        if (exact.length === 1) { claimedUids.add(String(exact[0].uid)); safeList.push(Object.assign({}, s, { uid: exact[0].uid })); continue; }
+        if (exact.length > 1) pool = exact;
+      }
+
+      /* ④ 성별 일치로 좁힘 — 후보군 수집은 이름만으로 하되(성별 다른 동명이인도 수동 후보로 보이게,
+       *    사용자 지시 2026-06-13/06-21), 자동 판정 단계에서만 성별을 쓴다(사용자 지시 2026-08-26).
+       *    성별이 비어 있는 쪽은 판정 불가로 보아 살려둔다(옛 데이터·미입력 보호). */
+      if (normGender) {
+        const sameG = pool.filter(m => { const g = (m.gender || '').trim(); return !g || g === normGender; });
+        if (sameG.length) pool = sameG;
+      }
+
+      /* ⑤ 후보 1명 → 자동 매칭 */
+      if (pool.length === 1) {
+        claimedUids.add(String(pool[0].uid));
+        safeList.push(Object.assign({}, s, { uid: pool[0].uid }));
         continue;
       }
 
-      /* 후보 2건+ — 생년월일 정확 매칭 1명이면 자동 */
-      if (incomingBirth) {
-        const exact = matches.filter(m => (m.birth_date || '').trim() === incomingBirth);
-        if (exact.length === 1) { claimedUids.add(String(exact[0].uid)); safeList.push(Object.assign({}, s, { uid: exact[0].uid })); continue; }
-      }
-
-      /* 학년-1 일치 후보가 정확히 1명이면 자동 매칭 */
-      const incomingGrade = parseInt(s.grade, 10);
-      if (!isNaN(incomingGrade) && incomingGrade > 0) {
-        const priorYr = String(parseInt(yr, 10) - 1);
-        const priorMatches = matches.filter(m => {
-          const si = this._db.stmt.siGetByUidYear.get(m.uid, priorYr);
-          return si && Number(si.grade) === incomingGrade - 1;
-        });
-        if (priorMatches.length === 1) { claimedUids.add(String(priorMatches[0].uid)); safeList.push(Object.assign({}, s, { uid: priorMatches[0].uid })); continue; }
-      }
-
-      /* 그 외 — ambiguous 보류 */
-      const priorYr = String(parseInt(yr, 10) - 1);
-      const candidates = matches.map(m => {
+      /* 그 외 — ambiguous 보류 (수동 매칭 모달에서 사용자가 작년 학급으로 결정).
+         후보는 위 게이트를 통과한 pool 만 — 명백히 다른 학년의 동명이인은 애초에 보여주지 않는다. */
+      const candidates = pool.map(m => {
         const si = this._db.stmt.siGetByUidYear.get(m.uid, priorYr) || null;
         return {
           uid: m.uid,
@@ -395,7 +464,7 @@ class StudentsDBService {
        학과가 입력된 고등학교는 같은 학과 안에서만 동명이인으로 묶는다. */
     const groups = {};
     rows.forEach(r => {
-      const key = (r.level || '') + '|' + (r.department || '') + '|' + (r.grade || '') + '|' + (r.name || '');
+      const key = (r.level||'') + '|' + (r.department||'') + '|' + (r.grade||'') + '|' + (r.name||'');
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
@@ -424,7 +493,7 @@ class StudentsDBService {
            AND s.name = ?
            AND s.uid NOT IN (${placeholders})
          ORDER BY si.class_num, si.student_num`;
-      const candidates = db.prepare(sql).all(prevYr, head.level || '', head.department || '', prevGrade, head.name, ...newUids);
+      const candidates = db.prepare(sql).all(prevYr, head.level||'', head.department||'', prevGrade, head.name, ...newUids);
       if (!candidates.length) return; /* 작년 후보 없음 — 매칭할 게 없으니 그룹 제외 */
       result.push({
         type: 'student',
@@ -473,7 +542,7 @@ class StudentsDBService {
       db.prepare('UPDATE infection_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       db.prepare('UPDATE counseling_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       /* import_staging — 외부 데이터 가져오기 중간 상태(매칭만 됨, daily_records 반영 전) 의 안전망 */
-      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch (_) { }
+      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch(_){}
       /* survey_responses 는 UNIQUE(school_year, form_id, student_persistent_id) 제약이 있음 —
        *  prev uid 행이 이미 같은 (year, form) 으로 있는 경우 currentUid 행을 삭제 (prev 의 응답 보존).
        *  그렇지 않으면 person_uid + student_persistent_id 둘 다 갱신. */
@@ -481,15 +550,15 @@ class StudentsDBService {
       const checkSurvey = db.prepare('SELECT id FROM survey_responses WHERE person_uid = ? AND school_year = ? AND form_id = ?');
       const delSurvey = db.prepare('DELETE FROM survey_responses WHERE id = ?');
       const updSurvey = db.prepare('UPDATE survey_responses SET person_uid = ?, student_persistent_id = ? WHERE id = ?');
-      for (const sr of surveyRows) {
+      for (const sr of surveyRows){
         const dup = checkSurvey.get(prevUid, sr.school_year, sr.form_id);
-        if (dup) { delSurvey.run(sr.id); }
-        else { updSurvey.run(prevUid, prevUid, sr.id); }
+        if (dup){ delSurvey.run(sr.id); }
+        else    { updSurvey.run(prevUid, prevUid, sr.id); }
       }
       /* student_persistent_id 가 currentUid 였던 잔여 행도 일관성 위해 갱신 (person_uid 가 NULL 인 옛 행 대비) */
       try {
         db.prepare('UPDATE survey_responses SET student_persistent_id = ? WHERE student_persistent_id = ? AND person_uid IS NULL').run(prevUid, currentUid);
-      } catch (_) { }
+      } catch(_){}
       /* 2. 현재 uid 의 모든 students_info 행 → prev uid 로 이관 (school_year 충돌 시 prev 의 행 우선) */
       const infoRows = db.prepare('SELECT * FROM students_info WHERE uid = ?').all(currentUid);
       const checkExist = db.prepare('SELECT id FROM students_info WHERE uid = ? AND school_year = ?');
@@ -514,19 +583,19 @@ class StudentsDBService {
         const exists = checkExist.get(prevUid, r.school_year);
         if (exists) {
           updateInfo.run(
-            r.grade, r.class_num, r.student_num, r.level || '', r.department || '',
-            r.guardian_type || '', r.guardian_contact || '', r.homeroom_teacher || '',
-            r.is_enrolled, r.is_care, r.care_reason || '', r.dust_disease || '', r.care_memo || '',
-            r.med_consent || 'Y', r.emergency_consent || 'Y', r.vip || '', r.extra_json || '{}',
+            r.grade, r.class_num, r.student_num, r.level||'', r.department||'',
+            r.guardian_type||'', r.guardian_contact||'', r.homeroom_teacher||'',
+            r.is_enrolled, r.is_care, r.care_reason||'', r.dust_disease||'', r.care_memo||'',
+            r.med_consent||'Y', r.emergency_consent||'Y', r.vip||'', r.extra_json||'{}',
             now, prevUid, r.school_year
           );
         } else {
           insertInfo.run(
             prevUid, r.school_year, r.grade, r.class_num, r.student_num,
-            r.level || '', r.department || '', r.guardian_type || '', r.guardian_contact || '',
-            r.homeroom_teacher || '', r.is_enrolled, r.is_care, r.care_reason || '',
-            r.dust_disease || '', r.care_memo || '', r.med_consent || 'Y',
-            r.emergency_consent || 'Y', r.vip || '', r.extra_json || '{}', now, now
+            r.level||'', r.department||'', r.guardian_type||'', r.guardian_contact||'',
+            r.homeroom_teacher||'', r.is_enrolled, r.is_care, r.care_reason||'',
+            r.dust_disease||'', r.care_memo||'', r.med_consent||'Y',
+            r.emergency_consent||'Y', r.vip||'', r.extra_json||'{}', now, now
           );
         }
       }
@@ -716,8 +785,9 @@ class StaffDBService {
     return this._db.stmt.staffGetAllRaw.all();
   }
 
-  /** 동명이인 탐지 — 현재 학년도 active 교직원 중 같은 이름+직위 그룹 + 작년 inactive 후보.
-   *  성별은 매칭에 쓰지 않음 (사용자 확정 2026-06-13: 교직원은 이름+직위로만 식별). */
+  /** 동명이인 탐지 — 현재 학년도 active 교직원 중 같은 이름+직위 그룹 + 지난 학년도 후보.
+   *  직위(교원·직원·교감·교장·행정실장)는 승진이 없어 사람마다 고정이므로 묶는 기준에 포함한다
+   *  (사용자 확정 2026-08-26). 직위가 다르면 같은 이름이라도 다른 사람이라 물어볼 필요가 없다. */
   findNameDuplicates(year) {
     const db = this._db.db;
     const yr = this._yr(year);
@@ -725,13 +795,23 @@ class StaffDBService {
     const rows = db.prepare('SELECT * FROM staff WHERE school_year = ? AND is_active = 1 ORDER BY name, position').all(yr);
     const groups = {};
     rows.forEach(r => {
-      const key = (r.name || '') + '|' + (r.position || '');
+      const key = (r.name||'') + '|' + (r.position||'');
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
     const result = [];
+    /* 이 사람이 지난 학년도부터 있던 사람인지 판정.
+       staff 는 uid 당 단일 행(school_year 는 최신값으로 덮임)이라 '작년 행'이 따로 남지 않는다.
+       대신 created_at(=uid 최초 생성 시점, ON CONFLICT 시 갱신되지 않음)의 학년도로 판단한다.
+       이전 학년도에 만들어진 uid = 이미 작년 인원과 연결된 사람 → 매칭 대상 아님. (2026-08-26) */
+    const _carriedOver = (row) => {
+      const m = String(row.created_at || '').match(/^(\d{4})-(\d{2})/);
+      if (!m) return false;
+      const y = Number(m[1]), mo = Number(m[2]);
+      const ay = (mo >= 3) ? y : y - 1;   /* 학년도는 3월 1일 시작 */
+      return ay < Number(yr);
+    };
     Object.values(groups).forEach(g => {
-      if (g.length < 2) return;
       const head = g[0];
       const newUids = g.map(m => m.uid);
       const placeholders = newUids.map(() => '?').join(',');
@@ -743,8 +823,19 @@ class StaffDBService {
            AND IFNULL(s.position,'') = ?
            AND s.uid NOT IN (${placeholders})
          ORDER BY s.school_year DESC`;
-      const candidates = db.prepare(sql).all(head.name, head.position || '', ...newUids);
+      /* staff 는 학년도별로 행이 쌓이므로 같은 uid 가 여러 행으로 나온다 → uid 당 최신 학년도 1건만 남긴다.
+         (dedupe 없이 넘기면 매칭 모달에 같은 사람 카드가 중복 표시됨. 2026-08-26) */
+      const _seen = new Set();
+      const candidates = db.prepare(sql).all(head.name, head.position || '', ...newUids)
+        .filter(c => { const k = String(c.uid); if (_seen.has(k)) return false; _seen.add(k); return true; });
       if (!candidates.length) return;
+      /* 노출 조건 (2026-08-26) —
+       *   ⓐ 올해 같은 이름이 2명 이상  (기존 동작: 진짜 동명이인)
+       *   ⓑ 올해 1명이지만 작년 후보가 2명 이상이고 그 사람이 아직 작년 인원과 연결되지 않은 경우
+       *      (자동 판정을 보류한 상황 — 사용자가 방문 이력을 보고 골라야 함)
+       * '올해 1명 ↔ 작년 1명' 은 동명이인 상황이 아니라 단순 미연결이라 여기서 다루지 않는다.
+       * (업로드 시 자동 매칭으로 해결되는 건이고, 모달로 띄우면 노이즈만 커진다 — 실 DB 65건 확인) */
+      if (g.length < 2 && (candidates.length < 2 || !g.some(m => !_carriedOver(m)))) return;
       result.push({
         type: 'staff',
         name: head.name,
@@ -777,19 +868,19 @@ class StaffDBService {
       db.prepare('UPDATE emergency_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       db.prepare('UPDATE infection_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
       db.prepare('UPDATE counseling_records SET person_uid = ?, updated_at = ? WHERE person_uid = ?').run(prevUid, now, currentUid);
-      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch (_) { }
+      try { db.prepare('UPDATE import_staging SET matched_person_uid = ? WHERE matched_person_uid = ?').run(prevUid, currentUid); } catch(_){}
       const surveyRows = db.prepare('SELECT id, school_year, form_id FROM survey_responses WHERE person_uid = ?').all(currentUid);
       const checkSurvey = db.prepare('SELECT id FROM survey_responses WHERE person_uid = ? AND school_year = ? AND form_id = ?');
       const delSurvey = db.prepare('DELETE FROM survey_responses WHERE id = ?');
       const updSurvey = db.prepare('UPDATE survey_responses SET person_uid = ?, student_persistent_id = ? WHERE id = ?');
-      for (const sr of surveyRows) {
+      for (const sr of surveyRows){
         const dup = checkSurvey.get(prevUid, sr.school_year, sr.form_id);
-        if (dup) { delSurvey.run(sr.id); }
-        else { updSurvey.run(prevUid, prevUid, sr.id); }
+        if (dup){ delSurvey.run(sr.id); }
+        else    { updSurvey.run(prevUid, prevUid, sr.id); }
       }
       try {
         db.prepare('UPDATE survey_responses SET student_persistent_id = ? WHERE student_persistent_id = ? AND person_uid IS NULL').run(prevUid, currentUid);
-      } catch (_) { }
+      } catch(_){}
       /* 현재 uid 의 staff 행 → prev uid 의 staff 행으로 정보 갱신 (직위·학년도 최신화 + is_active=1) */
       const cur = db.prepare('SELECT * FROM staff WHERE uid = ?').get(currentUid);
       if (cur) {
@@ -797,8 +888,8 @@ class StaffDBService {
           `UPDATE staff SET school_year=?, position=?, gender=?, birth_date=?,
                             family_relation=?, family_phone=?, is_active=1, updated_at=?
             WHERE uid = ?`
-        ).run(cur.school_year, cur.position || '', cur.gender || '', cur.birth_date || '',
-          cur.family_relation || '', cur.family_phone || '', now, prevUid);
+        ).run(cur.school_year, cur.position||'', cur.gender||'', cur.birth_date||'',
+              cur.family_relation||'', cur.family_phone||'', now, prevUid);
         db.prepare('DELETE FROM staff WHERE uid = ?').run(currentUid);
       }
     });
@@ -834,27 +925,69 @@ class StaffDBService {
        (사용자 요청 2026-06-09: 같은 이름의 다른 사람이 새로 온 경우 등) */
     if (!uid && data.forceNew) { uid = HealthDiaryDB.generateStaffUid(this._db.db); }
     if (!uid) {
-      /* 교직원 고유 식별 기준: 이름 + 직위(position) 조합.
-       * 둘 중 하나라도 다르면 다른 사람으로 간주 (사용자 확정 방침 2026-06-13).
-       * 성별·생년월일은 식별자가 아니라 보조 정보 — tiebreak 에만 사용. */
+      /* ── 교직원 매칭 (사용자 확정 2026-08-26) ────────────────────────────────
+       *  순서: ① 이름으로 후보 수집 → ② 생년월일 모순 제거 → ③ 직위 일치(하드 조건)
+       *        → ④ 성별 → ⑤ 생년월일 정확일치 → 1명이면 자동, 2명+ 이면 보류.
+       *
+       *  직위는 교원·직원·교감·교장·행정실장 5종이고 **승진이 없다**(사용자 확정 2026-08-26).
+       *  따라서 직위가 다르면 같은 이름이라도 다른 사람이므로 하드 조건으로 둔다.
+       *  (한쪽 직위가 비어 있으면 판정 불가로 보아 살려둔다 — 옛 데이터·입력 누락 보호.)
+       *
+       *  _claimedUids: 한 번의 일괄 등록 안에서 서로 다른 두 사람이 같은 uid 로 병합되는 것을 막는 가드.
+       *  (옛 코드에는 이 가드가 없어 같은 직위 동명이인 2명이 한 uid 로 합쳐질 수 있었다.) */
       const inName = (data.name || '').trim();
-      const inPos = (data.position || '').trim();
-      const byNamePos = this._db.db.prepare(
-        'SELECT * FROM staff WHERE name = ? AND position = ? ORDER BY school_year DESC'
-      ).all(inName, inPos);
+      const inPos  = (data.position || '').trim();
+      const claimed = this._claimedUids;   /* saveAll 실행 중에만 존재 */
+      let cands = this._db.db.prepare(
+        'SELECT * FROM staff WHERE name = ? ORDER BY school_year DESC'
+      ).all(inName).filter(e => !(claimed && claimed.has(String(e.uid))));
 
-      if (byNamePos.length === 0) {
-        /* 이름+직위 조합 없음 → 신규 인원 */
-        uid = HealthDiaryDB.generateStaffUid(this._db.db);
-      } else if (byNamePos.length === 1) {
-        uid = byNamePos[0].uid;
-      } else {
-        /* 이름+직위가 같은 행이 여럿 (드문 상황) — 생년월일 일치 → 가장 최근 학년도 순 tiebreak.
-         * 성별은 매칭에 쓰지 않음 (사용자 확정 2026-06-13: 교직원 성별은 대부분 미입력). */
-        let matched = null;
-        if (birth) matched = byNamePos.find(e => (e.birth_date || '').trim() === birth);
-        uid = (matched || byNamePos[0]).uid;
+      /* ② 생년월일이 양쪽 모두 있고 다르면 다른 사람 */
+      if (birth) {
+        const ok = cands.filter(e => { const b = (e.birth_date || '').trim(); return !b || b === birth; });
+        if (ok.length) cands = ok;
       }
+
+      /* ③ 직위 일치 (하드 조건) — 승진이 없으므로 직위가 다르면 동명이인일 뿐 다른 사람이다.
+         양쪽 다 값이 있을 때만 비교하고, 어느 한쪽이 비어 있으면 판정 불가로 보아 남긴다.
+         일치 후보가 하나도 없으면 pool 이 비어 새 uid 로 등록된다(= 새로 부임한 다른 사람). */
+      if (inPos) {
+        cands = cands.filter(e => { const p = (e.position || '').trim(); return !p || p === inPos; });
+      }
+
+      if (cands.length === 0) {
+        uid = HealthDiaryDB.generateStaffUid(this._db.db);
+      } else if (cands.length === 1) {
+        uid = cands[0].uid;
+      } else {
+        /* ④ 성별로 좁힘 — 미입력(옛 데이터)은 판정 불가로 보아 살려둔다 */
+        if (normGender) {
+          const g = cands.filter(e => { const eg = (e.gender || '').trim(); return !eg || eg === normGender; });
+          if (g.length) cands = g;
+        }
+        /* ⑤ 생년월일 정확 일치로 좁힘 */
+        if (cands.length > 1 && birth) {
+          const b = cands.filter(e => (e.birth_date || '').trim() === birth);
+          if (b.length) cands = b;
+        }
+        /* 이름·성별·직위·생년월일이 모두 같은 후보가 둘 이상 남으면 프로그램이 임의로 고르지 않는다.
+         * 새 uid 로 등록해 두면 작년 후보들이 '미연결' 상태로 남아 동명이인 매칭 모달에 뜨고,
+         * 사용자가 최근 보건실 방문 이력을 보고 직접 고른다 (사용자 지시 2026-08-26).
+         * 옛 동작은 cands[0](가장 최근 학년도)을 조용히 선택해 오연결 가능성이 있었다.
+         *
+         * 단, 후보 중 '올해 명단에 이미 있는 행'이 있으면 그것은 지난번 업로드에서 이 사람에게
+         * 부여해 둔 행이므로 재사용한다. 이 처리가 없으면 같은 명단을 다시 올릴 때마다 보류 인원이
+         * 새 uid 로 계속 쌓인다(재업로드 2회에 3행→4행 증가 실측, 2026-08-26).
+         * cands 는 이미 이번 배치에서 선점된 uid 를 제외했으므로, 동명이인이 여럿이어도
+         * 각자 지난번 자기 행을 순서대로 되찾는다. */
+        if (cands.length === 1) {
+          uid = cands[0].uid;
+        } else {
+          const sameYear = cands.filter(e => String(e.school_year) === String(yr));
+          uid = sameYear.length ? sameYear[0].uid : HealthDiaryDB.generateStaffUid(this._db.db);
+        }
+      }
+      if (claimed) claimed.add(String(uid));
     }
 
     /* 생년월일 보존 정책: 입력이 비어있으면 DB 기존 값 유지 (덮어쓰기 방지) */
@@ -885,6 +1018,9 @@ class StaffDBService {
     const yr = this._yr(year);
     const results = [];
     const validationErrors = [];
+    /* 한 번의 일괄 등록 안에서 서로 다른 두 사람이 같은 uid 로 병합되지 않게 하는 가드.
+       upsert 가 이름 우선으로 후보를 찾으므로 필수 (2026-08-26). */
+    this._claimedUids = new Set();
     const tx = this._db.db.transaction(() => {
       for (let i = 0; i < (staffList || []).length; i++) {
         const s = staffList[i];
@@ -893,12 +1029,10 @@ class StaffDBService {
         if (!r.success) validationErrors.push({ index: i + 1, name: s.name || '(이름 없음)', error: r.error });
       }
     });
-    tx();
+    try { tx(); } finally { this._claimedUids = null; }   /* 가드는 이 일괄 등록에서만 유효 */
     if (validationErrors.length > 0) {
-      return {
-        success: false, count: results.length, errors: validationErrors,
-        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n')
-      };
+      return { success: false, count: results.length, errors: validationErrors,
+        error: validationErrors.map(e => e.index + '번 ' + e.name + ': ' + e.error).join('\n') };
     }
     return { success: true, count: results.length };
   }

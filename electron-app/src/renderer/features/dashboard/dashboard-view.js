@@ -2723,30 +2723,45 @@ export function _dashExportFullPDF(){
   if(!content){_toast('대시보드 콘텐츠가 없습니다.');return;}
   const rangeLabel=_dashRangeLabel()||'통계';
   const schoolName=(typeof S.settings!=='undefined'&&S.settings.schoolName)?S.settings.schoolName:'';
+  /* 실제 선택 기간(시작~종료) — _dashGetDateRange 는 기간 종류(custom 포함) 무관하게 from/to 반환(통계 집계와 동일 소스).
+   * _dashRangeLabel 이 custom 등에서 빈값→'통계' 폴백되어 PDF 에 날짜가 안 나오고 파일명이 '_통계_통계' 되던 문제 대응 (2026-08-12). */
+  const _pdfRange=_dashGetDateRange();
+  const _dotYmd=function(ymd){ if(!ymd)return ''; const p=String(ymd).split('-'); return p.length>=3?(parseInt(p[0],10)+'.'+parseInt(p[1],10)+'.'+parseInt(p[2],10)+'.'):String(ymd); };
+  const _hasRange=!!(_pdfRange&&_pdfRange.from&&_pdfRange.to);
+  const _metaLabel=_hasRange?(_dotYmd(_pdfRange.from)+' ~ '+_dotYmd(_pdfRange.to)):rangeLabel;   /* PDF 헤더 표시용 */
+  const _pdfRangeText=_hasRange?(_dotYmd(_pdfRange.from)+'-'+_dotYmd(_pdfRange.to)):'';           /* 파일명용 */
+  const _pdfFileName=((schoolName?schoolName+' ':'')+'방문 통계'+(_pdfRangeText?' ('+_pdfRangeText+')':'')).replace(/[\\/:*?"<>|]/g,'_')+'.pdf';
   /* PDF 캡처 전 현재 선택(하이라이트)을 해제 — 히트맵 글자 블록 현상 방지 */
   try{const sel=window.getSelection&&window.getSelection();if(sel)sel.removeAllRanges();}catch(e){}
-  /* HTML을 printToPDF로 전달 */
-  const clone=content.cloneNode(true);
-  /* sticky 헤더 제거 (PDF에서 불필요) */
-  clone.querySelectorAll('[style*="sticky"]').forEach(function(el){el.style.position='static';});
-  /* 버튼·인터랙티브 요소 숨기기 */
-  clone.querySelectorAll('button,.dash-nav-arrow,[data-action]').forEach(function(el){el.style.display='none';});
-  /* 인라인 style 의 overflow 관련 속성 제거 → 스크롤바 숨김 */
-  clone.querySelectorAll('[style]').forEach(function(el){
-    const s=el.getAttribute('style')||'';
-    if(s.indexOf('overflow')!==-1){
-      const cleaned=s.replace(/overflow[-a-z]*\s*:\s*[^;]+;?/gi,'').replace(/scrollbar[a-z-]*\s*:\s*[^;]+;?/gi,'');
-      el.setAttribute('style',cleaned);
-      el.style.overflow='visible';
-    }
-  });
+  /* 표지(1페이지)용 총 방문 요약 — 대시보드 요약과 동일한 DB 집계 캐시 사용 */
+  const _sc=_dashStatsCache||{};
+  const _summaryLine='총 방문 '+(_sc.total||0)+'건 │ 학생 '+(_sc.studentTotal||0)+'건 교직원 '+(_sc.staffTotal||0)+'건';
+  /* 본문(2페이지~)은 진료과별 통계 + 시각화 차트 패널만 담는다. 헤더 행·기간선택 UI·요약칩(표지로 이동)은 제외.
+   * (기존엔 dashContentArea 전체를 클론해 '📅 기간 선택'·날짜입력 등 UI 잔재가 표지에 섞이고 표가 밀리던 문제) 사용자 요청 2026-08-12. */
+  const _bodyHtml=['dashPanelDeptStats','dashPanelDeptChart'].map(function(id){
+    const el=document.getElementById(id); if(!el)return '';
+    const c=el.cloneNode(true);
+    c.querySelectorAll('button,.dash-nav-arrow,[data-action],.dash-pdf-omit').forEach(function(x){x.remove();});
+    c.querySelectorAll('[style*="sticky"]').forEach(function(x){x.style.position='static';});
+    c.querySelectorAll('[style]').forEach(function(x){
+      const s=x.getAttribute('style')||'';
+      if(s.indexOf('overflow')!==-1){ x.setAttribute('style', s.replace(/overflow[-a-z]*\s*:\s*[^;]+;?/gi,'').replace(/scrollbar[a-z-]*\s*:\s*[^;]+;?/gi,'')); x.style.overflow='visible'; }
+    });
+    return c.outerHTML;
+  }).join('');
   const htmlStr='<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
-    +'@page{size:A4 portrait;margin:20mm}'
+    +'@page{size:A4 landscape;margin:10mm}'
     +'html,body{margin:0;padding:0}'
+    /* 표 잘림 방지 — 모든 열이 페이지 폭 안에 들어오도록 강제(내용은 줄바꿈으로 접힘). 오른쪽 잘림 사고 대응 (사용자 요청 2026-08-12) */
+    +'body{width:auto!important}'
+    +'table{width:100%!important;max-width:100%!important}'
+    +'th,td{white-space:normal!important;word-break:break-word!important;overflow-wrap:anywhere!important}'
     +'body{font-family:"Pretendard Variable","Pretendard","Noto Sans KR","맑은 고딕",sans-serif;color:#1a1a2e;font-size:11px;line-height:1.6}'
-    +'.cc{border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:10px;background:#fff;page-break-inside:avoid;break-inside:avoid}'
-    +'.dash-panel{margin-bottom:10px;page-break-inside:avoid;break-inside:avoid}'
-    +'table{width:100%;border-collapse:collapse;font-size:10px;page-break-inside:avoid;break-inside:avoid}'
+    /* 큰 패널·표는 페이지 경계를 넘어 이어지게(avoid 제거) — 표가 통째로 다음 페이지로 밀려 1페이지에 여백이 크게 남던 문제 해결.
+     * 단 행(tr)과 차트(svg/canvas)는 아래에서 계속 분리 방지 유지 (사용자 요청 2026-08-12). */
+    +'.cc{border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:10px;background:#fff}'
+    +'.dash-panel{margin-bottom:10px}'
+    +'table{width:100%;border-collapse:collapse;font-size:10px}'
     +'tr{page-break-inside:avoid;break-inside:avoid}'
     +'th,td{border:1px solid #ccc;padding:4px 6px}'
     +'th{background:#f0f2f5;font-weight:600}'
@@ -2775,17 +2790,19 @@ export function _dashExportFullPDF(){
     +'.dash-pdf-bar.bot .b3{flex:3;background:#2E8B57}.dash-pdf-bar.bot .b4{flex:7;background:#C0392B}'
     +'.dash-pdf-heading{background:#F7F7F7;text-align:center;padding:10pt 0;font-size:20pt;font-weight:bold;letter-spacing:8pt}'
     +'.dash-pdf-meta{text-align:center;font-size:10.5pt;color:#475569;margin-top:6pt}'
+    +'.dash-pdf-summary{text-align:center;font-size:13pt;font-weight:700;color:#1a1a2e;margin-top:16pt}'
     +'</style></head><body>'
-    +'<div class="dash-pdf-title">'
+    +'<div class="dash-pdf-title" style="page-break-after:always;break-after:page;min-height:96vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;margin-bottom:0">'   /* 표지 = 1페이지, 내용은 페이지 세로 중앙 정렬(빈 2페이지 방지 위해 96vh), 진료과 통계는 2페이지부터 (사용자 요청 2026-08-12) */
     +'<div class="dash-pdf-bar top"><span class="b1"></span><span class="b2"></span></div>'
     +'<div class="dash-pdf-heading">'+(schoolName?schoolName+' 보건실 통계':'보건실 통계')+'</div>'
     +'<div class="dash-pdf-bar bot"><span class="b3"></span><span class="b4"></span></div>'
-    +'<div class="dash-pdf-meta">'+rangeLabel+'</div>'
+    +'<div class="dash-pdf-meta">'+_metaLabel+'</div>'
+    +'<div class="dash-pdf-summary">'+_summaryLine+'</div>'
     +'</div>'
-    +clone.innerHTML
+    +_bodyHtml
     +'</body></html>';
   if(window.electronAPI&&window.electronAPI.printToPDF){
-    window.electronAPI.printToPDF(htmlStr,{fileName:schoolName+'_통계_'+rangeLabel.replace(/[\s\/~]/g,'_')+'.pdf',landscape:false}).then(function(res){
+    window.electronAPI.printToPDF(htmlStr,{fileName:_pdfFileName,landscape:true}).then(function(res){
       if(res&&res.success)_toast('PDF가 저장되었습니다.');
       else _toast('PDF 저장 실패: '+(res&&res.error||'알 수 없는 오류'));
     }).catch(function(e){_toast('PDF 저장 실패: '+e.message);});
@@ -4073,12 +4090,13 @@ function _dashRenderSummary(filtered){
   h+='<span class="dash-sum-chip" style="--c:#6DD4B8">학생 <b>'+stuCount+'</b>건</span>';
   h+='<span class="dash-sum-chip" style="--c:#F5A3D4">교직원 <b>'+staffCount+'</b>건</span>';
   const _sumCmpLabel={week:'지난 주 대비',month:'지난 달 대비',semester:'지난 학기 대비',year:'전년도 대비',today:'전일 대비'}[S.statsPeriod]||'전기간 대비';
+  /* 증감·전년동기·인사이트는 화면엔 표시하되 PDF 사본에선 제거(dash-pdf-omit) — 사용자 요청 2026-08-12 (PDF 는 총방문/학생/교직원만) */
   if(d1.text&&prevTotal>0){
-    h+='<span class="dash-sum-sep">│</span>';
-    h+='<span class="dash-sum-delta '+d1.cls+'">'+_sumCmpLabel+' '+d1.text+'</span>';
+    h+='<span class="dash-sum-sep dash-pdf-omit">│</span>';
+    h+='<span class="dash-sum-delta dash-pdf-omit '+d1.cls+'">'+_sumCmpLabel+' '+d1.text+'</span>';
   } else if(S.statsPeriod!=='today'&&prevTotal===0){
-    h+='<span class="dash-sum-sep">│</span>';
-    h+='<span style="font-size:10px;color:var(--t3)">지난 데이터가 존재하지 않아 '+_sumCmpLabel+' 증감은 표시되지 않습니다.</span>';
+    h+='<span class="dash-sum-sep dash-pdf-omit">│</span>';
+    h+='<span class="dash-pdf-omit" style="font-size:10px;color:var(--t3)">지난 데이터가 존재하지 않아 '+_sumCmpLabel+' 증감은 표시되지 않습니다.</span>';
   }
   /* 전년 동기 대비 — 백엔드 YoY 캐시 사용 */
   if(S.statsPeriod!=='today'&&S.statsPeriod!=='custom'){
@@ -4087,20 +4105,20 @@ function _dashRenderSummary(filtered){
       const _yoyDiff=total-_yoyTotal;
       const _yoyCls=_yoyDiff>0?'up':_yoyDiff<0?'down':'flat';
       const _yoyTxt=_yoyDiff>0?'▲'+_yoyDiff+'건':_yoyDiff<0?'▼'+Math.abs(_yoyDiff)+'건':'동일';
-      h+='<span class="dash-sum-sep">│</span>';
-      h+='<span class="dash-sum-delta '+_yoyCls+'">전년 동기 대비 '+_yoyTxt+' <small style="opacity:0.7">('+_yoyTotal+'→'+total+')</small></span>';
+      h+='<span class="dash-sum-sep dash-pdf-omit">│</span>';
+      h+='<span class="dash-sum-delta dash-pdf-omit '+_yoyCls+'">전년 동기 대비 '+_yoyTxt+' <small style="opacity:0.7">('+_yoyTotal+'→'+total+')</small></span>';
     } else {
-      h+='<span class="dash-sum-sep">│</span>';
-      h+='<span class="dash-sum-delta flat">전년 동기 대비 —</span>';
+      h+='<span class="dash-sum-sep dash-pdf-omit">│</span>';
+      h+='<span class="dash-sum-delta dash-pdf-omit flat">전년 동기 대비 —</span>';
     }
   }
   h+='</div>';
 
-  /* 한줄 인사이트 — 백엔드 topSymptoms 캐시 사용 */
+  /* 한줄 인사이트 — 백엔드 topSymptoms 캐시 사용 (PDF 사본 제외) */
   const topName=(_dashSummaryCache&&_dashSummaryCache.topSymptoms&&_dashSummaryCache.topSymptoms[0])?_dashSummaryCache.topSymptoms[0].symptom:'';
   if(topName){
     const cmpText=d1.cls==='up'?'증가':d1.cls==='down'?'감소':'동일';
-    h+='<div style="margin-top:8px;font-size:10px;color:var(--t3)">💡 '+_sumCmpLabel+' '+cmpText+' · 최다 증상: <b style="color:var(--t2)">'+topName+'</b></div>';
+    h+='<div class="dash-pdf-omit" style="margin-top:8px;font-size:10px;color:var(--t3)">💡 '+_sumCmpLabel+' '+cmpText+' · 최다 증상: <b style="color:var(--t2)">'+topName+'</b></div>';
   }
   panel.innerHTML=h;
 }

@@ -128,10 +128,22 @@ class ScreenCaptureService {
     this._clipboard = electron.clipboard;
     this._tempDir = tempDir;
     this._getMainWindow = getMainWindow;
+    /* 2단계 PDF (2026-08-12) — 생성(printToPdfGenerate)과 저장 다이얼로그(printToPdfSave) 분리용
+     * 버퍼 보관소. 렌더러가 진행 카운터를 끝까지 채운 뒤 저장 창을 요청할 수 있게 한다.
+     * token → { buf, ts }. TTL(10분) 초과분은 다음 generate 때 정리. */
+    this._pdfStore = new Map();
   }
 
-  /** 최대 HTML 크기 (5MB) */
+  /** 최대 HTML 크기 (5MB) — PNG/클립보드 캡처용 (화면 비트맵을 통째로 만드는 경로라 낮게 유지) */
   static MAX_HTML_SIZE = 5 * 1024 * 1024;
+
+  /** PDF 전용 최대 HTML 크기 (30MB) — 보건일지 연간 출력 등 대용량 문서 허용.
+   *  경량화된 행 기준 약 7만 행까지 수용 (사용자 보고 2026-08-12: 1학기치 5MB 초과로 무음 실패). */
+  static MAX_PDF_HTML_SIZE = 30 * 1024 * 1024;
+
+  /** PDF 생성 감시 타임아웃 (5분) — 연간 등 대용량 문서도 수 분 안에 끝나므로,
+   *  이를 넘기면 숨은 창이 멈춘 것으로 보고 반드시 실패 응답을 돌려준다. */
+  static PDF_WATCHDOG_MS = 5 * 60 * 1000;
 
   /**
    * HTML을 PNG로 렌더링하여 파일로 저장합니다.
@@ -223,8 +235,22 @@ class ScreenCaptureService {
    * @param {string} [defaultFileName] - 기본 저장 파일명
    */
   async printToPdf(html, pdfOptions, defaultFileName) {
-    if (!html || html.length > ScreenCaptureService.MAX_HTML_SIZE) {
-      return { success: false, error: 'HTML 크기 제한 초과 (최대 5MB)' };
+    /* 단일 호출 경로(가정통신문·연수 등 기존 호출자) — 생성 후 곧바로 저장 다이얼로그.
+     * 2단계 분리 구현(printToPdfGenerate/printToPdfSave)의 합성으로 동작 동일 유지 (2026-08-12). */
+    const gen = await this.printToPdfGenerate(html, pdfOptions);
+    if (!gen.success) return gen;
+    return this.printToPdfSave(gen.token, defaultFileName);
+  }
+
+  /**
+   * [1/2단계] HTML → PDF 버퍼 생성만 수행하고 토큰을 돌려줍니다. (저장 다이얼로그 없음)
+   * 렌더러가 진행 카운터를 완주시킨 뒤 printToPdfSave(token) 으로 저장 창을 요청하는 흐름용.
+   * (사용자 요청 2026-08-12: "분자가 410/410건이 된 다음에 저장 창이 떠야 한다")
+   */
+  async printToPdfGenerate(html, pdfOptions) {
+    /* PDF 는 전용 상한(30MB) — 보건일지 연간 출력 등 대용량 허용. 캡처 2종(5MB)과 분리 (2026-08-12) */
+    if (!html || html.length > ScreenCaptureService.MAX_PDF_HTML_SIZE) {
+      return { success: false, error: 'HTML 크기 제한 초과 (최대 30MB)' };
     }
     let pdfWin = null;
     let tmpHtmlPath = null;
@@ -241,19 +267,69 @@ class ScreenCaptureService {
         show: false,
         webPreferences: { contextIsolation: true, sandbox: true }
       });
-      await pdfWin.loadFile(tmpHtmlPath);
-      /* 폰트·이미지 렌더 안정화 대기 */
-      await new Promise(r => setTimeout(r, 200));
-      const pdfBuffer = await pdfWin.webContents.printToPDF({
-        pageSize: 'A4',
-        marginsType: 1,
-        printBackground: true,
-        ...(pdfOptions || {})
+      /* ── 감시 장치 (2026-08-12) — 대용량 문서에서 숨은 창이 죽거나(메모리 부족)
+       *  무한 지연되면 이 핸들러가 영원히 응답을 못 돌려주던 문제 방어:
+       *  ① render-process-gone 즉시 실패  ② 5분 감시 타임아웃. 어느 쪽이든 반드시 응답. ── */
+      const _win = pdfWin;
+      const pdfBuffer = await new Promise((resolve, reject) => {
+        let settled = false;
+        const fail = (msg) => {
+          if (settled) return; settled = true;
+          clearTimeout(timer);
+          reject(new Error(msg));
+        };
+        const timer = setTimeout(() => {
+          fail('PDF 생성 시간 초과(5분) — 기록이 매우 많거나 PC 메모리가 부족합니다');
+        }, ScreenCaptureService.PDF_WATCHDOG_MS);
+        _win.webContents.on('render-process-gone', (e, details) => {
+          fail('PDF 렌더링 중단(' + ((details && details.reason) || 'unknown') + ') — PC 메모리가 부족할 수 있습니다. 다른 프로그램을 닫고 다시 시도해 주세요');
+        });
+        _win.loadFile(tmpHtmlPath)
+          .then(() => new Promise(r => setTimeout(r, 200)))   /* 폰트·이미지 렌더 안정화 대기 */
+          .then(() => _win.webContents.printToPDF({
+            pageSize: 'A4',
+            marginsType: 1,
+            printBackground: true,
+            ...(pdfOptions || {})
+          }))
+          .then((buf) => {
+            if (settled) return; settled = true;
+            clearTimeout(timer);
+            resolve(buf);
+          })
+          .catch((err) => fail((err && err.message) || String(err)));
       });
-      try { pdfWin.close(); } catch (e) {}
+      try { pdfWin.destroy(); } catch (e) {}
       pdfWin = null;
       this._tryUnlink(tmpHtmlPath);
       tmpHtmlPath = null;
+      /* 버퍼 보관 + 토큰 발급 — 저장 다이얼로그는 printToPdfSave 에서 */
+      const crypto2 = require('crypto');
+      const token = crypto2.randomBytes(12).toString('hex');
+      const now = Date.now();
+      /* TTL 정리 — 렌더러가 저장 단계를 못 밟은 잔여 버퍼(실패·강제종료 등) 회수 */
+      for (const [k, v] of this._pdfStore) {
+        if (now - v.ts > 10 * 60 * 1000) this._pdfStore.delete(k);
+      }
+      this._pdfStore.set(token, { buf: pdfBuffer, ts: now });
+      return { success: true, token: token, bytes: pdfBuffer.length };
+    } catch (err) {
+      /* destroy — 렌더러가 죽은 창은 close() 가 안 먹을 수 있음 (2026-08-12) */
+      if (pdfWin) try { pdfWin.destroy(); } catch (e) {}
+      if (tmpHtmlPath) this._tryUnlink(tmpHtmlPath);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * [2/2단계] 보관된 PDF 버퍼(token)를 저장 다이얼로그로 파일에 씁니다.
+   * 취소·완료·오류 어느 경우든 버퍼는 보관소에서 제거 (재시도는 재생성부터).
+   */
+  async printToPdfSave(token, defaultFileName) {
+    const entry = this._pdfStore.get(token);
+    if (!entry) return { success: false, error: 'PDF 데이터가 만료되었습니다. 다시 시도해 주세요.' };
+    this._pdfStore.delete(token);
+    try {
       const mainWin = this._getMainWindow();
       const { canceled, filePath } = await this._dialog.showSaveDialog(mainWin, {
         title: 'PDF 저장',
@@ -261,11 +337,9 @@ class ScreenCaptureService {
         filters: [{ name: 'PDF', extensions: ['pdf'] }]
       });
       if (canceled || !filePath) return { success: false, error: 'cancelled' };
-      fs.writeFileSync(filePath, pdfBuffer);
+      fs.writeFileSync(filePath, entry.buf);
       return { success: true, filePath };
     } catch (err) {
-      if (pdfWin) try { pdfWin.close(); } catch (e) {}
-      if (tmpHtmlPath) this._tryUnlink(tmpHtmlPath);
       return { success: false, error: err.message };
     }
   }

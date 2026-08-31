@@ -1086,15 +1086,25 @@ class PastHistoryService {
     const now = this._healthDB.now();
     const HealthDiaryDB = this._healthDB.constructor;
 
-    /* 중복 검사: 모든 식별 필드가 완전히 일치하는 행만 중복으로 판정.
-     * - 다회 방문(같은 날 두 번 이상): 시간·처치·메모 중 하나라도 다르면 별개로 인정 → 보존.
-     * - 같은 엑셀 재업로드: 모든 필드가 bit-for-bit 동일 → 자동 스킵.
-     * 사용자 명시 요청: "완전 똑같은 것이라면 안되야 한다" (2026-05-11). */
-    const dupExactStmt = db.prepare(
-      'SELECT id FROM daily_records WHERE school_year=? AND person_uid=? AND visit_date=? ' +
+    /* 중복 검사: 모든 식별 필드가 완전히 일치하는 행만 중복 후보로 판정.
+     * ★ 배치 내 등장 순번(occurrence) 방식 (2026-08-26 재설계 — 스마일보건 이관 1,000건대 누락 사고):
+     *   타 일지(스마일보건 등)는 시간 열이 없어, 같은 날 동일인이 같은 증상·처치로 2~3회 방문한
+     *   정당한 기록이 모두 '완전 동일'이 된다. 옛 로직(동일 행 존재 시 무조건 스킵)은 이런 반복 방문의
+     *   2회차부터를 지워버렸다 — 원본 건수가 그대로 들어가야 한다는 원칙 위반.
+     *   → 원본 파일에 같은 행이 N개면 실제 방문 N회로 보고 N개 모두 삽입한다.
+     *   → 같은 엑셀 재업로드 방지는 유지: DB에 이미 동일 행이 M개 있으면 배치의 처음 M개만 스킵.
+     *     (같은 파일 재업로드 = N==M → 0개 추가 / 행이 늘어난 재업로드 = 새 행만 추가)
+     *   → DB 동일 행 수(M)는 배치 시작 시점 기준으로 키별 1회만 조회해 캐시 — 같은 트랜잭션에서
+     *     방금 삽입한 행이 COUNT 에 섞여 배치 내 후속 행을 다시 죽이는 것을 차단.
+     * 사용자 명시 요청: "완전 똑같은 것이라면 안되야 한다" (2026-05-11, 재업로드 방지 목적)
+     *              + "원 자료의 건수 그대로 불러와야 한다" (2026-08-26). */
+    const dupExactCountStmt = db.prepare(
+      'SELECT COUNT(*) AS c FROM daily_records WHERE school_year=? AND person_uid=? AND visit_date=? ' +
       'AND time_in=? AND time_out=? AND symptoms=? AND treatment=? AND medication=? ' +
-      'AND memo=? AND nurse_name=? AND department=? AND result_code=? LIMIT 1'
+      'AND memo=? AND nurse_name=? AND department=? AND result_code=?'
     );
+    const _dbDupCount = Object.create(null);   /* dupKey → 배치 시작 시점 DB 동일 행 수 (고정 캐시) */
+    const _batchOcc = Object.create(null);     /* dupKey → 이번 배치에서 지금까지 등장한 횟수 */
     /* placeholder(미매칭) 중복 검사 — person_uid IS NULL 행만, 식별정보 + 증상 + 시각 모두 동일 시 스킵.
      *  같은 엑셀을 반복 업로드해도 중복 placeholder 가 쌓이지 않도록 차단. */
     const dupPlaceholderStmt = db.prepare(
@@ -1155,7 +1165,9 @@ class PastHistoryService {
           continue;
         }
 
-        /* 완전 동일 중복 검사 — 모든 식별 필드가 비트 단위로 일치하는 행이 이미 있으면 스킵 */
+        /* 완전 동일 중복 검사 — occurrence 방식 (상단 dupExactCountStmt 주석 참조).
+         *   배치 내 같은 행의 k번째(0-base) 등장이 DB 기존 동일 행 수(M)보다 작으면 재업로드 중복으로 스킵,
+         *   그 이상이면 원본에 실제로 더 있는 기록이므로 삽입. */
         const _t_in = rec.time_in || '';
         const _t_out = rec.time_out || '';
         const _treat = rec.treatment || '';
@@ -1164,12 +1176,21 @@ class PastHistoryService {
         const _nurse = rec.nurse_name || '';
         const _dept = rec.department || '';
         const _result = rec.result_code || '';
-        const exactDup = dupExactStmt.get(
+        const _dupKey = [
           schoolYear, rec.matched_person_uid, rec.visit_date,
           _t_in, _t_out, symptomsJson, _treat, _med,
           _memo, _nurse, _dept, _result
-        );
-        if (exactDup) {
+        ].join('');
+        if (!(_dupKey in _dbDupCount)) {
+          _dbDupCount[_dupKey] = dupExactCountStmt.get(
+            schoolYear, rec.matched_person_uid, rec.visit_date,
+            _t_in, _t_out, symptomsJson, _treat, _med,
+            _memo, _nurse, _dept, _result
+          ).c;
+        }
+        const _occ = _batchOcc[_dupKey] || 0;
+        _batchOcc[_dupKey] = _occ + 1;
+        if (_occ < _dbDupCount[_dupKey]) {
           duplicates++;
           duplicateDetails.push({
             visit_date: rec.visit_date || '',
@@ -1195,6 +1216,7 @@ class PastHistoryService {
           symptoms: symptomsJson,
           treatment: _treat,
           treatment_by_sym: '',  /* 임포트 데이터엔 증상↔처치 매핑 없음 → 옛 record 폴백 */
+          physical_assessment: '',  /* 임포트 데이터엔 신체사정 없음 (v5 컬럼 추가 시 이 호출부 누락 → 이관 삽입 전체 실패하던 버그. 2026-08-26) */
           medication: _med,
           department: _dept,
           body_temp: '',

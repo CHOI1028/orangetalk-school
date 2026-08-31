@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
 import { S, ensureHolidayYear } from '../../core/app-state.js';
-import { getStu, toDateStr, getStuGradeCol, saveData, saveRecordNow, closeModalGracefully, getSemesterInfo, dateObj } from '../../core/helpers.js';
+import { getStu, toDateStr, getStuGradeCol, saveData, saveRecordNow, closeModalGracefully, getSemesterInfo, dateObj, counselTreatText, isCounselSymLabel } from '../../core/helpers.js';
 import { closeCellPopup } from './daily-view.js';
 import { closeModalWithAnim } from './daily-autocomplete.js';
 import { _makeDraggable, formatMedicationDisplay, _symBuildCounselPrintHtml, _symCounselSheetData } from '../symptom/symptom-view.js';
@@ -11,6 +11,7 @@ import { buildDeptStatsCover, buildDeptStatsSections, buildCounselStatsCover, bu
 import { openPersonSearch } from '../../core/person-search-ui.js';
 import { openA4PrintDialog } from '../../core/a4-print-dialog.js';
 import { tmGetPrintBlock, tmEnsureLoaded, tmGetMemoForExport } from './today-memo.js';
+import { appConfirmModal } from '../../core/ui-utils.js';
 
 /* ── 공통 달력 렌더러 (사이드바 달력과 동일 스타일) ── */
 /* ── 공유 달력(_commonCalRender) 방향키 이동 (2026-06-08) ──
@@ -493,13 +494,18 @@ async function dpShowPreview(){
   if(_dpFormat==='counsel'){
     filtered = filtered.filter(function(r){ return _dpHasCounsel(r); });
   }
+  /* 진행 카운터용 실제 출력 건수 — 특정 학생/상담 필터 후 건수. 이전엔 기간 전체 건수가 분모로 쓰여
+   *  "학생 16건인데 분모가 전체"로 표시되던 버그 (사용자 보고 2026-08-27). */
+  if(_dpCache){_dpCache.filteredCount=filtered.length;_dpCache.filteredRecs=filtered;}   /* Excel 병합용 순서 보존 */
   const area=document.getElementById('dpPreviewArea');
   /* 기록 0건이어도 양식은 빈 표로 출력 — 사용자가 공식 서식 자체를 출력해야 할 때 대비 */
   function formatDateKr(ds){const d=new Date(ds);const dow=['일','월','화','수','목','금','토'][d.getDay()];return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()+'.('+dow+')';}
-  /* 표지 포함 옵션 — 진료과별 통계 (prefetch 된 값이 있으면 즉시 사용) */
+  /* 표지 포함 옵션 — 진료과별 통계 (prefetch 된 값이 있으면 즉시 사용).
+   * 상담 내역 형식 제외 — 카드가 숨겨져도 다른 형식에서 켠 체크 상태가 남아 상담 출력에
+   * 전교 통계가 끼어드는 것 방어 (복원 범위: row/daily/student, 2026-08-12). */
   const _coverOpt=document.getElementById('dpOptCover');
   let html='';
-  if(_coverOpt&&_coverOpt.checked){
+  if(_coverOpt&&_coverOpt.checked&&_dpFormat!=='counsel'){
     if(_dpFormat==='student'&&_dpSelectedStudentId){
       /* 특정 방문자 — 전교생 표지 대신 그 사람만의 진료과별 집계 (사용자 보고 2026-06-10) */
       try{html=_dpBuildStudentCoverHtml(filtered);}catch(e){html='';}
@@ -545,8 +551,9 @@ async function dpShowPreview(){
   if(_dpFormat==='counsel'){ dpLabels.nurse='상담자'; dpLabels.symptoms='상담 주제'; dpLabels.treatment='상담 내용'; }
   const dpAlign={seq:'center',schoolLevel:'center',department:'center',gradeClass:'center',num:'center',name:'center',date:'center',time:'center',gender:'center',bodymap:'left',symptoms:'left',dept:'left',treatment:'left',medication:'left',bedUsage:'center',vitals:'left',nurse:'center'};
   const _lvShort={'elementary':'초','middle':'중','high':'고','kindergarten':'유','초':'초','중':'중','고':'고','유':'유','대':'대'};
-  /* 상담 내역(보건일지 형식)은 침상 이용·V/S 열을 표시하지 않음 (사용자 요청 2026-06-25) */
-  const activeCols=dpColOrder.filter(function(c){ if(_dpFormat==='counsel'&&(c==='bedUsage'||c==='vitals'))return false; return colMap[c]; });
+  /* V/S 열은 인쇄에서 항상 제외 — V/S 는 처치 칸 자리에 표로 인쇄한다(2026-07-21).
+     상담 내역(보건일지 형식)은 침상 이용 열도 제외 (사용자 요청 2026-06-25). */
+  const activeCols=dpColOrder.filter(function(c){ if(c==='vitals')return false; if(_dpFormat==='counsel'&&c==='bedUsage')return false; return colMap[c]; });
   /* 사용자 열 너비 반영 (2026-06-11) — colgroup + table-layout:fixed:
    * width:100% 유지로 페이지에 꽉 차되, 각 열의 상대 비율을 px 값이 결정 → 휠/숫자 조절이 그대로 보임.
    * PDF 는 이 미리보기 HTML 을 그대로 인쇄하므로 자동 일치. */
@@ -556,7 +563,8 @@ async function dpShowPreview(){
   _cwColgroup+='</colgroup>';
   /* width:auto + fixed — px 수치가 절대 폭으로 그대로 적용 (사용자 요구 2026-06-11: 수치=실제 폭) */
   html+='<table data-dp-main="1" style="width:auto;border-collapse:collapse;font-size:11pt;table-layout:fixed">'+_cwColgroup+'<thead><tr style="background:var(--bg);border-bottom:1px solid var(--bdr)">';
-  activeCols.forEach(function(c){html+='<th style="padding:5px 6px;text-align:center;color:var(--t3);overflow-wrap:break-word">'+(dpLabels[c]||c)+'</th>';});
+  /* 셀 인라인 스타일 → dpx- 클래스 (경량화 2026-08-12) — 학기·연간 대용량 출력의 5MB 초과 방지 */
+  activeCols.forEach(function(c){html+='<th class="dpx-th">'+(dpLabels[c]||c)+'</th>';});
   html+='</tr></thead><tbody>';
   filtered.forEach(function(r,ri){
     const s=getStu(r.personUid)||{name:r.personName||'',grade:r.studentGrade||0,cls:r.studentClass||0,num:r.studentNum||0,type:r.personType||'student',gender:r.studentGender||'',position:r.staffPosition||'',level:r.studentLevel||'',department:r.studentDepartment||''};
@@ -588,14 +596,19 @@ async function dpShowPreview(){
           var str=r.medsBySym[sym].map(function(mm){var d=dm[mm]||'';return d?(mm+'('+d+')'):mm;}).join(', ');
           return formatMedicationDisplay(str);
         };
-        var lines=r.symptoms.map(function(sym){
+        /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
+        var _clT=counselTreatText(r);
+        var _clIdx=_clT?r.symptoms.findIndex(isCounselSymLabel):-1;
+        var lines=r.symptoms.map(function(sym,idx){
           var symTreats=(r.treatmentBySym[sym]||[]);
           var medDispForSym=_medDispForSym(sym);
-          return '→ '+symTreats.map(function(t){
+          var _lbl=symTreats.map(function(t){
             var b=t;var mt=t.match(/^(.+?)\s*\((.*)\)\s*$/);if(mt)b=mt[1].trim();
             if(b==='투약'&&medDispForSym)return medDispForSym;
             return t;
-          }).join(', ');
+          });
+          if(idx===_clIdx)_lbl.push(_clT);
+          return '→ '+_lbl.join(', ');
         });
         if(m)lines[0]=(lines[0]?lines[0]+' / ':'')+m;
         return lines.join('\n')||'-';
@@ -606,20 +619,35 @@ async function dpShowPreview(){
       if(!hasMedTreat&&medDisp)b=(b?b+' / ':'')+medDisp;
       var out=(b+(m?(b?' / ':'')+m:'')).trim();return out||'-';
     })(),medication:r.medication||'-',bedUsage:_dpIsBedUsed(r)?'O':'',vitals:[r.temp?'T: '+r.temp:'',r.bp?'BP: '+r.bp:'',r.pulse?'P: '+r.pulse:'',(r.respiration||r.resp)?'R: '+(r.respiration||r.resp):'',r.spo2?'SpO₂: '+r.spo2:'',r.bst?'BST: '+r.bst:''].filter(Boolean).join(', ')||'-',nurse:r.nurse||'-'};
-    html+='<tr style="border-bottom:1px solid var(--bdrl)">';
-    activeCols.forEach(function(c){html+='<td style="padding:4px 6px;text-align:'+(dpAlign[c]||'left')+';color:var(--t2);overflow-wrap:break-word;white-space:pre-line">'+(cellData[c]||'-')+'</td>';});
+    html+='<tr class="dpx-tr">';
+    activeCols.forEach(function(c){html+='<td class="dpx-td '+(dpAlign[c]==='center'?'dpx-c':'dpx-l')+'">'+(cellData[c]||'-')+'</td>';});
     html+='</tr>';
-    /* ── 시간대별 V/S 입력이 있으면 그 방문자 행 아래·증상 칸 자리에 표로 (사용자 요청 2026-06-15) ── */
-    if(r.vsHistory && r.vsHistory.length){
+    /* ── V/S 값이 있으면 처치 칸 자리에 표로 인쇄 (항상 표 형식, 단일 측정도 1행 표). 2026-07-21 ── */
+    {
       const _vsTbl=_dpVsTsTableHtml(r);
       if(_vsTbl){
-        const _symIdx=activeCols.indexOf('symptoms');
-        html+='<tr class="dp-vs-subrow" style="border-bottom:1px solid var(--bdrl)">';
-        if(_symIdx<0){
-          html+='<td colspan="'+activeCols.length+'" style="padding:6px;text-align:left">'+_vsTbl+'</td>';
+        const _trtIdx=activeCols.indexOf('treatment');
+        html+='<tr class="dp-vs-subrow dpx-tr">';
+        if(_trtIdx<0){
+          html+='<td colspan="'+activeCols.length+'" class="dpx-sub">'+_vsTbl+'</td>';
         } else {
-          for(let _i=0;_i<_symIdx;_i++){ html+='<td style="padding:4px 6px"></td>'; }
-          html+='<td colspan="'+(activeCols.length-_symIdx)+'" style="padding:6px;text-align:left">'+_vsTbl+'</td>';
+          for(let _i=0;_i<_trtIdx;_i++){ html+='<td class="dpx-fill"></td>'; }
+          html+='<td colspan="'+(activeCols.length-_trtIdx)+'" class="dpx-sub">'+_vsTbl+'</td>';
+        }
+        html+='</tr>';
+      }
+    }
+    /* ── 신체사정이 있으면 처치 칸 자리에 표로 인쇄 ── */
+    {
+      const _paTbl=_dpPaTableHtml(r);
+      if(_paTbl){
+        const _trtIdx=activeCols.indexOf('treatment');
+        html+='<tr class="dp-pa-subrow dpx-tr">';
+        if(_trtIdx<0){
+          html+='<td colspan="'+activeCols.length+'" class="dpx-sub">'+_paTbl+'</td>';
+        } else {
+          for(let _i=0;_i<_trtIdx;_i++){ html+='<td class="dpx-fill"></td>'; }
+          html+='<td colspan="'+(activeCols.length-_trtIdx)+'" class="dpx-sub">'+_paTbl+'</td>';
         }
         html+='</tr>';
       }
@@ -631,7 +659,8 @@ async function dpShowPreview(){
     html+='<tr><td colspan="'+colspan+'" style="padding:24px;text-align:center;color:var(--t3);font-size:11px">해당 기간에 기록이 없습니다. (양식만 출력됩니다)</td></tr>';
   }
   html+='</tbody></table>';
-  area.innerHTML=html;
+  /* dpx- 공용 CSS 를 미리보기 맨 앞에 삽입 — PDF/인쇄가 innerHTML 을 복제하므로 자동 승계 (경량화 2026-08-12) */
+  area.innerHTML='<style>'+_DPX_CSS+'</style>'+html;
   area.style.display='block';
   /* 로딩 점 숨김 */
   if(_loadingDots)_loadingDots.style.display='none';
@@ -671,8 +700,8 @@ const DP_COLS=[
   {col:'treatment',label:'처치 내용'},
   /* '투약 내용' 별도 컬럼 제거 (사용자 결정 2026-06-10) — 처치 내용이 일반일지와 동일하게
    * 투약[약품(투여량)]을 이미 결합 표시하므로 중복. cellData.medication 빌드는 보존(보관). */
-  {col:'bedUsage',label:'침상 이용'},
-  {col:'vitals',label:'V/S'}
+  {col:'bedUsage',label:'침상 이용'}
+  /* 'V/S' 열은 표시 항목에서 제거 — V/S 는 처치 칸 자리에 표로 인쇄(2026-07-21) */
 ];
 
 /* 칩 라벨(DP_COLS.label)과 실제 출력 표 헤더가 다른 경우 덮어씀 */
@@ -918,8 +947,81 @@ function _dpRenderCardsTo(containerId){
  *  · 입력된 항목(열)만 — 시각은 항상, 나머지는 값이 하나라도 있는 열만.
  *  · 옵션/토글 없음: 데이터가 있으면 무조건 표시 (방문자 행 아래·증상 칸 자리).
  *  · PDF 문서에서도 보이도록 CSS 변수 대신 명시 색상 사용. */
+/* ── 출력 HTML 경량화 공용 CSS (2026-08-12, 사용자 보고: 1학기치 PDF 5MB 상한 초과) ──
+ * 셀마다 반복되던 인라인 스타일(셀당 ~90자)을 dpx- 접두 클래스로 추출 — 문서 크기 5~8배 축소.
+ * 선언 내용은 옛 인라인 스타일과 글자 단위로 동일해야 함(시각 회귀 금지).
+ * · 미리보기: area.innerHTML 맨 앞에 <style> 로 삽입 (dpx- 접두라 앱 전역 오염 없음)
+ * · PDF/인쇄: _dpBuildPrintDocHtml·printDiaryDirect 가 area.innerHTML 을 복제하므로 자동 승계.
+ *   PDF 헤드의 11pt·테두리 !important 덮어쓰기와의 우선순위는 옛 인라인 시절과 동일하게 동작.
+ * · Excel/Sheets: textContent + dp-vs-subrow/dp-pa-subrow 클래스 판별만 사용 — 영향 없음. */
+const _DPX_CSS=''
+  /* 방문자당 한 행(row/student/counsel-diary) 메인 표 */
+  +'.dpx-th{padding:5px 6px;text-align:center;color:var(--t3);overflow-wrap:break-word}'
+  +'.dpx-tr{border-bottom:1px solid var(--bdrl)}'
+  +'.dpx-td{padding:4px 6px;color:var(--t2);overflow-wrap:break-word;white-space:pre-line}'
+  +'.dpx-td.dpx-c{text-align:center}'
+  +'.dpx-td.dpx-l{text-align:left}'
+  +'.dpx-fill{padding:4px 6px}'
+  +'.dpx-sub{padding:6px;text-align:left}'
+  /* 매일 한 페이지 — 일자 헤더 */
+  +'.dpx-dh{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #0891b2;padding-bottom:8px;margin-bottom:10px}'
+  +'.dpx-dh-date{font-size:14pt;font-weight:800;letter-spacing:-0.5px;color:#0f172a}'
+  +'.dpx-dh-r{text-align:right}'
+  +'.dpx-dh-l1{font-size:10px;color:#64748b}'
+  +'.dpx-dh-n{font-size:18px;font-weight:800;color:#0891b2}'
+  +'.dpx-dh-n span{font-size:11px;color:#475569;margin-left:3px}'
+  +'.dpx-dh-l2{font-size:10px;color:#475569}'
+  +'.dpx-nl{font-size:10px;color:#475569;background:#f1f5f9;padding:5px 8px;border-radius:6px;margin-bottom:8px}'
+  /* 매일 한 페이지 — 섹션 제목 (오늘의 메모/일간 방문 통계/방문 상세) */
+  +'.dpx-sh{font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:22px 0 7px;display:flex;align-items:center;gap:6px}'
+  +'.dpx-sh.dpx-sh-d{margin:26px 0 7px}'
+  +'.dpx-sh .dpx-ico{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;color:#fff;font-size:11px}'
+  +'.dpx-ico-memo{background:linear-gradient(135deg,#84cc16,#65a30d)}'
+  +'.dpx-ico-stat{background:linear-gradient(135deg,#06b6d4,#0891b2)}'
+  +'.dpx-ico-detail{background:linear-gradient(135deg,#6366f1,#8b5cf6)}'
+  /* 매일 한 페이지 — 일간 방문 통계 표 (옛 cellStyle/headStyle) */
+  +'.dpx-st{font-size:11px;font-weight:700;color:#0e7490;margin:8px 0 4px;display:flex;align-items:center;gap:5px}'
+  +'.dpx-st span{display:inline-block;width:3px;height:12px;background:linear-gradient(180deg,#06b6d4,#0891b2);border-radius:2px}'
+  +'.dpx-box{border:1px solid #cbd5e1;border-radius:6px}'
+  +'.dpx-tbl{width:100%;border-collapse:collapse}'
+  +'.dpx-sc{border:1px solid #cbd5e1;padding:4px 6px;font-size:11pt;text-align:center;color:#1e293b}'
+  +'th.dpx-sc{background:#f1f5f9;font-weight:700;color:#475569}'
+  +'.dpx-sc.dpx-b7{font-weight:700}'
+  +'.dpx-sc.dpx-b8{font-weight:800}'
+  +'.dpx-sc.dpx-cy{color:#0891b2}'
+  /* dpx-mut 는 dpx-cy 뒤 — 0값 회색이 계열색을 이기는 옛 인라인 선언 순서 보존 */
+  +'.dpx-sc.dpx-mut{color:#cbd5e1}'
+  +'.dpx-sc.dpx-tc{color:#0e7490}'
+  +'.dpx-sc.dpx-ts{font-size:11px}'
+  +'.dpx-tot{background:rgba(6,182,212,0.06);border-top:2px solid #94a3b8}'
+  /* 매일 한 페이지 — 방문 상세 표 (옛 tCell/tHead) */
+  +'.dpx-dc{border:1px solid #cbd5e1;padding:5px 7px;font-size:11pt;color:#1e293b;white-space:pre-line}'
+  +'th.dpx-dc{background:#f1f5f9;font-weight:700;color:#475569;text-align:center}'
+  +'.dpx-dc.dpx-c{text-align:center}'
+  +'.dpx-dc.dpx-l{text-align:left}'
+  +'.dpx-dc.dpx-bold{font-weight:700}'
+  +'.dpx-dc.dpx-seq{color:#64748b;font-weight:700}'
+  +'.dpx-dc.dpx-nw{white-space:nowrap}'
+  /* V/S 측정 값 미니표 */
+  +'.dpx-vs-t{font-size:9pt;font-weight:700;color:#0e7490;margin:0 0 2px}'
+  +'.dpx-mini{border-collapse:collapse;margin:0}'
+  +'.dpx-vs-th{border:1px solid #cbd5e1;padding:2px 10px;background:#ecfeff;color:#0e7490;font-weight:700;font-size:9.5pt;white-space:nowrap;text-align:center}'
+  +'.dpx-vs-td{border:1px solid #cbd5e1;padding:2px 10px;text-align:center;white-space:nowrap;font-size:9.5pt;color:#1e293b}'
+  /* 신체사정 미니표 */
+  +'.dpx-pa-t{font-size:9pt;font-weight:700;color:#b45309;margin:0 0 2px}'
+  +'.dpx-pa-th{border:1px solid #cbd5e1;padding:2px 10px;background:#fff7ed;color:#b45309;font-weight:700;font-size:9.5pt;white-space:nowrap;text-align:center}'
+  +'.dpx-pa-td{border:1px solid #cbd5e1;padding:2px 10px;font-size:9.5pt;color:#1e293b}'
+  +'.dpx-pa-td.dpx-pa-k{text-align:center;white-space:nowrap;font-weight:600}'
+  +'.dpx-pa-td.dpx-pa-v{text-align:left;word-break:break-word}'
+  /* V/S·신체사정 서브행은 방문자 행과 한 덩어리로 — 사이 구분선 제거, 덩어리 마지막 행에만 선 (사용자 요청 2026-08-27) */
+  +'.dpx-tr:has(+ tr.dp-vs-subrow),.dpx-tr:has(+ tr.dp-pa-subrow){border-bottom:none}';
+
 function _dpVsTsTableHtml(r){
-  const hist=(r&&Array.isArray(r.vsHistory))?r.vsHistory.slice():[];
+  let hist=(r&&Array.isArray(r.vsHistory))?r.vsHistory.slice():[];
+  /* 시간대별 기록이 없고 단일 V/S 값만 있으면 1행 표로(인쇄는 항상 표 형식). 2026-07-21 */
+  if(!hist.length && r && (r.temp||r.bp||r.pulse||r.resp||r.respiration||r.spo2||r.bst)){
+    hist=[{t:(r.timeIn||''),temp:r.temp||'',bp:r.bp||'',pulse:r.pulse||'',resp:(r.respiration||r.resp||''),spo2:r.spo2||'',bst:r.bst||''}];
+  }
   if(!hist.length) return '';
   const _hms=function(t){const m=String(t||'').match(/(\d{1,2}):(\d{2})/);return m?(parseInt(m[1],10)*60+parseInt(m[2],10)):999999;};
   hist.sort(function(a,b){return _hms(a.t)-_hms(b.t);});
@@ -929,14 +1031,76 @@ function _dpVsTsTableHtml(r){
     return hist.some(function(rw){ return String(rw[c[0]]==null?'':rw[c[0]]).trim()!==''; });
   });
   if(cols.length<=1) return '';   /* 수치 항목이 하나도 없으면 표시 안 함 */
-  const th='border:1px solid #cbd5e1;padding:2px 10px;background:#ecfeff;color:#0e7490;font-weight:700;font-size:9.5pt;white-space:nowrap;text-align:center';
-  const td='border:1px solid #cbd5e1;padding:2px 10px;text-align:center;white-space:nowrap;font-size:9.5pt;color:#1e293b';
-  let t='<div style="font-size:9pt;font-weight:700;color:#0e7490;margin:0 0 2px">📈 시간대별 V/S</div>';
-  t+='<table style="border-collapse:collapse;margin:0">';
-  t+='<tr>'+cols.map(function(c){return '<th style="'+th+'">'+c[1]+'</th>';}).join('')+'</tr>';
-  hist.forEach(function(rw){ t+='<tr>'+cols.map(function(c){const v=String(rw[c[0]]==null?'':rw[c[0]]).trim();return '<td style="'+td+'">'+escHtml(v||'-')+'</td>';}).join('')+'</tr>'; });
+  /* 인라인 스타일 → dpx- 클래스 (경량화 2026-08-12) — 선언은 _DPX_CSS 에 동일 보존 */
+  /* 단일 측정이면 'V/S 측정 값', 시간대 2개 이상이면 '시간대별 V/S 측정 값' (사용자 요청 2026-07-21) */
+  let t='<div class="dpx-vs-t">'+(hist.length>=2?'시간대별 V/S 측정 값':'V/S 측정 값')+'</div>';
+  t+='<table class="dpx-mini">';
+  t+='<tr>'+cols.map(function(c){return '<th class="dpx-vs-th">'+c[1]+'</th>';}).join('')+'</tr>';
+  hist.forEach(function(rw){ t+='<tr>'+cols.map(function(c){const v=String(rw[c[0]]==null?'':rw[c[0]]).trim();return '<td class="dpx-vs-td">'+escHtml(v||'-')+'</td>';}).join('')+'</tr>'; });
   t+='</table>';
   return t;
+}
+
+/* 신체사정 출력 표 — 시진·촉진·타진·청진 + 소견. V/S 표(_dpVsTsTableHtml) 와 동일 배치. 옛 record(pa 없음) 는 '' 반환. (2026-07-15) */
+function _dpPaTableHtml(r){
+  const pa=r&&r.physicalAssessment;
+  if(!pa||typeof pa!=='object'||Array.isArray(pa))return '';
+  const items=Array.isArray(pa.items)?pa.items:[];
+  const details=(pa.details&&typeof pa.details==='object'&&!Array.isArray(pa.details))?pa.details:{};
+  const order=['시진','촉진','타진','청진'];
+  const shown=order.filter(function(it){return items.indexOf(it)!==-1||(details[it]&&String(details[it]).trim());});
+  if(!shown.length)return '';
+  /* 인라인 스타일 → dpx- 클래스 (경량화 2026-08-12) — 선언은 _DPX_CSS 에 동일 보존 */
+  let t='<div class="dpx-pa-t">신체사정</div>';
+  t+='<table class="dpx-mini">';
+  t+='<tr><th class="dpx-pa-th">항목</th><th class="dpx-pa-th">소견</th></tr>';
+  shown.forEach(function(it){
+    const d=details[it]?String(details[it]).trim():'';
+    t+='<tr><td class="dpx-pa-td dpx-pa-k">'+escHtml(it)+'</td><td class="dpx-pa-td dpx-pa-v">'+escHtml(d||'-')+'</td></tr>';
+  });
+  t+='</table>';
+  return t;
+}
+
+/* ── Excel·Sheets 용 V/S·신체사정 텍스트 직렬화 (사용자 요청 2026-08-27) ──
+ * PDF/인쇄는 서브행 미니표(dp-vs-subrow/dp-pa-subrow)로 포함되지만 Excel/Sheets 추출은
+ * 서브행을 제외해 V/S·신체사정이 통째로 빠졌다 → 셀에 줄바꿈 텍스트로 병합한다. */
+function _dpVsTextForExcel(r){
+  let hist=(r&&Array.isArray(r.vsHistory))?r.vsHistory.slice():[];
+  if(!hist.length && r && (r.temp||r.bp||r.pulse||r.resp||r.respiration||r.spo2||r.bst)){
+    hist=[{t:(r.timeIn||''),temp:r.temp||'',bp:r.bp||'',pulse:r.pulse||'',resp:(r.respiration||r.resp||''),spo2:r.spo2||'',bst:r.bst||''}];
+  }
+  if(!hist.length)return '';
+  const _hms=function(t){const m=String(t||'').match(/(\d{1,2}):(\d{2})/);return m?(parseInt(m[1],10)*60+parseInt(m[2],10)):999999;};
+  hist.sort(function(a,b){return _hms(a.t)-_hms(b.t);});
+  const lab=[['temp','체온'],['bp','혈압'],['pulse','맥박'],['resp','호흡'],['spo2','SpO₂'],['bst','BST']];
+  const lines=hist.map(function(rw){
+    const vals=lab.map(function(c){const v=String(rw[c[0]]==null?'':rw[c[0]]).trim();return v?(c[1]+' '+v):'';}).filter(Boolean);
+    if(!vals.length)return '';
+    return '['+String(rw.t||'-')+'] '+vals.join(', ');
+  }).filter(Boolean);
+  if(!lines.length)return '';
+  return (lines.length>=2?'[시간대별 V/S]':'[V/S]')+'\n'+lines.join('\n');
+}
+function _dpPaTextForExcel(r){
+  const pa=r&&r.physicalAssessment;
+  if(!pa||typeof pa!=='object'||Array.isArray(pa))return '';
+  const items=Array.isArray(pa.items)?pa.items:[];
+  const details=(pa.details&&typeof pa.details==='object'&&!Array.isArray(pa.details))?pa.details:{};
+  const order=['시진','촉진','타진','청진'];
+  const shown=order.filter(function(it){return items.indexOf(it)!==-1||(details[it]&&String(details[it]).trim());});
+  if(!shown.length)return '';
+  return '[신체사정]\n'+shown.map(function(it){const d=details[it]?String(details[it]).trim():'';return it+': '+(d||'-');}).join('\n');
+}
+/* 추출된 데이터 행(처치 열)에 V/S·신체사정 텍스트 병합 — Excel/Sheets 공용 (2026-08-27) */
+function _dpMergeVsPaIntoRow(row,headerLabels,recIdx){
+  /* '처치'/'처치 내용'(상담 형식은 '상담 내용') 정확 매칭 — /처치/ 는 '처치자' 열에 먼저 걸리던 버그 (사용자 보고 2026-08-27) */
+  const _trtCol=headerLabels.findIndex(function(l){return /^(처치(\s*내용)?|상담 내용)$/.test(String(l||'').trim());});
+  if(_trtCol<0||_trtCol>=row.length)return;
+  const _r=(_dpCache&&Array.isArray(_dpCache.filteredRecs))?_dpCache.filteredRecs[recIdx]:null;
+  if(!_r)return;
+  const _ex=[_dpVsTextForExcel(_r),_dpPaTextForExcel(_r)].filter(Boolean).join('\n');
+  if(_ex)row[_trtCol]=(row[_trtCol]?row[_trtCol]+'\n':'')+_ex;
 }
 
 /* '매일 한 페이지' 출력용: 하루치 payload 한 개를 xlsxBuildDiary 포맷으로 생성
@@ -1024,6 +1188,9 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
             var str = r.medsBySym[sym].map(function(mm){var d=dm[mm]||''; return d?(mm+'('+d+')'):mm;}).join(', ');
             return formatMedicationDisplay(str);
           };
+          /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
+          var _clT2=counselTreatText(r);
+          var _clIdx2=_clT2?r.symptoms.findIndex(isCounselSymLabel):-1;
           var lines = r.symptoms.map(function(sym, idx){
             var symTreats = (r.treatmentBySym[sym]||[]);
             var medDispForSym = _medDispForSym(sym);
@@ -1032,6 +1199,7 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
               if(b==='투약' && medDispForSym) return medDispForSym;
               return t;
             });
+            if(idx===_clIdx2)symLabeled.push(_clT2);
             return '→ '+symLabeled.join(', ');
           });
           if(m) lines[0] = (lines[0]?lines[0]+' / ':'')+m;
@@ -1045,8 +1213,20 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
       })(),
       medication:r.medication||'',
       bedUsage:_dpIsBedUsed(r)?'O':'',
-      vitals:[r.temp?'T: '+r.temp:'',r.bp?'BP: '+r.bp:'',r.pulse?'P: '+r.pulse:'',(r.respiration||r.resp)?'R: '+(r.respiration||r.resp):'',r.spo2?'SpO₂: '+r.spo2:'',r.bst?'BST: '+r.bst:''].filter(Boolean).join(', ')
+      vitals:(function(){
+        /* 시간대별 V/S 가 있으면 전 시각을 줄바꿈으로 (사용자 요청 2026-08-27). 단일 측정은 기존 한 줄 유지. */
+        if(Array.isArray(r.vsHistory)&&r.vsHistory.length>=2){
+          const t=_dpVsTextForExcel(r);
+          if(t)return t.replace(/^\[[^\]]*\]\n/,'');
+        }
+        return [r.temp?'T: '+r.temp:'',r.bp?'BP: '+r.bp:'',r.pulse?'P: '+r.pulse:'',(r.respiration||r.resp)?'R: '+(r.respiration||r.resp):'',r.spo2?'SpO₂: '+r.spo2:'',r.bst?'BST: '+r.bst:''].filter(Boolean).join(', ');
+      })()
     };
+    /* 신체사정은 처치 열에 병합 (사용자 요청 2026-08-27) */
+    (function(){
+      const _paX=_dpPaTextForExcel(r);
+      if(_paX)cd.treatment=(cd.treatment&&cd.treatment!=='-'?cd.treatment+'\n':'')+_paX;
+    })();
     return _activeCols.map(function(c){const v=cd[c];return v==null||v===''?'':String(v);});
   });
   const d=new Date(dt);
@@ -1116,10 +1296,11 @@ async function _dpExportCounselExcel(){
   const from=document.getElementById('dpFrom').value, to=document.getElementById('dpTo').value;
   const records=recs.map(function(r){ return _symCounselSheetData(r); });
   const fileName=_dpSaveBaseName(from,to)+'_상담기록지.xlsx';
-  bus.emit('toast:show',{text:'Excel 생성 중…'});
+  /* Excel 도 PDF 와 동일한 진행 오버레이 + 완주 후 저장 창 (사용자 요청 2026-08-12) */
+  _dpShowExportProgress(recs.length,'Excel');
   window.electronAPI.xlsxBuildCounsel({records:records}).then(function(res){
     _dpDeliverXlsx(res,fileName);
-  }).catch(function(e){bus.emit('toast:show',{text:'Excel 오류: '+(e&&e.message||e)});});
+  }).catch(function(e){_dpHideExportProgress();_dpExportFailModal('Excel 저장',(e&&e.message)||String(e));});
 }
 async function exportDiaryExcel(){
   if(!window.electronAPI||!window.electronAPI.xlsxBuildDiary){bus.emit('toast:show',{text:'Excel 빌드 IPC 미구성'});return;}
@@ -1134,6 +1315,8 @@ async function exportDiaryExcel(){
   }
   const built=_dpBuildExportTable();
   if(!built){alert('먼저 미리보기를 실행하세요.');return;}
+  /* 진행 오버레이는 DOM 추출·표지 빌드 전에 미리 — 대용량에서 무피드백 공백 방지 (2026-08-12) */
+  _dpShowExportProgress(_dpExportRecCount(),'Excel');
   const colWidths=built.colWidths||[];
   const colCount=built.colCount;
   const headerLabels=built.headerLabels||[];
@@ -1144,12 +1327,14 @@ async function exportDiaryExcel(){
   const dataTable=area.querySelector('table[data-dp-main]')||_allTables[_allTables.length-1];
   const dataRows=[];
   dataTable.querySelectorAll(':scope > tbody > tr').forEach(function(tr){
-    if(tr.classList&&tr.classList.contains('dp-vs-subrow'))return;   /* V/S 시간대 표 행 제외 */
+    if(tr.classList&&(tr.classList.contains('dp-vs-subrow')||tr.classList.contains('dp-pa-subrow')))return;   /* V/S·신체사정 표 행 제외 */
     const cells=tr.querySelectorAll(':scope > td');
     const row=[];
     cells.forEach(function(c){row.push((c.textContent||'').trim());});
     while(row.length<colCount)row.push('');
     if(row.length>colCount)row.length=colCount;
+    /* V/S·신체사정을 처치 셀 텍스트로 병합 — 서브행 미니표는 Excel 셀에 못 넣으므로 (사용자 요청 2026-08-27) */
+    _dpMergeVsPaIntoRow(row,headerLabels,dataRows.length);
     dataRows.push(row);
   });
   const titleText=built.titleText;
@@ -1159,27 +1344,60 @@ async function exportDiaryExcel(){
   function fmtD(ds){if(!ds)return '';const d=new Date(ds);const dow=['일','월','화','수','목','금','토'][d.getDay()];return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()+'.('+dow+')';}
   const sp=_dpColorSplit(colCount,colWidths);
   const fileName=_dpSaveBaseName(from,to)+'.xlsx';   /* 사용자 규칙 파일명 (2026-06-10) */
-  /* (옵션) 진료과별 통계 표지 — 별도 워크시트로 포함 */
+  /* (옵션) 진료과별 통계 표지 — 별도 워크시트로 포함.
+   * 상담 내역 형식 제외 — 미리보기(dpShowPreview)와 동일 방어 (복원 2026-08-12) */
   const _coverOpt=document.getElementById('dpOptCover');
   let coverPayload={};
-  if(_coverOpt&&_coverOpt.checked){
+  if(_coverOpt&&_coverOpt.checked&&_dpFormat!=='counsel'){
     try{
-      const sd=await buildDeptStatsSections(from,to);
-      if(sd&&sd.sections&&sd.sections.length){
-        const cvColCount=sd.colCount;
-        /* cover 열 너비: 첫 컬럼(학년/구분)=100, 나머지 dept + 계=90 */
-        const coverColWidths=[100];
-        for(let i=0;i<cvColCount-1;i++)coverColWidths.push(90);
-        coverPayload={
-          coverSections:sd.sections,
-          coverColCount:cvColCount,
-          coverColWidths:coverColWidths,
-          coverTitle:'진료과별 선택기간 통계'
-        };
+      if(_dpFormat==='student'&&_dpSelectedStudentId){
+        /* 특정 방문자 — 전교 통계 대신 그 사람 전용 진료과별 집계.
+         * PDF 표지(_dpBuildStudentCoverHtml)와 동일 데이터·동일 필터(studentId/personUid/person_uid)
+         * (사용자 요청 2026-08-12 "excel도 맞춰야 한다"). 집계 불가(캐시 없음/기록 0건)면 표지 생략 —
+         * 전교 통계로 오인시키지 않는다. */
+        const _sid=String(_dpSelectedStudentId);
+        const _recs=((_dpCache&&_dpCache.records)||[]).filter(function(r){
+          const _rid=r.studentId||r.personUid||r.person_uid||'';
+          return String(_rid)===_sid;
+        });
+        const counts={};
+        _recs.forEach(function(r){ const d=String(r.dept||'').trim()||'미상'; counts[d]=(counts[d]||0)+1; });
+        const keys=Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; });
+        if(keys.length){
+          const stu=(typeof getStu==='function')?getStu(_dpSelectedStudentId):null;
+          const who=(stu&&stu.name)?stu.name:String(_dpSelectedStudentId||'');
+          const cvColCount=keys.length+2;   /* 진료과 라벨 + dept들 + 계 */
+          const coverColWidths=[100];
+          for(let i=0;i<cvColCount-1;i++)coverColWidths.push(90);
+          coverPayload={
+            coverSections:[{
+              title:'진료과별 방문 건수',
+              header:['진료과'].concat(keys).concat(['계']),
+              rows:[['건수'].concat(keys.map(function(k){return counts[k];})).concat([_recs.length])]
+            }],
+            coverColCount:cvColCount,
+            coverColWidths:coverColWidths,
+            coverTitle:who+' — 진료과별 방문 통계'
+          };
+        }
+      } else {
+        const sd=await buildDeptStatsSections(from,to);
+        if(sd&&sd.sections&&sd.sections.length){
+          const cvColCount=sd.colCount;
+          /* cover 열 너비: 첫 컬럼(학년/구분)=100, 나머지 dept + 계=90 */
+          const coverColWidths=[100];
+          for(let i=0;i<cvColCount-1;i++)coverColWidths.push(90);
+          coverPayload={
+            coverSections:sd.sections,
+            coverColCount:cvColCount,
+            coverColWidths:coverColWidths,
+            coverTitle:'진료과별 선택기간 통계'
+          };
+        }
       }
     }catch(e){console.warn('[diary-print] coverSections build failed:',e);}
   }
-  bus.emit('toast:show',{text:'Excel 생성 중…'});
+  /* (오버레이는 위에서 이미 표시 — 여기서 다시 열면 카운터가 리셋됨) */
   window.electronAPI.xlsxBuildDiary(Object.assign({
     colCount:colCount,
     colWidths:colWidths,
@@ -1193,27 +1411,32 @@ async function exportDiaryExcel(){
     bot1:sp.bot1
   },coverPayload)).then(function(res){
     _dpDeliverXlsx(res,fileName);
-  }).catch(function(e){bus.emit('toast:show',{text:'Excel 오류: '+e.message});});
+  }).catch(function(e){_dpHideExportProgress();_dpExportFailModal('Excel 저장',(e&&e.message)||String(e));});
 }
 
 /* Excel bytes 전달 공통 — Electron: 위치 선택 다이얼로그 → 실제 저장 후 "저장되었습니다" (사용자 요청 2026-06-11:
- * 다이얼로그가 닫힌 뒤에 떠야 함). 취소하면 무음. 웹 변형: 기존 blob 다운로드 폴백. */
+ * 다이얼로그가 닫힌 뒤에 떠야 함). 취소하면 무음. 웹 변형: 기존 blob 다운로드 폴백.
+ * 2026-08-12: bytes 완성 = 생성 완료 신호 → 진행 카운터를 총건수까지 완주시킨 뒤에야 저장 창을 연다.
+ * 실패 안내는 토스트 대신 모달 (토스트는 기존 토스트와 충돌 시 무음 삼켜짐). */
 function _dpDeliverXlsx(res, fileName){
-  if(!res||!res.success){bus.emit('toast:show',{text:'Excel 생성 실패: '+(res&&res.error||'')});return;}
-  if(window.electronAPI&&window.electronAPI.saveBytesDialog){
-    window.electronAPI.saveBytesDialog(fileName, res.bytes, [{name:'Excel 통합 문서', extensions:['xlsx']}]).then(function(sv){
-      if(sv&&sv.success&&!sv.canceled)bus.emit('toast:show',{text:'Excel 파일이 저장되었습니다.'});
-      else if(!(sv&&sv.success))bus.emit('toast:show',{text:'Excel 저장 실패: '+(sv&&sv.error||''),duration:4000});   /* 실패 안내는 길어서 4초 노출 (사용자 요청 2026-06-16) */
-      /* 취소(canceled)는 무음 */
-    }).catch(function(e){bus.emit('toast:show',{text:'Excel 저장 오류: '+(e&&e.message||e),duration:4000});});
-    return;
-  }
-  const buf=new Uint8Array(res.bytes);
-  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=fileName;a.click();
-  URL.revokeObjectURL(url);
-  bus.emit('toast:show',{text:'Excel 파일 다운로드를 시작했습니다.'});
+  if(!res||!res.success){_dpHideExportProgress();_dpExportFailModal('Excel 저장',(res&&res.error)||'');return;}
+  _dpFinishExportProgress().then(function(){
+    _dpHideExportProgress();
+    if(window.electronAPI&&window.electronAPI.saveBytesDialog){
+      window.electronAPI.saveBytesDialog(fileName, res.bytes, [{name:'Excel 통합 문서', extensions:['xlsx']}]).then(function(sv){
+        if(sv&&sv.success&&!sv.canceled)bus.emit('toast:show',{text:'Excel 파일이 저장되었습니다.'});
+        else if(!(sv&&sv.success)&&!(sv&&sv.canceled))_dpExportFailModal('Excel 저장',(sv&&sv.error)||'');
+        /* 취소(canceled)는 무음 */
+      }).catch(function(e){_dpExportFailModal('Excel 저장',(e&&e.message)||String(e));});
+      return;
+    }
+    const buf=new Uint8Array(res.bytes);
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=fileName;a.click();
+    URL.revokeObjectURL(url);
+    bus.emit('toast:show',{text:'Excel 파일 다운로드를 시작했습니다.'});
+  });
 }
 
 /* 매일 한 페이지 형식 공통 — 기간 내 모든 날짜의 스탯+방문표를 연속 배치용 payload 생성 */
@@ -1250,9 +1473,10 @@ async function _exportDailyExcel(){
   const from=document.getElementById('dpFrom').value;
   const to=document.getElementById('dpTo').value;
   if(!from||!to){alert('먼저 미리보기를 실행하세요.');return;}
-  bus.emit('toast:show',{text:'Excel 생성 중… (날짜별 통계 집계)'});
+  /* Excel 도 PDF 와 동일한 진행 오버레이 — 날짜별 통계 집계·빌드 전 구간을 모두 덮는다 (사용자 요청 2026-08-12) */
+  _dpShowExportProgress(_dpExportRecCount(),'Excel');
   const data=await _buildDailyContinuousData(from,to);
-  if(!data.days.length){bus.emit('toast:show',{text:'해당 기간에 기록이 없습니다.'});return;}
+  if(!data.days.length){_dpHideExportProgress();bus.emit('toast:show',{text:'해당 기간에 기록이 없습니다.'});return;}
   /* (옵션) 진료과별 통계 표지 — 같은 기간 전체를 별도 워크시트로 */
   const _coverOpt=document.getElementById('dpOptCover');
   let coverPayload={};
@@ -1285,7 +1509,7 @@ async function _exportDailyExcel(){
   const fileName=_dpSaveBaseName(from,to)+'.xlsx';   /* 사용자 규칙 파일명 (2026-06-10) */
   window.electronAPI.xlsxBuildDiary(payload).then(function(res){
     _dpDeliverXlsx(res,fileName);
-  }).catch(function(e){bus.emit('toast:show',{text:'Excel 오류: '+(e&&e.message||e)});});
+  }).catch(function(e){_dpHideExportProgress();_dpExportFailModal('Excel 저장',(e&&e.message)||String(e));});
 }
 
 /* PDF 저장 — 미리보기 영역 HTML 을 Chromium printToPDF 로 인쇄. 같은 엔진이 렌더해
@@ -1354,7 +1578,22 @@ function _dpBuildPrintDocHtml(){
   const _mPx=Math.round(12*96/25.4);                       /* @page margin 12mm → px */
   const _usableW=(landscape?1123:794)-2*_mPx;              /* A4 @96dpi: 794×1123 */
   const _fit=(_maxTW>0&&_maxTW>_usableW)?(_usableW/_maxTW):1;
-  const bodyHtml=titleBlock+(_fit<1?('<div style="zoom:'+_fit.toFixed(4)+'">'+tmp.innerHTML+'</div>'):tmp.innerHTML);
+  /* ★ fit 축소는 본문 전체 래퍼가 아니라 '넓은 표 자체'의 인라인 zoom 으로 건다 (2026-08-26).
+   *  옛 방식(<div style="zoom">본문 전체</div>)은 인쇄 다이얼로그의 페이지 분할기(_paginateWithHeaders)가
+   *  본문 전체를 "분할 불가능한 단일 블록"으로 취급하게 만들어, 한 페이지(overflow:hidden)에 우겨넣고
+   *  하단을 잘라버렸다 — "미리보기 11건, 실제 인쇄 5건+하단 잘림" 사고의 원인.
+   *  표의 style 에 직접 zoom 을 넣으면 분할기가 표를 tr 단위로 자를 때 styleAttr 로 zoom 이
+   *  각 페이지 조각 표에 그대로 승계되고, 행 높이 측정(getBoundingClientRect)도 zoom 반영값이라 정확하다.
+   *  PDF(printToPDF)는 Chromium 이 직접 렌더하므로 어느 방식이든 결과 동일. */
+  if(_fit<1){
+    tmp.querySelectorAll('table[data-dp-main],table.dp-daily-detail').forEach(function(t){
+      t.style.zoom=_fit.toFixed(4);
+    });
+  }
+  /* 방문자당 한 행(기본) 출력은 본문 상단에 이미 제목·학교명·기간이 있어 표지가 중복된다 → 표지 생략, 본문이 곧 첫 페이지.
+     학생 개인(student)·상담 내역(counsel) 형식만 표지 페이지 유지. (사용자 요청 2026-08-06) */
+  const _useCover=(_dpFormat==='student'||_dpFormat==='counsel');
+  const bodyHtml=(_useCover?titleBlock:'')+tmp.innerHTML;
   const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>보건일지</title><style>'
     /* 앱 전역과 동일한 border-box — 미리보기와 PDF 의 열 폭 픽셀 일치의 전제.
      * 이게 없으면 padding·border 가 col 폭에 더해져 작은 열은 커지고 넓은 열은 줄어듦 (CDP 실측으로 확인, 2026-06-11) */
@@ -1378,25 +1617,135 @@ function _dpBuildPrintDocHtml(){
     /* 글자 11pt 전면 통일 (사용자 결정 2026-06-11) — 인라인 px 지정(10px 등)을 덮도록 !important */
     +'table,th,td{font-size:11pt !important}'
     +'table,thead,tbody,tr,th,td{border:1px solid #475569 !important}'
+    /* V/S·신체사정 서브행은 방문자 행과 한 덩어리 — 사이 가로선 제거 (세로 열선은 유지, 사용자 요청 2026-08-27) */
+    +'tr:has(+ tr.dp-vs-subrow),tr:has(+ tr.dp-pa-subrow){border-bottom:none !important}'
+    +'tr:has(+ tr.dp-vs-subrow)>td,tr:has(+ tr.dp-pa-subrow)>td{border-bottom:none !important}'
+    +'tr.dp-vs-subrow,tr.dp-pa-subrow{border-top:none !important}'
+    +'tr.dp-vs-subrow>td,tr.dp-pa-subrow>td{border-top:none !important}'
     +'th,td{padding:4pt 6pt}'
     +'thead{display:table-header-group}tr{page-break-inside:avoid}'
     +'</style></head><body>'+bodyHtml+'</body></html>';
   return html;
 }
 
+/* ── PDF 생성 진행 오버레이 (사용자 보고 2026-08-12) ──
+ * 옛 1.5초 토스트는 두 가지 문제를 만들었다:
+ *  ① 연간 등 대용량 출력은 생성이 30초~수 분 걸리는데 토스트가 먼저 사라져 "먹통"으로 오인.
+ *  ② 실패 응답이 토스트 수명(1.5초) 안에 돌아오면 dailyShowToast 의 기존-토스트 가드에 걸려
+ *     실패 안내가 통째로 삼켜짐 → 무음 실패.
+ * → IPC 가 결과를 돌려줄 때까지 유지되는 지속형 오버레이 + 실패는 모달로 교체. */
+let _dpExportProgTimer=null;   /* 진행 카운터 interval — hide/finish 시 반드시 해제 */
+let _dpExportTotal=0;          /* 이번 내보내기 총 건수 — finish 완주 목표 */
+function _dpShowExportProgress(recCount,label){
+  _dpHideExportProgress();
+  _dpExportTotal=recCount>0?recCount:0;
+  const ov=document.createElement('div');
+  ov.id='dpExportProgressOverlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:49000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(2px)';
+  ov.innerHTML='<div style="background:var(--card);border:1px solid var(--cyan);border-radius:12px;padding:22px 34px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.3);font-family:var(--f)">'
+    +'<div style="width:30px;height:30px;margin:0 auto 12px;border:3px solid var(--bdr);border-top-color:var(--cyan);border-radius:50%;animation:dpExpSpin 0.9s linear infinite"></div>'
+    +'<div style="font-size:13.5px;font-weight:800;color:var(--t1)">'+(label||'PDF')+' 생성 진행 중...'
+      +(recCount>0?' <span id="dpExportProgCount" style="color:var(--cyan)">(0/'+recCount+'건)</span>':'')+'</div>'
+    +'<div style="font-size:11.5px;color:var(--t3);margin-top:7px;line-height:1.6">일지 등록 건수가 많을수록 시간 지체가 발생할 수 있습니다.<br>창을 닫지 말고 잠시만 기다려 주세요.</div>'
+    +'</div>'
+    +'<style>@keyframes dpExpSpin{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(ov);
+  /* ── 상승 카운터 (사용자 요청 2026-08-12: "(7/470건)처럼 분자가 올라야 멈춘 걸로 오해 안 함") ──
+   * printToPDF/xlsx 빌드는 진행 콜백이 없어 실제 처리 건수를 알 수 없다 → 건수 기반 예상 소요시간으로
+   * 보정한 점근 진행(1-e^-x). 예상 시점에 ~80%, 이후에도 계속 오르되 생성 완료 전엔 총건수 미도달.
+   * 완료 신호가 오면 _dpFinishExportProgress 가 총건수까지 완주시킨 뒤에야 저장 창이 뜬다
+   * (사용자 요청 2026-08-12: "410건이면 분자가 410이 되고 나서 저장 창"). 실측 보정: 410건 ≈ 3~5초. */
+  if(recCount>0){
+    const t0=Date.now();
+    const est=Math.max(2000,1800+recCount*8);   /* 예상 소요(ms) */
+    _dpExportProgTimer=setInterval(function(){
+      const el=document.getElementById('dpExportProgCount');
+      if(!el){ clearInterval(_dpExportProgTimer); _dpExportProgTimer=null; return; }
+      const t=Date.now()-t0;
+      const p=1-Math.exp(-1.6*t/est);
+      const n=Math.max(1,Math.min(recCount-1,Math.floor(recCount*p)));
+      el.textContent='('+n+'/'+recCount+'건)';
+    },200);
+  }
+}
+/* 생성 완료 신호 후 호출 — 분자를 총건수까지 빠르게(~0.4초) 완주시키고 잠깐(0.35초) 보여준 뒤 resolve.
+ * resolve 후에 저장 다이얼로그를 열어야 "완료를 보고 나서 저장 창" 순서가 성립한다. */
+function _dpFinishExportProgress(){
+  return new Promise(function(resolve){
+    if(_dpExportProgTimer){ clearInterval(_dpExportProgTimer); _dpExportProgTimer=null; }
+    const el=document.getElementById('dpExportProgCount');
+    const total=_dpExportTotal;
+    if(!el||!total){ resolve(); return; }
+    const m=(el.textContent||'').match(/\((\d+)\//);
+    let cur=m?parseInt(m[1],10):0;
+    const step=Math.max(1,Math.ceil((total-cur)/8));   /* 8틱 ≈ 0.4초 완주 */
+    const iv=setInterval(function(){
+      cur=Math.min(total,cur+step);
+      const el2=document.getElementById('dpExportProgCount');
+      if(el2)el2.textContent='('+cur+'/'+total+'건)';
+      if(cur>=total){ clearInterval(iv); setTimeout(resolve,350); }
+    },50);
+  });
+}
+function _dpHideExportProgress(){
+  if(_dpExportProgTimer){ clearInterval(_dpExportProgTimer); _dpExportProgTimer=null; }
+  const ov=document.getElementById('dpExportProgressOverlay');
+  if(ov)ov.remove();
+}
+
+/* 내보내기 총 건수 — daily 형식은 _dpDailyDataCache, 그 외(row/student/counsel)는 _dpCache 가 캐시 (2026-08-12) */
+function _dpExportRecCount(){
+  if(_dpFormat==='daily')
+    return ((_dpDailyDataCache&&_dpDailyDataCache.filtered&&_dpDailyDataCache.filtered.length)||0);
+  /* 특정 학생/상담 등 필터 형식 — 미리보기에서 확정된 필터 후 건수 우선 (분모=전체 버그 수정 2026-08-27) */
+  if(_dpCache&&typeof _dpCache.filteredCount==='number')return _dpCache.filteredCount;
+  return ((_dpCache&&_dpCache.records&&_dpCache.records.length)||0);
+}
+function _dpExportFailModal(title,err){
+  appConfirmModal(title+'에 실패했습니다.<br><br><span style="color:var(--t3);font-size:11.5px">'+escHtmlDp(err||'알 수 없는 오류')+'</span>',title+' 실패',{okOnly:true,okLabel:'확인'});
+}
 function exportDiaryPreviewPDF(){
   if(!(window.electronAPI&&window.electronAPI.printToPDF)){bus.emit('toast:show',{text:'PDF 저장 기능을 사용할 수 없습니다.'});return;}
   const html=_dpBuildPrintDocHtml();
-  if(!html){alert('먼저 미리보기를 실행하세요.');return;}
+  if(!html){appConfirmModal('먼저 미리보기를 실행하세요.','PDF 저장',{okOnly:true,okLabel:'확인',okBg:'rgba(6,182,212,0.12)',okBorder:'rgba(6,182,212,0.35)',okColor:'#0891b2'});return;}
   const from=document.getElementById('dpFrom').value, to=document.getElementById('dpTo').value;
   const fileName=_dpSaveBaseName(from,to)+'.pdf';   /* 사용자 규칙 파일명 (2026-06-10) */
-  bus.emit('toast:show',{text:'PDF 생성 중…'});
+  _dpShowExportProgress(_dpExportRecCount(),'PDF');
   const _ls=!_dpIsCounselIndividual();   /* 개별 양식(상담기록지)은 세로 */
+  /* ── 2단계 경로 (Electron): 생성 → 카운터 완주(n/n건) → 저장 다이얼로그.
+   * 저장 창은 분자가 총건수에 도달한 뒤에만 뜬다 (사용자 요청 2026-08-12). ── */
+  if(window.electronAPI.printToPDFGenerate&&window.electronAPI.printToPDFSave){
+    window.electronAPI.printToPDFGenerate(html,{landscape:_ls,marginsType:1}).then(function(res){
+      if(!(res&&res.success)){
+        _dpHideExportProgress();
+        _dpExportFailModal('PDF 저장',(res&&res.error));
+        return;
+      }
+      return _dpFinishExportProgress().then(function(){
+        _dpHideExportProgress();
+        return window.electronAPI.printToPDFSave(res.token,fileName);
+      }).then(function(sv){
+        if(sv&&sv.success){bus.emit('toast:show',{text:'PDF가 저장되었습니다.'});return;}
+        if(sv&&sv.error==='cancelled')return;   /* 저장 다이얼로그에서 사용자가 취소 — 무음 */
+        _dpExportFailModal('PDF 저장',(sv&&sv.error));
+      });
+    }).catch(function(e){
+      _dpHideExportProgress();
+      _dpExportFailModal('PDF 저장',(e&&e.message)||String(e));
+    });
+    return;
+  }
+  /* ── 단일 호출 폴백 (웹 변형 등 2단계 API 미노출 환경) — 기존 동작 유지 ── */
   window.electronAPI.printToPDF(html,{fileName:fileName,landscape:_ls,marginsType:1}).then(function(res){
+    _dpHideExportProgress();
     if(res&&res.success){bus.emit('toast:show',{text:'PDF가 저장되었습니다.'});return;}
-    if(res&&res.error==='cancelled')return;
-    bus.emit('toast:show',{text:'PDF 저장 실패: '+(res&&res.error||'알 수 없는 오류')});
-  }).catch(function(e){bus.emit('toast:show',{text:'PDF 오류: '+(e&&e.message||e)});});
+    if(res&&res.error==='cancelled')return;   /* 저장 다이얼로그에서 사용자가 취소 — 무음 */
+    /* 실패는 토스트가 아닌 모달 — 토스트는 기존 토스트와 충돌 시 무음 삼켜짐 (2026-08-12) */
+    _dpExportFailModal('PDF 저장',(res&&res.error));
+  }).catch(function(e){
+    _dpHideExportProgress();
+    _dpExportFailModal('PDF 저장',(e&&e.message)||String(e));
+  });
 }
 
 /* 인쇄 — PDF 와 동일 HTML 을 응급기록지와 동일한 A4 인쇄 미리보기 다이얼로그(가로)로 열어 실제 출력.
@@ -1412,11 +1761,14 @@ function printDiaryPreview(){
 }
 
 function printDiaryDirect(){
-  const area=document.getElementById('dpPreviewArea');
-  if(!area||!area.innerHTML){alert('먼저 미리보기를 실행하세요.');return;}
+  /* 인쇄도 PDF 와 동일한 완성 문서 사용 (사용자 지시 2026-08-27) —
+   * 1페이지 = 표지(제목·학교명·기간 단독, page-break), 2페이지부터 일지표.
+   * 테두리·11pt·V/S 서브행 병합선 등 PDF 규칙이 인쇄에도 그대로 적용된다. */
+  const html=_dpBuildPrintDocHtml();
+  if(!html){alert('먼저 미리보기를 실행하세요.');return;}
   const win=window.open('','_blank');
   if(!win){bus.emit('toast:show',{text:'팝업이 차단되었습니다. 브라우저 설정을 확인하세요.'});return;}
-  win.document.write('<html><head><meta charset="utf-8"><title>'+escHtmlDp(_dpRowTitleText())+'</title><style>body{font-family:"Pretendard Variable","Pretendard","Noto Sans KR",sans-serif;margin:20px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #333;padding:4px 6px;text-align:left}th{background:#f0f0f0;font-weight:bold}@media print{thead{display:table-header-group}}</style></head><body>'+area.innerHTML+'</body></html>');
+  win.document.write(html);
   win.document.close();
   win.print();
 }
@@ -1490,6 +1842,7 @@ async function _dpShowCounselIndividualPreview(){
   const area=document.getElementById('dpPreviewArea');
   if(!area)return;
   const recs=_dpCounselRecsSorted();
+  if(_dpCache)_dpCache.filteredCount=recs.length;   /* 진행 카운터 분모 = 실제 출력 건수 (2026-08-27) */
   if(!recs.length){
     area.innerHTML='<div style="padding:48px 20px;text-align:center;color:var(--t3);font-size:13px">선택한 기간에 작성된 상담 기록이 없습니다.</div>';
     return;
@@ -1534,7 +1887,7 @@ function _dpSaveBaseName(from,to){
   let who='';
   if(_dpFormat==='student'&&_dpSelectedStudentId&&typeof getStu==='function'){
     const stu=getStu(_dpSelectedStudentId);
-    if(stu&&stu.name) who=stu.type==='staff'?(stu.name+'님의 '):(stu.name+'학생의 ');
+    if(stu&&stu.name) who=stu.type==='staff'?(stu.name+' 님의 '):(stu.name+' 학생의 ');   /* 이름 뒤 한 칸 (사용자 요청 2026-08-27) */
   }
   return (schoolName?schoolName+' ':'')+who+'보건일지'+(range?' ('+range+')':'');
 }
@@ -1612,6 +1965,13 @@ function _dpQuickRange(preset){
     const info=(typeof getSemesterInfo==='function')?getSemesterInfo(ay):null;
     if(info&&info.s1Start&&info.s2End){ from=dateObj(info.s1Start); to=dateObj(info.s2End); }
     else { from=new Date(ay,2,1); to=new Date(ay+1,1,28); }
+  }
+  /* 이번 학기·이번 학년도 — 종료일은 학기/학년도 말일이 아니라 '오늘'까지.
+   * 미래 기록은 존재하지 않으므로 (사용자 지시 2026-08-27). 시작일보다 앞서지는 않게 방어. */
+  if((preset==='semester'||preset==='year')&&to){
+    const _todayD=new Date(y,m,d);
+    if(to>_todayD)to=_todayD;
+    if(from&&to<from)to=new Date(from);
   }
   else if(preset==='custom'){
     /* 기간 선택 — 날짜 입력만 초기화하고 시작일 캘린더를 바로 띄움 */
@@ -1768,9 +2128,12 @@ export function openDiaryPrint(){
   h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-items:stretch">';
   /* 오늘의 메모 — 매일 한 페이지 형식에서만 노출 (3번째 토글, 가장 왼쪽 — 사용자 요청 2026-06-10). _dpSwitchFormat 이 표시/숨김 제어 */
   h+=_dpOptCardHtml('dpOptTodayMemoPv','<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>','오늘의 메모','그 날짜의 오늘의 메모 표를 함께 인쇄');
-  /* 진료과별 증상 통계 표지 카드 — 제거(사용자 요청 2026-06-25, "필요없어"). dpOptCover 처리 코드는 보존(항상 unchecked). */
+  /* 진료과별 통계 표지 카드 — 2026-06-25 제거했다가 2026-08-12 사용자 요청으로 복원.
+   * 방문자당 한 행·매일 한 페이지 = 전교 진료과별 통계 표지 / 특정 방문자 = 그 사람 전용 통계 표지.
+   * 상담 내역 형식에서는 카드 숨김 + 렌더 조건에서도 제외 (복원 범위: row/daily/student 3형식). */
+  h+=_dpOptCardHtml('dpOptCoverPv','<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>','진료과별 통계 표지','선택 기간의 진료과별 방문 통계를 표지 페이지로 포함');
   h+=_dpOptCardHtml('dpOptCounselPv','<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>','상담 주제별 통계 표지','중분류(상담 주제)별 상담 건수·총계 요약표');
-  h+=_dpOptCardHtml('dpOptNursePv','<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>','처치자별 건수','보건교사별 방문 수 합계 표시');
+  h+=_dpOptCardHtml('dpOptNursePv','<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>','처치자별 건수','보건교사 2인 배치 시 보건교사별 방문 수 합계를 표시');
   h+='</div>';
   /* 느린 이유 안내 — 최초 토글 시 수초 걸릴 수 있음 */
   h+='<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">💡 <b style="color:var(--t2)">처음 켤 때는 최대 수 초</b> 소요될 수 있습니다 — 선택 기간의 기록 전체를 SQLite 에서 집계(증상·진료과 매핑·학년 분류)하기 때문입니다. 한 번 로딩된 뒤에는 같은 기간 안에서 즉시 반응합니다.</div>';
@@ -1902,6 +2265,9 @@ export function openDiaryPrint(){
     if(_tm0)_tm0.style.display=(_dpFormat==='daily')?'flex':'none';
     const _nu0=document.querySelector('.dp-opt-card[data-dp-toggle="dpOptNursePv"]');
     if(_nu0)_nu0.style.display=(_dpFormat==='daily')?'flex':'none';
+    /* 진료과별 통계 표지 — row/daily/student 에서만 (상담 내역 형식 제외, 복원 2026-08-12) */
+    const _cv0=document.querySelector('.dp-opt-card[data-dp-toggle="dpOptCoverPv"]');
+    if(_cv0)_cv0.style.display=(_dpFormat!=='counsel')?'flex':'none';
   })();
   /* 엑셀 저장 */
   const xlsBtn=document.getElementById('dpSaveExcel');
@@ -1920,7 +2286,7 @@ export function openDiaryPrint(){
   dpColHistory=[];
   const dcv=JSON.parse(localStorage.getItem('dailyColVisibility')||'null');
   if(dcv){
-    const colToPrint={5:'gender',6:'symptoms',8:'treatment',12:'vitals',13:'nurse'};   /* 9:'medication' 제거 — 투약 컬럼 폐지(2026-06-10) */
+    const colToPrint={5:'gender',6:'symptoms',8:'treatment',13:'nurse'};   /* 9:'medication'·12:'vitals' 제거 — 투약(2026-06-10)·V/S(2026-07-21) 인쇄 컬럼 폐지 */
     Object.keys(colToPrint).forEach(function(k){if(dcv[k]===false)dpColVis[colToPrint[k]]=false;});
     if(dcv[10]===false&&dcv[11]===false)dpColVis['time']=false;
   }
@@ -2024,6 +2390,9 @@ function _dpSwitchFormat(fmt){
   if(_tmCard)_tmCard.style.display=(fmt==='daily')?'flex':'none';   /* '' 복원 금지 — display:flex 인라인이 사라져 토글이 아래로 떨어짐 */
   const _nuCard=document.querySelector('.dp-opt-card[data-dp-toggle="dpOptNursePv"]');
   if(_nuCard)_nuCard.style.display=(fmt==='daily')?'flex':'none';
+  /* 진료과별 통계 표지 — row/daily/student 3형식에서만 노출 (상담 내역 제외, 복원 2026-08-12) */
+  const _cvCard=document.querySelector('.dp-opt-card[data-dp-toggle="dpOptCoverPv"]');
+  if(_cvCard)_cvCard.style.display=(fmt!=='counsel')?'flex':'none';
   /* 'student' 선택 시 — 아직 선택된 학생 없으면 학생 검색 팝업 자동 호출 (사용자 결정 2026-05-28). */
   if(fmt==='student' && !_dpSelectedStudentId){
     _dpOpenStudentPicker();
@@ -2132,25 +2501,25 @@ async function dpShowDailyPreview(opts){
 
   function _renderStatSection(title,section,cyan){
     if(!section||!section.header)return '';
-    const cellStyle='border:1px solid #cbd5e1;padding:4px 6px;font-size:11pt;text-align:center;color:#1e293b';   /* 11pt 통일 (2026-06-11) */
-    const headStyle=cellStyle+';background:#f1f5f9;font-weight:700;color:#475569;font-size:11pt';   /* 11pt 통일 (2026-06-11) */
-    let s='<div style="font-size:11px;font-weight:700;color:#0e7490;margin:8px 0 4px;display:flex;align-items:center;gap:5px">'
-      +'<span style="display:inline-block;width:3px;height:12px;background:linear-gradient(180deg,'+(cyan||'#06b6d4')+',#0891b2);border-radius:2px"></span>'+title+'</div>';
-    s+='<div style="border:1px solid #cbd5e1;border-radius:6px"><table style="width:100%;border-collapse:collapse">';
-    s+='<thead><tr>';section.header.forEach(function(h,i){s+='<th style="'+headStyle+(i===section.header.length-1?';color:#0891b2':'')+'">'+h+'</th>';});
+    /* 셀 인라인 스타일(옛 cellStyle/headStyle) → dpx- 클래스 (경량화 2026-08-12).
+     * 날짜당 통계 3섹션 ≈ 15~18KB → 2~3KB. 선언은 _DPX_CSS 에 동일 보존.
+     * cyan 인자는 현재 호출자 없음 — 전달되면 span 인라인으로만 덮어씀(옛 동작 보존). */
+    let s='<div class="dpx-st"><span'+(cyan?' style="background:linear-gradient(180deg,'+cyan+',#0891b2)"':'')+'></span>'+title+'</div>';
+    s+='<div class="dpx-box"><table class="dpx-tbl">';
+    s+='<thead><tr>';section.header.forEach(function(h,i){s+='<th class="dpx-sc'+(i===section.header.length-1?' dpx-cy':'')+'">'+h+'</th>';});
     s+='</tr></thead><tbody>';
     (section.rows||[]).forEach(function(row){
       s+='<tr>';
       row.forEach(function(cell,i){
-        const muted=(typeof cell==='number'&&cell===0)?';color:#cbd5e1':'';
-        s+='<td style="'+cellStyle+(i===0?';font-weight:700':'')+(i===row.length-1?';font-weight:800;color:#0891b2':'')+muted+'">'+cell+'</td>';
+        const muted=(typeof cell==='number'&&cell===0)?' dpx-mut':'';   /* dpx-mut 는 CSS 에서 dpx-cy 뒤 — 0값 회색 우선(옛 선언 순서) */
+        s+='<td class="dpx-sc'+(i===0?' dpx-b7':'')+(i===row.length-1?' dpx-b8 dpx-cy':'')+muted+'">'+cell+'</td>';
       });
       s+='</tr>';
     });
     if(section.totalsRow){
-      s+='<tr style="background:rgba(6,182,212,0.06);border-top:2px solid #94a3b8">';
+      s+='<tr class="dpx-tot">';
       section.totalsRow.forEach(function(cell,i){
-        s+='<td style="'+cellStyle+';font-weight:800'+(i===0?';color:#0e7490':'')+(i===section.totalsRow.length-1?';color:#0891b2;font-size:11px':'')+'">'+cell+'</td>';
+        s+='<td class="dpx-sc dpx-b8'+(i===0?' dpx-tc':'')+(i===section.totalsRow.length-1?' dpx-cy dpx-ts':'')+'">'+cell+'</td>';
       });
       s+='</tr>';
     }
@@ -2181,16 +2550,17 @@ async function dpShowDailyPreview(opts){
       html+='<div style="page-break-before:always"></div>';
     }
     /* ── 일자 헤더 — '보건일지' 제목·학교명은 문서 상단과 중복이라 제거, 날짜(페이지 식별용)+방문자 수만 (사용자 요청 2026-06-11) ── */
-    html+='<div style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #0891b2;padding-bottom:8px;margin-bottom:10px">';
-    html+='<div style="font-size:14pt;font-weight:800;letter-spacing:-0.5px;color:#0f172a">'+fmtD(dt)+'</div>';
-    html+='<div style="text-align:right">'
-      +'<div style="font-size:10px;color:#64748b">방문자 수</div>'
-      +'<div style="font-size:18px;font-weight:800;color:#0891b2">'+dayRecs.length+'<span style="font-size:11px;color:#475569;margin-left:3px">명</span></div>'
-      +'<div style="font-size:10px;color:#475569">학생 '+stuCnt+' · 교직원 '+staffCnt+'</div>'
+    /* 날짜마다 반복되는 인라인 스타일 → dpx- 클래스 (경량화 2026-08-12) */
+    html+='<div class="dpx-dh">';
+    html+='<div class="dpx-dh-date">'+fmtD(dt)+'</div>';
+    html+='<div class="dpx-dh-r">'
+      +'<div class="dpx-dh-l1">방문자 수</div>'
+      +'<div class="dpx-dh-n">'+dayRecs.length+'<span>명</span></div>'
+      +'<div class="dpx-dh-l2">학생 '+stuCnt+' · 교직원 '+staffCnt+'</div>'
       +'</div>';
     html+='</div>';
     if(showNurse&&nurseLine){
-      html+='<div style="font-size:10px;color:#475569;background:#f1f5f9;padding:5px 8px;border-radius:6px;margin-bottom:8px">👤 처치자: '+escHtml(nurseLine)+'</div>';
+      html+='<div class="dpx-nl">👤 처치자: '+escHtml(nurseLine)+'</div>';
     }
 
     /* ── 오늘의 메모 — 추가 옵션 토글(dpOptTodayMemo, 기본 ON) + 그 날짜에 내용이 있으면 함께 인쇄 (사용자 요청 2026-06-10) ── */
@@ -2198,30 +2568,23 @@ async function dpShowDailyPreview(opts){
       const _tmOptEl=document.getElementById('dpOptTodayMemo');
       const _tmBlk=(!_tmOptEl||_tmOptEl.checked)?tmGetPrintBlock(dt):'';
       if(_tmBlk){
-        html+='<div style="font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:22px 0 7px;display:flex;align-items:center;gap:6px">'
-          +'<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#84cc16,#65a30d);color:#fff;font-size:11px">📝</span>'
-          +'오늘의 메모</div>'+_tmBlk;
+        html+='<div class="dpx-sh"><span class="dpx-ico dpx-ico-memo">📝</span>오늘의 메모</div>'+_tmBlk;
       }
     }catch(_){}
 
     /* ── 방문 통계 (우리 앱의 '방문 통계'와 동일한 3섹션 구조) ── */
     const dayStats=dayStatsMap[dt];
     if(dayStats&&dayStats.sections&&dayStats.sections.length){
-      html+='<div style="font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:22px 0 7px;display:flex;align-items:center;gap:6px">'
-        +'<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:11px">📊</span>'
-        +'일간 방문 통계</div>';
+      html+='<div class="dpx-sh"><span class="dpx-ico dpx-ico-stat">📊</span>일간 방문 통계</div>';
       dayStats.sections.forEach(function(sec){html+=_renderStatSection(sec.title,sec);});
     }
 
     /* ── 방문 리스트 — 표시 항목/순서의 dpColOrder 를 그대로 사용
        (단, 'date' 는 매일 한 페이지에서는 자동 제외 — 페이지 자체가 날짜) ── */
-    html+='<div style="font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:26px 0 7px;display:flex;align-items:center;gap:6px">'
-      +'<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:11px">📝</span>'
-      +'방문 상세</div>';
+    html+='<div class="dpx-sh dpx-sh-d"><span class="dpx-ico dpx-ico-detail">📝</span>방문 상세</div>';
     /* white-space: pre-line — 다중 증상 record 의 증상·처치 셀 내부 newline 을 시각 행으로 렌더 (v3+ 사용자 결정 2026-05-20) */
     /* 글자 11pt 통일 (사용자 결정 2026-06-11) — 미리보기·PDF 동일 */
-    const tCell='border:1px solid #cbd5e1;padding:5px 7px;font-size:11pt;color:#1e293b;white-space:pre-line';
-    const tHead=tCell+';background:#f1f5f9;font-weight:700;color:#475569;font-size:11pt;text-align:center';
+    /* 옛 tCell/tHead 인라인 스타일 → dpx-dc 클래스 (경량화 2026-08-12) — 선언은 _DPX_CSS 에 동일 보존 */
     const _activeDailyCols=dpColOrder.filter(function(c){return c!=='date'&&dpColVis[c]!==false;});
     /* 매일 한 페이지 = A4 가로 전제. 증상/처치/투약은 min-width 크게 잡아 자동 확장 */
     /* 기본 너비는 DP_W_DAILY(모듈) — 사용자 조절값(_dpEffW) 우선 (2026-06-11) */
@@ -2257,8 +2620,8 @@ async function dpShowDailyPreview(opts){
     html+='<thead><tr>';
     _activeDailyCols.forEach(function(c){
       const info=DP_COLS.find(function(dc){return dc.col===c;});if(!info)return;
-      const w=_ddEffW(c);   /* 사용자 열 너비 우선 + 여백 채움 (2026-06-16) */
-      html+='<th style="'+tHead+(w?';width:'+w+'px':'')+'">'+escHtml(DP_PRINT_LABELS[c]||info.label)+'</th>';
+      const w=_ddEffW(c);   /* 사용자 열 너비 우선 + 여백 채움 (2026-06-16) — 폭만 인라인 유지(_dpOnWidthChanged 라이브 패치 대상) */
+      html+='<th class="dpx-dc"'+(w?' style="width:'+w+'px"':'')+'>'+escHtml(DP_PRINT_LABELS[c]||info.label)+'</th>';
     });
     html+='</tr></thead><tbody>';
     dayRecs.forEach(function(r,ri){
@@ -2320,6 +2683,9 @@ async function dpShowDailyPreview(opts){
               var str = r.medsBySym[sym].map(function(mm){var d=dm[mm]||''; return d?(mm+'('+d+')'):mm;}).join(', ');
               return formatMedicationDisplay(str);
             };
+            /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
+            var _clT3=counselTreatText(r);
+            var _clIdx3=_clT3?r.symptoms.findIndex(isCounselSymLabel):-1;
             var lines = r.symptoms.map(function(sym, idx){
               var symTreats = (r.treatmentBySym[sym]||[]);
               var medDispForSym = _medDispForSym(sym);
@@ -2328,6 +2694,7 @@ async function dpShowDailyPreview(opts){
                 if(b==='투약' && medDispForSym) return medDispForSym;
                 return t;
               });
+              if(idx===_clIdx3)symLabeled.push(_clT3);
               return '→ '+symLabeled.join(', ');
             });
             if(m) lines[0] = (lines[0]?lines[0]+' / ':'')+m;
@@ -2348,24 +2715,40 @@ async function dpShowDailyPreview(opts){
       html+='<tr>';
       _activeDailyCols.forEach(function(c){
         const v=cellData[c];
-        const align=centerCols[c]?'text-align:center':'';
-        const bold=(c==='name')?';font-weight:700':'';
-        const mute=(c==='seq')?';color:#64748b;font-weight:700':'';
-        const nowrap=(c==='time')?';white-space:nowrap':'';   /* 시간 'HH:MM ~ HH:MM' 한 줄 (사용자 요청 2026-06-16) */
-        html+='<td style="'+tCell+';'+align+bold+mute+nowrap+'">'+escHtml(String(v==null||v===''?'-':v))+'</td>';
+        const cls='dpx-dc'
+          +(centerCols[c]?' dpx-c':'')
+          +((c==='name')?' dpx-bold':'')
+          +((c==='seq')?' dpx-seq':'')
+          +((c==='time')?' dpx-nw':'');   /* 시간 'HH:MM ~ HH:MM' 한 줄 (사용자 요청 2026-06-16) */
+        html+='<td class="'+cls+'">'+escHtml(String(v==null||v===''?'-':v))+'</td>';
       });
       html+='</tr>';
-      /* ── 시간대별 V/S 입력이 있으면 그 방문자 행 아래·증상 칸 자리에 표로 (사용자 요청 2026-06-15) ── */
-      if(r.vsHistory && r.vsHistory.length){
+      /* ── V/S 값이 있으면 처치 칸 자리에 표로 인쇄 (항상 표 형식, 단일 측정도 1행 표). 2026-07-21 ── */
+      {
         const _vsTbl=_dpVsTsTableHtml(r);
         if(_vsTbl){
-          const _symIdx=_activeDailyCols.indexOf('symptoms');
+          const _trtIdx=_activeDailyCols.indexOf('treatment');
           html+='<tr class="dp-vs-subrow">';
-          if(_symIdx<0){
-            html+='<td colspan="'+_activeDailyCols.length+'" style="'+tCell+';text-align:left">'+_vsTbl+'</td>';
+          if(_trtIdx<0){
+            html+='<td colspan="'+_activeDailyCols.length+'" class="dpx-dc dpx-l">'+_vsTbl+'</td>';
           } else {
-            for(let _i=0;_i<_symIdx;_i++){ html+='<td style="'+tCell+'"></td>'; }
-            html+='<td colspan="'+(_activeDailyCols.length-_symIdx)+'" style="'+tCell+';text-align:left">'+_vsTbl+'</td>';
+            for(let _i=0;_i<_trtIdx;_i++){ html+='<td class="dpx-dc"></td>'; }
+            html+='<td colspan="'+(_activeDailyCols.length-_trtIdx)+'" class="dpx-dc dpx-l">'+_vsTbl+'</td>';
+          }
+          html+='</tr>';
+        }
+      }
+      /* ── 신체사정이 있으면 처치 칸 자리에 표로 인쇄 ── */
+      {
+        const _paTbl=_dpPaTableHtml(r);
+        if(_paTbl){
+          const _trtIdx=_activeDailyCols.indexOf('treatment');
+          html+='<tr class="dp-pa-subrow">';
+          if(_trtIdx<0){
+            html+='<td colspan="'+_activeDailyCols.length+'" class="dpx-dc dpx-l">'+_paTbl+'</td>';
+          } else {
+            for(let _i=0;_i<_trtIdx;_i++){ html+='<td class="dpx-dc"></td>'; }
+            html+='<td colspan="'+(_activeDailyCols.length-_trtIdx)+'" class="dpx-dc dpx-l">'+_paTbl+'</td>';
           }
           html+='</tr>';
         }
@@ -2374,7 +2757,8 @@ async function dpShowDailyPreview(opts){
     /* 빈 행 채움 제거 — 방문자 수만큼만 행 생성 (빈칸 행이 페이지를 넘기던 문제, 사용자 요청 2026-06-11) */
     html+='</tbody></table></div>';
   });
-  area.innerHTML=html;area.style.display='block';
+  /* dpx- 공용 CSS 를 미리보기 맨 앞에 삽입 — PDF/인쇄가 innerHTML 을 복제하므로 자동 승계 (경량화 2026-08-12) */
+  area.innerHTML='<style>'+_DPX_CSS+'</style>'+html;area.style.display='block';
   /* 로딩 점 숨김 */
   if(_loadingDots)_loadingDots.style.display='none';
 }
@@ -2849,7 +3233,7 @@ async function exportDiarySheets(){
   const colCount=headerLabels.length||8;
   const dataRows=[];
   dataTable.querySelectorAll(':scope > tbody > tr').forEach(function(tr){
-    if(tr.classList&&tr.classList.contains('dp-vs-subrow'))return;
+    if(tr.classList&&(tr.classList.contains('dp-vs-subrow')||tr.classList.contains('dp-pa-subrow')))return;
     const cells=tr.querySelectorAll(':scope > td');
     if(!cells.length)return;
     /* 빈 안내 행("해당 기간에 기록이 없습니다") — colspan으로 단일 셀이면 그대로 둠 */
@@ -2857,6 +3241,8 @@ async function exportDiarySheets(){
     cells.forEach(function(c){row.push((c.textContent||'').trim());});
     /* 정렬 위해 콜수 맞춤 */
     while(row.length<colCount)row.push('');
+    /* V/S·신체사정 병합 — Excel 과 동일 (2026-08-27) */
+    _dpMergeVsPaIntoRow(row,headerLabels,dataRows.length);
     dataRows.push(row);
   });
   /* 시트 행 구성 — 빈 셀 padding으로 컬럼 수 맞춤 */

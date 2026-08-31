@@ -48,7 +48,11 @@ function _paginateWithHeaders(doc, pageH){
       });
       items.push({kind:'table', style:child.getAttribute('style')||'', col:col?col.outerHTML:'', thead:thead?thead.outerHTML:'', theadH:thead?H(thead):0, rows:rows, mb:MB(child)});
     } else {
-      items.push({kind:'block', html:child.outerHTML, h:H(child), mb:MB(child)});
+      /* 명시적 페이지 브레이크(page-break-after:always / break-after:page) 감지 — 표지(.dp-pdf-cover) 등
+       *  "이 블록으로 페이지를 끝내라"는 문서 의도를 재구성 시에도 존중 (사용자 보고 2026-08-27: 인쇄 표지 미분리) */
+      var _brk=false;
+      try{ var _cs=win.getComputedStyle(child); _brk=(_cs.breakAfter==='page'||_cs.pageBreakAfter==='always'); }catch(e){}
+      items.push({kind:'block', html:child.outerHTML, h:H(child), mb:MB(child), brk:_brk});
     }
   });
   if(!items.length) return null;
@@ -83,8 +87,28 @@ function _paginateWithHeaders(doc, pageH){
   }
   items.forEach(function(item){
     if(item.kind==='block'){
+      /* ★ 페이지보다 큰 '분할 불가 블록' — 세로 오프셋 슬라이스로 페이지에 정확히 배분 (2026-08-26).
+       *  옛 로직은 이런 블록을 한 페이지(height 고정+overflow:hidden)에 통째로 넣어 넘치는 내용이
+       *  소리 없이 잘려 나갔다(보건일지 '특정 방문자' 인쇄 11건→5건 잘림 사고).
+       *  각 페이지 조각 = 블록 전체를 복제해 위로 -offset 만큼 밀고 pageH 로 클립 → 픽셀 단위로
+       *  이어지는 연속 분할. 미리보기와 인쇄가 같은 문서를 쓰므로 '보이는 대로 인쇄'가 유지되고
+       *  내용은 몇 페이지가 되든 전량 출력된다. */
+      if(item.h>pageH){
+        if(used>0) flush();
+        var off=0, sliceH=0;
+        while(off<item.h){
+          sliceH=Math.min(pageH, item.h-off);
+          cur.push('<div style="height:'+Math.ceil(sliceH)+'px;overflow:hidden"><div style="margin-top:-'+Math.floor(off)+'px">'+item.html+'</div></div>');
+          off+=sliceH;
+          if(off<item.h) flush();
+        }
+        used=sliceH+item.mb;   /* 마지막 조각 높이만 현재 페이지 사용분으로 — 남는 공간엔 후속 항목이 이어짐 */
+        if(item.brk&&used>0) flush();   /* 명시적 page-break — 이 블록으로 페이지 종료 (2026-08-27) */
+        return;
+      }
       if(used+item.h>pageH && used>0) flush();
       cur.push(item.html); used+=item.h+item.mb;
+      if(item.brk&&used>0) flush();     /* 명시적 page-break (표지 등) — 다음 내용은 새 페이지부터 (2026-08-27) */
       return;
     }
     var i=0, maxRow=pageH-item.theadH;   /* 제목과 함께 한 페이지에 들어갈 수 있는 최대 행 높이 */

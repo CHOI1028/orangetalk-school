@@ -2,7 +2,7 @@
 import { S } from '../../core/app-state.js';
 'use strict';
 /* ES Module — 방문확인증 에디터 (통합) */
-import { escHtml, getDow, closeModalGracefully } from '../../core/helpers.js';
+import { escHtml, getDow, closeModalGracefully, counselTreatText, isCounselSymLabel } from '../../core/helpers.js';
 
 import { vpState, vpeState, closeVisitPass, vpGetCustomNames, vpGetCustomLabels, vpSaveCustomLabel, vpGetCustomBlocks, vpSaveCustomBlock, vpSaveCustomTitle, vpGetCustomRows, vpSaveCustomRows, vpSaveReasonRemoved } from './visit-pass-view.js';
 import { hasMultipleSchoolLevels, getLevelShort, hasAnyDepartment } from '../../core/student-utils.js';
@@ -2743,6 +2743,9 @@ function _vpRenderSymTreatCell(rec){
       return formatMedicationDisplay(str);
     };
     /* v3 (2026-05-28) — V/S·침상도 per-symptom. 각 증상 행에 그 증상 처치만 (record-level 공유 폐지). */
+    /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
+    const _clTv=counselTreatText(rec);
+    const _clIdxV=_clTv?syms.findIndex(isCounselSymLabel):-1;
     const lines = syms.map(function(sym, idx){
       var _spl = String(sym).match(/^(.+?)\s*\((.*)\)\s*$/);
       var _symDisp = _spl ? (_spl[1].trim()+'['+_spl[2]+']') : sym;
@@ -2753,6 +2756,7 @@ function _vpRenderSymTreatCell(rec){
         if(b==='투약' && medDispForSym) return medDispForSym;
         return t;
       });
+      if(idx===_clIdxV)symLabeled.push(_clTv);
       var treatStr = symLabeled.join(', ') || '-';
       /* 화살표+처치를 nested flex 그룹으로 묶어 wrap 시 함께 다음줄로 → 자유 기입 긴 텍스트도 셀 안에 머무름. */
       return '<div style="display:flex;gap:4px;align-items:baseline;line-height:1.7;flex-wrap:wrap">'

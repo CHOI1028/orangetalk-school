@@ -846,7 +846,7 @@ function _apCareSave(id){
   if(reason){s.status='caution';s.condition=reason;s.is_care=1;s.care_reason=reason;}
   s.dust_disease=dust;s.dustDisease=dust;s.care_memo=memo;s.careMemo=memo;s.careYear=_academicYear();
   if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:s.is_care||0,care_reason:s.care_reason||s.condition||'',dust_disease:s.dust_disease||'',care_memo:s.care_memo||'',med_consent:s.med_consent||'Y',emergency_consent:s.emergency_consent||'Y'},String(_academicYear()));
+    window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:s.is_care||0,care_reason:s.care_reason||s.condition||'',dust_disease:s.dust_disease||'',care_memo:s.care_memo||'',med_consent:s.med_consent||s.medConsent||'Y',emergency_consent:s.emergency_consent||s.emergencyConsent||'Y',_careManaged:true},String(_academicYear()));
   }
   /* 시스템 표준 토스트 */
   const toast=document.getElementById('globalSaveToast');
@@ -911,7 +911,7 @@ function _apCareDeleteConfirmed(id){
   const s=getStu(id);if(!s)return;
   s.status='';s.condition='';s.care_reason='';s.is_care=0;s.dust_disease='';s.dustDisease='';s.care_memo='';s.careMemo='';delete s.careYear;
   if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:0,care_reason:'',dust_disease:'',care_memo:'',med_consent:s.med_consent||'Y',emergency_consent:s.emergency_consent||'Y'},String(_academicYear()));
+    window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:0,care_reason:'',dust_disease:'',care_memo:'',med_consent:s.med_consent||s.medConsent||'Y',emergency_consent:s.emergency_consent||s.emergencyConsent||'Y',_clearCare:true},String(_academicYear()));
   }
   const toast=document.getElementById('globalSaveToast');
   if(toast){toast.textContent='저장 중\u2026';toast.className='global-save-toast show saving';setTimeout(function(){toast.textContent='모든 내용이 저장되었습니다.';toast.className='global-save-toast show';setTimeout(function(){toast.className='global-save-toast';},3000);},300);}
@@ -1391,7 +1391,8 @@ function _apStuEditSave(id){
   const gc=document.getElementById('apEditGuardianContact');if(gc)s.guardianContact=gc.value.trim();
   /* DB 에 바로 반영 — saveData() 의 debounce 와 별도로 확실히 저장 */
   if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({
+    /* ★ 요보호·기저질환·동의·VIP 보존 함께 전달 — 생략 시 학생 기본정보 수정만으로 지워짐 (사용자 보고 2026-07-23) */
+    window.electronAPI.studentsUpsert(Object.assign({
       uid:s.uid||id,
       name:s.name,
       grade:s.grade,
@@ -1403,7 +1404,7 @@ function _apStuEditSave(id){
       guardian_contact:s.guardianContact||'',
       level:s.level||'',
       department:s.department||'',
-    }).catch(function(err){console.error('[DB] student 저장 실패:',err);});
+    }, _apPreserveCareConsent(s))).catch(function(err){console.error('[DB] student 저장 실패:',err);});
   }
   saveData();bus.emit('render:daily');bus.emit('render:dashboard');
   bus.emit('toast:show', {text: s.name+' 학생 정보가 변경되었습니다'});
@@ -2898,7 +2899,7 @@ function _apBulkDeleteStudents(){
   S.people=S.people.filter(function(s){return s.type!=='student';});
   S.people=S.people;
   saveData();
-  bus.emit('toast:show', {text: '학생 명단이 삭제되었습니다. 업로드 영역이 활성화됩니다.'});
+  bus.emit('toast:show', {text: '학생 명단이 삭제되었습니다.'});
   _apStuBulk();/* 업로드 영역 활성화하여 다시 렌더 */
 }
 function _apBulkDeleteStaff(){
@@ -3212,7 +3213,7 @@ function _careApplyToStudent(s,cur){
   if(cur.memo){s.care_memo=cur.memo;s.careMemo=cur.memo;}
   s.careYear=_academicYear();
   if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({uid:s.uid||s.id,name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:s.is_care||0,care_reason:s.care_reason||s.condition||'',dust_disease:s.dust_disease||'',care_memo:s.care_memo||'',med_consent:s.med_consent||'Y',emergency_consent:s.emergency_consent||'Y'},String(_academicYear()));
+    window.electronAPI.studentsUpsert({uid:s.uid||s.id,name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:s.is_care||0,care_reason:s.care_reason||s.condition||'',dust_disease:s.dust_disease||'',care_memo:s.care_memo||'',med_consent:s.med_consent||s.medConsent||'Y',emergency_consent:s.emergency_consent||s.emergencyConsent||'Y'},String(_academicYear()));
   }
   bus.emit('render:daily'); bus.emit('render:dashboard');
   _apCareRefreshLists();
@@ -3611,7 +3612,7 @@ function _stuApplyToStudent(s,cur){
     level:_v(cur.level,s.level||''),
     department:_v(cur.department,s.department||''),
     is_care:s.is_care||0, care_reason:s.care_reason||s.condition||'', dust_disease:s.dust_disease||'', care_memo:s.care_memo||'',
-    med_consent:s.med_consent||'Y', emergency_consent:s.emergency_consent||'Y'
+    med_consent:s.med_consent||s.medConsent||'Y', emergency_consent:s.emergency_consent||s.emergencyConsent||'Y'
   },String(_academicYear())).then(function(){
     if(typeof _reloadStudentsFromDB==='function')_reloadStudentsFromDB().then(function(){ bus.emit('render:daily'); bus.emit('render:dashboard'); });
   }).catch(function(e){console.warn('[stu-match] upsert 실패:',e);});
@@ -3711,7 +3712,7 @@ function _showCareCompareGUI(vArea, parsed){
       if(p.memo){found.care_memo=p.memo;found.careMemo=p.memo;}
       matched++;
       if(window.electronAPI&&window.electronAPI.studentsUpsert){
-        upsertPromises.push(window.electronAPI.studentsUpsert({uid:found.uid||found.id,name:found.name,grade:found.grade,class_num:found.cls,student_num:found.num,gender:found.gender,birth_date:found.birth,type:found.type,level:found.level||'',department:found.department||'',is_care:found.is_care||0,care_reason:found.care_reason||found.condition||'',dust_disease:found.dust_disease||'',care_memo:found.care_memo||'',med_consent:found.med_consent||'Y',emergency_consent:found.emergency_consent||'Y'},String(_academicYear())).catch(function(e){console.warn('[care] upsert 실패:',e);}));
+        upsertPromises.push(window.electronAPI.studentsUpsert({uid:found.uid||found.id,name:found.name,grade:found.grade,class_num:found.cls,student_num:found.num,gender:found.gender,birth_date:found.birth,type:found.type,level:found.level||'',department:found.department||'',is_care:found.is_care||0,care_reason:found.care_reason||found.condition||'',dust_disease:found.dust_disease||'',care_memo:found.care_memo||'',med_consent:found.med_consent||found.medConsent||'Y',emergency_consent:found.emergency_consent||found.emergencyConsent||'Y'},String(_academicYear())).catch(function(e){console.warn('[care] upsert 실패:',e);}));
       }
     });
     if(unmatchedRows.length)_careUnmatchedAdd(unmatchedRows);
@@ -3949,7 +3950,7 @@ function _apMcClass(grade,cls){
   let h='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px">'+grade+'학년 '+cls+'반 — 일반의약품 투여 비동의 설정</div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
   stuList.forEach(function(s){
-    const isN=s.med_consent==='N';
+    const isN=(s.med_consent==='N'||s.medConsent==='N');   /* 로드 학생은 medConsent(카멜)만 있음 — 양쪽 읽기 (2026-07-23) */
     h+='<div id="mcStu_'+s.id+'" data-action="mc-toggle-stu" data-stu-id="'+s.id+'" style="cursor:pointer;padding:8px 12px;border:2px solid '+(isN?'#8B5CF6':'var(--bdr)')+';border-radius:10px;background:'+(isN?'rgba(139,92,246,0.08)':'var(--card)')+';transition:all 0.15s;text-align:center;min-width:60px">';
     h+='<div style="font-size:11px;font-weight:700;color:var(--t1)">'+escHtml(s.name)+'</div>';
     h+='<div style="font-size:9px;color:var(--t3)">'+s.num+'번</div>';
@@ -3969,7 +3970,10 @@ function _apMcClass(grade,cls){
 }
 function _apMcToggleStu(id){
   const s=getStu(id);if(!s)return;
-  s.med_consent=s.med_consent==='N'?'Y':'N';
+  /* 현재값을 스네이크·카멜 양쪽에서 읽고, 새 값을 양쪽에 써서 표시·저장이 일치하게 함 (2026-07-23) */
+  const _cur=(s.med_consent==='N'||s.medConsent==='N')?'N':'Y';
+  const _new=_cur==='N'?'Y':'N';
+  s.med_consent=_new; s.medConsent=_new;
   const el=document.getElementById('mcStu_'+id);
   if(el){
     const isN=s.med_consent==='N';
@@ -3987,7 +3991,8 @@ function _apMcSaveAll(grade,cls){
   if(toast){toast.textContent='저장 중\u2026';toast.className='global-save-toast show saving';}
   stuList.forEach(function(s){
     if(window.electronAPI&&window.electronAPI.studentsUpsert){
-      window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',med_consent:s.med_consent||'Y'},String(_academicYear()));
+      /* care·emergency_consent 보존 함께 전달 — 생략 시 학급 전체의 요보호·기저질환·응급동의가 지워짐 (사용자 보고 2026-07-23) */
+      window.electronAPI.studentsUpsert(Object.assign({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||''}, _apPreserveCareConsent(s)),String(_academicYear()));
     }
   });
   setTimeout(function(){
@@ -4245,6 +4250,21 @@ function _apConsentApplyFilters(){
     else tr.style.display='none';
   });
 }
+/* studentsUpsert 는 siUpsert(ON CONFLICT DO UPDATE)로 전 컬럼을 excluded 값으로 덮어쓴다.
+ *  → 일부 필드만 담아 저장하면 나머지(요보호·기저질환·동의·VIP)가 지워진다. 그래서 "이 저장으로 바꾸지 않는"
+ *  기존 값을 payload 에 반드시 함께 실어 보존해야 한다. 로드된 학생 객체는 카멜케이스(status/condition/
+ *  dustDisease/careMemo/medConsent/emergencyConsent/vip)라 스네이크·카멜 양쪽을 폴백으로 읽는다. (사용자 보고 2026-07-23) */
+function _apPreserveCareConsent(s){
+  return {
+    is_care: ((s.status==='caution'||s.status==='watch')||s.is_care===1||s.is_care==='1')?1:0,
+    care_reason: s.care_reason||s.condition||'',
+    dust_disease: s.dust_disease||s.dustDisease||'',
+    care_memo: s.care_memo||s.careMemo||'',
+    med_consent: s.med_consent||s.medConsent||'Y',
+    emergency_consent: s.emergency_consent||s.emergencyConsent||'Y',
+    vip: (s.vip!=null?String(s.vip):'')
+  };
+}
 /* ── 동의/비동의 토글 ── */
 function _apToggleConsent(id,type){
   const s=S.people.find(function(x){return x.id===id;});
@@ -4256,7 +4276,8 @@ function _apToggleConsent(id,type){
   s[camelField]=newVal;
   /* 즉시 DB 저장 */
   if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    const payload={name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',med_consent:s.med_consent||'Y',emergency_consent:s.emergency_consent||'Y'};
+    /* 토글한 동의값(s.med_consent/s.emergency_consent 은 위에서 갱신됨) + 나머지 보존값 함께 전달 */
+    const payload=Object.assign({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||''}, _apPreserveCareConsent(s));
     window.electronAPI.studentsUpsert(payload,String(_academicYear()));
   }
   /* 클릭한 셀 칩 UI 즉시 갱신 */

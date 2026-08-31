@@ -81,6 +81,14 @@
     return !!target.closest('button,input,select,textarea,a,[role="button"],[contenteditable="true"],[data-action]');
   }
 
+  /* 현재 화면 배율(CSS zoom) — getBoundingClientRect/clientX 는 시각(확대) 픽셀이지만
+   * style.left/top 은 레이아웃 단위(렌더 시 ×배율)라, 좌표를 배율로 나눠야 위치가 어긋나지 않는다.
+   * 배율 미사용(100%) 이면 1 이라 무해. (2026-07-21 160% 확대 대응 — 드래그 시 팝업이 튀던 버그) */
+  function _zf(){
+    try{ if(window.ecZoom && window.ecZoom.enabled && window.ecZoom.enabled()) return window.ecZoom.get()||1; }catch(_){}
+    return 1;
+  }
+
   /* 박스에 드래그 적용 */
   function _applyDrag(box){
     if(!box || box._autoDragApplied) return;
@@ -110,8 +118,9 @@
       box.style.right = 'auto';
       box.style.bottom = 'auto';
       box.style.position = 'fixed';
-      box.style.left = Math.round(rect.left) + 'px';
-      box.style.top  = Math.round(rect.top)  + 'px';
+      const _zfN = _zf();   /* 시각 좌표(rect) → 레이아웃 좌표 변환 (÷배율) */
+      box.style.left = Math.round(rect.left / _zfN) + 'px';
+      box.style.top  = Math.round(rect.top  / _zfN) + 'px';
       void box.offsetWidth; /* reflow */
       box.style.transition = prevTransition;
     }
@@ -130,8 +139,10 @@
     }
     function _move(e){
       if(!dd.active) return;
-      box.style.left = (e.clientX - dd.offX) + 'px';
-      box.style.top  = (e.clientY - dd.offY) + 'px';
+      /* 커서(시각 좌표) → 레이아웃 좌표 변환 (÷배율). dd.offX/Y 는 시각 오프셋이므로 함께 나눠준다. */
+      const _zfM = _zf();
+      box.style.left = ((e.clientX - dd.offX) / _zfM) + 'px';
+      box.style.top  = ((e.clientY - dd.offY) / _zfM) + 'px';
     }
     function _up(){
       if(dd.active){ dd.active = false; headerEl.style.cursor = 'grab'; }

@@ -914,10 +914,6 @@ export function bindViewOrangeEvents(){
       } else if(e.target.closest('#orangeDownloadBtn')){
         if(window.electronAPI&&window.electronAPI.openExternal)window.electronAPI.openExternal('https://school114.org/service/download.asp');
       }
-      /* 개발 이야기 안의 외부 링크 버튼들 — 설정 탭에 있던 동일 URL 사용 */
-      if(e.target.closest('#storyAuthorBtn')){
-        if(window.electronAPI&&window.electronAPI.openExternal)window.electronAPI.openExternal('https://www.notion.so/265293e9b10f81028b9dd156f672565b?source=copy_link');
-      }
       /* 튜토리얼 영상 카드 클릭 → YouTube 임베드 모달 */
       const vCard=e.target.closest('.video-slot[data-video-id]');
       if(vCard){

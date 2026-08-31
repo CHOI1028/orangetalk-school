@@ -128,6 +128,7 @@ const categories = [
     /* 시간표(ec_timetable)는 매 학기 바뀌어 백업 불필요 — 제외 (사용자 결정 2026-05-30). */
     localStorageKeys: [
       'ec_sv_custom',
+      'ec_sv_created',          /* 생성 완료된 설문 기록 — 설문 통계 게시판 리스트 (2026-08-21) */
       'ec_home_lesson_memos', 'ec_home_lesson_semester',
     ],
     localStoragePrefixes: ['ec_kiosk'],   // ec_kiosk, ec_kiosk_definitions, ec_kioskMode 등 일괄

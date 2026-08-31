@@ -18,7 +18,7 @@ function _bindDevToolsShortcut(win) {
     const key = (input.key || '').toLowerCase();
     const modMeta = input.meta;     /* Cmd (Mac) */
     const modCtrl = input.control;  /* Ctrl (Win/Linux) */
-    const modMod = process.platform === 'darwin' ? modMeta : modCtrl;
+    const modMod  = process.platform === 'darwin' ? modMeta : modCtrl;
 
     /* DevTools */
     const isI = key === 'i';
@@ -90,12 +90,12 @@ function createLoginWindow() {
   const win = new BrowserWindow({
     width: 480,
     height: 520,
-    resizable: true,
+    resizable: false,
     frame: false,
     transparent: false,
     backgroundColor: '#0a0e17',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),//
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -107,7 +107,7 @@ function createLoginWindow() {
 
 function createSplashWindow() {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
-  const w = 520, h = 336;
+  const w = 620, h = 395;
   const win = new BrowserWindow({
     width: w,
     height: h,
@@ -156,17 +156,17 @@ function createMainWindow() {
     if (global._updateReady && !global._updateConfirmed) {
       e.preventDefault();
       /* CASE A — 사용자가 종료 시도. mode='quit' 로 모달 표시 */
-      try { win.webContents.send('show-update-overlay', { version: global._updateVersion || '', mode: 'quit' }); } catch (_) { }
+      try { win.webContents.send('show-update-overlay', { version: global._updateVersion || '', mode: 'quit' }); } catch (_) {}
     }
   });
 
   win.webContents.on('console-message', (e, level, msg, line) => {
-    if (msg.indexOf('[GP2]') !== -1 || level >= 2) {
+    if(msg.indexOf('[GP2]')!==-1 || level >= 2){
       /* asar 는 쓰기 불가 — userData 폴더로 로그 저장 */
-      try {
+      try{
         const logPath = path.join(app.getPath('userData'), 'console-errors.log');
         fs.appendFileSync(logPath, `[${new Date().toISOString()}] L${level}:${line}: ${msg}\n`);
-      } catch (_) { }
+      }catch(_){}
     }
   });
   return win;
@@ -176,7 +176,7 @@ app.whenReady().then(() => {
   const userDataPath = app.getPath('userData');
 
   /* 기본 메뉴바(File/Edit/View/Window/Help) 제거 — whenReady 이후 호출해야 Windows 에서 안전 */
-  try { Menu.setApplicationMenu(null); } catch (_) { }
+  try { Menu.setApplicationMenu(null); } catch (_) {}
 
   /* ── 0. Dock/작업표시줄 아이콘 ── */
   if (process.platform === 'darwin') {
@@ -187,7 +187,7 @@ app.whenReady().then(() => {
 
   /* ── 0b. 카카오맵 Referer 설정 (모든 창에 적용) ── */
   const { session } = require('electron');
-  session.defaultSession.webRequest.onBeforeSendHeaders(function (details, callback) {
+  session.defaultSession.webRequest.onBeforeSendHeaders(function(details, callback) {
     if (details.url.includes('kakao.com') || details.url.includes('daumcdn.net')) {
       details.requestHeaders['Referer'] = 'http://localhost/';
       details.requestHeaders['Origin'] = 'http://localhost';
@@ -199,7 +199,7 @@ app.whenReady().then(() => {
   healthDB = createHealthDiaryDB(app);
   console.log('[INIT] HealthDiaryDB 준비 완료:', healthDB.getInfo().dbPath);
   /* 앱 시작 시 import_staging 초기화 — 반영 안 된 이전 업로드 데이터 폐기 */
-  try { healthDB.db.prepare('DELETE FROM import_staging').run(); } catch (_) { }
+  try { healthDB.db.prepare('DELETE FROM import_staging').run(); } catch (_) {}
 
   /* ── 2. ServiceContainer 초기화 (모든 서비스 중앙 관리) ── */
   const { clipboard } = require('electron');
@@ -234,7 +234,7 @@ app.whenReady().then(() => {
             school_name: u.school_name || '',
             school_level: u.school_level || 'elementary',
             edu_office: u.edu_office || '',
-            is_active: (u.is_active == null ? 1 : u.is_active),
+            is_active: (u.is_active==null ? 1 : u.is_active),
             created_at: u.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
@@ -267,7 +267,7 @@ app.whenReady().then(() => {
             if (tables.includes('users')) {
               rows = bak.prepare('SELECT * FROM users').all();
             }
-          } finally { try { bak.close(); } catch (_) { } try { fs.unlinkSync(tmp); } catch (_) { } }
+          } finally { try { bak.close(); } catch (_) {} try { fs.unlinkSync(tmp); } catch (_) {} }
           if (rows && rows.length > 0) {
             const ins = healthDB.db.prepare(`
               INSERT INTO users (id, name, position, school_name, school_level, edu_office, is_active, created_at, updated_at)
@@ -282,7 +282,7 @@ app.whenReady().then(() => {
                   school_name: u.school_name || '',
                   school_level: u.school_level || 'elementary',
                   edu_office: u.edu_office || '',
-                  is_active: (u.is_active == null ? 1 : u.is_active),
+                  is_active: (u.is_active==null ? 1 : u.is_active),
                   created_at: u.created_at || new Date().toISOString(),
                   updated_at: new Date().toISOString(),
                 });
@@ -341,7 +341,7 @@ app.whenReady().then(() => {
     mainWindow.show();
     mainWindow.maximize();
     mainWindow.focus();
-    try { if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close(); } catch (_) { }
+    try { if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close(); } catch (_) {}
     splashWindow = null;
   };
   ipcMain.once('splash-ready', _showMainWindow);
@@ -393,14 +393,14 @@ app.whenReady().then(() => {
         if (emgApiKey) {
           try {
             /* 국립중앙의료원 목록 5페이지 */
-            const emgPages = await Promise.all([1, 2, 3, 4, 5].map(p =>
+            const emgPages = await Promise.all([1,2,3,4,5].map(p =>
               fetch('http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytListInfoInqire?serviceKey=' + emgApiKey + '&WGS84_LON=' + lng + '&WGS84_LAT=' + lat + '&numOfRows=50&pageNo=' + p + '&_type=json').then(r => r.json()).catch(() => null)
             ));
             let allEmgApi = [];
             emgPages.forEach(d => { if (d && d.response && d.response.body && d.response.body.items && d.response.body.items.item) { const items = d.response.body.items.item; allEmgApi = allEmgApi.concat(Array.isArray(items) ? items : [items]); } });
             /* 거리 정렬 후 상위 10건 상세 조회 */
-            allEmgApi.forEach(e => { const eLat = parseFloat(e.wgs84Lat || 0), eLng = parseFloat(e.wgs84Lon || 0); e._dist = (eLat && eLng) ? Math.sqrt(Math.pow(parseFloat(lat) - eLat, 2) + Math.pow(parseFloat(lng) - eLng, 2)) : 9999; });
-            allEmgApi.sort((a, b) => a._dist - b._dist);
+            allEmgApi.forEach(e => { const eLat = parseFloat(e.wgs84Lat||0), eLng = parseFloat(e.wgs84Lon||0); e._dist = (eLat && eLng) ? Math.sqrt(Math.pow(parseFloat(lat)-eLat,2)+Math.pow(parseFloat(lng)-eLng,2)) : 9999; });
+            allEmgApi.sort((a,b) => a._dist - b._dist);
             const top10 = allEmgApi.slice(0, 10).filter(e => e.hpid);
             if (top10.length) {
               emgDetails = await Promise.all(top10.map(e =>
@@ -418,7 +418,7 @@ app.whenReady().then(() => {
           emergency: emergencyList, emergencyDetails: emgDetails,
           timestamp: Date.now()
         };
-        console.log('[MedFac] 미리 검색 완료: 병원', (hosData.documents || []).length, '약국', (pharData.documents || []).length, '응급실', emergencyList.length, '상세', emgDetails.length);
+        console.log('[MedFac] 미리 검색 완료: 병원', (hosData.documents||[]).length, '약국', (pharData.documents||[]).length, '응급실', emergencyList.length, '상세', emgDetails.length);
       } catch (e) { console.log('[MedFac] 미리 검색 실패:', e.message); }
     }, 3000);
   });
@@ -443,12 +443,12 @@ app.whenReady().then(() => {
     /* 설치 직전 협업 웹서버 자식을 "완전히 죽을 때까지(동기)" 강제 종료 → 파일 잠금 해제 후 설치 진행.
      *  자식이 electron 바이너리·app.asar 를 물고 있으면 NSIS 가 파일 교체 실패 → 설치 미적용·무한루프.
      *  (사용자 보고 2026-06-18, 동기 종료로 강화 2026-06-25) */
-    try { _killWebServerChildSync(); } catch (_) { }
+    try { _killWebServerChildSync(); } catch (_) {}
     setImmediate(() => {
       try {
         if (autoUpdaterService) autoUpdaterService.quitAndInstall();
         else app.quit();
-      } catch (_) { try { app.quit(); } catch (__) { } }
+      } catch(_){ try { app.quit(); } catch(__){} }
     });
     return { success: true };
   });
@@ -463,10 +463,10 @@ app.whenReady().then(() => {
    * expired            : 실제 차단 여부 (BETA_BLOCK_AT 기준, 모달+락 트리거) */
   ipcMain.handle('beta-expiry-info', () => {
     const today = new Date();
-    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    const t0 = new Date(todayStr + 'T00:00:00');
-    const e0 = new Date(BETA_EXPIRES_AT + 'T00:00:00');
-    const b0 = new Date(BETA_BLOCK_AT + 'T00:00:00');
+    const todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    const t0 = new Date(todayStr+'T00:00:00');
+    const e0 = new Date(BETA_EXPIRES_AT+'T00:00:00');
+    const b0 = new Date(BETA_BLOCK_AT+'T00:00:00');
     const daysLeft = Math.floor((e0 - t0) / 86400000);
     const blockDaysLeft = Math.floor((b0 - t0) / 86400000);
     return { expiresAt: BETA_EXPIRES_AT, daysLeft, expired: blockDaysLeft < 0 };
@@ -578,6 +578,25 @@ app.whenReady().then(() => {
     }
   });
 
+  /* ── 2단계 PDF (2026-08-12) — 보건일지 출력 전용: 생성과 저장 다이얼로그 분리.
+   * 렌더러가 진행 카운터(n/총건)를 완주시킨 뒤 저장 창을 띄우기 위함.
+   * 웹 변형은 이 채널을 쓰지 않음(web-api-bridge 가 클라이언트측 단일 경로 유지). ── */
+  ipcMain.handle('print-to-pdf-generate', async (event, { html, options }) => {
+    try {
+      return await services.screenCapture().printToPdfGenerate(html, options);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('print-to-pdf-save', async (event, { token, fileName }) => {
+    try {
+      return await services.screenCapture().printToPdfSave(token, fileName || '내보내기.pdf');
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   /* ── 직접 인쇄 (용지 크기 강제 가능) ──
    * renderer에서 html + pageSize를 전달하면 숨겨진 BrowserWindow에 로드 후
    * webContents.print({pageSize, silent:false})로 다이얼로그에 원하는 크기 기본 노출.
@@ -608,7 +627,7 @@ app.whenReady().then(() => {
           /* 지정 프린터(deviceName) 가 있으면 그 프린터로 직접 출력. 없으면 OS 기본 프린터. */
           if (deviceName) printOpts.deviceName = deviceName;
           printWin.webContents.print(printOpts, (success, failureReason) => {
-            try { printWin.destroy(); } catch (e) { }
+            try { printWin.destroy(); } catch (e) {}
             /* failureReason: 'cancelled' = 사용자 취소(폴백 불필요), 그 외 = 실제 에러 */
             const reason = failureReason || '';
             const cancelled = /cancel/i.test(reason);
@@ -625,13 +644,13 @@ app.whenReady().then(() => {
                최대 6초까지 기다리고, 그 안에 신호가 없으면 그냥 인쇄(폴백). */
             const _onTitle = (e, t) => {
               if (t === '__PRINT_READY__') {
-                try { printWin.webContents.removeListener('page-title-updated', _onTitle); } catch (e2) { }
+                try { printWin.webContents.removeListener('page-title-updated', _onTitle); } catch (e2) {}
                 _doPrint();
               }
             };
             printWin.webContents.on('page-title-updated', _onTitle);
             setTimeout(() => {
-              try { printWin.webContents.removeListener('page-title-updated', _onTitle); } catch (e) { }
+              try { printWin.webContents.removeListener('page-title-updated', _onTitle); } catch (e) {}
               _doPrint();
             }, 6000);
           } else {
@@ -639,11 +658,11 @@ app.whenReady().then(() => {
           }
         });
         printWin.webContents.once('did-fail-load', (e, code, desc) => {
-          try { printWin.destroy(); } catch (e2) { }
+          try { printWin.destroy(); } catch (e2) {}
           resolve({ success: false, error: 'load-failed: ' + desc });
         });
       } catch (err) {
-        try { if (printWin) printWin.destroy(); } catch (e) { }
+        try { if (printWin) printWin.destroy(); } catch (e) {}
         resolve({ success: false, error: err.message });
       }
     });
@@ -865,8 +884,8 @@ app.whenReady().then(() => {
     try {
       const res = await services.externalApi().bulkFetchMedFacilitiesInRadius(
         serviceKey, emergencyKey, params,
-        function (progress) {
-          try { event.sender.send('medfac-bulk-progress', progress); } catch (e) { }
+        function(progress){
+          try { event.sender.send('medfac-bulk-progress', progress); } catch(e){}
         }
       );
       /* userData 에 캐시 파일로 저장 */
@@ -875,7 +894,7 @@ app.whenReady().then(() => {
         const fp = path.join(userDataPath, 'data', 'medfac_cache.json');
         fs.writeFileSync(fp, JSON.stringify(res, null, 2));
         res.savedPath = fp;
-      } catch (e) { res.saveError = e.message; }
+      } catch(e) { res.saveError = e.message; }
       return res;
     } catch (err) { return { success: false, error: err.message }; }
   });
@@ -887,7 +906,7 @@ app.whenReady().then(() => {
       const fsp = require('fs').promises;
       const userDataPath = app.getPath('userData');
       const fp = path.join(userDataPath, 'data', 'medfac_cache.json');
-      try { await fsp.access(fp); } catch (_) { return { success: true, exists: false }; }
+      try { await fsp.access(fp); } catch(_) { return { success: true, exists: false }; }
       const [raw, st] = await Promise.all([
         fsp.readFile(fp, 'utf8'),
         fsp.stat(fp)
@@ -955,21 +974,21 @@ app.whenReady().then(() => {
   /* 의료기관 탐색 전용 로컬 서버 (포트 7700 고정 — 카카오맵 SDK 도메인 인증) */
   let _medServer = null;
   function _ensureMedServer() {
-    return new Promise(function (resolve) {
+    return new Promise(function(resolve) {
       if (_medServer) { resolve(); return; }
       const http = require('http');
-      const mimeTypes = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.json': 'application/json', '.svg': 'image/svg+xml' };
-      _medServer = http.createServer(function (req, res) {
+      const mimeTypes = {'.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.webp':'image/webp','.json':'application/json','.svg':'image/svg+xml'};
+      _medServer = http.createServer(function(req, res) {
         let fp = path.join(__dirname, decodeURIComponent(req.url.split('?')[0] === '/' ? '/med-facility.html' : req.url.split('?')[0]));
         const ext = path.extname(fp).toLowerCase();
-        fs.readFile(fp, function (err, data) {
+        fs.readFile(fp, function(err, data) {
           if (err) { res.writeHead(404); res.end('Not found'); return; }
           res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
           res.end(data);
         });
       });
-      _medServer.listen(7700, '127.0.0.1', function () { console.log('[MedFac] http://localhost:7700'); resolve(); });
-      _medServer.on('error', function (e) { if (e.code === 'EADDRINUSE') { _medServer = { _reuse: true }; resolve(); } });
+      _medServer.listen(7700, '127.0.0.1', function() { console.log('[MedFac] http://localhost:7700'); resolve(); });
+      _medServer.on('error', function(e) { if (e.code === 'EADDRINUSE') { _medServer = { _reuse: true }; resolve(); } });
     });
   }
 
@@ -980,7 +999,7 @@ app.whenReady().then(() => {
         return { success: false, error: '카카오 개발자 API 키가 등록되지 않았습니다.\n설정 → API Key 관리에서 REST API 키와 JavaScript 키를 먼저 등록해 주세요.' };
       }
       await _ensureMedServer();
-      const url = 'http://localhost:7700/med-facility.html?school=' + encodeURIComponent(schoolName || '') + '&edu=' + encodeURIComponent(eduOffice || '') + '&hira=' + encodeURIComponent(hiraKey || '') + '&emg=' + encodeURIComponent(emergencyKey || '') + '&addr=' + encodeURIComponent(schoolAddr || '') + '&mode=' + encodeURIComponent(mode || '') + '&kakaoJs=' + encodeURIComponent(kakaoJsKey) + '&kakaoRest=' + encodeURIComponent(kakaoRestKey) + '&lat=' + encodeURIComponent(schoolLat || '') + '&lng=' + encodeURIComponent(schoolLng || '');
+      const url = 'http://localhost:7700/med-facility.html?school=' + encodeURIComponent(schoolName||'') + '&edu=' + encodeURIComponent(eduOffice||'') + '&hira=' + encodeURIComponent(hiraKey||'') + '&emg=' + encodeURIComponent(emergencyKey||'') + '&addr=' + encodeURIComponent(schoolAddr||'') + '&mode=' + encodeURIComponent(mode||'') + '&kakaoJs=' + encodeURIComponent(kakaoJsKey) + '&kakaoRest=' + encodeURIComponent(kakaoRestKey) + '&lat=' + encodeURIComponent(schoolLat||'') + '&lng=' + encodeURIComponent(schoolLng||'');
       const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
       const w = Math.min(1200, sw - 100), h = Math.min(800, sh - 100);
       const medWin = new BrowserWindow({
@@ -995,36 +1014,36 @@ app.whenReady().then(() => {
       });
       /* 진단용(임시) — 팝업 콘솔의 [GP2]·경고/에러를 userData 로그로 캡처. */
       medWin.webContents.on('console-message', (e, level, msg, line) => {
-        if (msg.indexOf('[GP2]') !== -1 || level >= 2) {
-          try {
+        if(msg.indexOf('[GP2]')!==-1 || level >= 2){
+          try{
             const logPath = path.join(app.getPath('userData'), 'console-errors.log');
             fs.appendFileSync(logPath, `[${new Date().toISOString()}] [MEDWIN] L${level}:${line}: ${msg}\n`);
-          } catch (_) { }
+          }catch(_){}
         }
       });
       /* 카카오맵 Referer 강제 설정 */
-      medWin.webContents.session.webRequest.onBeforeSendHeaders(function (details, callback) {
-        if (details.url.includes('kakao.com') || details.url.includes('daumcdn.net')) {
-          details.requestHeaders['Referer'] = 'http://localhost:7700/';
-          details.requestHeaders['Origin'] = 'http://localhost:7700';
+      medWin.webContents.session.webRequest.onBeforeSendHeaders(function(details,callback){
+        if(details.url.includes('kakao.com')||details.url.includes('daumcdn.net')){
+          details.requestHeaders['Referer']='http://localhost:7700/';
+          details.requestHeaders['Origin']='http://localhost:7700';
         }
-        callback({ requestHeaders: details.requestHeaders });
+        callback({requestHeaders:details.requestHeaders});
       });
       /* ORB(Opaque Resource Blocking) 우회 — 카카오 SDK 응답에 CORP 헤더 추가하여
          script 태그가 cross-origin 응답을 실행할 수 있도록 허용. 이것 없으면 SDK 본문이
          정상이어도 Chromium 이 실행을 거부한다. */
-      medWin.webContents.session.webRequest.onHeadersReceived(function (details, callback) {
-        if (details.url.includes('kakao.com') || details.url.includes('daumcdn.net')) {
-          details.responseHeaders = details.responseHeaders || {};
-          details.responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
-          details.responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+      medWin.webContents.session.webRequest.onHeadersReceived(function(details,callback){
+        if(details.url.includes('kakao.com')||details.url.includes('daumcdn.net')){
+          details.responseHeaders=details.responseHeaders||{};
+          details.responseHeaders['Cross-Origin-Resource-Policy']=['cross-origin'];
+          details.responseHeaders['Access-Control-Allow-Origin']=['*'];
         }
-        callback({ responseHeaders: details.responseHeaders });
+        callback({responseHeaders:details.responseHeaders});
       });
       /* 캐시 클리어 → 완료 후 loadURL — 캐시된 OLD HTML 이 로드되는 문제 방지 */
-      medWin.webContents.session.clearCache().then(function () {
+      medWin.webContents.session.clearCache().then(function(){
         medWin.loadURL(url + '&_cb=' + Date.now());
-      }).catch(function () {
+      }).catch(function(){
         medWin.loadURL(url + '&_cb=' + Date.now());
       });
       /* DevTools 단축키 — Cmd+Option+I / Cmd+Shift+I / F12 */
@@ -1057,7 +1076,7 @@ app.whenReady().then(() => {
         const [x, y] = win.getPosition();
         const steps = 8;
         let step = 0;
-        const iv = setInterval(function () {
+        const iv = setInterval(function() {
           step++;
           const r = 1 - step / steps;
           try {
@@ -1065,7 +1084,7 @@ app.whenReady().then(() => {
             const nw = Math.round(w * (0.95 + 0.05 * r));
             const nh = Math.round(h * (0.95 + 0.05 * r));
             win.setBounds({ x: x + Math.round((w - nw) / 2), y: y + Math.round((h - nh) / 2), width: nw, height: nh });
-          } catch (e) { clearInterval(iv); }
+          } catch(e) { clearInterval(iv); }
           if (step >= steps) { clearInterval(iv); if (!win.isDestroyed()) win.close(); }
         }, 25);
       }
@@ -1075,7 +1094,7 @@ app.whenReady().then(() => {
       });
       /* 전역 참조 — 다른 팝업 열 때 닫기 위해 */
       global._medFacWindow = medWin;
-      medWin.on('closed', function () { global._medFacWindow = null; });
+      medWin.on('closed', function() { global._medFacWindow = null; });
       return { success: true };
     } catch (err) { return { success: false, error: err.message }; }
   });
@@ -1129,7 +1148,7 @@ app.whenReady().then(() => {
         const hostKey = services.store().get('common', 'neis_api_key') || '';
         if (hostKey) {
           u = m ? u.replace(/([?&]KEY=)([^&]*)/, '$1' + encodeURIComponent(hostKey))
-            : u + (u.indexOf('?') >= 0 ? '&' : '?') + 'KEY=' + encodeURIComponent(hostKey);
+                : u + (u.indexOf('?') >= 0 ? '&' : '?') + 'KEY=' + encodeURIComponent(hostKey);
         }
       }
       return await services.externalApi().fetchJson(u);
@@ -1706,7 +1725,7 @@ app.whenReady().then(() => {
       if (result.canceled || !result.filePath) return { success: false, canceled: true };
       /* WAL 체크포인트 + VACUUM INTO 로 빈 페이지 제거된 최소 크기 백업 생성
        * (기존 fs.copyFileSync 는 빈 페이지·WAL 여유공간까지 복사해서 크기 부풀림) */
-      try { healthDB.db.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) { }
+      try { healthDB.db.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) {}
       try {
         /* VACUUM INTO: 대상 경로가 이미 존재하면 실패 → 먼저 삭제 */
         if (fs.existsSync(result.filePath)) fs.unlinkSync(result.filePath);
@@ -1751,8 +1770,8 @@ app.whenReady().then(() => {
         /* readonly + WAL DB 는 -wal/-shm 동행 파일 부재 시 잠금 에러 가능.
            임시 사본은 어차피 폐기되므로 readwrite 로 열고 journal_mode=DELETE 로 락 회피. */
         testDb = new Database(tmpVerifyPath);
-        try { testDb.pragma('journal_mode = DELETE'); } catch (_) { }
-        try { testDb.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) { }
+        try { testDb.pragma('journal_mode = DELETE'); } catch (_) {}
+        try { testDb.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) {}
         const tables = testDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
         const hasV1Schema = tables.includes('students') && tables.includes('staff') && tables.includes('daily_records');
         const hasLegacySchema = tables.includes('people') && tables.includes('daily_records');
@@ -1773,11 +1792,11 @@ app.whenReady().then(() => {
           if (tables.includes('users')) {
             usersCnt = testDb.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
           }
-        } catch (_) { }
+        } catch (_) {}
         console.log('[DB] 백업 파일 검증 — users:', usersCnt, 'people:', peopleCnt, 'daily:', dailyCnt);
         testDb.close();
         testDb = null;
-        try { fs.unlinkSync(tmpVerifyPath); } catch (_) { }
+        try { fs.unlinkSync(tmpVerifyPath); } catch (_) {}
         /* 현재 DB 닫기 → 백업 파일로 교체 → 재시작 */
         const dbPath = healthDB.dbPath;
         const preRestoreBackup = dbPath + '.pre-restore.' + Date.now() + '.bak';
@@ -1791,18 +1810,18 @@ app.whenReady().then(() => {
           await new Promise(resolve => {
             let resolved = false;
             const done = () => { if (!resolved) { resolved = true; resolve(); } };
-            try { child.once('exit', done); } catch (_) { }
-            try { child.kill('SIGTERM'); } catch (_) { }
+            try { child.once('exit', done); } catch (_) {}
+            try { child.kill('SIGTERM'); } catch (_) {}
             setTimeout(done, 2500); /* 2.5s 안전 타임아웃 */
           });
-          if (_webServerLogStream) { try { _webServerLogStream.end(); } catch (_) { } _webServerLogStream = null; }
+          if (_webServerLogStream) { try { _webServerLogStream.end(); } catch (_) {} _webServerLogStream = null; }
           /* lock 해제 여유 */
           await new Promise(r => setTimeout(r, 200));
         }
         /* ── 1) 현재 사용자(보건교사) 목록 보존 — 복원으로 덮어쓰지 않는다.
                메모리 + JSON 백업(users_backup.json) 두 단계 fallback. ── */
         let savedUsers = [];
-        try { savedUsers = healthDB.db.prepare('SELECT * FROM users').all(); } catch (_) { }
+        try { savedUsers = healthDB.db.prepare('SELECT * FROM users').all(); } catch (_) {}
         if (!savedUsers || savedUsers.length === 0) {
           try {
             const usersBackupPath = path.join(app.getPath('userData'), 'data', 'users_backup.json');
@@ -1839,12 +1858,12 @@ app.whenReady().then(() => {
             let cleanDb;
             try {
               cleanDb = new DatabaseLib(tmpAttachSrc);
-              try { cleanDb.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) { }
-              try { cleanDb.pragma('journal_mode = DELETE'); } catch (_) { }
-            } finally { if (cleanDb) try { cleanDb.close(); } catch (_) { } }
-            try { fs.unlinkSync(tmpAttachSrc + '-wal'); } catch (_) { }
-            try { fs.unlinkSync(tmpAttachSrc + '-shm'); } catch (_) { }
-            try { fs.unlinkSync(tmpAttachSrc + '-journal'); } catch (_) { }
+              try { cleanDb.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) {}
+              try { cleanDb.pragma('journal_mode = DELETE'); } catch (_) {}
+            } finally { if (cleanDb) try { cleanDb.close(); } catch (_) {} }
+            try { fs.unlinkSync(tmpAttachSrc + '-wal'); } catch (_) {}
+            try { fs.unlinkSync(tmpAttachSrc + '-shm'); } catch (_) {}
+            try { fs.unlinkSync(tmpAttachSrc + '-journal'); } catch (_) {}
           }
 
           /* step4: 핵심 — DB 를 닫지 않고 ATTACH 로 데이터 교체.
@@ -1892,9 +1911,9 @@ app.whenReady().then(() => {
             healthDB.db.pragma('foreign_keys = ON');
             console.log('[DB] step4 복사 완료 — 성공', _copiedTables, '개 / skip', _skippedTables, '개');
           } finally {
-            try { healthDB.db.exec('DETACH DATABASE src'); } catch (_) { }
+            try { healthDB.db.exec('DETACH DATABASE src'); } catch (_) {}
           }
-          try { fs.unlinkSync(tmpAttachSrc); } catch (_) { }
+          try { fs.unlinkSync(tmpAttachSrc); } catch (_) {}
           tmpAttachSrc = null;
 
           /* step5: 마이그레이션 재실행 — 백업이 옛 스키마라면 누락 컬럼이 main 에 있을 수 있음.
@@ -1908,10 +1927,10 @@ app.whenReady().then(() => {
           services.replaceHealthDB(healthDB);
 
           /* step7: 작업 후 정리 */
-          try { healthDB.db.prepare('DELETE FROM import_staging').run(); } catch (_) { }
+          try { healthDB.db.prepare('DELETE FROM import_staging').run(); } catch (_) {}
         } catch (stepErr) {
-          if (tmpAttachSrc) { try { fs.unlinkSync(tmpAttachSrc); } catch (_) { } }
-          try { healthDB.db.exec('DETACH DATABASE src'); } catch (_) { }
+          if (tmpAttachSrc) { try { fs.unlinkSync(tmpAttachSrc); } catch (_) {} }
+          try { healthDB.db.exec('DETACH DATABASE src'); } catch (_) {}
           console.error('[DB] 복원 단계 오류:', stepErr && stepErr.message);
           /* DB 핸들 복구는 시도 — 다음 IPC 호출이 정상 동작하도록.
            * 단, verify 카운트를 success 처럼 반환하는 false-success 는 절대 금지. */
@@ -1922,7 +1941,7 @@ app.whenReady().then(() => {
               services.replaceHealthDB(healthDB);
             }
           } catch (recErr) { console.warn('[DB] 즉시 회복 실패 — 다음 IPC 호출 시 자가복구:', recErr.message); }
-          if (_wasWebRunning) { try { _webServerStart(); } catch (_) { } }
+          if (_wasWebRunning) { try { _webServerStart(); } catch (_) {} }
           return {
             success: false,
             error: '복원 실패: ' + (stepErr && stepErr.message || '알 수 없는 오류'),
@@ -1937,7 +1956,7 @@ app.whenReady().then(() => {
           const tx = healthDB.db.transaction(() => {
             const existingNames = new Set(
               healthDB.db.prepare('SELECT name FROM users').all()
-                .map(u => String(u.name || '').trim())
+                .map(u => String(u.name||'').trim())
                 .filter(n => n)
             );
             const insMerge = healthDB.db.prepare(`
@@ -1946,7 +1965,7 @@ app.whenReady().then(() => {
             `);
             let mergedCnt = 0;
             for (const u of savedUsers) {
-              const nm = String(u.name || '').trim();
+              const nm = String(u.name||'').trim();
               if (!nm || existingNames.has(nm)) continue;
               const curCnt = healthDB.db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
               if (curCnt >= 3) break;
@@ -1956,7 +1975,7 @@ app.whenReady().then(() => {
                 school_name: u.school_name || '',
                 school_level: u.school_level || 'elementary',
                 edu_office: u.edu_office || '',
-                is_active: (u.is_active == null ? 1 : u.is_active),
+                is_active: (u.is_active==null ? 1 : u.is_active),
                 created_at: u.created_at || new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               });
@@ -1973,9 +1992,9 @@ app.whenReady().then(() => {
         services.replaceHealthDB(healthDB);
         /* 재오픈 후 실제 users 카운트도 한 번 더 조회 → 복원 검증 */
         let usersCntAfter = 0;
-        try { usersCntAfter = healthDB.db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt; } catch (_) { }
+        try { usersCntAfter = healthDB.db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt; } catch (_) {}
         /* 복원 직후 최신 사용자 목록을 다시 JSON 백업에 dump */
-        try { _dumpUsersBackup(); } catch (_) { }
+        try { _dumpUsersBackup(); } catch (_) {}
         console.log('[DB] 복원 후 재오픈 완료 — users:', usersCntAfter, 'path:', healthDB.getInfo().dbPath);
         /* 복원 전 웹 서버가 켜져 있었다면 자동 재시작 */
         if (_wasWebRunning) {
@@ -1984,8 +2003,8 @@ app.whenReady().then(() => {
         }
         return { success: true, type: 'sqlite', peopleCnt, dailyCnt, usersCnt: usersCntAfter, usersPreserved: savedUsers.length };
       } catch (e) {
-        if (testDb) try { testDb.close(); } catch (_) { }
-        try { fs.unlinkSync(tmpVerifyPath); } catch (_) { }
+        if (testDb) try { testDb.close(); } catch (_) {}
+        try { fs.unlinkSync(tmpVerifyPath); } catch (_) {}
         return { success: false, error: '백업 파일 검증 실패: ' + e.message };
       }
     } catch (err) { return { success: false, error: err.message }; }
@@ -2068,7 +2087,7 @@ app.whenReady().then(() => {
       /* 다른 확장자 잔존 파일 정리 */
       ['webp', 'png', 'jpg', 'jpeg'].forEach(e => {
         const old = path.join(dir, 'custom.' + e);
-        if (e !== safeExt && fs.existsSync(old)) { try { fs.unlinkSync(old); } catch (_) { } }
+        if (e !== safeExt && fs.existsSync(old)) { try { fs.unlinkSync(old); } catch (_) {} }
       });
       fs.writeFileSync(fp, Buffer.from(buffer));
       return { success: true, path: fp };
@@ -2080,7 +2099,7 @@ app.whenReady().then(() => {
       if (fs.existsSync(dir)) {
         ['webp', 'png', 'jpg', 'jpeg'].forEach(e => {
           const fp = path.join(dir, 'custom.' + e);
-          if (fs.existsSync(fp)) { try { fs.unlinkSync(fp); } catch (_) { } }
+          if (fs.existsSync(fp)) { try { fs.unlinkSync(fp); } catch (_) {} }
         });
       }
       return { success: true };
@@ -2157,7 +2176,7 @@ app.whenReady().then(() => {
       ];
       let buf = null;
       for (const p of candidates) {
-        try { if (fs.existsSync(p)) { buf = fs.readFileSync(p); break; } } catch (_) { }
+        try { if (fs.existsSync(p)) { buf = fs.readFileSync(p); break; } } catch (_) {}
       }
       if (!buf) return { success: false, error: 'symptom_medicine_matching.xlsx 파일을 찾을 수 없습니다.' };
       const wb = XLSX.read(buf, { type: 'buffer' });
@@ -2253,8 +2272,8 @@ app.whenReady().then(() => {
         request = net.request({ method: method, url: urlStr });
       } catch (e) { return done({ __netError: e.message }); }
       /* Electron net 이 본문에서 자동 계산·관리하는 헤더는 수동 설정 금지 — 수동 설정 시 net::ERR_INVALID_ARGUMENT (업로드 실패, 2026-06-16 수정) */
-      try { Object.keys(headers).forEach((k) => { var _lk = String(k).toLowerCase(); if (headers[k] != null && _lk !== 'content-length' && _lk !== 'host' && _lk !== 'transfer-encoding' && _lk !== 'connection') request.setHeader(k, String(headers[k])); }); } catch (_) { }
-      const timer = setTimeout(() => { try { request.abort(); } catch (_) { } done({ __timeout: true }); }, timeout);
+      try { Object.keys(headers).forEach((k) => { var _lk = String(k).toLowerCase(); if (headers[k] != null && _lk !== 'content-length' && _lk !== 'host' && _lk !== 'transfer-encoding' && _lk !== 'connection') request.setHeader(k, String(headers[k])); }); } catch (_) {}
+      const timer = setTimeout(() => { try { request.abort(); } catch (_) {} done({ __timeout: true }); }, timeout);
       request.on('response', (response) => {
         let data = '';
         response.on('data', (c) => { data += c; });
@@ -2332,7 +2351,7 @@ app.whenReady().then(() => {
       if (r.__timeout) return { success: false, error: 'timeout' };
       if (r.__netError) return { success: false, error: r.__netError };
       let parsed = null;
-      try { parsed = JSON.parse(r.text); } catch (_) { }
+      try { parsed = JSON.parse(r.text); } catch (_) {}
       if (r.status >= 200 && r.status < 300) return parsed || { success: true };
       return { success: false, status: r.status, error: (parsed && parsed.error) || ('HTTP ' + r.status) };
     } catch (err) {
@@ -2374,7 +2393,7 @@ app.whenReady().then(() => {
       if (r.__timeout) return { success: false, error: '업로드 시간 초과', _netCode: 'timeout' };
       if (r.__netError) return { success: false, error: r.__netError, _netCode: r.__netError };
       let parsed = null;
-      try { parsed = JSON.parse(r.text); } catch (_) { }
+      try { parsed = JSON.parse(r.text); } catch (_) {}
       if (r.status >= 200 && r.status < 300) return { success: true, size: body.length };
       return { success: false, status: r.status, error: (parsed && parsed.error) || ('HTTP ' + r.status), body: String(r.text || '').slice(0, 500) };
     } catch (err) {
@@ -2406,7 +2425,7 @@ app.whenReady().then(() => {
       if (r.__timeout) return { success: false, error: '연결 시간 초과', _netCode: 'timeout' };
       if (r.__netError) return { success: false, error: r.__netError, _netCode: r.__netError };
       const _rawBody = String(r.text || '').slice(0, 500);
-      let _parsed = null; try { _parsed = JSON.parse(r.text); } catch (_) { }
+      let _parsed = null; try { _parsed = JSON.parse(r.text); } catch (_) {}
       if (_parsed && typeof _parsed === 'object') { _parsed._httpStatus = r.status; _parsed._rawBody = _rawBody; return _parsed; }
       return { success: false, error: '서버 응답 파싱 실패', _httpStatus: r.status, _rawBody: _rawBody };
     } catch (err) { return { success: false, error: err.message }; }
@@ -2479,7 +2498,7 @@ app.whenReady().then(() => {
     try {
       const all = services.users().getAll();
       const dst = path.join(app.getPath('userData'), 'data', 'users_backup.json');
-      try { fs.mkdirSync(path.dirname(dst), { recursive: true }); } catch (_) { }
+      try { fs.mkdirSync(path.dirname(dst), { recursive: true }); } catch (_) {}
       const payload = { savedAt: new Date().toISOString(), users: all };
       const tmp = dst + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
@@ -2580,10 +2599,8 @@ app.whenReady().then(() => {
       wb.creator = '오렌지톡';
       const ws = wb.addWorksheet('진료과별통계', {
         views: [{ state: 'frozen', ySplit: 7, topLeftCell: 'A8' }],
-        pageSetup: {
-          paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-          margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
-        }
+        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }
       });
       const sections = payload.sections || []; /* [{title, header, rows, totalsRow}] */
       const titleText = payload.titleText || '진료과별 통계';
@@ -2595,7 +2612,7 @@ app.whenReady().then(() => {
       const colWidths = payload.colWidths || new Array(colCount).fill(90);
 
       /* 컬럼 너비 */
-      ws.columns = colWidths.map(function (w) { return { width: Math.max(8, w / 7) }; });
+      ws.columns = colWidths.map(function(w){ return { width: Math.max(8, w/7) }; });
 
       const headerBorder = { style: 'medium', color: { argb: 'FF000000' } };
       const thinBorder = { style: 'thin', color: { argb: 'FF555555' } };
@@ -2604,10 +2621,8 @@ app.whenReady().then(() => {
       const r1 = ws.addRow(new Array(colCount).fill(' '));
       r1.height = 8;
       for (let i = 1; i <= colCount; i++) {
-        r1.getCell(i).fill = {
-          type: 'pattern', pattern: 'solid',
-          fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' }
-        };
+        r1.getCell(i).fill = { type: 'pattern', pattern: 'solid',
+          fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' } };
       }
       /* 2: 제목 */
       const r2 = ws.addRow([titleText]);
@@ -2621,10 +2636,8 @@ app.whenReady().then(() => {
       const r3 = ws.addRow(new Array(colCount).fill(' '));
       r3.height = 8;
       for (let i = 1; i <= colCount; i++) {
-        r3.getCell(i).fill = {
-          type: 'pattern', pattern: 'solid',
-          fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' }
-        };
+        r3.getCell(i).fill = { type: 'pattern', pattern: 'solid',
+          fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' } };
       }
       /* 4: 여백 */
       ws.addRow([]).height = 24;
@@ -2645,7 +2658,7 @@ app.whenReady().then(() => {
 
       /* 8: 섹션1 헤더 (freeze 포함) - 첫 섹션 컬럼 헤더를 8행에 배치 */
       let curRow = 8;
-      sections.forEach(function (section, sIdx) {
+      sections.forEach(function(section, sIdx){
         /* 섹션 제목 */
         if (sIdx > 0) {
           /* 두 번째 이후 섹션 — 제목 행 전에 여백 */
@@ -2682,7 +2695,7 @@ app.whenReady().then(() => {
         /* 데이터 행 */
         const rows = section.rows || [];
         const totalsRow = section.totalsRow;
-        rows.forEach(function (rowData, ri) {
+        rows.forEach(function(rowData, ri){
           const tr = ws.addRow(rowData);
           const isLastRow = !totalsRow && ri === rows.length - 1;
           for (let i = 1; i <= colCount; i++) {
@@ -2744,10 +2757,8 @@ app.whenReady().then(() => {
         if (colCount < 1) colCount = 1;
         const ws = wb.addWorksheet(sh.name || '순위', {
           views: [{ state: 'frozen', ySplit: 9, topLeftCell: 'A10' }],
-          pageSetup: {
-            paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-            margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
-          }
+          pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+            margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }
         });
         /* 컬럼 너비 — 그룹 순서대로, 간격 열은 좁게 */
         const widths = [];
@@ -2837,6 +2848,8 @@ app.whenReady().then(() => {
       const ExcelJS = require('exceljs');
       const wb = new ExcelJS.Workbook();
       wb.creator = '오렌지톡';
+      /* Excel 전용 좌측 정렬 열 — 증상·처치 내용(상담 형식은 상담 주제/상담 내용)만. PDF/인쇄는 무관 (사용자 지시 2026-08-27) */
+      const _xlLeftCol = function(lbl){ return /^(증상|처치(\s*내용)?|상담 주제|상담 내용)$/.test(String(lbl||'').trim()); };
 
       /* 1) (옵션) 진료과별 통계 표지 시트 — 대시보드 xlsxBuildDeptStats 와 동일한 비주얼 */
       if (payload.coverSections && Array.isArray(payload.coverSections) && payload.coverSections.length) {
@@ -2851,16 +2864,14 @@ app.whenReady().then(() => {
         const cvSchool = payload.schoolText || '';
         const cvPeriod = payload.periodText || '';
         const cvColWidths = payload.coverColWidths || new Array(cvColCount).fill(90);
-        cws.columns = cvColWidths.map(function (w) { return { width: Math.max(8, w / 7) }; });
+        cws.columns = cvColWidths.map(function(w){ return { width: Math.max(8, w/7) }; });
         const cHeadBorder = { style: 'medium', color: { argb: 'FF000000' } };
         const cThinBorder = { style: 'thin', color: { argb: 'FF555555' } };
         /* 1행: 상단 색상바 */
         const cr1 = cws.addRow(new Array(cvColCount).fill(' ')); cr1.height = 8;
         for (let i = 1; i <= cvColCount; i++) {
-          cr1.getCell(i).fill = {
-            type: 'pattern', pattern: 'solid',
-            fgColor: { argb: i <= cvTop1 ? 'FF2855A0' : 'FFD4A843' }
-          };
+          cr1.getCell(i).fill = { type: 'pattern', pattern: 'solid',
+            fgColor: { argb: i <= cvTop1 ? 'FF2855A0' : 'FFD4A843' } };
         }
         /* 2행: 제목 병합 */
         const cr2 = cws.addRow([cvTitle]); cr2.height = 32;
@@ -2871,10 +2882,8 @@ app.whenReady().then(() => {
         /* 3행: 하단 색상바 */
         const cr3 = cws.addRow(new Array(cvColCount).fill(' ')); cr3.height = 8;
         for (let i = 1; i <= cvColCount; i++) {
-          cr3.getCell(i).fill = {
-            type: 'pattern', pattern: 'solid',
-            fgColor: { argb: i <= cvBot1 ? 'FF2E8B57' : 'FFC0392B' }
-          };
+          cr3.getCell(i).fill = { type: 'pattern', pattern: 'solid',
+            fgColor: { argb: i <= cvBot1 ? 'FF2E8B57' : 'FFC0392B' } };
         }
         /* 4행 여백 / 5행 학교 / 6행 기간 / 7행 여백 */
         cws.addRow([]).height = 24;
@@ -2889,7 +2898,7 @@ app.whenReady().then(() => {
         cws.addRow([]).height = 24;
         /* 섹션 렌더 — 진료과별 통계 (대시보드와 동일 패턴) */
         let cvRow = 8;
-        payload.coverSections.forEach(function (section, sIdx) {
+        payload.coverSections.forEach(function(section, sIdx){
           if (sIdx > 0) { cws.addRow([]).height = 14; cvRow++; }
           /* 섹션 타이틀 (병합) */
           const stRow = cws.addRow([section.title || '']);
@@ -2908,25 +2917,21 @@ app.whenReady().then(() => {
             c.font = { bold: true, size: 11, name: '맑은 고딕' };
             c.alignment = { horizontal: 'center', vertical: 'middle' };
             c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
-            c.border = {
-              top: cHeadBorder, bottom: cHeadBorder,
-              left: i === 1 ? cHeadBorder : cThinBorder, right: i === cvColCount ? cHeadBorder : cThinBorder
-            };
+            c.border = { top: cHeadBorder, bottom: cHeadBorder,
+              left: i === 1 ? cHeadBorder : cThinBorder, right: i === cvColCount ? cHeadBorder : cThinBorder };
           }
           cvRow++;
           const sRows = section.rows || [];
           const hasTotal = !!section.totalsRow;
-          sRows.forEach(function (rowData, ri) {
+          sRows.forEach(function(rowData, ri){
             const tr = cws.addRow(rowData);
             const isLast = !hasTotal && ri === sRows.length - 1;
             for (let i = 1; i <= cvColCount; i++) {
               const c = tr.getCell(i);
               c.font = { size: 10, name: '맑은 고딕' };
               c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-              c.border = {
-                top: cThinBorder, bottom: isLast ? cHeadBorder : cThinBorder,
-                left: i === 1 ? cHeadBorder : cThinBorder, right: i === cvColCount ? cHeadBorder : cThinBorder
-              };
+              c.border = { top: cThinBorder, bottom: isLast ? cHeadBorder : cThinBorder,
+                left: i === 1 ? cHeadBorder : cThinBorder, right: i === cvColCount ? cHeadBorder : cThinBorder };
             }
             cvRow++;
           });
@@ -2937,10 +2942,8 @@ app.whenReady().then(() => {
               c.font = { bold: true, size: 10, name: '맑은 고딕' };
               c.alignment = { horizontal: 'center', vertical: 'middle' };
               c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFBFC' } };
-              c.border = {
-                top: cThinBorder, bottom: cHeadBorder,
-                left: i === 1 ? cHeadBorder : cThinBorder, right: i === cvColCount ? cHeadBorder : cThinBorder
-              };
+              c.border = { top: cThinBorder, bottom: cHeadBorder,
+                left: i === 1 ? cHeadBorder : cThinBorder, right: i === cvColCount ? cHeadBorder : cThinBorder };
             }
             cvRow++;
           }
@@ -2961,70 +2964,70 @@ app.whenReady().then(() => {
         const titleText = p.titleText || '보건실 방문자 현황';
         const schoolText = p.schoolText || '';
         const periodText = p.periodText || '';
-        wsInst.columns = colWidths.map(function (w) { return { width: Math.max(8, w / 7) }; });
+        wsInst.columns = colWidths.map(function(w){ return { width: Math.max(8, w/7) }; });
         const headerBorder = { style: 'medium', color: { argb: 'FF000000' } };
         const thinBorder = { style: 'thin', color: { argb: 'FF555555' } };
         const r1 = wsInst.addRow(new Array(colCount).fill(' ')); r1.height = 8;
-        for (let i = 1; i <= colCount; i++) { r1.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' } }; }
+        for (let i = 1; i <= colCount; i++) { r1.getCell(i).fill = { type:'pattern', pattern:'solid', fgColor:{argb:i<=top1?'FF2855A0':'FFD4A843'} }; }
         const r2 = wsInst.addRow([titleText]); r2.height = 32;
         wsInst.mergeCells(2, 1, 2, colCount);
-        r2.getCell(1).font = { bold: true, size: 16, name: '맑은 고딕' };
-        r2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-        r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7F7' } };
+        r2.getCell(1).font = { bold:true, size:16, name:'맑은 고딕' };
+        r2.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+        r2.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF7F7F7'} };
         const r3 = wsInst.addRow(new Array(colCount).fill(' ')); r3.height = 8;
-        for (let i = 1; i <= colCount; i++) { r3.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' } }; }
+        for (let i = 1; i <= colCount; i++) { r3.getCell(i).fill = { type:'pattern', pattern:'solid', fgColor:{argb:i<=bot1?'FF2E8B57':'FFC0392B'} }; }
         wsInst.addRow([]).height = 24;
         const r5 = wsInst.addRow([schoolText]); r5.height = 22;
         wsInst.mergeCells(5, 1, 5, colCount);
-        r5.getCell(1).font = { bold: true, size: 11, name: '맑은 고딕' };
-        r5.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+        r5.getCell(1).font = { bold:true, size:11, name:'맑은 고딕' };
+        r5.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
         const r6 = wsInst.addRow([periodText]); r6.height = 22;
         wsInst.mergeCells(6, 1, 6, colCount);
-        r6.getCell(1).font = { bold: true, size: 11, name: '맑은 고딕' };
-        r6.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+        r6.getCell(1).font = { bold:true, size:11, name:'맑은 고딕' };
+        r6.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
         wsInst.addRow([]).height = 24;
         /* 일간 방문 통계 섹션 (학생 학년별 / 교직원 / 전체) — 본문 앞에 삽입 */
         if (p.preambleSections && p.preambleSections.sections && p.preambleSections.sections.length) {
           const pbCols = p.preambleSections.colCount || colCount;
           /* 섹션 간 병합은 최대 pbCols 만큼만 가능하므로 colCount 이하로 제한 */
           const mergeCols = Math.min(pbCols, colCount);
-          const pbThin = { style: 'thin', color: { argb: 'FF9CA3AF' } };
-          const pbHead = { style: 'medium', color: { argb: 'FF000000' } };
+          const pbThin = { style:'thin', color:{argb:'FF9CA3AF'} };
+          const pbHead = { style:'medium', color:{argb:'FF000000'} };
           /* 상단 안내 */
           const pbTitleRow = wsInst.addRow(['📊 일간 방문 통계']);
           pbTitleRow.height = 22;
           wsInst.mergeCells(pbTitleRow.number, 1, pbTitleRow.number, colCount);
-          pbTitleRow.getCell(1).font = { bold: true, size: 12, color: { argb: 'FF0E7490' }, name: '맑은 고딕' };
-          pbTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-          p.preambleSections.sections.forEach(function (section, sIdx) {
+          pbTitleRow.getCell(1).font = { bold:true, size:12, color:{argb:'FF0E7490'}, name:'맑은 고딕' };
+          pbTitleRow.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
+          p.preambleSections.sections.forEach(function(section, sIdx){
             if (sIdx > 0) wsInst.addRow([]).height = 6;
             /* 섹션 타이틀 */
             const stRow = wsInst.addRow([section.title || '']);
             stRow.height = 20;
             wsInst.mergeCells(stRow.number, 1, stRow.number, colCount);
-            stRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF0E7490' }, name: '맑은 고딕' };
-            stRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-            stRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F7FB' } };
+            stRow.getCell(1).font = { bold:true, size:11, color:{argb:'FF0E7490'}, name:'맑은 고딕' };
+            stRow.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
+            stRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE6F7FB'} };
             /* 컬럼 헤더 */
-            const hdrRow = wsInst.addRow((section.header || []).concat(new Array(Math.max(0, colCount - (section.header || []).length)).fill('')));
+            const hdrRow = wsInst.addRow((section.header || []).concat(new Array(Math.max(0, colCount - (section.header||[]).length)).fill('')));
             hdrRow.height = 22;
             for (let i = 1; i <= mergeCols; i++) {
               const c = hdrRow.getCell(i);
-              c.font = { bold: true, size: 10, name: '맑은 고딕' };
-              c.alignment = { horizontal: 'center', vertical: 'middle' };
-              c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
-              c.border = { top: pbHead, bottom: pbThin, left: i === 1 ? pbHead : pbThin, right: i === mergeCols ? pbHead : pbThin };
+              c.font = { bold:true, size:10, name:'맑은 고딕' };
+              c.alignment = { horizontal:'center', vertical:'middle' };
+              c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFEAEAEA'} };
+              c.border = { top:pbHead, bottom:pbThin, left: i===1?pbHead:pbThin, right: i===mergeCols?pbHead:pbThin };
             }
-            (section.rows || []).forEach(function (rowData, ri) {
+            (section.rows || []).forEach(function(rowData, ri){
               const padded = rowData.slice();
               while (padded.length < colCount) padded.push('');
               const tr = wsInst.addRow(padded);
               const isLast = !section.totalsRow && ri === section.rows.length - 1;
               for (let i = 1; i <= mergeCols; i++) {
                 const c = tr.getCell(i);
-                c.font = { size: 10, name: '맑은 고딕' };
-                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                c.border = { top: pbThin, bottom: isLast ? pbHead : pbThin, left: i === 1 ? pbHead : pbThin, right: i === mergeCols ? pbHead : pbThin };
+                c.font = { size:10, name:'맑은 고딕' };
+                c.alignment = { horizontal:'center', vertical:'middle' };
+                c.border = { top:pbThin, bottom: isLast ? pbHead : pbThin, left: i===1?pbHead:pbThin, right: i===mergeCols?pbHead:pbThin };
               }
             });
             if (section.totalsRow) {
@@ -3033,10 +3036,10 @@ app.whenReady().then(() => {
               const tr = wsInst.addRow(tPadded);
               for (let i = 1; i <= mergeCols; i++) {
                 const c = tr.getCell(i);
-                c.font = { bold: true, size: 10, name: '맑은 고딕' };
-                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFBFC' } };
-                c.border = { top: pbThin, bottom: pbHead, left: i === 1 ? pbHead : pbThin, right: i === mergeCols ? pbHead : pbThin };
+                c.font = { bold:true, size:10, name:'맑은 고딕' };
+                c.alignment = { horizontal:'center', vertical:'middle' };
+                c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFAFBFC'} };
+                c.border = { top:pbThin, bottom:pbHead, left: i===1?pbHead:pbThin, right: i===mergeCols?pbHead:pbThin };
               }
             }
           });
@@ -3045,31 +3048,27 @@ app.whenReady().then(() => {
           const visitTitle = wsInst.addRow(['📝 방문 상세']);
           visitTitle.height = 22;
           wsInst.mergeCells(visitTitle.number, 1, visitTitle.number, colCount);
-          visitTitle.getCell(1).font = { bold: true, size: 12, color: { argb: 'FF4338CA' }, name: '맑은 고딕' };
-          visitTitle.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+          visitTitle.getCell(1).font = { bold:true, size:12, color:{argb:'FF4338CA'}, name:'맑은 고딕' };
+          visitTitle.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
         }
         const hdrRowMain = wsInst.addRow(headerLabels); hdrRowMain.height = 26;
         for (let i = 1; i <= colCount; i++) {
           const c = hdrRowMain.getCell(i);
-          c.font = { bold: true, size: 11, name: '맑은 고딕' };
-          c.alignment = { horizontal: 'center', vertical: 'middle' };
-          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
-          c.border = {
-            top: headerBorder, bottom: { style: 'medium', color: { argb: 'FF000000' } },
-            left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder
-          };
+          c.font = { bold:true, size:11, name:'맑은 고딕' };
+          c.alignment = { horizontal:'center', vertical:'middle' };
+          c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFEAEAEA'} };
+          c.border = { top:headerBorder, bottom:{style:'medium',color:{argb:'FF000000'}},
+            left: i===1 ? headerBorder : thinBorder, right: i===colCount ? headerBorder : thinBorder };
         }
-        dataRows.forEach(function (row, ri) {
+        dataRows.forEach(function(row, ri) {
           const tr = wsInst.addRow(row);
           const isLastRow = (ri === dataRows.length - 1);
           for (let i = 1; i <= colCount; i++) {
             const c = tr.getCell(i);
-            c.font = { size: 10, name: '맑은 고딕' };
-            c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            c.border = {
-              top: thinBorder, bottom: isLastRow ? headerBorder : thinBorder,
-              left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder
-            };
+            c.font = { size:10, name:'맑은 고딕' };
+            c.alignment = { horizontal: _xlLeftCol(headerLabels[i-1]) ? 'left' : 'center', vertical:'middle', wrapText:true };
+            c.border = { top:thinBorder, bottom: isLastRow ? headerBorder : thinBorder,
+              left: i===1 ? headerBorder : thinBorder, right: i===colCount ? headerBorder : thinBorder };
           }
         });
         wsInst.pageSetup.printTitlesRow = '1:8';
@@ -3088,25 +3087,25 @@ app.whenReady().then(() => {
          *  위쪽 오늘의 메모·일간 방문 통계는 같은 totalBase 칸에 '균등' 분배해서,
          *  표시 항목 개수·너비를 어떻게 바꿔도 세로줄이 들쑥날쭉하지 않고 좌우 끝이 정확히 일치한다. */
         const _wArr = (colWidths.length === colCount && colCount > 0)
-          ? colWidths.map(function (w) { return (+w > 0) ? +w : 44; })
+          ? colWidths.map(function(w){ return (+w > 0) ? +w : 44; })
           : new Array(colCount).fill(44);
         const minW = Math.min.apply(null, _wArr) || 44;
         const unit = minW / 7;                                       /* base 한 칸 = 가장 좁은 열 / 7 (px) */
-        const baseCols = _wArr.map(function (w) { return Math.max(7, Math.round(w / unit)); });
-        const totalBase = baseCols.reduce(function (a, b) { return a + b; }, 0);
+        const baseCols = _wArr.map(function(w){ return Math.max(7, Math.round(w / unit)); });
+        const totalBase = baseCols.reduce(function(a, b){ return a + b; }, 0);
         /* 표 좌측 테두리 인쇄 문제의 실제 원인은 "병합 셀 슬레이브에 테두리를 줘서 마스터 테두리가
          *  지워진 것"이었다(아래 _detailRow 주석 참조). 마스터-온리 테두리로 고쳤으므로 좌측 여백 열은
          *  불필요 → 제거(C0=0). FIRST/LAST 는 1·totalBase 로, 오프셋 산식은 +0 무효 (2026-06-16). */
         const C0 = 0;
         const FIRST = 1 + C0, LAST = totalBase + C0;
         const colSpan = [];                                          /* 각 detail 열 → base 범위 [c1,c2] (스페이서 오프셋 포함) */
-        (function () { let acc = 0; baseCols.forEach(function (bc) { colSpan.push([acc + 1 + C0, acc + bc + C0]); acc += bc; }); })();
+        (function(){ let acc = 0; baseCols.forEach(function(bc){ colSpan.push([acc + 1 + C0, acc + bc + C0]); acc += bc; }); })();
         const top1B = Math.max(1, Math.round(totalBase * 0.7));      /* 상단 색상바 파랑/노랑 경계 */
         const bot1B = Math.max(1, Math.round(totalBase * 0.3));      /* 하단 색상바 초록/빨강 경계 */
         /* total 칸을 n 개 near-equal 범위로 균등 분배(나머지는 앞 칸에 1씩). 스페이서 오프셋 포함. */
-        const _evenSpans = function (total, n) {
+        const _evenSpans = function(total, n){
           const spans = []; const b = Math.floor(total / n), rem = total % n; let acc = 0;
-          for (let i = 0; i < n; i++) { const w = b + (i < rem ? 1 : 0); spans.push([acc + 1 + C0, acc + w + C0]); acc += w; }
+          for (let i = 0; i < n; i++){ const w = b + (i < rem ? 1 : 0); spans.push([acc + 1 + C0, acc + w + C0]); acc += w; }
           return spans;
         };
         const wsMain = wb.addWorksheet(mainSheetTitle, {
@@ -3115,14 +3114,12 @@ app.whenReady().then(() => {
           views: [{ style: 'pageBreakPreview' }],
           /* A4 가로 + fitToWidth (사용자 결정 2026-06-15) — 미세격자 표를 한 페이지 폭에 맞춤.
            *  좌측 여백을 약간 키워(0.16→0.3) 인쇄 시 표 맨 왼쪽 테두리가 인쇄 경계에 잘리지 않게 함 (사용자 요청 2026-06-16). */
-          pageSetup: {
-            paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-            margins: { left: 0.3, right: 0.16, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
-          }
+          pageSetup: { paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0,
+            margins:{ left:0.3, right:0.16, top:0.4, bottom:0.4, header:0.2, footer:0.2 } }
         });
-        wsMain.columns = new Array(totalBase).fill(0).map(function () { return { width: Math.max(1, unit / 7) }; });
-        const headerBorder = { style: 'medium', color: { argb: 'FF000000' } };
-        const thinBorder = { style: 'thin', color: { argb: 'FF555555' } };
+        wsMain.columns = new Array(totalBase).fill(0).map(function(){ return { width: Math.max(1, unit / 7) }; });
+        const headerBorder = { style:'medium', color:{argb:'FF000000'} };
+        const thinBorder = { style:'thin', color:{argb:'FF555555'} };
         /* ── 표지 페이지(1페이지) — 제목+색상바를 아래로 내리고, 학교·기간·제목 글씨를 크게.
          *  본문은 2페이지부터 시작 (사용자 요청 2026-06-16). 모든 내용은 FIRST..LAST(좌측 여백 열 다음)에 배치. ── */
         /* 위쪽 여백 — 표지 제목을 페이지 중앙쯤으로 더 내림 (사용자 요청 2026-06-16) */
@@ -3131,32 +3128,32 @@ app.whenReady().then(() => {
         wsMain.addRow([]).height = 90;
         /* 상단 색상바 */
         const r1m = wsMain.addRow([]); r1m.height = 12;
-        for (let i = 1; i <= totalBase; i++) { r1m.getCell(i + C0).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= top1B ? 'FF2855A0' : 'FFD4A843' } }; }
+        for (let i=1;i<=totalBase;i++){ r1m.getCell(i+C0).fill={ type:'pattern', pattern:'solid', fgColor:{argb:i<=top1B?'FF2855A0':'FFD4A843'} }; }
         /* 제목 (크게) */
         const r2m = wsMain.addRow([]); r2m.height = 64;
         wsMain.mergeCells(r2m.number, FIRST, r2m.number, LAST);
         r2m.getCell(FIRST).value = titleText;
-        r2m.getCell(FIRST).font = { bold: true, size: 32, name: '맑은 고딕' };
-        r2m.getCell(FIRST).alignment = { horizontal: 'center', vertical: 'middle' };
-        r2m.getCell(FIRST).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7F7' } };
+        r2m.getCell(FIRST).font = { bold:true, size:32, name:'맑은 고딕' };
+        r2m.getCell(FIRST).alignment = { horizontal:'center', vertical:'middle' };
+        r2m.getCell(FIRST).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF7F7F7'} };
         /* 하단 색상바 */
         const r3m = wsMain.addRow([]); r3m.height = 12;
-        for (let i = 1; i <= totalBase; i++) { r3m.getCell(i + C0).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= bot1B ? 'FF2E8B57' : 'FFC0392B' } }; }
+        for (let i=1;i<=totalBase;i++){ r3m.getCell(i+C0).fill={ type:'pattern', pattern:'solid', fgColor:{argb:i<=bot1B?'FF2E8B57':'FFC0392B'} }; }
         /* 제목 색상바 ~ 기관명 사이 간격 — 훨씬 넓게 (사용자 요청 2026-06-16) */
         wsMain.addRow([]).height = 40;
         wsMain.addRow([]).height = 40;
         wsMain.addRow([]).height = 40;
         /* 학교·기간 (크게, 가운데) */
-        const r5m = wsMain.addRow([]); r5m.height = 40; wsMain.mergeCells(r5m.number, FIRST, r5m.number, LAST);
+        const r5m = wsMain.addRow([]); r5m.height = 40; wsMain.mergeCells(r5m.number,FIRST,r5m.number,LAST);
         r5m.getCell(FIRST).value = schoolText;
-        r5m.getCell(FIRST).font = { bold: true, size: 22, name: '맑은 고딕' }; r5m.getCell(FIRST).alignment = { horizontal: 'center', vertical: 'middle' };
-        const r6m = wsMain.addRow([]); r6m.height = 36; wsMain.mergeCells(r6m.number, FIRST, r6m.number, LAST);
+        r5m.getCell(FIRST).font = { bold:true, size:22, name:'맑은 고딕' }; r5m.getCell(FIRST).alignment = { horizontal:'center', vertical:'middle' };
+        const r6m = wsMain.addRow([]); r6m.height = 36; wsMain.mergeCells(r6m.number,FIRST,r6m.number,LAST);
         r6m.getCell(FIRST).value = periodText;
-        r6m.getCell(FIRST).font = { bold: true, size: 20, name: '맑은 고딕' }; r6m.getCell(FIRST).alignment = { horizontal: 'center', vertical: 'middle' };
+        r6m.getCell(FIRST).font = { bold:true, size:20, name:'맑은 고딕' }; r6m.getCell(FIRST).alignment = { horizontal:'center', vertical:'middle' };
         /* 표지 다음 — 본문은 2페이지부터 */
         wsMain.getRow(r6m.number + 1).addPageBreak();
         /* 각 날짜 연속 쌓기 */
-        payload.continuousDays.forEach(function (day, dayIdx) {
+        payload.continuousDays.forEach(function(day, dayIdx){
           /* 두 번째 날짜부터는 날짜간 여백 + 페이지 나눔 (하루가 넘어가면 다음 페이지 맨 위부터).
            *  첫 날은 표지 다음 페이지(2페이지) 맨 위에서 바로 시작. */
           if (dayIdx > 0) {
@@ -3166,42 +3163,40 @@ app.whenReady().then(() => {
           }
           /* 날짜 헤더 */
           const d = new Date(day.date);
-          const dow = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
-          const dayTitle = d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + dow + ')';
+          const dow=['일','월','화','수','목','금','토'][d.getDay()];
+          const dayTitle = d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+dow+')';
           const dayTitleRow = wsMain.addRow([]);
           dayTitleRow.height = 24;
           wsMain.mergeCells(dayTitleRow.number, FIRST, dayTitleRow.number, LAST);
-          dayTitleRow.getCell(FIRST).value = '📅 ' + dayTitle + '  ·  방문 ' + (day.dataRows || []).length + '명';
-          dayTitleRow.getCell(FIRST).font = { bold: true, size: 13, color: { argb: 'FF0F172A' }, name: '맑은 고딕' };
-          dayTitleRow.getCell(FIRST).alignment = { horizontal: 'left', vertical: 'middle' };
-          dayTitleRow.getCell(FIRST).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
-          dayTitleRow.getCell(FIRST).border = { top: headerBorder, bottom: thinBorder, left: headerBorder, right: headerBorder };
+          dayTitleRow.getCell(FIRST).value = '📅 '+dayTitle+'  ·  방문 '+(day.dataRows||[]).length+'명';
+          dayTitleRow.getCell(FIRST).font = { bold:true, size:13, color:{argb:'FF0F172A'}, name:'맑은 고딕' };
+          dayTitleRow.getCell(FIRST).alignment = { horizontal:'left', vertical:'middle' };
+          dayTitleRow.getCell(FIRST).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE0F2FE'} };
+          dayTitleRow.getCell(FIRST).border = { top:headerBorder, bottom:thinBorder, left:headerBorder, right:headerBorder };
           wsMain.addRow([]).height = 12;   /* 날짜 헤더 ~ 메모 사이 여백 */
           /* ── 오늘의 메모 — totalBase 칸에 균등 분배 (제목층/내용층 wrapText) ── */
           if (day.todayMemo && Array.isArray(day.todayMemo.titles) && day.todayMemo.titles.length) {
             const tmTitle = wsMain.addRow([]); tmTitle.height = 20;
             wsMain.mergeCells(tmTitle.number, FIRST, tmTitle.number, LAST);
             tmTitle.getCell(FIRST).value = '📝 오늘의 메모';
-            tmTitle.getCell(FIRST).font = { bold: true, size: 11, color: { argb: 'FF4D7C0F' }, name: '맑은 고딕' };
-            tmTitle.getCell(FIRST).alignment = { horizontal: 'left', vertical: 'middle' };
-            tmTitle.getCell(FIRST).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F8E9' } };
+            tmTitle.getCell(FIRST).font = { bold:true, size:11, color:{argb:'FF4D7C0F'}, name:'맑은 고딕' };
+            tmTitle.getCell(FIRST).alignment = { horizontal:'left', vertical:'middle' };
+            tmTitle.getCell(FIRST).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF1F8E9'} };
             const tmN = day.todayMemo.titles.length;
             const tmSpans = _evenSpans(totalBase, tmN);
-            const _tmRow = function (values, head, h) {
+            const _tmRow = function(values, head, h){
               const row = wsMain.addRow([]); row.height = h;
-              tmSpans.forEach(function (sp, i) {
+              tmSpans.forEach(function(sp, i){
                 const c1 = sp[0], c2 = sp[1];
                 if (c2 > c1) wsMain.mergeCells(row.number, c1, row.number, c2);
                 const c = row.getCell(c1);   /* ★ 병합 테두리는 마스터 셀에만 (슬레이브에 주면 좌측선 사라짐) */
                 c.value = values[i];
-                c.font = head ? { bold: true, size: 10, name: '맑은 고딕', color: { argb: 'FF475569' } } : { size: 10, name: '맑은 고딕' };
-                c.alignment = head ? { horizontal: 'center', vertical: 'middle' } : { horizontal: 'left', vertical: 'top', wrapText: true };
-                if (head) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
-                c.border = {
-                  top: head ? headerBorder : thinBorder, bottom: head ? thinBorder : headerBorder,
-                  left: c1 === FIRST ? headerBorder : thinBorder,
-                  right: c2 === LAST ? headerBorder : thinBorder
-                };
+                c.font = head ? { bold:true, size:10, name:'맑은 고딕', color:{argb:'FF475569'} } : { size:10, name:'맑은 고딕' };
+                c.alignment = head ? { horizontal:'center', vertical:'middle' } : { horizontal:'left', vertical:'top', wrapText:true };
+                if (head) c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFEAEAEA'} };
+                c.border = { top: head?headerBorder:thinBorder, bottom: head?thinBorder:headerBorder,
+                  left: c1===FIRST?headerBorder:thinBorder,
+                  right: c2===LAST?headerBorder:thinBorder };
               });
             };
             _tmRow(day.todayMemo.titles, true, 20);
@@ -3214,79 +3209,77 @@ app.whenReady().then(() => {
             statsTitleRow.height = 20;
             wsMain.mergeCells(statsTitleRow.number, FIRST, statsTitleRow.number, LAST);
             statsTitleRow.getCell(FIRST).value = '📊 일간 방문 통계';
-            statsTitleRow.getCell(FIRST).font = { bold: true, size: 11, color: { argb: 'FF0E7490' }, name: '맑은 고딕' };
-            statsTitleRow.getCell(FIRST).alignment = { horizontal: 'left', vertical: 'middle' };
-            const pbThin = { style: 'thin', color: { argb: 'FF9CA3AF' } };
-            const pbHead = { style: 'medium', color: { argb: 'FF000000' } };
-            day.preambleSections.sections.forEach(function (section, sIdx) {
+            statsTitleRow.getCell(FIRST).font = { bold:true, size:11, color:{argb:'FF0E7490'}, name:'맑은 고딕' };
+            statsTitleRow.getCell(FIRST).alignment = { horizontal:'left', vertical:'middle' };
+            const pbThin = { style:'thin', color:{argb:'FF9CA3AF'} };
+            const pbHead = { style:'medium', color:{argb:'FF000000'} };
+            day.preambleSections.sections.forEach(function(section, sIdx){
               if (sIdx > 0) wsMain.addRow([]).height = 10;
               /* 섹션 타이틀 */
               const stR = wsMain.addRow([]);
               stR.height = 20;
               wsMain.mergeCells(stR.number, FIRST, stR.number, LAST);
-              stR.getCell(FIRST).value = section.title || '';
-              stR.getCell(FIRST).font = { bold: true, size: 10.5, color: { argb: 'FF0E7490' }, name: '맑은 고딕' };
-              stR.getCell(FIRST).alignment = { horizontal: 'left', vertical: 'middle' };
-              stR.getCell(FIRST).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F7FB' } };
+              stR.getCell(FIRST).value = section.title||'';
+              stR.getCell(FIRST).font = { bold:true, size:10.5, color:{argb:'FF0E7490'}, name:'맑은 고딕' };
+              stR.getCell(FIRST).alignment = { horizontal:'left', vertical:'middle' };
+              stR.getCell(FIRST).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE6F7FB'} };
               /* ── 0건 진료과 열 생략 (2026-06-11) — 통계 열(예: 진료과 14개=16열)이 시트 열(13)보다
                *  많으면 병합 정렬이 불가능해 폴백되던 원인. 기간 내 전부 0인 데이터 열을 빼면
                *  열 수가 줄어 병합 정렬 가능 + 인쇄 가독성도 향상. 라벨(첫)·계(끝) 열은 항상 보존. */
-              (function () {
+              (function(){
                 const H = section.header || [];
                 if (H.length < 3) return;
                 const rows = section.rows || [];
                 const tot = section.totalsRow;
                 const keep = [0];
-                for (let i = 1; i < H.length - 1; i++) {
+                for (let i=1;i<H.length-1;i++){
                   let any = false;
-                  rows.forEach(function (r) { const v = r[i]; if (v && v !== 0 && v !== '0') any = true; });
-                  if (tot) { const v = tot[i]; if (v && v !== 0 && v !== '0') any = true; }
+                  rows.forEach(function(r){ const v = r[i]; if (v && v !== 0 && v !== '0') any = true; });
+                  if (tot){ const v = tot[i]; if (v && v !== 0 && v !== '0') any = true; }
                   if (any) keep.push(i);
                 }
                 keep.push(H.length - 1);
                 if (keep.length === H.length) return;
-                const pick = function (a) { return keep.map(function (i) { return a[i]; }); };
+                const pick = function(a){ return keep.map(function(i){ return a[i]; }); };
                 section = { title: section.title, header: pick(H), rows: rows.map(pick), totalsRow: tot ? pick(tot) : tot };
               })();
               /* ── 통계 N열을 totalBase 미세격자에 균등 분배 — 항목 수·detail 너비와 무관하게
                *  열폭 균등 + 좌우 끝이 방문 상세와 정확히 일치 (들쑥날쭉 제거, 2026-06-15). */
-              function _addAlignedRow(values, applyStyle, topB, bottomB) {
+              function _addAlignedRow(values, applyStyle, topB, bottomB){
                 const N = values.length;
                 const row = wsMain.addRow([]);
                 /* 미세격자 균등 분배 — 항목 수·detail 너비와 무관하게 통계 열폭 균등 + 좌우 끝 일치. (2026-06-15) */
                 const spans = _evenSpans(totalBase, N);
-                spans.forEach(function (sp, i) {
+                spans.forEach(function(sp, i){
                   const c1 = sp[0], c2 = sp[1];
                   if (c2 > c1) wsMain.mergeCells(row.number, c1, row.number, c2);
                   const c = row.getCell(c1);   /* ★ 병합 테두리는 마스터 셀에만 (슬레이브에 주면 좌측선 사라짐) */
                   c.value = values[i];
                   applyStyle(c);
-                  c.border = {
-                    top: topB, bottom: bottomB,
-                    left: c1 === FIRST ? pbHead : pbThin,
-                    right: c2 === LAST ? pbHead : pbThin
-                  };
+                  c.border = { top: topB, bottom: bottomB,
+                    left:  c1===FIRST ? pbHead : pbThin,
+                    right: c2===LAST ? pbHead : pbThin };
                 });
                 return row;
               }
-              const hdrR = _addAlignedRow(section.header || [], function (c) {
-                c.font = { bold: true, size: 10, name: '맑은 고딕' };
-                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
+              const hdrR = _addAlignedRow(section.header||[], function(c){
+                c.font = { bold:true, size:10, name:'맑은 고딕' };
+                c.alignment = { horizontal:'center', vertical:'middle' };
+                c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFEAEAEA'} };
               }, pbHead, pbThin);
               hdrR.height = 20;
-              (section.rows || []).forEach(function (row, ri) {
+              (section.rows||[]).forEach(function(row, ri){
                 const isLast = !section.totalsRow && ri === section.rows.length - 1;
-                _addAlignedRow(row, function (c) {
-                  c.font = { size: 10, name: '맑은 고딕' };
-                  c.alignment = { horizontal: 'center', vertical: 'middle' };
-                }, pbThin, isLast ? pbHead : pbThin);
+                _addAlignedRow(row, function(c){
+                  c.font = { size:10, name:'맑은 고딕' };
+                  c.alignment = { horizontal:'center', vertical:'middle' };
+                }, pbThin, isLast?pbHead:pbThin);
               });
               if (section.totalsRow) {
-                _addAlignedRow(section.totalsRow, function (c) {
-                  c.font = { bold: true, size: 10, name: '맑은 고딕' };
-                  c.alignment = { horizontal: 'center', vertical: 'middle' };
-                  c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFBFC' } };
+                _addAlignedRow(section.totalsRow, function(c){
+                  c.font = { bold:true, size:10, name:'맑은 고딕' };
+                  c.alignment = { horizontal:'center', vertical:'middle' };
+                  c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFAFBFC'} };
                 }, pbThin, pbHead);
               }
             });
@@ -3297,15 +3290,15 @@ app.whenReady().then(() => {
           visitTitle.height = 20;
           wsMain.mergeCells(visitTitle.number, FIRST, visitTitle.number, LAST);
           visitTitle.getCell(FIRST).value = '📝 방문 상세';
-          visitTitle.getCell(FIRST).font = { bold: true, size: 11, color: { argb: 'FF4338CA' }, name: '맑은 고딕' };
-          visitTitle.getCell(FIRST).alignment = { horizontal: 'left', vertical: 'middle' };
+          visitTitle.getCell(FIRST).font = { bold:true, size:11, color:{argb:'FF4338CA'}, name:'맑은 고딕' };
+          visitTitle.getCell(FIRST).alignment = { horizontal:'left', vertical:'middle' };
           /* ── 방문표 — 각 열을 colSpan(7칸+ 정비례)으로 병합. 머지셀은 자동 행높이가 안되므로 줄수로 높이 지정 ── */
           const dayHdrLabels = day.headerLabels || [];
           const dayColCount = Math.min(dayHdrLabels.length || colCount, colCount, colSpan.length);
-          const _detailRow = function (values, head, isLast, h) {
+          const _detailRow = function(values, head, isLast, h){
             const row = wsMain.addRow([]);
             if (h) row.height = h;
-            for (let ci = 0; ci < dayColCount; ci++) {
+            for (let ci=0; ci<dayColCount; ci++){
               const sp = colSpan[ci]; if (!sp) continue;
               const c1 = sp[0], c2 = sp[1];
               if (c2 > c1) wsMain.mergeCells(row.number, c1, row.number, c2);
@@ -3314,26 +3307,24 @@ app.whenReady().then(() => {
                *  (라운드트립 검증 2026-06-16). 좌=첫열이면 medium·아니면 thin, 우=끝열이면 medium·아니면 thin. */
               const c = row.getCell(c1);
               c.value = (values[ci] != null) ? values[ci] : '';
-              if (head) {
-                c.font = { bold: true, size: 10.5, name: '맑은 고딕' };
-                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
+              if (head){
+                c.font = { bold:true, size:10.5, name:'맑은 고딕' };
+                c.alignment = { horizontal:'center', vertical:'middle' };
+                c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFEAEAEA'} };
               } else {
-                c.font = { size: 10, name: '맑은 고딕' };
-                c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                c.font = { size:10, name:'맑은 고딕' };
+                c.alignment = { horizontal: _xlLeftCol(dayHdrLabels[ci]) ? 'left' : 'center', vertical:'middle', wrapText:true };
               }
-              c.border = {
-                top: head ? headerBorder : thinBorder,
-                bottom: head ? thinBorder : (isLast ? headerBorder : thinBorder),
-                left: c1 === FIRST ? headerBorder : thinBorder,
-                right: c2 === LAST ? headerBorder : thinBorder
-              };
+              c.border = { top: head?headerBorder:thinBorder,
+                bottom: head?thinBorder:(isLast?headerBorder:thinBorder),
+                left: c1===FIRST?headerBorder:thinBorder,
+                right: c2===LAST?headerBorder:thinBorder };
             }
             return row;
           };
           /* 페이지 끝에 걸린 직전 행을 굵은 아래선으로 닫아 표 박스를 페이지마다 완전히 닫는다(마스터 셀만 갱신). */
-          const _closeRowBottom = function (row) {
-            for (let ci = 0; ci < dayColCount; ci++) {
+          const _closeRowBottom = function(row){
+            for (let ci=0; ci<dayColCount; ci++){
               const sp = colSpan[ci]; if (!sp) continue;
               const c = row.getCell(sp[0]);
               const b = c.border || {};
@@ -3348,31 +3339,31 @@ app.whenReady().then(() => {
            *  PAGE_H 는 A4 가로 가용 높이(~537pt)보다 보수적으로(500) 잡아 fitToWidth 축소 시에도 항상
            *  Excel 자동 나눔보다 먼저 나눠 빈 공간/잘림을 방지한다. pageY 는 실제 행 높이 합으로 정확히 추적. */
           const PAGE_H = 500;
-          const _rowH = function (n) { const h = wsMain.getRow(n).height; return (typeof h === 'number' && h > 0) ? h : 15; };
+          const _rowH = function(n){ const h = wsMain.getRow(n).height; return (typeof h === 'number' && h > 0) ? h : 15; };
           let pageY = 0;
           for (let n = dayTitleRow.number; n <= wsMain.lastRow.number; n++) pageY += _rowH(n);
           let prevDetailRow = null;
           const _dataRows = day.dataRows || [];
-          _dataRows.forEach(function (row, ri) {
+          _dataRows.forEach(function(row, ri){
             const isLast = ri === (_dataRows.length - 1);
             /* 머지셀은 엑셀이 자동 행높이를 못 잡으므로, 셀 내용을 열 폭으로 wrap 해 줄수를 추정하여 높이 지정.
              *  (줄바꿈 \n + 길이 기준 wrap. 한글/전각은 폭 2로 세어 살짝 넉넉하게 → 잘림 방지. 사용자 보고 2026-06-16) */
             let _lines = 1;
-            for (let k = 0; k < dayColCount; k++) {
+            for (let k=0;k<dayColCount;k++){
               const v = row[k]; if (v == null || v === '') continue;
-              const charW = Math.max(4, (baseCols[k] || 7) * _baseColW);
+              const charW = Math.max(4, (baseCols[k]||7) * _baseColW);
               const segs = String(v).split('\n');
               let ln = 0;
-              for (let si = 0; si < segs.length; si++) {
+              for (let si=0; si<segs.length; si++){
                 const s = segs[si]; let w = 0;
-                for (let ci = 0; ci < s.length; ci++) { w += (s.charCodeAt(ci) > 127) ? 2 : 1; }
+                for (let ci=0; ci<s.length; ci++){ w += (s.charCodeAt(ci) > 127) ? 2 : 1; }
                 ln += Math.max(1, Math.ceil(w / charW));
               }
               if (ln > _lines) _lines = ln;
             }
             const _h = Math.max(20, _lines * 15);
             /* 이 행을 넣으면 페이지를 넘는다 → 직전 행 굵은 아래선으로 닫고 페이지 나눔 + 열 제목 반복 */
-            if (prevDetailRow && (pageY + _h) > PAGE_H) {
+            if (prevDetailRow && (pageY + _h) > PAGE_H){
               _closeRowBottom(prevDetailRow);
               wsMain.getRow(wsMain.lastRow.number + 1).addPageBreak();
               _detailRow(dayHdrLabels, true, false, 22);
@@ -3383,43 +3374,38 @@ app.whenReady().then(() => {
           });
         });
         /* 인쇄 영역 = 실제 사용 범위(A1 ~ 마지막 열/행, 좌측 여백 열 포함) → 페이지 나누기 미리보기에서 그 바깥이 회색(비인쇄)으로 표시됨 (사용자 요청 2026-06-16) */
-        try { wsMain.pageSetup.printArea = 'A1:' + wsMain.getColumn(LAST).letter + wsMain.lastRow.number; } catch (_) { }
+        try { wsMain.pageSetup.printArea = 'A1:' + wsMain.getColumn(LAST).letter + wsMain.lastRow.number; } catch (_) {}
         const buf2 = await wb.xlsx.writeBuffer();
-        return { success: true, bytes: Array.from(new Uint8Array(buf2)) };
+        return { success:true, bytes: Array.from(new Uint8Array(buf2)) };
       }
 
       /* (구) dailySheets 경로는 deprecated — 하위 호환을 위해 남겨두되, 새 continuousDays 로 대체됨 */
       if (Array.isArray(payload.dailySheets) && payload.dailySheets.length > 0) {
         const wsMain = wb.addWorksheet(mainSheetTitle, {
-          views: [{ state: 'frozen', ySplit: 8, topLeftCell: 'A9', activeCell: 'A9' }],
-          pageSetup: {
-            paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-            margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
-          }
+          views: [{ state:'frozen', ySplit:8, topLeftCell:'A9', activeCell:'A9' }],
+          pageSetup: { paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0,
+            margins:{ left:0.4, right:0.4, top:0.4, bottom:0.4, header:0.2, footer:0.2 } }
         });
         _buildDiarySheet(wsMain, payload);
-        payload.dailySheets.forEach(function (ds) {
+        payload.dailySheets.forEach(function(ds){
           const wsExtra = wb.addWorksheet(ds.sheetTitle || '일자', {
-            views: [{ state: 'frozen', ySplit: 8, topLeftCell: 'A9', activeCell: 'A9' }],
-            pageSetup: {
-              paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-              margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
-            }
+            views: [{ state:'frozen', ySplit:8, topLeftCell:'A9', activeCell:'A9' }],
+            pageSetup: { paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0,
+              margins:{ left:0.4, right:0.4, top:0.4, bottom:0.4, header:0.2, footer:0.2 } }
           });
           _buildDiarySheet(wsExtra, ds.payload || {});
         });
         const buf2 = await wb.xlsx.writeBuffer();
-        return { success: true, bytes: Array.from(new Uint8Array(buf2)) };
+        return { success:true, bytes: Array.from(new Uint8Array(buf2)) };
       }
 
-      /* 기존 단일 시트 경로 (방문자당 한 행 / 특정 방문자 내역) */
-      const ws = wb.addWorksheet('보건일지', {
+      /* 기존 단일 시트 경로 (방문자당 한 행 / 특정 방문자 내역).
+       * mainSheetTitle 로 탭 이름 지정 가능 — 연수 등록부('등록부') 등 다른 호출자 재사용 (2026-08-25) */
+      const ws = wb.addWorksheet(payload.mainSheetTitle || '보건일지', {
         /* 상단 8행 고정 + 페이지 나누기 미리보기 뷰(인쇄영역 밖 회색 + "1페이지" 배경 + 페이지 점선) 공존 (사용자 요청 2026-06-16) */
         views: [{ state: 'frozen', ySplit: 8, topLeftCell: 'A9', activeCell: 'A9', style: 'pageBreakPreview' }],
-        pageSetup: {
-          paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-          margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
-        }
+        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }
       });
       const colCount = payload.colCount || 8;
       const top1 = payload.top1 || Math.round(colCount * 0.7);
@@ -3432,16 +3418,14 @@ app.whenReady().then(() => {
       const periodText = payload.periodText || '';
 
       /* 컬럼 너비 (px → exceljs 단위 약 1px = 0.142 char) */
-      ws.columns = colWidths.map(function (w) { return { width: Math.max(8, w / 7) }; });
+      ws.columns = colWidths.map(function(w){ return { width: Math.max(8, w/7) }; });
 
       /* 1행: 상단 색상바 */
       const r1 = ws.addRow(new Array(colCount).fill(' '));
       r1.height = 8;
       for (let i = 1; i <= colCount; i++) {
-        r1.getCell(i).fill = {
-          type: 'pattern', pattern: 'solid',
-          fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' }
-        };
+        r1.getCell(i).fill = { type: 'pattern', pattern: 'solid',
+          fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' } };
       }
       /* 2행: 제목 (병합 + 굵게 16) */
       const r2 = ws.addRow([titleText]);
@@ -3455,10 +3439,8 @@ app.whenReady().then(() => {
       const r3 = ws.addRow(new Array(colCount).fill(' '));
       r3.height = 8;
       for (let i = 1; i <= colCount; i++) {
-        r3.getCell(i).fill = {
-          type: 'pattern', pattern: 'solid',
-          fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' }
-        };
+        r3.getCell(i).fill = { type: 'pattern', pattern: 'solid',
+          fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' } };
       }
       /* 4행: 학교 위 여백 */
       const r4 = ws.addRow([]); r4.height = 24;
@@ -3474,8 +3456,13 @@ app.whenReady().then(() => {
       ws.mergeCells(6, 1, 6, colCount);
       r6.getCell(1).font = { bold: true, size: 11, name: '맑은 고딕' };
       r6.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-      /* 7행: 기간 아래 여백 */
-      const r7 = ws.addRow([]); r7.height = 24;
+      /* 7행: 기간 아래 여백 — noteText 지정 시 우측 정렬 안내 문구(연수 등록부 정렬 안내 등, 2026-08-25) */
+      const r7 = ws.addRow([payload.noteText || '']); r7.height = 24;
+      if (payload.noteText) {
+        ws.mergeCells(7, 1, 7, colCount);
+        r7.getCell(1).font = { size: 9, color: { argb: 'FF555555' }, name: '맑은 고딕' };
+        r7.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+      }
       /* 8행: 컬럼 헤더 */
       const r8 = ws.addRow(headerLabels);
       r8.height = 26;
@@ -3495,7 +3482,7 @@ app.whenReady().then(() => {
       }
       /* 9행~: 데이터 */
       const lastDataRowNum = 8 + dataRows.length;
-      dataRows.forEach(function (row, ri) {
+      dataRows.forEach(function(row, ri) {
         const tr = ws.addRow(row);
         const isLastRow = (ri === dataRows.length - 1);
         /* 긴 증상/처치 등 wrap 셀의 행높이 자동맞춤 — ExcelJS 자동높이 미지원 보정 (사용자 보고 2026-06-16).
@@ -3517,7 +3504,7 @@ app.whenReady().then(() => {
         for (let i = 1; i <= colCount; i++) {
           const c = tr.getCell(i);
           c.font = { size: 10, name: '맑은 고딕' };
-          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          c.alignment = { horizontal: _xlLeftCol(headerLabels[i-1]) ? 'left' : 'center', vertical: 'middle', wrapText: true };
           c.border = {
             top: thinBorder,
             bottom: isLastRow ? headerBorder : thinBorder,
@@ -3526,10 +3513,17 @@ app.whenReady().then(() => {
           };
         }
       });
+      /* 표 아래 안내 문구 — footerText(연수 등록부 '자필로 직접 서명 바랍니다.' 등, 2026-08-25) */
+      if (payload.footerText) {
+        const fr = ws.addRow([payload.footerText]); fr.height = 20;
+        ws.mergeCells(fr.number, 1, fr.number, colCount);
+        fr.getCell(1).font = { size: 9, color: { argb: 'FF555555' }, name: '맑은 고딕' };
+        fr.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      }
       /* 인쇄 시 8행까지 매 페이지 반복 */
       ws.pageSetup.printTitlesRow = '1:8';
       /* 인쇄 영역 = 실제 사용 범위 → 페이지 나누기 미리보기에서 그 바깥이 회색(비인쇄)으로 표시 (사용자 요청 2026-06-16) */
-      try { ws.pageSetup.printArea = 'A1:' + ws.getColumn(colCount).letter + ws.lastRow.number; } catch (_) { }
+      try { ws.pageSetup.printArea = 'A1:' + ws.getColumn(colCount).letter + ws.lastRow.number; } catch (_) {}
 
       const buf = await wb.xlsx.writeBuffer();
       return { success: true, bytes: Array.from(new Uint8Array(buf)) };
@@ -3587,12 +3581,111 @@ app.whenReady().then(() => {
         R++; { ws.mergeCells(R, 1, R, 4); const r = ws.getRow(R); r.height = 20; const c = r.getCell(1); c.value = '추후 계획 · 작성 정보'; c.font = { bold: true, size: 11, name: FONT }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; setB(c); }
         R++; { const r = ws.getRow(R); r.height = 20; label(r.getCell(1), '재상담 예정일'); value(r.getCell(2), d.followUp); label(r.getCell(3), '상담자'); value(r.getCell(4), d.nurse); }
         R++; { const r = ws.getRow(R); r.height = 20; label(r.getCell(1), '작성일'); value(r.getCell(2), d.today); label(r.getCell(3), '학교'); value(r.getCell(4), d.school); }
-        try { ws.pageSetup.printArea = 'A1:D' + R; } catch (_) { }
+        try { ws.pageSetup.printArea = 'A1:D' + R; } catch (_) {}
       });
       const buf = await wb.xlsx.writeBuffer();
       return { success: true, bytes: Array.from(new Uint8Array(buf)) };
     } catch (e) {
       console.error('[xlsx-build-counsel]', e);
+      return { success: false, error: e.message };
+    }
+  });
+
+  /* ── 연수 이수 현황 Excel (2026-08-25) — A4 미리보기와 동일 구성.
+   * 3중 헤더(연수명 colspan2 병합 · 이수율 · 연수기관/이수번호) 때문에 xlsx-build-diary 단일 헤더로는
+   * 표현 불가 → 전용 빌더. payload: { titleText, noteText,
+   *   items:[{name,isLegal,pctText,pctColor}], staffRows:[[순,직위,이름,기관1,번호1,...]] } */
+  ipcMain.handle('xlsx-build-training-status', async (_, payload) => {
+    try {
+      const ExcelJS = require('exceljs');
+      const wb = new ExcelJS.Workbook();
+      wb.creator = '오렌지톡';
+      const items = payload.items || [];
+      const staffRows = payload.staffRows || [];
+      const colCount = 3 + items.length * 2;
+      const titleText = payload.titleText || '보건 연수 이수 현황';
+      const noteText = payload.noteText || '';
+      const ws = wb.addWorksheet('이수 현황', {
+        views: [{ state: 'frozen', ySplit: 8, topLeftCell: 'A9', activeCell: 'A9', style: 'pageBreakPreview' }],
+        /* horizontalCentered — 표를 인쇄 페이지 가로 중앙에 배치해 좌우 여백 균등 (사용자 요청 2026-08-25) */
+        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          horizontalCentered: true,
+          margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }
+      });
+      /* 열 너비 자동 배분 (사용자 요청 2026-08-25) — A4 가로 인쇄폭(≈277mm ≈ 150문자폭)을
+       * 고정 3열(순·직위·이름) 제외한 나머지에 연수 개수만큼 균등 분배.
+       * 연수 2개→기관/번호 각 30, 3개→20, 4개→15 … (min 10) — 표가 항상 페이지 폭을 채움. */
+      const TOTAL_CH = 150;
+      const widths = [6, 12, 12];
+      const perCol = Math.max(10, Math.floor((TOTAL_CH - 30) / Math.max(1, items.length * 2)));
+      items.forEach(function(){ widths.push(perCol, perCol); });
+      ws.columns = widths.map(function(w){ return { width: w }; });
+      const top1 = Math.max(1, Math.round(colCount * 0.7));
+      const bot1 = Math.max(1, colCount - top1);
+      const headerBorder = { style: 'medium', color: { argb: 'FF000000' } };
+      const thinBorder = { style: 'thin', color: { argb: 'FF555555' } };
+      /* 1~3행: 색상바 + 제목 (오렌지톡 표준) */
+      const r1 = ws.addRow(new Array(colCount).fill(' ')); r1.height = 8;
+      for (let i = 1; i <= colCount; i++) r1.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= top1 ? 'FF2855A0' : 'FFD4A843' } };
+      const r2 = ws.addRow([titleText]); r2.height = 32;
+      ws.mergeCells(2, 1, 2, colCount);
+      r2.getCell(1).font = { bold: true, size: 16, name: '맑은 고딕' };
+      r2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+      r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7F7' } };
+      const r3 = ws.addRow(new Array(colCount).fill(' ')); r3.height = 8;
+      for (let i = 1; i <= colCount; i++) r3.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i <= bot1 ? 'FF2E8B57' : 'FFC0392B' } };
+      /* 4행 여백 / 5행 안내 문구(우측) */
+      ws.addRow([]).height = 20;
+      const r5 = ws.addRow([noteText]); r5.height = 20;
+      if (noteText) {
+        ws.mergeCells(5, 1, 5, colCount);
+        r5.getCell(1).font = { size: 9, color: { argb: 'FF555555' }, name: '맑은 고딕' };
+        r5.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+      }
+      /* 6~8행: 3중 헤더 */
+      const row6 = ['순', '직위', '이름'];
+      items.forEach(function(it){ row6.push(it.name + (it.isLegal ? ' (법정)' : ''), ''); });
+      const r6 = ws.addRow(row6); r6.height = 24;
+      const row7 = ['', '', ''];
+      items.forEach(function(it){ row7.push(it.pctText || '', ''); });
+      const r7 = ws.addRow(row7); r7.height = 20;
+      const row8 = ['', '', ''];
+      items.forEach(function(){ row8.push('연수기관', '이수번호'); });
+      const r8 = ws.addRow(row8); r8.height = 22;
+      ws.mergeCells(6, 1, 8, 1); ws.mergeCells(6, 2, 8, 2); ws.mergeCells(6, 3, 8, 3);
+      items.forEach(function(_, i){ const c = 4 + i * 2; ws.mergeCells(6, c, 6, c + 1); ws.mergeCells(7, c, 7, c + 1); });
+      [r6, r7, r8].forEach(function(row, ri){
+        for (let i = 1; i <= colCount; i++) {
+          const c = row.getCell(i);
+          c.font = { bold: true, size: 9, name: '맑은 고딕' };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ri === 1 ? 'FFF0F8FF' : 'FFE8F4F8' } };
+          c.border = { top: ri === 0 ? headerBorder : thinBorder, bottom: ri === 2 ? headerBorder : thinBorder,
+            left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder };
+        }
+      });
+      /* 이수율 색상 (100%=초록, 진행=파랑, 0%=회색) */
+      items.forEach(function(it, i){
+        if (it.pctColor) r7.getCell(4 + i * 2).font = { bold: true, size: 9, name: '맑은 고딕', color: { argb: it.pctColor } };
+      });
+      /* 데이터 행 */
+      staffRows.forEach(function(rowVals, ri){
+        const tr = ws.addRow(rowVals); tr.height = 18;
+        const isLast = ri === staffRows.length - 1;
+        for (let i = 1; i <= colCount; i++) {
+          const c = tr.getCell(i);
+          c.font = { size: 9, name: '맑은 고딕' };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+          c.border = { top: thinBorder, bottom: isLast ? headerBorder : thinBorder,
+            left: i === 1 ? headerBorder : thinBorder, right: i === colCount ? headerBorder : thinBorder };
+        }
+      });
+      ws.pageSetup.printTitlesRow = '1:8';
+      try { ws.pageSetup.printArea = 'A1:' + ws.getColumn(colCount).letter + ws.lastRow.number; } catch (_) {}
+      const buf = await wb.xlsx.writeBuffer();
+      return { success: true, bytes: Array.from(new Uint8Array(buf)) };
+    } catch (e) {
+      console.error('[xlsx-build-training-status]', e);
       return { success: false, error: e.message };
     }
   });
@@ -3626,44 +3719,44 @@ app.whenReady().then(() => {
       const newStyles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         + '<fonts count="3">'
-        + '<font><sz val="11"/><color theme="1"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>' /* 0 기본 */
-        + '<font><sz val="16"/><b val="1"/><color rgb="FF000000"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>' /* 1 제목 */
-        + '<font><sz val="11"/><b val="1"/><color rgb="FF000000"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>' /* 2 헤더 굵게 */
+        +   '<font><sz val="11"/><color theme="1"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>' /* 0 기본 */
+        +   '<font><sz val="16"/><b val="1"/><color rgb="FF000000"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>' /* 1 제목 */
+        +   '<font><sz val="11"/><b val="1"/><color rgb="FF000000"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>' /* 2 헤더 굵게 */
         + '</fonts>'
         + '<fills count="9">'
-        + '<fill><patternFill patternType="none"/></fill>' /* 0 */
-        + '<fill><patternFill patternType="gray125"/></fill>' /* 1 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FF2855A0"/><bgColor indexed="64"/></patternFill></fill>' /* 2 파랑 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FFD4A843"/><bgColor indexed="64"/></patternFill></fill>' /* 3 노랑 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FF2E8B57"/><bgColor indexed="64"/></patternFill></fill>' /* 4 초록 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FFC0392B"/><bgColor indexed="64"/></patternFill></fill>' /* 5 빨강 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FFF7F7F7"/><bgColor indexed="64"/></patternFill></fill>' /* 6 제목 배경 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FFEAEAEA"/><bgColor indexed="64"/></patternFill></fill>' /* 7 헤더 배경 */
-        + '<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>' /* 8 흰색 */
+        +   '<fill><patternFill patternType="none"/></fill>' /* 0 */
+        +   '<fill><patternFill patternType="gray125"/></fill>' /* 1 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FF2855A0"/><bgColor indexed="64"/></patternFill></fill>' /* 2 파랑 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FFD4A843"/><bgColor indexed="64"/></patternFill></fill>' /* 3 노랑 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FF2E8B57"/><bgColor indexed="64"/></patternFill></fill>' /* 4 초록 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FFC0392B"/><bgColor indexed="64"/></patternFill></fill>' /* 5 빨강 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FFF7F7F7"/><bgColor indexed="64"/></patternFill></fill>' /* 6 제목 배경 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FFEAEAEA"/><bgColor indexed="64"/></patternFill></fill>' /* 7 헤더 배경 */
+        +   '<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>' /* 8 흰색 */
         + '</fills>'
         + '<borders count="6">'
-        + '<border><left/><right/><top/><bottom/><diagonal/></border>' /* 0 없음 */
-        + '<border><left style="thin"><color rgb="FF555555"/></left><right style="thin"><color rgb="FF555555"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 1 일반 셀 (4면 thin) */
-        + '<border><left style="medium"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF555555"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 2 좌측 굵음 */
-        + '<border><left style="thin"><color rgb="FF555555"/></left><right style="medium"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 3 우측 굵음 */
-        + '<border><left style="medium"><color rgb="FF000000"/></left><right style="medium"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 4 좌우 굵음 (단일 칼럼) */
-        + '<border><left style="thin"><color rgb="FF555555"/></left><right style="thin"><color rgb="FF555555"/></right><top style="medium"><color rgb="FF000000"/></top><bottom style="medium"><color rgb="FF000000"/></bottom></border>' /* 5 위아래 굵음 (헤더용) */
+        +   '<border><left/><right/><top/><bottom/><diagonal/></border>' /* 0 없음 */
+        +   '<border><left style="thin"><color rgb="FF555555"/></left><right style="thin"><color rgb="FF555555"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 1 일반 셀 (4면 thin) */
+        +   '<border><left style="medium"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF555555"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 2 좌측 굵음 */
+        +   '<border><left style="thin"><color rgb="FF555555"/></left><right style="medium"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 3 우측 굵음 */
+        +   '<border><left style="medium"><color rgb="FF000000"/></left><right style="medium"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF555555"/></top><bottom style="thin"><color rgb="FF555555"/></bottom></border>' /* 4 좌우 굵음 (단일 칼럼) */
+        +   '<border><left style="thin"><color rgb="FF555555"/></left><right style="thin"><color rgb="FF555555"/></right><top style="medium"><color rgb="FF000000"/></top><bottom style="medium"><color rgb="FF000000"/></bottom></border>' /* 5 위아래 굵음 (헤더용) */
         + '</borders>'
         + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
         + '<cellXfs count="13">'
-        + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' /* 0 기본 */
-        + '<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>' /* 1 파랑 바 */
-        + '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>' /* 2 노랑 바 */
-        + '<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/>' /* 3 초록 바 */
-        + '<xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/>' /* 4 빨강 바 */
-        + '<xf numFmtId="0" fontId="1" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 5 제목 (굵게+크게+가운데) */
-        + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' /* 6 학교/기간 */
-        + '<xf numFmtId="0" fontId="2" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 7 컬럼 헤더 */
-        + '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' /* 8 데이터 일반 */
-        + '<xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' /* 9 데이터 좌측 굵음 */
-        + '<xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' /* 10 데이터 우측 굵음 */
-        + '<xf numFmtId="0" fontId="2" fillId="7" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 11 헤더 좌측 굵음 */
-        + '<xf numFmtId="0" fontId="2" fillId="7" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 12 헤더 우측 굵음 */
+        +   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' /* 0 기본 */
+        +   '<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>' /* 1 파랑 바 */
+        +   '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>' /* 2 노랑 바 */
+        +   '<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/>' /* 3 초록 바 */
+        +   '<xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/>' /* 4 빨강 바 */
+        +   '<xf numFmtId="0" fontId="1" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 5 제목 (굵게+크게+가운데) */
+        +   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' /* 6 학교/기간 */
+        +   '<xf numFmtId="0" fontId="2" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 7 컬럼 헤더 */
+        +   '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' /* 8 데이터 일반 */
+        +   '<xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' /* 9 데이터 좌측 굵음 */
+        +   '<xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' /* 10 데이터 우측 굵음 */
+        +   '<xf numFmtId="0" fontId="2" fillId="7" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 11 헤더 좌측 굵음 */
+        +   '<xf numFmtId="0" fontId="2" fillId="7" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' /* 12 헤더 우측 굵음 */
         + '</cellXfs>'
         + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
         + '<dxfs count="0"/>'
@@ -3681,13 +3774,13 @@ app.whenReady().then(() => {
         const colLetter = numToCol(colIdx0 + 1);
         const ref = colLetter + rowNum;
         const re = new RegExp('<c r="' + ref + '"([^/>]*)(/?)>', 'g');
-        sheetXml = sheetXml.replace(re, function (m, attrs, slash) {
+        sheetXml = sheetXml.replace(re, function(m, attrs, slash) {
           /* 기존 s 제거 */
           attrs = attrs.replace(/\s*s="\d+"/g, '');
           return '<c r="' + ref + '" s="' + styleId + '"' + attrs + slash + '>';
         });
       }
-      function numToCol(n) { let s = ''; while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+      function numToCol(n){let s='';while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26);}return s;}
 
       /* 1행 색상바 */
       for (let i = 0; i < top1; i++) setCellStyle(colorBar1Row, i, 1);
@@ -3707,7 +3800,7 @@ app.whenReady().then(() => {
       /* 데이터 행 — 행 인덱스를 sheetXml 에서 찾아서 적용
          데이터 마지막 행을 모를 수 있으니 sheetData 내 모든 row 중 dataStartRow 이상 처리 */
       const rowMatches = [...sheetXml.matchAll(/<row r="(\d+)"/g)];
-      rowMatches.forEach(function (rm) {
+      rowMatches.forEach(function(rm){
         const rNum = parseInt(rm[1], 10);
         if (rNum < dataStartRow) return;
         for (let i = 0; i < colCount; i++) {
@@ -3718,12 +3811,12 @@ app.whenReady().then(() => {
 
       /* row heights — <row r="N" ht="X" customHeight="1"> */
       const heights = { 1: 10, 2: 36, 3: 10, 4: 24, 5: 22, 6: 22, 7: 24, [headerRow]: 26 };
-      Object.keys(heights).forEach(function (rNumStr) {
+      Object.keys(heights).forEach(function(rNumStr){
         const rNum = parseInt(rNumStr, 10);
         const ht = heights[rNum];
         const reRow = new RegExp('<row r="' + rNum + '"([^>]*)>');
         if (reRow.test(sheetXml)) {
-          sheetXml = sheetXml.replace(reRow, function (m, attrs) {
+          sheetXml = sheetXml.replace(reRow, function(m, attrs){
             attrs = attrs.replace(/\s*ht="[^"]*"/g, '').replace(/\s*customHeight="[^"]*"/g, '');
             return '<row r="' + rNum + '" ht="' + ht + '" customHeight="1"' + attrs + '>';
           });
@@ -3818,7 +3911,7 @@ app.whenReady().then(() => {
       const sl = schoolLevel || 'elementary';
       const students = services.peopleDB().getAll(yr) || [];
       let staff = [];
-      try { staff = services.staffDB().getAll(yr) || []; } catch (_) { }
+      try { staff = services.staffDB().getAll(yr) || []; } catch (_) {}
       const people = students.concat(staff);
       const result = services.pastHistory().autoMatch(people, yr, sl);
       return { success: true, data: result };
@@ -4133,10 +4226,10 @@ app.whenReady().then(() => {
       files.forEach(f => {
         const m = f.match(/^pending_ambiguous_(\d{4})\.json(?:\.bak|\.tmp)?$/);
         if (m && m[1] !== String(currentYr)) {
-          try { fs.unlinkSync(path.join(dir, f)); } catch (_) { }
+          try { fs.unlinkSync(path.join(dir, f)); } catch(_){}
         }
       });
-    } catch (e) { /* 디렉토리 없으면 무시 */ }
+    } catch(e) { /* 디렉토리 없으면 무시 */ }
   }
 
   ipcMain.handle('students-import-with-pending', (event, { students: stuArr, year }) => {
@@ -4158,7 +4251,7 @@ app.whenReady().then(() => {
           const json = JSON.stringify(payload, null, 2);
           fs.writeFileSync(tmp, json, 'utf8');
           if (fs.existsSync(filePath)) {
-            try { fs.copyFileSync(filePath, filePath + '.bak'); } catch (_) { }
+            try { fs.copyFileSync(filePath, filePath + '.bak'); } catch(_){}
           }
           fs.renameSync(tmp, filePath);
         } catch (e) {
@@ -4166,7 +4259,7 @@ app.whenReady().then(() => {
         }
       } else {
         /* 보류 항목 0건이면 옛 JSON 도 정리 */
-        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) { }
+        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch(_){}
       }
       return result;
     } catch (err) { return { success: false, error: err.message }; }
@@ -4211,13 +4304,13 @@ app.whenReady().then(() => {
       if (!upRes || !upRes.success) return { success: false, error: (upRes && upRes.error) || '등록 실패' };
       items.splice(idx, 1);
       if (items.length === 0) {
-        try { fs.unlinkSync(filePath); } catch (_) { }
-        try { fs.unlinkSync(filePath + '.bak'); } catch (_) { }
+        try { fs.unlinkSync(filePath); } catch(_){}
+        try { fs.unlinkSync(filePath + '.bak'); } catch(_){}
       } else {
         const tmp = filePath + '.tmp';
         const json = JSON.stringify({ year: yr, createdAt: data.createdAt, items: items }, null, 2);
         fs.writeFileSync(tmp, json, 'utf8');
-        try { fs.copyFileSync(filePath, filePath + '.bak'); } catch (_) { }
+        try { fs.copyFileSync(filePath, filePath + '.bak'); } catch(_){}
         fs.renameSync(tmp, filePath);
       }
       return { success: true, remaining: items.length };
@@ -4918,14 +5011,14 @@ app.whenReady().then(() => {
       if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('web-server-started');
       }
-    } catch (_) { }
+    } catch (_) {}
   }
   function _emitWebServerStopped() {
     try {
       if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('web-server-stopped');
       }
-    } catch (_) { }
+    } catch (_) {}
   }
 
   /* 협업 웹서버 자식을 "완전히 죽을 때까지(동기)" 강제 종료한다.
@@ -4944,12 +5037,12 @@ app.whenReady().then(() => {
         const { spawnSync } = require('child_process');
         spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { windowsHide: true, timeout: 4000 });
       } else {
-        try { child.kill('SIGKILL'); } catch (_) { }
+        try { child.kill('SIGKILL'); } catch (_) {}
       }
     } catch (_) {
-      try { child.kill(); } catch (__) { }
+      try { child.kill(); } catch (__) {}
     }
-    try { if (_webServerLogStream) { _webServerLogStream.end(); _webServerLogStream = null; } } catch (_) { }
+    try { if (_webServerLogStream) { _webServerLogStream.end(); _webServerLogStream = null; } } catch (_) {}
   }
 
   function _webServerStart() {
@@ -5007,7 +5100,7 @@ app.whenReady().then(() => {
         console.error('[WEB] fork 실패:', err.message);
       });
       /* 설정 저장 — 다음 실행 시 자동 시작 */
-      try { fs.writeFileSync(_webServerPrefsPath, '1'); } catch (_) { }
+      try { fs.writeFileSync(_webServerPrefsPath, '1'); } catch (_) {}
       console.log('[WEB] 웹 서버 시작됨 (PID=' + (_webServerChild.pid || '?') + ')');
       global._collabWebOn = true;   /* 업데이트 진단용 — 협업 웹서버 상태 */
       return { success: true, status: 'started', pid: _webServerChild.pid };
@@ -5020,15 +5113,15 @@ app.whenReady().then(() => {
   function _webServerStop() {
     if (!_webServerChild || _webServerChild.killed) {
       /* 자식은 없어도 설정은 꺼줌 */
-      try { fs.writeFileSync(_webServerPrefsPath, '0'); } catch (_) { }
+      try { fs.writeFileSync(_webServerPrefsPath, '0'); } catch (_) {}
       return { success: true, status: 'not-running' };
     }
     try {
       _webServerChild.kill();
       _webServerChild = null;
       global._collabWebOn = false;   /* 업데이트 진단용 — 협업 웹서버 상태 */
-      if (_webServerLogStream) { try { _webServerLogStream.end(); } catch (_) { } _webServerLogStream = null; }
-      try { fs.writeFileSync(_webServerPrefsPath, '0'); } catch (_) { }
+      if (_webServerLogStream) { try { _webServerLogStream.end(); } catch (_) {} _webServerLogStream = null; }
+      try { fs.writeFileSync(_webServerPrefsPath, '0'); } catch (_) {}
       console.log('[WEB] 웹 서버 중지됨');
       return { success: true, status: 'stopped' };
     } catch (err) {
@@ -5057,7 +5150,7 @@ app.whenReady().then(() => {
   app.on('before-quit', () => {
     /* 동기 강제종료 — autoInstallOnAppQuit 로 종료 시 자동 설치가 이어지는데, 그 전에 자식이
      *  파일 잠금을 확실히 놓도록 "죽을 때까지" 기다린다. (자동 업데이트 무한루프 방지 2026-06-25) */
-    try { _killWebServerChildSync(); } catch (_) { }
+    try { _killWebServerChildSync(); } catch (_) {}
   });
 
   /* 부팅 시 자동 시작 제거 (2026-05-27)
@@ -5076,10 +5169,10 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   /* 종료 직전 pending IPC 처리 여유를 위해 약간의 딜레이 후 quit */
   if (healthDB) {
-    try { healthDB.close(); } catch (err) { }
+    try { healthDB.close(); } catch (err) {}
   }
   if (services) {
-    try { services.close(); } catch (err) { }
+    try { services.close(); } catch (err) {}
   }
   setTimeout(() => { app.quit(); }, 200);
 });

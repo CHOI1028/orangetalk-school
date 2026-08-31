@@ -187,6 +187,9 @@ const _api = {
 
   // PDF
   printToPDF: (html, options) => ipcRenderer.invoke('print-to-pdf', { html, options }),
+  // 2단계 PDF (2026-08-12) — 생성(토큰 반환)과 저장 다이얼로그 분리. 보건일지 출력의 진행 카운터 완주 후 저장 창용.
+  printToPDFGenerate: (html, options) => ipcRenderer.invoke('print-to-pdf-generate', { html, options }),
+  printToPDFSave: (token, fileName) => ipcRenderer.invoke('print-to-pdf-save', { token, fileName }),
 
   // 직접 인쇄 (용지 크기 강제 — 다이얼로그에 원하는 크기 기본 노출). title 은 Windows "Save as PDF" 기본 파일명에 사용됨.
   printWindowWithSize: (html, pageSize, margins, title, silent, deviceName, waitForReady, landscape) =>
@@ -299,6 +302,7 @@ const _api = {
   xlsxInjectFreeze: (bytes, ySplit) => ipcRenderer.invoke('xlsx-inject-freeze', { bytes, ySplit }),
   xlsxInjectStyle: (bytes, options) => ipcRenderer.invoke('xlsx-inject-style', { bytes, options }),
   xlsxBuildDiary: (payload) => ipcRenderer.invoke('xlsx-build-diary', payload),
+  xlsxBuildTrainingStatus: (payload) => ipcRenderer.invoke('xlsx-build-training-status', payload),   /* 연수 이수 현황 Excel (2026-08-25) */
   xlsxBuildCounsel: (payload) => ipcRenderer.invoke('xlsx-build-counsel', payload),
   xlsxBuildDeptStats: (payload) => ipcRenderer.invoke('xlsx-build-dept-stats', payload),
   xlsxBuildVisitRank: (payload) => ipcRenderer.invoke('xlsx-build-visit-rank', payload),

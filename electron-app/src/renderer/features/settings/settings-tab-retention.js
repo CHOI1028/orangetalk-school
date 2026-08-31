@@ -471,6 +471,12 @@ export function _bindRetentionTabEvents(){
                 'ec_med_hidden',              /* 숨긴 약품 */
                 'ec_sym_order',               /* 증상 순서 */
                 'ec_user_med_syms',           /* 증상→약품 매핑 (사용자 추가) */
+                /* ★ 사용자 추가 약품·이름 변경 — 공장초기화 보존 누락 수정 (2026-08-27 검수).
+                 *  안 넣으면 직접 등록한 약품·약품 이름 변경이 전체 초기화 때 소실됨 */
+                'ec_user_added_meds',         /* 사용자가 직접 추가한 약품 */
+                'ec_meddb_user',              /* 사용자 약품 상세정보 */
+                'ec_med_renames',             /* 약품 이름 변경 */
+                'ec_user_med_syms_prefilled', /* 기본 매핑 선반영 완료 플래그 — 지워지면 삭제한 기본 매핑이 재생성됨 */
                 /* ── 기타 보존 ── */
                 'ec_bed_config',              /* 침상 구성 */
                 'ec_timetable','gp2_timetable'/* 주간 시간표 */
