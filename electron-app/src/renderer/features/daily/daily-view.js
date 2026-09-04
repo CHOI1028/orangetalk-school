@@ -3,6 +3,7 @@
 import { getStu, escHtml, escJs, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
 import { openSymptomCategoryPopup, getCandidates, removeChip, formatMedicationDisplay, _symShowTip, _symHideTip, _symShowHistory } from '../symptom/symptom-view.js';
+import { shouldShowTreatmentBySymptom } from '../../core/record-utils.js';
 import { applyDailyColLayout, openBodyMap, ecSaveRecords, showHeaderTooltip, hideHeaderTooltip, migrateLegacyColWidths, sanitizeColWidths } from '../emergency/emergency-view.js';
 import { switchView } from '../shell/view-router.js';
 import { playQuickMenuSound } from '../../core/ui-utils.js';
@@ -2018,12 +2019,7 @@ export function renderDaily(){
     /* === 다중 증상 분층 표시 판정 ===
      *  · 증상 2개 이상 + import 일지 아님 → 무조건 셀 내부를 점선으로 행 분리 (사용자 결정 2026-05-28).
      *  · 단, 옛 일지/외부 import(증상별 매핑 없이 평면 처치만 있는 레코드) 는 분기 시 처치가 사라지므로 단일 행 유지. */
-    const _bySymKeyCnt = (r.treatmentBySym && typeof r.treatmentBySym==='object' && !Array.isArray(r.treatmentBySym)) ? Object.keys(r.treatmentBySym).length : 0;
-    const _isLegacyFlatRec = _bySymKeyCnt===0 && Array.isArray(r.treatment) && r.treatment.length>0;
-    const _showLayered = !r.isImported
-      && Array.isArray(r.symptoms) && r.symptoms.length > 1
-      && !_isLegacyFlatRec
-      && r.treatmentBranched !== false; /* 미분기면 평면 콤마(2026-06-09). 셀 내용만 — 열 너비 무관, 플래그 없으면 현행 동일. */
+    const _showLayered = shouldShowTreatmentBySymptom(r);
     /* 증상 칩 1개 렌더링 — 일반일지 표에서는 그 증상의 바디맵 부위+NRS 를 합쳐 표시한다.
      *  예: 저장값 "복통"(또는 "복통(자유기입)") + 바디맵 마커(우측 중앙복부, nrs 9) → "복통(우측 중앙복부 NRS: 9)".
      *  · 부위·NRS 는 바디맵 데이터에서, 자유기입 메모는 저장 라벨 괄호에서. (사용자 요청 2026-06-14) */
@@ -3010,12 +3006,8 @@ export function showVisitHistory(studentId){
      *  · record-level (침상·V/S) 처치는 첫 번째 증상 줄에 함께 표시
      *  · sym 별 약품은 r.medsBySym[sym] / r.medDosesBySym[sym] 에서 가져옴
      *  · 단일 증상 또는 옛 일지(treatmentBySym 없음) → 기존 한 줄 표시 */
-    const _hasBySym = r.treatmentBySym && typeof r.treatmentBySym==='object'
-                   && !Array.isArray(r.treatmentBySym) && Object.keys(r.treatmentBySym).length>0;
-    /* 일반일지 표(_showLayered)와 동일 판정 — 처치 입력 전(treatmentBySym 비어도)에도 증상 갯수만큼 분층.
-     *  옛/외부 평면 데이터(_isLegacyFlat)·미분기·import 만 한 줄. (2026-06-09) */
-    const _isLegacyFlat = !_hasBySym && Array.isArray(r.treatment) && r.treatment.length>0;
-    const _isMultiSym = !r.isImported && Array.isArray(r.symptoms) && r.symptoms.length>1 && !_isLegacyFlat && r.treatmentBranched !== false;
+    /* 일지 표·전체 이력과 동일한 분기/미분기 표시 기준을 사용한다. */
+    const _isMultiSym = shouldShowTreatmentBySymptom(r);
     let _sympHtml, _treatHtml, _medTail;
     if(_isMultiSym){
       const _medStrForSym = function(sym){

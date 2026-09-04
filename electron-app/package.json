@@ -5,6 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test:visit-history": "node --test tests/visit-history.test.cjs",
+    "test:counsel": "node --test tests/counsel-*.test.cjs",
     "postinstall": "electron-builder install-app-deps",
     "obfuscate": "node scripts/obfuscate.js",
     "build": "npm run bundle-credentials && npm run bundle-api-keys && npm run obfuscate && electron-builder --win",

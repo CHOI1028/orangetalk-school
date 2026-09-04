@@ -7,6 +7,7 @@ import { getStu, escHtml, toDateStr, dateObj, getDow, isHoliday, getGrades, clos
 import { hasMultipleSchoolLevels, getLevelShort } from '../../core/student-utils.js';
 import { S, monthNames, dayNames, ensureHolidayYear } from '../../core/app-state.js';
 import { _statMedicationStr, _statHasBed } from '../../core/record-utils.js';
+import { getCounselPrintFields } from '../../core/counsel-print-utils.js';
 import { _dashRenderSubTabs, _dashGetSubTabs, getFilteredRecords } from '../stats/stats-view.js';
 import { selectDate, _closeDateVisitors } from '../daily/daily-view.js';
 import { closeModalWithAnim, matchKorean } from '../daily/daily-autocomplete.js';
@@ -4978,7 +4979,7 @@ function _crkBuildPdf(selectedTopics, mode){
     +'th,td{border:1px solid #999;padding:7px 9px;text-align:left;vertical-align:top}th+th,td+td,th+td,td+th{border-left:0}tr+tr td,tr+tr th{border-top:0}'
     +'th{background:#f0f0f0;font-weight:700;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'.rec-head{background:#fce7f3;font-weight:800;padding:7px 9px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'.long-cell{white-space:pre-wrap;word-break:break-word}'
+    +'.long-cell{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}'
     +'.bar{height:5px;background:linear-gradient(90deg,#06b6d4,#8b5cf6);border-radius:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'h2{text-align:center;margin:10px 0;font-size:20px;letter-spacing:8px}'
     +'</style></head><body>'
@@ -5003,14 +5004,13 @@ function _crkBuildPdf(selectedTopics, mode){
     const tp=(cl.topics&&cl.topics.length)?cl.topics.join(', '):'-';
     const rp=getStu(r.studentId)||{};
     const who=p?'':(' &nbsp;·&nbsp; '+escHtml(rp.name||'')+' ('+escHtml(_crkBelongFull(rp))+')');
-    html+='<table><thead><tr><td class="rec-head" colspan="2">'+(i+1)+'. '+_lc(r.date)+(r.timeIn?' '+_lc(r.timeIn):'')+' &nbsp;·&nbsp; '+escHtml(tp)+who+'</td></tr></thead><tbody>'
-      +'<tr><th style="width:22%">의뢰 경로</th><td>'+_lc(cl.route)+'</td></tr>'
-      +'<tr><th>상담 내용 (주호소)</th><td class="long-cell">'+_lc(cl.content)+'</td></tr>'
-      +'<tr><th>조치 및 지도 내용</th><td class="long-cell">'+_lc(cl.action)+'</td></tr>'
-      +'<tr><th>후속 조치 계획</th><td class="long-cell">'+_lc(cl.plan)+'</td></tr>'
-      +'<tr><th>상담자 의견</th><td class="long-cell">'+_lc(cl.opinion)+'</td></tr>'
-      +'<tr><th>재상담 예정일</th><td>'+_lc(cl.followUp)+'</td></tr>'
-      +'</tbody></table>';
+    const fields=getCounselPrintFields(cl);
+    html+='<table style="table-layout:fixed"><colgroup><col style="width:22%"><col style="width:78%"></colgroup><thead><tr><td class="rec-head" colspan="2">'+(i+1)+'. '+_lc(r.date)+(r.timeIn?' '+_lc(r.timeIn):'')+' &nbsp;·&nbsp; '+escHtml(tp)+who+'</td></tr></thead><tbody>';
+    fields.forEach(function(field){
+      html+='<tr><th>'+escHtml(field.label)+'</th><td class="long-cell">'+escHtml(field.value)+'</td></tr>';
+    });
+    if(!fields.length) html+='<tr><td colspan="2">작성된 상담 내용이 없습니다.</td></tr>';
+    html+='</tbody></table>';
   });
   html+='<table><tbody><tr><th style="width:22%">출력일</th><td>'+_lc(today)+'</td></tr></tbody></table>';
   html+='</body></html>';

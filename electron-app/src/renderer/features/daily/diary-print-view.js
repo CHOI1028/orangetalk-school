@@ -1816,7 +1816,7 @@ const _DP_COUNSEL_PREVIEW_CSS=
   +'.dp-counsel-sheet tr+tr td,.dp-counsel-sheet tr+tr th{border-top:0}'
   +'.dp-counsel-sheet th{background:#f0f0f0;font-weight:700;white-space:nowrap}'
   +'.dp-counsel-sheet .section-title{background:#ede9fe;font-weight:700;text-align:center;padding:8px}'
-  +'.dp-counsel-sheet .long-cell{white-space:pre-wrap;word-break:break-word;height:64px}'
+  +'.dp-counsel-sheet .long-cell{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}'
   +'.dp-counsel-sheet .bar{display:flex;height:5px;overflow:hidden;border-radius:2px}'
   +'.dp-counsel-sheet .bar.top .b1{flex:7;background:#2855A0}.dp-counsel-sheet .bar.top .b2{flex:3;background:#D4A843}'
   +'.dp-counsel-sheet .bar.bot .b3{flex:3;background:#2E8B57}.dp-counsel-sheet .bar.bot .b4{flex:7;background:#C0392B}'

@@ -167,6 +167,18 @@ export function _recToDbRow(r){
     extra_json:JSON.stringify(_ej)};
 }
 
+/* 일지 표·최근 이력·전체 이력의 공통 표시 판정.
+ * 미분기는 treatmentBySym.__flat__ 및 이전 증상 키를 보존하므로 맵 존재만으로
+ * 분기하면 공통 처치가 누락되거나 옛 처치가 노출된다. 저장 데이터는 변경하지 않는다. */
+export function shouldShowTreatmentBySymptom(rec){
+  if(!rec || rec.isImported || rec.treatmentBranched===false
+      || !Array.isArray(rec.symptoms) || rec.symptoms.length<2) return false;
+  const hasBySym = rec.treatmentBySym && typeof rec.treatmentBySym==='object'
+    && !Array.isArray(rec.treatmentBySym) && Object.keys(rec.treatmentBySym).length>0;
+  const isLegacyFlat = !hasBySym && Array.isArray(rec.treatment) && rec.treatment.length>0;
+  return !isLegacyFlat;
+}
+
 /* ── 상담 처치란(counselLog.treatmentText) 공용 헬퍼 (2026-08-25) ──
  *  상담 처치 문구는 flat(rec.treatment)에만 합류하고 treatmentBySym 맵에는 없다.
  *  다중 증상 분층(증상별) 렌더는 맵 기준으로만 그리므로 상담 몫이 화면·출력에서 누락되던 버그의

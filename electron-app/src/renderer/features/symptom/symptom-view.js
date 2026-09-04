@@ -15,6 +15,8 @@ import { openBedManager, releaseBedByStudentId } from '../newsletter/bed-managem
 import { appConfirmModal } from '../../core/ui-utils.js';
 import { openEmsMsg } from '../kiosk/ems-popup-view.js';
 import { acquireEditLock, releaseEditLock, checkEditLock, showEditLockWarning } from '../../core/collab-edit-lock.js';
+import { shouldShowTreatmentBySymptom, counselTreatText, isCounselSymLabel } from '../../core/record-utils.js';
+import { getCounselPrintFields } from '../../core/counsel-print-utils.js';
 /* rental-ledger-view 는 symptom-view 에서 _makeDraggable, _symPrompt 를 import 하므로 circular dependency.
  *  ESM 의 module 평가 순서에 따라 함수 binding 이 undefined 가 될 수 있어 dynamic import 로 우회.
  *  rental count 조회는 localStorage 직접 읽는 한 줄짜리라 inline 구현. */
@@ -1309,6 +1311,10 @@ export function openSymptomCategoryPopup(recId, opts){
      * ArrowUp/Down 은 투약 팝업이 아이템 네비게이션용으로 사용하므로 그대로 통과시킴. */
     const _tg = e.target;
     const _isTxt = _tg && (_tg.tagName === 'INPUT' || _tg.tagName === 'TEXTAREA' || _tg.isContentEditable);
+    /* 한글 조합 확정 키와 textarea 줄바꿈은 입력창에 양보한다.
+     * 처치 문구 창 등의 Enter 완료는 해당 입력창의 자체 핸들러가 먼저 처리한다. */
+    if(_isTxt && (e.isComposing || e.keyCode === 229)) return;
+    if(_tg && _tg.tagName === 'TEXTAREA' && e.key === 'Enter') return;
     /* 입력창 안에서 Tab 은 전역 네비(바디맵 등)로 가지 않게 양보 — 입력칸은 자체 keydown 으로 이동 처리. (2026-08-06) */
     if(_isTxt && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Tab')) return;
     /* 여러 줄 textarea(자유 기술 dock 등)에선 위·아래 방향키도 캐럿 줄이동이 우선 (사용자 보고 2026-05-30 — 두 줄 이상 시 ↑↓ 안 먹던 문제). */
@@ -3179,6 +3185,9 @@ function _symFullStuLabel(stu){
 export function _symBuildCounselPrintHtml(rec){
   const s=getStu(rec.studentId)||{};
   const log=_symCounselLogOf(rec)||{};
+  const fields=getCounselPrintFields(log);
+  const route=fields.find(function(field){return field.key==='route';});
+  const followUp=fields.find(function(field){return field.key==='followUp';});
   const topics=(log.topics&&log.topics.length)?log.topics:_symSelectedSymptoms.filter(_symIsCounselSym).map(_symBaseName);
   const round=_symCounselRound(rec);
   const nurse=rec.nurse||((S._currentUser&&S._currentUser.name)||'');
@@ -3195,7 +3204,7 @@ export function _symBuildCounselPrintHtml(rec){
     +'th,td{border:1px solid #999;padding:7px 9px;text-align:left;vertical-align:top}th+th,td+td,th+td,td+th{border-left:0}tr+tr td,tr+tr th{border-top:0}'
     +'th{background:#f0f0f0;font-weight:700;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'.section-title{background:#ede9fe;font-weight:700;text-align:center;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'.long-cell{white-space:pre-wrap;word-break:break-word;height:64px}'
+    +'.long-cell{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}'
     /* 색상바 — 보건일지 제목 색상바와 동일 (위:파랑70%+금30% / 아래:초록30%+빨강70%) (사용자 요청 2026-06-25) */
     +'.bar{display:flex;height:5px;overflow:hidden;border-radius:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'.bar.top .b1{flex:7;background:#2855A0}.bar.top .b2{flex:3;background:#D4A843}'
@@ -3207,16 +3216,17 @@ export function _symBuildCounselPrintHtml(rec){
   html+='<table style="table-layout:fixed"><colgroup><col style="width:14%"><col style="width:36%"><col style="width:14%"><col style="width:36%"></colgroup>'
     +'<tr><th>이름</th><td>'+_lc(s.name)+'</td><th>성별</th><td>'+_lc(s.gender)+'</td></tr>'
     +'<tr><th>소속</th><td>'+_lc(_symCounselGradeStr(s))+'</td><th>상담 일시</th><td>'+_lc((rec.date||'')+(rec.timeIn?' '+rec.timeIn:''))+'</td></tr>'
-    +'<tr><th>상담 주제</th><td>'+_lc(topics.join(', '))+'</td><th>회차</th><td>'+round+'회기</td></tr>'
-    +'<tr><th>의뢰 경로</th><td colspan="3">'+_lc(log.route)+'</td></tr></table>';
-  html+='<table><thead><tr><td class="section-title">상담 내용 (주호소)</td></tr></thead><tbody><tr><td class="long-cell">'+_lc(log.content)+'</td></tr></tbody></table>';
-  html+='<table><thead><tr><td class="section-title">조치 및 지도 내용</td></tr></thead><tbody><tr><td class="long-cell">'+_lc(log.action)+'</td></tr></tbody></table>';
-  html+='<table><thead><tr><td class="section-title">후속 조치 계획</td></tr></thead><tbody><tr><td class="long-cell">'+_lc(log.plan)+'</td></tr></tbody></table>';
-  html+='<table><thead><tr><td class="section-title">상담자 의견</td></tr></thead><tbody><tr><td class="long-cell">'+_lc(log.opinion)+'</td></tr></tbody></table>';
-  html+='<table style="table-layout:fixed"><colgroup><col style="width:14%"><col style="width:36%"><col style="width:14%"><col style="width:36%"></colgroup><thead><tr><td class="section-title" colspan="4">추후 계획 · 작성 정보</td></tr></thead><tbody>'
-    +'<tr><th>재상담 예정일</th><td>'+_lc(log.followUp)+'</td><th>상담자</th><td>'+_lc(nurse)+'</td></tr>'
-    +'<tr><th>작성일</th><td>'+_lc(today)+'</td><th>학교</th><td>'+_lc(school)+'</td></tr>'
-    +'</tbody></table>';
+    +'<tr><th>상담 주제</th><td>'+_lc(topics.join(', '))+'</td><th>회차</th><td>'+round+'회기</td></tr>';
+  if(route) html+='<tr><th>의뢰 경로</th><td colspan="3" class="long-cell">'+escHtml(route.value)+'</td></tr>';
+  html+='</table>';
+  fields.filter(function(field){return field.key!=='route' && field.key!=='followUp';}).forEach(function(field){
+    html+='<table><thead><tr><td class="section-title">'+escHtml(field.label)+'</td></tr></thead><tbody><tr><td class="long-cell">'+escHtml(field.value)+'</td></tr></tbody></table>';
+  });
+  if(!fields.length) html+='<p>작성된 상담 내용이 없습니다.</p>';
+  html+='<table style="table-layout:fixed"><colgroup><col style="width:14%"><col style="width:36%"><col style="width:14%"><col style="width:36%"></colgroup><thead><tr><td class="section-title" colspan="4">'+(followUp?'추후 계획 · 작성 정보':'작성 정보')+'</td></tr></thead><tbody>';
+  if(followUp) html+='<tr><th>재상담 예정일</th><td>'+escHtml(followUp.value)+'</td><th>상담자</th><td>'+_lc(nurse)+'</td></tr>';
+  else html+='<tr><th>상담자</th><td colspan="3">'+_lc(nurse)+'</td></tr>';
+  html+='<tr><th>작성일</th><td>'+_lc(today)+'</td><th>학교</th><td>'+_lc(school)+'</td></tr></tbody></table>';
   html+='</body></html>';
   return {html:html, fname:fname};
 }
@@ -3300,6 +3310,7 @@ function _symOpenCounselTreatModal(recId){
   document.addEventListener('keydown',_clTreatKey,true);
   /* Enter = 저장 후 닫기 / Shift+Enter = 줄바꿈 / ESC = 저장 후 닫기 (사용자 요청 2026-06-26) */
   if(ta)ta.addEventListener('keydown',function(e){
+    if(e.isComposing || e.keyCode === 229) return;
     if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); e.stopPropagation(); _clTreatClose(); }
     else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); _clTreatClose(); }
   });
@@ -8863,13 +8874,9 @@ export function _symShowHistory(stuId,curRecId){
   h+='<div style="flex:1;overflow-y:auto;padding:8px">';
   visits.forEach(function(v){
     const hasBm=(window._bmData||{})[v.id]&&(window._bmData||{})[v.id].length>0;
-    /* v3 (사용자 결정 2026-05-21) — 다중 증상 + treatmentBySym 있으면 증상별 분기 표시.
-     *  · 형식: "설사 → 정로환, 보건교육" / "두통 → 타이레놀, 침상 안정"
-     *  · record-level (침상·V/S) 처치는 첫 줄에 함께 표시
-     *  · 단일 증상 또는 옛 일지(treatmentBySym 없음) → 기존 layout 유지 */
-    const _hasBySym = v.treatmentBySym && typeof v.treatmentBySym==='object'
-                   && !Array.isArray(v.treatmentBySym) && Object.keys(v.treatmentBySym).length>0;
-    const _isMultiSym = Array.isArray(v.symptoms) && v.symptoms.length>1 && _hasBySym;
+    /* 최근 이력과 같은 기준: 명시적 미분기·이관·옛 평면 기록은 공통 처치를 읽는다.
+     * __flat__ 또는 이전 증상 키가 남아 있어도 미분기 기록을 분기하지 않는다. */
+    const _isMultiSym = shouldShowTreatmentBySymptom(v);
     h+='<div style="padding:8px 10px;border-bottom:1px solid var(--bdr);display:flex;align-items:flex-start;gap:8px">';
     h+='<span style="font-size:11px;font-weight:700;color:var(--t2);min-width:80px;padding-top:1px">'+escHtml(v.date)+'</span>';
     if(_isMultiSym){
@@ -8879,12 +8886,14 @@ export function _symShowHistory(stuId,curRecId){
         var dm = (v.medDosesBySym && v.medDosesBySym[sym]) || {};
         return formatMedicationDisplay(v.medsBySym[sym].map(function(m){var d=dm[m]||''; return d?(m+'('+d+')'):m;}).join(', '));
       };
-      h+='<div style="flex:1;display:flex;flex-direction:column;gap:2px">';
+      h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;word-break:keep-all;overflow-wrap:anywhere">';
+      const _clTreatH=counselTreatText(v);
+      const _clSymIdxH=_clTreatH?v.symptoms.findIndex(isCounselSymLabel):-1;
       /* v3 (2026-05-28) — V/S·침상도 per-symptom. 각 증상 행에 그 증상 처치만 (record-level 공유 폐지). */
       v.symptoms.forEach(function(sym, idx){
         var _spl=String(sym).match(/^(.+?)\s*\((.*)\)\s*$/);
         var _symDisp = _spl ? (_spl[1].trim()+'['+_spl[2]+']') : sym;
-        var symTreats = (v.treatmentBySym[sym]||[]);
+        var symTreats = ((v.treatmentBySym||{})[sym]||[]);
         var medDispForSym = _medDispForSym(sym);
         var symLabeled = symTreats.map(function(t){
           var _b=t; var _bm=t.match(/^(.+?)\s*\((.*)\)\s*$/); if(_bm)_b=_bm[1].trim();
@@ -8892,24 +8901,33 @@ export function _symShowHistory(stuId,curRecId){
           if(_b==='V/S 측정' && _vsStrV) return 'V/S 측정 ' + _vsStrV;
           return t;
         });
+        if(idx===_clSymIdxH && symLabeled.indexOf(_clTreatH)===-1) symLabeled.push(_clTreatH);
         var treatStr = symLabeled.join(', ') || '-';
-        h+='<div style="display:flex;gap:6px;align-items:baseline">'
-         + '<span style="font-size:10px;font-weight:700;color:var(--cyan);white-space:nowrap">'+escHtml(_symDisp)+'</span>'
-         + '<span style="font-size:9px;color:var(--t3)">→</span>'
-         + '<span style="font-size:10px;color:var(--t2)">'+escHtml(treatStr)+'</span>'
+        h+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;min-width:0">'
+         + '<span style="font-size:10px;font-weight:700;color:var(--cyan);word-break:keep-all;overflow-wrap:anywhere">'+escHtml(_symDisp)+'</span>'
+         + '<span style="font-size:10px;color:var(--t2);word-break:keep-all;overflow-wrap:anywhere"><span style="font-size:9px;color:var(--t3);margin-right:6px">→</span>'+escHtml(treatStr)+'</span>'
          + '</div>';
       });
       if(v.treatmentMemo) h+='<div style="font-size:9.5px;color:var(--t3);font-style:italic;margin-top:1px">'+escHtml(v.treatmentMemo)+'</div>';
       h+='</div>';
     } else {
-      /* V/S 측정 라벨에 값 부착 — 단일/legacy 분기 */
+      /* 미분기·단일·legacy 모두 최근 이력과 같은 공통 처치·약품·메모를 표시. */
       const _vsStrV2 = _vsValueStr(v);
-      const _treatStr = (v.treatment||[]).map(function(t){
+      const _medDisp = v.medication?formatMedicationDisplay(v.medication):'';
+      const _treatBase = (v.treatment||[]).map(function(t){
+        if(t==='투약' && _medDisp) return _medDisp;
         if(t==='V/S 측정' && _vsStrV2) return 'V/S 측정 ' + _vsStrV2;
         return t;
-      }).join(', ') || '-';
-      h+='<span style="font-size:10px;color:var(--t3);flex:1;padding-top:1px">'+escHtml((v.symptoms||[]).join(', ')||'-')+'</span>';
-      h+='<span style="font-size:10px;color:var(--t3);padding-top:1px">'+escHtml(_treatStr)+'</span>';
+      }).join(', ');
+      const _treatStr = (_treatBase+(v.treatmentMemo?(_treatBase?' / ':'')+v.treatmentMemo:''))||'-';
+      const _symDisp = (v.symptoms||[]).map(function(sym){
+        const parts=String(sym).match(/^(.+?)\s*\((.*)\)\s*$/);
+        return parts?(parts[1].trim()+'['+parts[2]+']'):sym;
+      }).join(', ')||'-';
+      h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;word-break:keep-all;overflow-wrap:anywhere">'
+        +'<span style="font-size:10px;color:var(--t3)">'+escHtml(_symDisp)+'</span>'
+        +'<span style="font-size:10px;color:var(--t2)">→ '+escHtml(_treatStr)+'</span>'
+        +'</div>';
     }
     /* 사용자 요청 — 체크 표시 제거. 바디맵 마커가 있으면 보라색 🧍 활성, 없으면 흐린 🧍 */
     h+='<span class="hist-bm-chip" data-bm-active="'+(hasBm?'1':'0')+'" '+(hasBm?'data-action="openBodyMap" data-rec-id="'+v.id+'"':'')+' style="font-size:12px;cursor:'+(hasBm?'pointer':'default')+';opacity:'+(hasBm?'1':'0.3')+';color:'+(hasBm?'#a855f7':'var(--t3)')+';padding-top:1px" title="'+(hasBm?'바디맵 이력 보기':'바디맵 이력 없음')+'">🧍</span>';
