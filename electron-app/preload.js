@@ -248,6 +248,7 @@ const _api = {
   dbInfo: () => ipcRenderer.invoke('db-info'),
   dbFactoryReset: () => ipcRenderer.invoke('db-factory-reset'),
   dbFactoryResetHealthOnly: () => ipcRenderer.invoke('db-factory-reset-health-only'),
+  industryMigrationExport: audience => ipcRenderer.invoke('industry-migration-export', audience),
   dbExportBackup: () => ipcRenderer.invoke('db-export-backup'),
   dbImportBackup: (backup) => ipcRenderer.invoke('db-import-backup', { backup }),
   captureElement: (opts) => ipcRenderer.invoke('capture-element', opts),

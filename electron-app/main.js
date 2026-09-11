@@ -51,6 +51,7 @@ function _bindDevToolsShortcut(win) {
       win.close();
       return;
     }
+    
   });
 }
 
@@ -1682,6 +1683,35 @@ app.whenReady().then(() => {
     } catch (err) {
       return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.handle('industry-migration-export', async (event, audience) => {
+    try {
+      const { convert, snapshotDatabase } = require('./src/main/services/industry-migration');
+      const store = services.store();
+      let origin = store.get('common', 'industry_migration_origin').data;
+      if (!origin) {
+        origin = require('node:crypto').randomUUID();
+        store.set('common', 'industry_migration_origin', origin);
+      }
+      const backup = convert(snapshotDatabase(healthDB.db), origin, audience);
+      const counts = backup.data;
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: 'info', title: '산업체·대학교용으로 데이터 이관', buttons: ['파일 저장', '취소'], defaultId: 1, cancelId: 1,
+        message: `관리대상자 ${counts.subjects.length}명 · 보건일지 ${counts.journals.length}건 · 상담 ${counts.counselings.length}건 · 응급 ${counts.emergencies.length}건 · 감염병 ${counts.infections.length}건`,
+        detail: `전체 연도의 선택 대상 기록입니다.\n생년월일 보완 대상: ${backup.migration.missingBirth}명\n\n${backup.migration.notice}\n\n학교용 원본은 유지됩니다. 저장한 파일을 산업체용 환경설정의 ‘데이터 이관’에서 선택하세요.`
+      });
+      if (choice.response !== 0) return { canceled: true };
+      const content = JSON.stringify(backup, null, 2);
+      if (Buffer.byteLength(content, 'utf8') > 50 * 1024 * 1024) throw new Error('이관 파일이 50MB를 넘습니다. 학생/교직원 대상을 나누어 내보내 주세요.');
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: '산업체·대학교 이관 파일 저장', defaultPath: '오렌지톡_학교용_이관.otbackup',
+        filters: [{ name: '오렌지톡 이관 파일', extensions: ['otbackup'] }]
+      });
+      if (result.canceled || !result.filePath) return { canceled: true };
+      await require('node:fs/promises').writeFile(result.filePath, content, 'utf8');
+      return { success: true, missingBirth: backup.migration.missingBirth };
+    } catch (error) { return { success: false, error: error.message }; }
   });
 
   ipcMain.handle('db-export-backup', () => {

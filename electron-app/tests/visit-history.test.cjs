@@ -245,3 +245,41 @@ test('the diary table, sidebar, and popup all use the shared predicate', () => {
   assert(dailySource.includes('const _isMultiSym = shouldShowTreatmentBySymptom(r);'));
   assert(symptomSource.includes('const _isMultiSym = shouldShowTreatmentBySymptom(v);'));
 });
+
+// Compare export text with the real school history renderer, not a second
+// reconstruction of the history rules. Synthetic data only.
+for (const [label, overrides] of [
+  ['branched', { treatmentBranched: true }],
+  ['unbranched', { treatmentBranched: false }],
+  ['imported', { treatmentBranched: true, isImported: true }],
+  ['single symptom', { symptoms: ['복통'], treatmentBranched: true }],
+  ['legacy', { treatmentBySym: {}, treatmentBranched: undefined }],
+  ['empty symptom row', { treatmentBranched: true, treatmentBySym: { 복통: ['투약'], 구토: [] } }]
+]) {
+  test('migration columns match actual history arrows: ' + label, () => {
+    const r = visit({
+      symptoms: ['복통', '구토'], treatment: ['투약', 'V/S 측정', '신체사정'],
+      treatmentBySym: { 복통: ['투약'], 구토: ['V/S 측정', '신체사정'], 옛증상: ['STALE'] },
+      medication: '가상약(1포)', medsBySym: { 복통: ['가상약'] },
+      medDosesBySym: { 복통: { 가상약: '1포' } }, treatmentMemo: '메모 보존',
+      physicalAssessment: { items: ['청진'], details: { 청진: '가상 기록' } },
+      ...overrides
+    });
+    const { html, context } = render([r]);
+    const actualRight = [...html.matchAll(/<span[^>]*>(?:<span[^>]*>→<\/span>|→ )([^<]*)<\/span>/g)].map(match => match[1]);
+    const original = {
+      symptoms: JSON.stringify(r.symptoms), treatment: JSON.stringify(r.treatment),
+      treatment_by_sym: JSON.stringify(r.treatmentBySym), medication: r.medication,
+      blood_pressure: r.bp, pulse: r.pulse, respiration: r.resp,
+      is_imported: r.isImported ? 1 : 0, physical_assessment: JSON.stringify(r.physicalAssessment),
+      extra_json: JSON.stringify({ treatment_branched: r.treatmentBranched,
+        treatment_memo: r.treatmentMemo, meds_by_sym: r.medsBySym, med_doses_by_sym: r.medDosesBySym })
+    };
+    const exported = require('../src/main/services/school-treatment').history(original);
+    const expectedRight = exported.treatment.split('\n');
+    if (context.shouldShowTreatmentBySymptom(r)) expectedRight.pop(); // Separate note below arrows.
+    assert.deepEqual(actualRight, expectedRight.map(context.escHtml));
+    for (const symptom of exported.symptom.split('\n')) assert(html.includes(context.escHtml(symptom)));
+    assert(html.includes(context.escHtml(r.treatmentMemo)));
+  });
+}

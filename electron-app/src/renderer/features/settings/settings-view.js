@@ -3216,49 +3216,6 @@ function _renderApiKeysTab(){
     return c;
   }
 
-  /* ── 날씨/미세먼지 알림 설정 (최상단) ── */
-  h+='<div style="font-size:14px;font-weight:800;color:var(--t1);margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid var(--cyan)">🌡 날씨 / 미세먼지 알림 설정</div>';
-  const weatherSource=localStorage.getItem('ec_weather_source')||'auto';
-  const userRegion=localStorage.getItem('ec_user_region')||'';
-  const airStation=localStorage.getItem('ec_airkorea_station')||'';
-  h+='<div class="cc" style="padding:16px;margin-bottom:12px">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">날씨 데이터 소스</div>';
-  h+='<div style="display:flex;gap:8px;margin-bottom:14px">';
-  h+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);cursor:pointer"><input type="radio" name="weatherSrc" value="auto" '+(weatherSource==='auto'?'checked':'')+' data-save-radio="ec_weather_source" style="accent-color:var(--cyan)">자동 (IP 기반)</label>';
-  h+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);cursor:pointer"><input type="radio" name="weatherSrc" value="kma" '+(weatherSource==='kma'?'checked':'')+' data-save-radio="ec_weather_source" style="accent-color:var(--cyan)">기상청 API</label>';
-  h+='</div>';
-  /* 지역명 (헤더 우측 상단 표시용) */
-  const regionApplied=_isApplied('ec_user_region');
-  const regionBadge=regionApplied?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,0.1);color:#16a34a;font-weight:700">✓ 반영 완료</span>':(userRegion?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(245,158,11,0.1);color:#d97706;font-weight:700">⚠ 반영 필요</span>':'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(156,163,175,0.1);color:#94a3b8;font-weight:700">미등록</span>');
-  const regionBtnBg=regionApplied?'#16a34a':'var(--cyan)';
-  const regionBtnLabel=regionApplied?'✓ 완료':'반영';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px;display:flex;align-items:center">지역명 <span style="color:var(--t3);font-weight:500;font-size:10px;margin-left:4px">(헤더 우측 상단 표시)</span>'+regionBadge+'</div>';
-  h+='<div style="display:flex;gap:8px;margin-bottom:6px">';
-  h+='<input id="wsRegionInput" class="form-input" value="'+escHtml(userRegion)+'" placeholder="예: 서울특별시, 부여군, 수원시" style="flex:1;font-size:11px" data-save-key="ec_user_region">';
-  h+='<button id="wsRegionApply" type="button" data-weather-apply="region" style="padding:0 16px;border:none;border-radius:6px;background:'+regionBtnBg+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s">'+regionBtnLabel+'</button>';
-  h+='</div>';
-  h+='<div style="font-size:10px;color:var(--t3);margin-bottom:14px;line-height:1.6">직접 입력하거나, 측정소명 반영 시 자동으로 채워집니다.</div>';
-  /* 미세먼지 측정소명 */
-  const stationApplied=_isApplied('ec_airkorea_station');
-  const stationBadge=stationApplied?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,0.1);color:#16a34a;font-weight:700">✓ 반영 완료</span>':(airStation?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(245,158,11,0.1);color:#d97706;font-weight:700">⚠ 반영 필요</span>':'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(156,163,175,0.1);color:#94a3b8;font-weight:700">미등록</span>');
-  const stationBtnBg=stationApplied?'#16a34a':'var(--cyan)';
-  const stationBtnLabel=stationApplied?'✓ 완료':'반영';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px;display:flex;align-items:center">미세먼지 측정소명'+stationBadge+'</div>';
-  h+='<div style="display:flex;gap:8px;margin-bottom:6px">';
-  h+='<input id="wsStationInput" class="form-input" value="'+escHtml(airStation)+'" placeholder="예: 만촌동, 당진시청사" style="flex:1;font-size:11px" data-save-key="ec_airkorea_station">';
-  h+='<button id="wsStationApply" type="button" data-weather-apply="station" style="padding:0 16px;border:none;border-radius:6px;background:'+stationBtnBg+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s">'+stationBtnLabel+'</button>';
-  h+='</div>';
-  h+='<div style="font-size:11px;color:var(--t2);line-height:1.7;margin-top:2px">측정소명을 입력하면 미세먼지 정보가 표시되고, 위 지역명도 자동으로 시·군 단위로 채워집니다.</div>';
-  h+='<a href="#" data-action="openExternal" data-arg="https://www.airkorea.or.kr/web/stationInfo" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:10px 14px;border:1.5px solid var(--cyan);border-radius:8px;background:rgba(6,182,212,0.08);color:var(--cyan);font-size:12px;font-weight:700;text-decoration:none;transition:all .15s;cursor:pointer">🔍 측정소명을 모르시나요? 여기를 눌러 확인<span style="margin-left:auto;font-size:13px">↗</span></a>';
-  h+='<div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.6">시·도 → 시·군·구 선택 후 가까운 측정소명을 입력하세요</div>';
-  h+='</div>';
-
-  /* ── 날씨/미세먼지 API ── */
-  h+='<div style="font-size:14px;font-weight:800;color:var(--t1);margin:20px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--cyan)">🌤 날씨 / 미세먼지 API</div>';
-  h+=_apiCard({icon:'🌤',title:'기상청 단기예보 API',desc:'상단 헤더 날씨 정보 표시',lsKey:'ec_kma_api_key',dbKey:'kma_api_key',placeholder:'기상청 API 인증키 입력',link:'https://www.data.go.kr/data/15084084/openapi.do',linkLabel:'data.go.kr에서 "기상청_단기예보" 발급받기',howTo:'data.go.kr 가입 → "기상청 단기예보" 검색 → 활용 신청 → 마이페이지에서 일반 인증키 복사<br>활용목적은 \'기타\' 선택 후 \'업무\' 기입 → 첨부파일은 생략 → 이용허락범위 \'동의합니다\' 체크 → \'활용신청\' 클릭.'});
-  h+=_apiCard({icon:'🏭',title:'에어코리아 미세먼지 API',desc:'상단 헤더 미세먼지 농도 표시',lsKey:'ec_airkorea_api_key',dbKey:'airkorea_api_key',placeholder:'에어코리아 API 인증키 입력',link:'https://www.data.go.kr/data/15073861/openapi.do',linkLabel:'data.go.kr에서 "에어코리아_미세먼지" 발급받기',howTo:'data.go.kr → "에어코리아 대기오염정보" 검색 → 활용 신청 → 일반 인증키 복사<br>활용목적은 \'기타\' 선택 후 \'업무\' 기입 → 첨부파일은 생략 → 이용허락범위 \'동의합니다\' 체크 → \'활용신청\' 클릭.'});
-  /* 자외선지수(생활기상지수) — 별도 서비스 활용신청 필요. 비워두면 단기예보 키를 그대로 사용. (사용자 요청 2026-06-17) */
-  h+=_apiCard({icon:'🌞',title:'기상청 자외선지수 API (생활기상지수)',desc:'상단 헤더 회전문구 자외선지수 표시 (비우면 위 단기예보 키 사용)',lsKey:'ec_uv_api_key',dbKey:'uv_api_key',placeholder:'자외선(생활기상지수) 인증키 — 단기예보 키와 같아도 됩니다',link:'https://www.data.go.kr/data/15085288/openapi.do',linkLabel:'data.go.kr에서 "기상청_생활기상지수 조회서비스(자외선지수)" 발급',howTo:'위 링크 → 활용 신청 → 마이페이지에서 일반 인증키 복사.<br>※ 단기예보와 <b>별도 서비스</b>라, 같은 키라도 이 서비스에 활용신청을 따로 해야 자외선이 표시됩니다.<br>활용목적 \'기타\'+\'업무\' → 동의 → \'활용신청\'. (좌표→지역 변환은 의료기관용 카카오 키 재사용)'});
 
   /* ── 식약처 ── */
   h+='<div style="font-size:14px;font-weight:800;color:var(--t1);margin:20px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--cyan)">💊 식약처 API</div>';
@@ -3403,6 +3360,50 @@ function _renderApiKeysTab(){
       +'<div id="holidayCacheStatus" style="font-size:10px;color:var(--t3);font-family:var(--fm);flex-basis:100%"></div>'
     +'</div>'
   +'</div>';
+
+  /* ── 날씨/미세먼지 알림 설정 (API 목록 하단) ── */
+  h+='<div style="font-size:14px;font-weight:800;color:var(--t1);margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid var(--cyan)">🌡 날씨 / 미세먼지 알림 설정</div>';
+  const weatherSource=localStorage.getItem('ec_weather_source')||'auto';
+  const userRegion=localStorage.getItem('ec_user_region')||'';
+  const airStation=localStorage.getItem('ec_airkorea_station')||'';
+  h+='<div class="cc" style="padding:16px;margin-bottom:12px">';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">날씨 데이터 소스</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:14px">';
+  h+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);cursor:pointer"><input type="radio" name="weatherSrc" value="auto" '+(weatherSource==='auto'?'checked':'')+' data-save-radio="ec_weather_source" style="accent-color:var(--cyan)">자동 (IP 기반)</label>';
+  h+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);cursor:pointer"><input type="radio" name="weatherSrc" value="kma" '+(weatherSource==='kma'?'checked':'')+' data-save-radio="ec_weather_source" style="accent-color:var(--cyan)">기상청 API</label>';
+  h+='</div>';
+  /* 지역명 (헤더 우측 상단 표시용) */
+  const regionApplied=_isApplied('ec_user_region');
+  const regionBadge=regionApplied?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,0.1);color:#16a34a;font-weight:700">✓ 반영 완료</span>':(userRegion?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(245,158,11,0.1);color:#d97706;font-weight:700">⚠ 반영 필요</span>':'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(156,163,175,0.1);color:#94a3b8;font-weight:700">미등록</span>');
+  const regionBtnBg=regionApplied?'#16a34a':'var(--cyan)';
+  const regionBtnLabel=regionApplied?'✓ 완료':'반영';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px;display:flex;align-items:center">지역명 <span style="color:var(--t3);font-weight:500;font-size:10px;margin-left:4px">(헤더 우측 상단 표시)</span>'+regionBadge+'</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:6px">';
+  h+='<input id="wsRegionInput" class="form-input" value="'+escHtml(userRegion)+'" placeholder="예: 서울특별시, 부여군, 수원시" style="flex:1;font-size:11px" data-save-key="ec_user_region">';
+  h+='<button id="wsRegionApply" type="button" data-weather-apply="region" style="padding:0 16px;border:none;border-radius:6px;background:'+regionBtnBg+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s">'+regionBtnLabel+'</button>';
+  h+='</div>';
+  h+='<div style="font-size:10px;color:var(--t3);margin-bottom:14px;line-height:1.6">직접 입력하거나, 측정소명 반영 시 자동으로 채워집니다.</div>';
+  /* 미세먼지 측정소명 */
+  const stationApplied=_isApplied('ec_airkorea_station');
+  const stationBadge=stationApplied?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(34,197,94,0.1);color:#16a34a;font-weight:700">✓ 반영 완료</span>':(airStation?'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(245,158,11,0.1);color:#d97706;font-weight:700">⚠ 반영 필요</span>':'<span style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(156,163,175,0.1);color:#94a3b8;font-weight:700">미등록</span>');
+  const stationBtnBg=stationApplied?'#16a34a':'var(--cyan)';
+  const stationBtnLabel=stationApplied?'✓ 완료':'반영';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px;display:flex;align-items:center">미세먼지 측정소명'+stationBadge+'</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:6px">';
+  h+='<input id="wsStationInput" class="form-input" value="'+escHtml(airStation)+'" placeholder="예: 만촌동, 당진시청사" style="flex:1;font-size:11px" data-save-key="ec_airkorea_station">';
+  h+='<button id="wsStationApply" type="button" data-weather-apply="station" style="padding:0 16px;border:none;border-radius:6px;background:'+stationBtnBg+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s">'+stationBtnLabel+'</button>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--t2);line-height:1.7;margin-top:2px">측정소명을 입력하면 미세먼지 정보가 표시되고, 위 지역명도 자동으로 시·군 단위로 채워집니다.</div>';
+  h+='<a href="#" data-action="openExternal" data-arg="https://www.airkorea.or.kr/web/stationInfo" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:10px 14px;border:1.5px solid var(--cyan);border-radius:8px;background:rgba(6,182,212,0.08);color:var(--cyan);font-size:12px;font-weight:700;text-decoration:none;transition:all .15s;cursor:pointer">🔍 측정소명을 모르시나요? 여기를 눌러 확인<span style="margin-left:auto;font-size:13px">↗</span></a>';
+  h+='<div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.6">시·도 → 시·군·구 선택 후 가까운 측정소명을 입력하세요</div>';
+  h+='</div>';
+
+  /* ── 날씨/미세먼지 API ── */
+  h+='<div style="font-size:14px;font-weight:800;color:var(--t1);margin:20px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--cyan)">🌤 날씨 / 미세먼지 API</div>';
+  h+=_apiCard({icon:'🌤',title:'기상청 단기예보 API',desc:'상단 헤더 날씨 정보 표시',lsKey:'ec_kma_api_key',dbKey:'kma_api_key',placeholder:'기상청 API 인증키 입력',link:'https://www.data.go.kr/data/15084084/openapi.do',linkLabel:'data.go.kr에서 "기상청_단기예보" 발급받기',howTo:'data.go.kr 가입 → "기상청 단기예보" 검색 → 활용 신청 → 마이페이지에서 일반 인증키 복사<br>활용목적은 \'기타\' 선택 후 \'업무\' 기입 → 첨부파일은 생략 → 이용허락범위 \'동의합니다\' 체크 → \'활용신청\' 클릭.'});
+  h+=_apiCard({icon:'🏭',title:'에어코리아 미세먼지 API',desc:'상단 헤더 미세먼지 농도 표시',lsKey:'ec_airkorea_api_key',dbKey:'airkorea_api_key',placeholder:'에어코리아 API 인증키 입력',link:'https://www.data.go.kr/data/15073861/openapi.do',linkLabel:'data.go.kr에서 "에어코리아_미세먼지" 발급받기',howTo:'data.go.kr → "에어코리아 대기오염정보" 검색 → 활용 신청 → 일반 인증키 복사<br>활용목적은 \'기타\' 선택 후 \'업무\' 기입 → 첨부파일은 생략 → 이용허락범위 \'동의합니다\' 체크 → \'활용신청\' 클릭.'});
+  /* 자외선지수(생활기상지수) — 별도 서비스 활용신청 필요. 비워두면 단기예보 키를 그대로 사용. (사용자 요청 2026-06-17) */
+  h+=_apiCard({icon:'🌞',title:'기상청 자외선지수 API (생활기상지수)',desc:'상단 헤더 회전문구 자외선지수 표시 (비우면 위 단기예보 키 사용)',lsKey:'ec_uv_api_key',dbKey:'uv_api_key',placeholder:'자외선(생활기상지수) 인증키 — 단기예보 키와 같아도 됩니다',link:'https://www.data.go.kr/data/15085288/openapi.do',linkLabel:'data.go.kr에서 "기상청_생활기상지수 조회서비스(자외선지수)" 발급',howTo:'위 링크 → 활용 신청 → 마이페이지에서 일반 인증키 복사.<br>※ 단기예보와 <b>별도 서비스</b>라, 같은 키라도 이 서비스에 활용신청을 따로 해야 자외선이 표시됩니다.<br>활용목적 \'기타\'+\'업무\' → 동의 → \'활용신청\'. (좌표→지역 변환은 의료기관용 카카오 키 재사용)'});
 
   /* 하단 — 학교 이동 시 API 키 일괄 초기화 */
   h+='<div style="margin-top:24px;padding:16px;border:1px dashed rgba(239,68,68,0.35);border-radius:10px;background:rgba(239,68,68,0.03)">';

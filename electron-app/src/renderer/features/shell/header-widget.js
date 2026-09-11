@@ -260,7 +260,7 @@ function cycleBrand(){
 
 /* ── 좌측 상단 로고 순환 (오렌지팜 요청 2026-05-27 회전문구 대체) ──
  *  #cyclingBrand 자리에 otalk_logo / orangetalk_logo 두 이미지를 5초마다 cross-fade.
- *  base 이미지(너비 결정) + over 이미지(absolute 겹침) → opacity 만 토글하여 깜빡임 없음.
+ *  두 이미지를 같은 grid 칸에 겹쳐 긴 로고의 너비를 확보하고 opacity 만 전환.
  *  preload 로 첫 전환 시 네트워크 지연도 제거. */
 (function _initBrandLogoCycle(){
   function _start(){
@@ -269,7 +269,7 @@ function cycleBrand(){
     el._brandLogoInit=true;
     const sources=['assets/icons/otalk_logo.png','assets/icons/orangetalk_logo.png'];
     sources.forEach(function(s){const i=new Image();i.src=s;});
-    el.style.display='inline-block';
+    el.style.display='inline-grid';
     el.style.position='relative';
     el.style.verticalAlign='middle';
     el.style.lineHeight='0';
@@ -278,9 +278,9 @@ function cycleBrand(){
     el.style.transform='translateY(0)';
     el.innerHTML =
       '<img class="brand-logo-base" src="'+sources[0]+'" alt="" '+
-        'style="display:block;height:38px;width:auto;opacity:1;transition:opacity 0.6s ease;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));pointer-events:none" />' +
+        'style="grid-area:1/1;justify-self:center;display:block;height:38px;width:auto;opacity:1;transition:opacity 0.6s ease;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));pointer-events:none" />' +
       '<img class="brand-logo-over" src="'+sources[1]+'" alt="" '+
-        'style="position:absolute;left:0;top:0;height:38px;width:auto;opacity:0;transition:opacity 0.6s ease;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));pointer-events:none" />';
+        'style="grid-area:1/1;justify-self:center;display:block;height:38px;width:auto;opacity:0;transition:opacity 0.6s ease;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));pointer-events:none" />';
     let showBase=true;
     setInterval(function(){
       showBase=!showBase;

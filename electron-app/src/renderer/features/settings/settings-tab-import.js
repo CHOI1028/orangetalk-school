@@ -25,6 +25,10 @@ let _pastLastInsertedIds = [];
 
 export function _renderImportTab(){
   let html='<div class="settings-panel-title">📥 데이터 가져오기 / 이관</div>';
+  html+='<div class="cc" style="padding:14px;margin-bottom:12px"><div style="font-size:13px;font-weight:700;color:var(--t2);margin-bottom:8px">📦 오렌지톡 산업체·대학교용으로 데이터 내보내기</div>';
+  html+='<div style="font-size:11px;font-weight:400;color:var(--t3);margin-bottom:10px;line-height:1.6">학교용에 저장한 <b>전체 연도의 명단·보건일지·상담·응급·감염병 기록</b>을 이관 파일로 저장합니다.<br>생년월일이 없는 대상자는 산업체용에서 보완할 수 있습니다. 학교용 원본은 유지됩니다.</div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label for="industryMigrationAudience" style="font-size:12px;font-weight:700;color:var(--t2)">이관 대상</label><select id="industryMigrationAudience" style="max-width:100%;min-height:28px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--card);color:var(--t1);font-family:var(--f);font-size:12px"><option value="all">학생·교직원 전체</option><option value="staff">교직원만</option><option value="student">학생만</option></select>';
+  html+='<button class="btn btn-primary btn-sm" id="industryMigrationExportBtn">📦 산업체·대학교 이관 파일 저장</button></div><div id="industryMigrationMessage" role="status" style="margin-top:8px;font-size:11px;color:var(--t2);line-height:1.6;overflow-wrap:anywhere"></div></div>';
   html+='<div class="settings-panel-desc">다른 보건일지 프로그램을 사용한 적이 있거나 따로 기록해둔 기록이 있다면 아래 "최적화 양식 다운로드" 버튼을 클릭하여 엑셀 파일을 다운받아 주세요. 내용을 엑셀 파일에 붙여넣고 업로드하면 과거 기록이 등록됩니다.</div>';
   /* 과거 보건기록 가져오기 */
   html+='<div class="cc" style="padding:14px;margin-bottom:12px">';
@@ -132,6 +136,18 @@ export function _renderImportTab(){
 }
 /* ── Bind import tab event listeners after innerHTML ── */
 export function _bindImportTabEvents(){
+  const industryExport=document.getElementById('industryMigrationExportBtn');
+  if(industryExport) industryExport.addEventListener('click', async function(){
+    const message=document.getElementById('industryMigrationMessage');
+    if(!window.electronAPI?.industryMigrationExport){ message.textContent='학교용 데스크톱 프로그램에서 이용해 주세요.'; return; }
+    industryExport.disabled=true;
+    message.textContent='이관할 명단과 기록을 확인하고 있습니다…';
+    try {
+      const result=await window.electronAPI.industryMigrationExport(document.getElementById('industryMigrationAudience').value);
+      message.textContent=result.canceled ? '저장을 취소했습니다.' : result.success ? `이관 파일을 저장했습니다. 산업체용 환경설정 → 데이터 이관에서 불러와 주세요. 생년월일 보완 대상 ${result.missingBirth}명.` : result.error || '저장하지 못했습니다.';
+    } catch (_) { message.textContent='이관 파일을 저장하지 못했습니다. 다시 시도해 주세요.'; }
+    finally { industryExport.disabled=false; }
+  });
   const dlBtn=document.getElementById('importDownloadTemplateBtn');
   if(dlBtn)dlBtn.addEventListener('click',function(){_importDownloadPastTemplate();});
   const helperBtn=document.getElementById('importDownloadHelperBtn');
