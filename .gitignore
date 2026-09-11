@@ -103,3 +103,10 @@ secrets/
 
 # ── Claude 영구 메모리 (오렌지팜에 협상 자산 — GitHub 푸시 금지) ──
 docs/memory/
+
+# Local UI review screenshots and regression reports
+/ui-review/
+/ui-dialog-review/
+
+# Local release artifacts (published separately from source)
+/release-1.0.22/
