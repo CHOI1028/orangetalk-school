@@ -962,7 +962,7 @@ const handlers = {
     return await res.json();
   },
   'external-fetch-json': async (p) => {
-    /* Electron 버전과 동일한 응답 형식: {success, data: text} — 호출부에서 JSON.parse */
+    /* Electron과 동일한 success/data 계약 유지. HTTP 상태는 호출부에서 판별한다. */
     try {
       if (!p.url) return { success: false, error: 'URL이 없습니다' };
       let parsed;
@@ -974,9 +974,15 @@ const handlers = {
       }
       const res = await fetch(p.url, { headers: { 'User-Agent': 'OrangePharmDiary/1.0' }, signal: AbortSignal.timeout(8000) });
       const text = await res.text();
-      return { success: true, data: text };
+      return { success: true, data: text, status: res.status, contentType: res.headers.get('content-type') || '' };
     } catch (e) {
-      return { success: false, error: e.message || String(e) };
+      const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      /* 오류 원문에는 인증키가 포함된 URL이 있을 수 있으므로 전달하지 않는다. */
+      return {
+        success: false,
+        error: timedOut ? '외부 데이터 요청 시간이 초과되었습니다.' : '외부 데이터 서버에 연결하지 못했습니다.',
+        errorKind: timedOut ? 'timeout' : 'network'
+      };
     }
   },
   /* NEIS(급식·학사일정·시간표) — 클라이언트가 자기 NEIS 키 없으면 호스트 NEIS 키로 폴백 (다른 API 와 동일 정책, 2026-07-02) */
@@ -1406,8 +1412,8 @@ const handlers = {
   },
   'weather-uv-kma': async (p) => {
     try {
-      const KEY = _withFallback(p.kmaKey, 'kma_api_key');
-      const restKey = p.kakaoRestKey || services.store().get('common', 'kakao_rest_api_key') || '';
+      const KEY = _withFallback(p.kmaKey, 'uv_api_key') || _withFallback('', 'kma_api_key');
+      const restKey = _withFallback(p.kakaoRestKey, 'kakao_rest_api_key');
       return { success: true, data: await services.weather().getKmaUvByCoord(KEY, restKey, p.lat, p.lon) };
     }
     catch(e) { return { success: false, error: e.message }; }
@@ -1418,7 +1424,7 @@ const handlers = {
        * 입력 안 하고 빈 값으로 보내도 호스트가 등록한 값으로 호출 보장. */
       const KEY = _withFallback(p.serviceKey, 'airkorea_api_key');
       const STN = _withFallback(p.stationName, 'airkorea_station');
-      return { success: true, data: await services.weather().getAirkorea(KEY, STN) };
+      return await services.externalApi().fetchAirkorea(KEY, STN);
     }
     catch(e) { return { success: false, error: e.message }; }
   },
@@ -1445,21 +1451,22 @@ const handlers = {
   'external-fetch-med-facilities': async (p) => {
     try {
       const KEY = _withFallback(p.serviceKey, 'hira_api_key');
-      return { success:true, data: await services.weather().fetchMedFacilities(KEY, p.params) };
+      return await services.externalApi().fetchMedFacilities(KEY, p.params);
     }
     catch(e) { return { success:false, error:e.message }; }
   },
   'external-fetch-emergency': async (p) => {
     try {
       const KEY = _withFallback(p.serviceKey, 'emergency_api_key');
-      return { success:true, data: await services.weather().fetchEmergency(KEY, p.params) };
+      return await services.externalApi().fetchEmergencyInfo(KEY, p.params);
     }
     catch(e) { return { success:false, error:e.message }; }
   },
   'external-fetch-emergency-detail': async (p) => {
     try {
       const KEY = _withFallback(p.serviceKey, 'emergency_api_key');
-      return { success:true, data: await services.weather().fetchEmergencyDetail(KEY, p.hpids) };
+      const results = await Promise.all(p.hpids.map(id => services.externalApi().fetchEmergencyDetail(KEY, id)));
+      return { success:true, data: results.filter(r => r) };
     }
     catch(e) { return { success:false, error:e.message }; }
   },

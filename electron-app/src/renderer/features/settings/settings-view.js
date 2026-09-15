@@ -726,6 +726,9 @@ function _bindInputEvents(container){
           if(window.persistWeatherToSettings)window.persistWeatherToSettings();
         }catch(e){}
         if(window.fetchWeather)setTimeout(window.fetchWeather,100);
+      } else if(lsKey==='ec_kdca_api_key'){
+        /* 같은 키 재반영도 실패 캐시를 비우고 새 요청으로 확인한다. */
+        bus.emit('infectious:settings-changed');
       } else if(lsKey==='ec_kakao_rest_api_key'||lsKey==='ec_kakao_js_api_key'||lsKey==='ec_hira_api_key'||lsKey==='ec_emergency_api_key'){
         try{global._medFacCache=null;}catch(e){}
       } else if(lsKey==='ec_holiday_api_key'){

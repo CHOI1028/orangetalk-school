@@ -1,12 +1,14 @@
 {
   "name": "my-health-diary",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "오렌지톡 - 보건교사를 위한 보건실 업무 도구",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "test:visit-history": "node --test tests/visit-history.test.cjs",
     "test:counsel": "node --test tests/counsel-*.test.cjs",
+    "test:infectious": "node --test tests/infectious-*.test.cjs tests/external-json-transport.test.cjs",
+    "test:public-data-api": "node --test tests/public-data-*.test.cjs",
     "postinstall": "electron-builder install-app-deps",
     "obfuscate": "node scripts/obfuscate.js",
     "build": "npm run bundle-credentials && npm run bundle-api-keys && npm run obfuscate && electron-builder --win",

@@ -87,6 +87,15 @@ let userInfo = null;
 let healthDB = null;           // 정규화 DB (HealthDiaryDB)
 let services = null;           // ServiceContainer (모든 서비스 중앙 관리)
 
+/* 저장소 반환 객체를 인증키/주소 문자열로 전달하지 않도록 값만 읽는다. */
+function _getStoredCommonString(key) {
+  try {
+    const entry = services.store().get('common', key);
+    if (typeof entry === 'string') return entry;
+    return entry && entry.exists && typeof entry.data === 'string' ? entry.data : '';
+  } catch (_) { return ''; }
+}
+
 function createLoginWindow() {
   const win = new BrowserWindow({
     width: 480,
@@ -362,11 +371,11 @@ app.whenReady().then(() => {
     setTimeout(async () => {
       try {
         /* Kakao REST 키는 사용자가 설정에서 입력한 값 (SQLite common store) 에서 읽어옴 */
-        const REST_KEY = services.store().get('common', 'kakao_rest_api_key') || '';
+        const REST_KEY = _getStoredCommonString('kakao_rest_api_key');
         if (!REST_KEY) return; /* 키 없으면 미리 검색 스킵 (사용자가 의료기관 탐색 여는 시점에 안내) */
         const schoolConfig = services.appConfig().getSchoolInfo();
         const schoolName = schoolConfig && schoolConfig.school && schoolConfig.school.name || '';
-        const schoolAddr = services.store().get('common', 'school_address') || '';
+        const schoolAddr = _getStoredCommonString('school_address');
         const query = schoolAddr || schoolName;
         if (!query) return;
         /* 학교 좌표 검색 */
@@ -390,22 +399,22 @@ app.whenReady().then(() => {
 
         /* 응급실 상세 정보도 미리 조회 */
         let emgDetails = [];
-        const emgApiKey = services.store().get('common', 'emergency_api_key') || '';
+        const emgApiKey = _getStoredCommonString('emergency_api_key');
         if (emgApiKey) {
           try {
             /* 국립중앙의료원 목록 5페이지 */
             const emgPages = await Promise.all([1,2,3,4,5].map(p =>
-              fetch('http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytListInfoInqire?serviceKey=' + emgApiKey + '&WGS84_LON=' + lng + '&WGS84_LAT=' + lat + '&numOfRows=50&pageNo=' + p + '&_type=json').then(r => r.json()).catch(() => null)
+              services.externalApi().fetchEmergencyInfo(emgApiKey, { lat, lng, pageNo: p }).catch(() => null)
             ));
             let allEmgApi = [];
-            emgPages.forEach(d => { if (d && d.response && d.response.body && d.response.body.items && d.response.body.items.item) { const items = d.response.body.items.item; allEmgApi = allEmgApi.concat(Array.isArray(items) ? items : [items]); } });
+            emgPages.forEach(r => { if (r && r.success && Array.isArray(r.data)) allEmgApi = allEmgApi.concat(r.data); });
             /* 거리 정렬 후 상위 10건 상세 조회 */
             allEmgApi.forEach(e => { const eLat = parseFloat(e.wgs84Lat||0), eLng = parseFloat(e.wgs84Lon||0); e._dist = (eLat && eLng) ? Math.sqrt(Math.pow(parseFloat(lat)-eLat,2)+Math.pow(parseFloat(lng)-eLng,2)) : 9999; });
             allEmgApi.sort((a,b) => a._dist - b._dist);
             const top10 = allEmgApi.slice(0, 10).filter(e => e.hpid);
             if (top10.length) {
               emgDetails = await Promise.all(top10.map(e =>
-                fetch('http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytBassInfoInqire?serviceKey=' + emgApiKey + '&HPID=' + e.hpid + '&pageNo=1&numOfRows=1&_type=json').then(r => r.json()).then(d => { const items = d && d.response && d.response.body && d.response.body.items && d.response.body.items.item; return Array.isArray(items) ? items[0] : items; }).catch(() => null)
+                services.externalApi().fetchEmergencyDetail(emgApiKey, e.hpid).catch(() => null)
               ));
               emgDetails = emgDetails.filter(d => d);
             }
@@ -819,7 +828,7 @@ app.whenReady().then(() => {
   /* 자외선지수 — 기상청(data.go.kr) + 카카오 좌표→지역코드. open-meteo 차단 환경 대체 (사용자 요청 2026-06-17) */
   ipcMain.handle('weather-uv-kma', async (event, { kmaKey, kakaoRestKey, lat, lon }) => {
     try {
-      const restKey = kakaoRestKey || services.store().get('common', 'kakao_rest_api_key') || '';
+      const restKey = kakaoRestKey || _getStoredCommonString('kakao_rest_api_key');
       return { success: true, data: await services.weather().getKmaUvByCoord(kmaKey, restKey, lat, lon) };
     } catch (err) { return { success: false, error: err.message }; }
   });

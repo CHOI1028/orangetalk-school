@@ -20,6 +20,7 @@ import { isHoliday } from '../../core/format-utils.js';
 import { bus } from '../../core/event-bus.js';
 import { getAcademicSpans, loadAcademicMonth, academicMonthBusy } from '../../core/academic-schedule.js';
 import { getMealsForDate, neisKey, resolveNeisCode, neisFetchJson, NEIS_BASE } from '../../core/school-meal.js';
+import { getRegionTop, userSidoCd, getInfectiousRequestKey, getInfectiousErrorMessage, clearInfectiousCache, INFECTIOUS_CACHE_TTL_MS } from '../../core/infectious-disease.js';
 
 /* 공휴일 캐시가 비동기로 채워지면(다른 연도 lazy fetch 등) 홈 달력도 즉시 다시 그린다.
    renderHomeDashboard 는 홈 미표시 시 area 없음→즉시 반환하므로 백그라운드 부담 없음. */
@@ -466,6 +467,7 @@ function _onHomeAreaClick(e){
     if(act==='open-rental-ledger'){ e.preventDefault(); import('../daily/rental-ledger-view.js').then(function(m){ try{ m.openRentalLedger(); }catch(_){} }); return; }
     if(act==='open-school-stats'){ e.preventDefault(); _openSchoolStatsModal(); return; }
     if(act==='open-infect-detail'){ e.preventDefault(); import('../../core/infectious-disease.js').then(function(m){ try{ m.showInfectiousModal(); }catch(_){} }); return; }
+    if(act==='retry-infect-trend'){ e.preventDefault(); _retryInfectTrend(); return; }
     if(act==='open-timetable-editor'){ e.preventDefault(); _openTimetableEditor(); return; }
     if(act==='open-widget-box'){ e.preventDefault(); _openWidgetBoxModal(); return; }
     if(act==='prog-gear'){ e.preventDefault(); _openProgGearModal(); return; }
@@ -1108,30 +1110,61 @@ function _wMeal(){
 }
 
 /* 감염병 유행 현황 위젯 — 질병관리청 전수신고 감염병(설정 지역 시도) 상위 발생. 클릭 시 상세 모달. */
-let _infectCache=null;   /* {key, top, error, sidoNm, year} */
-let _infectLoading=false;
+let _infectCache=null;   /* {key, fetchedAt, result}; key는 메모리 비교 전용 — DOM/로그에 넣지 않는다. */
+let _infectLoading=null; /* {key, requestId} */
+let _infectRequestId=0;
+function _loadInfectTrend(year, sido, key, force){
+  const requestId=++_infectRequestId;
+  _infectLoading={key:key, requestId:requestId};
+  function finish(result){
+    if(requestId!==_infectRequestId) return;
+    _infectLoading=null;
+    /* 조회 중 키·지역·연도가 바뀌었으면 이전 응답을 표시하지 않는다. */
+    const currentKey=getInfectiousRequestKey(new Date().getFullYear(), userSidoCd());
+    if(key===currentKey){
+      _infectCache={key:key, fetchedAt:Date.now(), result:result};
+    }
+    try{ renderHomeDashboard(); }catch(_){}
+  }
+  Promise.resolve().then(function(){
+    return getRegionTop(year, sido, 5, {force:!!force});
+  }).then(function(result){
+    finish(result&&typeof result==='object'?result:{error:'fetch'});
+  },function(){ finish({error:'fetch'}); });
+}
+function _resetInfectTrend(){
+  clearInfectiousCache();
+  _infectCache=null;
+  _infectLoading=null;
+  ++_infectRequestId;
+  try{ renderHomeDashboard(); }catch(_){}
+}
+/* 같은 키를 다시 반영한 경우에도 실패 캐시와 이전 요청을 폐기한다. */
+bus.on('infectious:settings-changed', _resetInfectTrend);
+function _retryInfectTrend(){
+  const year=new Date().getFullYear(), sido=userSidoCd();
+  const key=getInfectiousRequestKey(year, sido);
+  if(_infectLoading&&_infectLoading.key===key) return;
+  _infectCache=null;
+  _loadInfectTrend(year, sido, key, true);
+  try{ renderHomeDashboard(); }catch(_){}
+}
 function _wInfectTrend(){ return _wInfectTrendBody(); }
 function _wInfectTrendBody(){
   const btn='<button data-action="open-infect-detail" style="margin-top:8px;font-size:11px;padding:5px 12px;border:1px solid #ef4444;border-radius:6px;background:rgba(239,68,68,0.07);color:#ef4444;cursor:pointer;font-family:var(--f)">🦠 자세히 보기</button>';
+  const retry='<button type="button" data-action="retry-infect-trend" style="margin:8px 0 0 6px;font-size:11px;padding:5px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--card);color:var(--t2);cursor:pointer;font-family:var(--f)">다시 조회</button>';
+  const year=new Date().getFullYear(), sido=userSidoCd();
+  const key=getInfectiousRequestKey(year, sido);
+  if(_infectCache&&(_infectCache.key!==key||Date.now()-_infectCache.fetchedAt>=INFECTIOUS_CACHE_TTL_MS)) _infectCache=null;
   if(_infectCache){
-    const c=_infectCache;
-    if(c.error==='no-key') return '<span style="color:var(--t3)">설정 → API 관리 →<br>🦠 감염병 현황(질병관리청) 키 등록</span>'+'<div>'+btn+'</div>';
-    if(c.error) return '<span style="color:var(--t3)">데이터를 불러오지 못했습니다.</span><div>'+btn+'</div>';
-    if(!c.top||!c.top.length) return '<span style="color:var(--t3)">'+escHtml(String(c.year))+'년 '+escHtml(c.sidoNm||'')+' 발생 데이터 없음</span><div>'+btn+'</div>';
+    const c=_infectCache.result;
+    if(c.error) return '<span style="color:var(--t3)">'+escHtml(getInfectiousErrorMessage(c))+'</span><div>'+btn+retry+'</div>';
+    if(!c.rows||!c.rows.length) return '<span style="color:var(--t3)">'+escHtml(String(c.year))+'년 '+escHtml(c.sidoNm||'')+' 발생 데이터 없음</span><div>'+btn+retry+'</div>';
     let h='<div style="font-size:10px;color:var(--t3);margin-bottom:5px">'+escHtml(c.sidoNm||'전국')+' · '+escHtml(String(c.year))+'년 발생 상위</div>';
-    c.top.forEach(function(x,i){ h+='<div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:2px"><span style="color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(i+1)+'. '+escHtml(x.icdNm)+'</span><b style="color:#ef4444;flex-shrink:0">'+x.val.toLocaleString()+'</b></div>'; });
+    c.rows.forEach(function(x,i){ h+='<div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:2px"><span style="color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(i+1)+'. '+escHtml(x.icdNm)+'</span><b style="color:#ef4444;flex-shrink:0">'+x.val.toLocaleString()+'</b></div>'; });
     return h+btn;
   }
-  if(!_infectLoading){
-    _infectLoading=true;
-    import('../../core/infectious-disease.js').then(function(m){
-      const year=new Date().getFullYear(); const sido=m.userSidoCd();
-      return m.getRegionTop(year, sido, 5).then(function(r){
-        _infectCache=r.error?{error:r.error}:{top:r.rows, sidoNm:r.sidoNm, year:r.year};
-        _infectLoading=false; try{ renderHomeDashboard(); }catch(_){}
-      });
-    }).catch(function(){ _infectCache={error:'fetch'}; _infectLoading=false; try{ renderHomeDashboard(); }catch(_){} });
-  }
+  if(!_infectLoading||_infectLoading.key!==key) _loadInfectTrend(year, sido, key, false);
   return '<span style="color:var(--t3)">감염병 현황 로딩 중...</span>';
 }
 

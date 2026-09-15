@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 'use strict';
 
+const { normalizePublicDataApiKey, encodePublicDataApiKey } = require('../../shared/public-data-api-key');
+
 /**
  * external-api-service.js — 외부 API 통합 서비스
  *
@@ -75,11 +77,10 @@ class ExternalApiService {
   /* ──────────── 에어코리아 미세먼지 ──────────── */
 
   async fetchAirkorea(serviceKey, stationName) {
-    if (!serviceKey) return { success: false, error: 'API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: 'API 키를 입력해 주세요' };
     if (!stationName) return { success: false, error: '측정소명을 입력해 주세요' };
-    /* 서비스 키 자동 감지: 이미 인코딩된(% 포함) 키는 그대로, raw 키는 URL 인코딩 */
-    const keyTrim = String(serviceKey).trim();
-    const keyForUrl = keyTrim.indexOf('%') !== -1 ? keyTrim : encodeURIComponent(keyTrim);
+    /* 공공데이터 인증키는 공통 규칙으로 정규화한 뒤 한 번만 인코딩한다. */
+    const keyForUrl = encodePublicDataApiKey(serviceKey);
     const stn = String(stationName).trim();
     const buildUrl = (scheme) => scheme
       + '://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty'
@@ -140,10 +141,9 @@ class ExternalApiService {
 
   /* ──────────── 에어코리아 측정소 정보 (주소·지역 추출) ──────────── */
   async fetchAirkoreaStationInfo(serviceKey, stationName) {
-    if (!serviceKey) return { success: false, error: 'API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: 'API 키를 입력해 주세요' };
     if (!stationName) return { success: false, error: '측정소명을 입력해 주세요' };
-    const keyTrim = String(serviceKey).trim();
-    const keyForUrl = keyTrim.indexOf('%') !== -1 ? keyTrim : encodeURIComponent(keyTrim);
+    const keyForUrl = encodePublicDataApiKey(serviceKey);
     const stn = String(stationName).trim();
     const buildUrl = (scheme) => scheme
       + '://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList'
@@ -235,12 +235,23 @@ class ExternalApiService {
     if (blocked.includes(host) || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host)) {
       return { success: false, error: '내부 네트워크 접근이 차단되었습니다' };
     }
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'OrangePharmDiary/1.0' },
-      signal: AbortSignal.timeout(8000)
-    });
-    const text = await response.text();
-    return { success: true, data: text };
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'OrangePharmDiary/1.0' },
+        signal: AbortSignal.timeout(8000)
+      });
+      const text = await response.text();
+      /* 기존 success/data 계약 유지. HTTP 오류도 본문을 보존해 호출부에서 판별한다. */
+      return { success: true, data: text, status: response.status, contentType: response.headers.get('content-type') || '' };
+    } catch (e) {
+      const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      /* 오류 원문에는 인증키가 포함된 URL이 있을 수 있으므로 전달하지 않는다. */
+      return {
+        success: false,
+        error: timedOut ? '외부 데이터 요청 시간이 초과되었습니다.' : '외부 데이터 서버에 연결하지 못했습니다.',
+        errorKind: timedOut ? 'timeout' : 'network'
+      };
+    }
   }
 
   /* ──────────── 한국천문연구원 특일정보 (공휴일·대체공휴일·임시공휴일) ────────────
@@ -250,11 +261,10 @@ class ExternalApiService {
      · dateKind '01' = 공휴일(법정·대체·임시). 기념일/절기/잡절은 우리 달력 표시 대상 아님.
      · 우리 앱 결과 포맷: { "YYYY-MM-DD": "휴일명", ... } — 기존 HOLIDAYS 와 동일 */
   async fetchHolidays(serviceKey, year) {
-    if (!serviceKey) return { success: false, error: '특일정보 API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: '특일정보 API 키를 입력해 주세요' };
     const yr = String(year || new Date().getFullYear()).trim();
     if (!/^\d{4}$/.test(yr)) return { success: false, error: '연도 형식 오류 (YYYY)' };
-    const keyTrim = String(serviceKey).trim();
-    const keyForUrl = keyTrim.indexOf('%') !== -1 ? keyTrim : encodeURIComponent(keyTrim);
+    const keyForUrl = encodePublicDataApiKey(serviceKey);
     const buildUrl = (scheme) => scheme
       + '://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo'
       + '?ServiceKey=' + keyForUrl
@@ -316,11 +326,10 @@ class ExternalApiService {
   /* 약품 검색용 — 입력 한 단어로 e약은요에서 매칭되는 후보 리스트 반환 (최대 50개)
      팝업 자동완성에서 사용. 짧은 입력(2글자)도 그대로 위임. */
   async searchDrugList(serviceKey, query) {
-    if (!serviceKey) return { success: false, error: '식약처 API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: '식약처 API 키를 입력해 주세요' };
     if (!query || query.length < 1) return { success: true, items: [] };
     const baseUrl = 'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
-    const keyTrim = serviceKey.trim();
-    const keyForUrl = keyTrim.indexOf('%') !== -1 ? keyTrim : encodeURIComponent(keyTrim);
+    const keyForUrl = encodePublicDataApiKey(serviceKey);
     const url = baseUrl + '?serviceKey=' + keyForUrl + '&itemName=' + encodeURIComponent(query) + '&type=json&numOfRows=50&pageNo=1';
     try {
       const ctrl = new AbortController();
@@ -352,14 +361,14 @@ class ExternalApiService {
   }
 
   async fetchDrugInfo(serviceKey, drugName) {
-    if (!serviceKey) return { success: false, error: '식약처 API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: '식약처 API 키를 입력해 주세요' };
     if (!drugName) return { success: false, error: '약품명을 입력해 주세요' };
     const strip = (s) => (s || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
     const baseUrl = 'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
 
-    /* 서비스 키 처리 — "Decoding" 키(raw)면 URL 인코딩, "Encoding" 키(이미 %포함)는 그대로 사용 */
-    const keyTrim = serviceKey.trim();
-    const keyForUrl = keyTrim.indexOf('%') !== -1 ? keyTrim : encodeURIComponent(keyTrim);
+    /* 서비스 키 처리 — 공통 규칙으로 정규화하고 한 번만 URL 인코딩 */
+    const keyTrim = String(serviceKey).trim();
+    const keyForUrl = encodePublicDataApiKey(serviceKey);
     console.log('[drug-info] 쿼리:', drugName, '| 키 길이:', keyTrim.length, '| 인코딩 여부:', keyTrim.indexOf('%') !== -1);
 
     /* ── 검색 변형 생성 (퍼지 매칭) ── */
@@ -627,7 +636,7 @@ class ExternalApiService {
   /* ──────────── 건강보험심사평가원 병원/약국 정보 ──────────── */
 
   async fetchMedFacilities(serviceKey, params) {
-    if (!serviceKey) return { success: false, error: '건강보험심사평가원 API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: '건강보험심사평가원 API 키를 입력해 주세요' };
     const { type, sidoCd, sgguCd, pageNo, numOfRows } = params || {};
     /* type: hospital(병원), pharmacy(약국), emergency(응급실)
      * 좌표/반경 기반 검색 지원:
@@ -645,7 +654,7 @@ class ExternalApiService {
     } else {
       apiUrl = 'http://apis.data.go.kr/B551182/hospInfoServicev2/getHospBasisList';
     }
-    let qs = '?serviceKey=' + serviceKey + '&numOfRows=' + (numOfRows || 30) + '&pageNo=' + (pageNo || 1) + '&_type=json';
+    let qs = '?serviceKey=' + encodePublicDataApiKey(serviceKey) + '&numOfRows=' + (numOfRows || 30) + '&pageNo=' + (pageNo || 1) + '&_type=json';
     if (sidoCd) qs += '&sidoCd=' + encodeURIComponent(sidoCd);
     if (sgguCd) qs += '&sgguCd=' + encodeURIComponent(sgguCd);
     if (type !== 'emergency' && params.yadmNm) qs += '&yadmNm=' + encodeURIComponent(params.yadmNm);
@@ -681,7 +690,7 @@ class ExternalApiService {
       hospitals: [], pharmacies: [], emergency: [],
       stats: { hospitals:0, pharmacies:0, emergency:0, apiCalls:0, errors:0 }
     };
-    if (!serviceKey) { result.error = '심평원 API 키가 없습니다.'; return result; }
+    if (!normalizePublicDataApiKey(serviceKey)) { result.error = '심평원 API 키가 없습니다.'; return result; }
     const xPos = params.lng, yPos = params.lat, radius = (params.radiusKm||60)*1000;
     const _delay = (ms) => new Promise(r => setTimeout(r, ms));
     const _emit = (phase, done, total, msg) => {
@@ -803,11 +812,11 @@ class ExternalApiService {
   /* ──────────── 국립중앙의료원 응급의료정보 ──────────── */
 
   async fetchEmergencyInfo(serviceKey, params) {
-    if (!serviceKey) return { success: false, error: '응급의료 API 키를 입력해 주세요' };
+    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: '응급의료 API 키를 입력해 주세요' };
     const { lat, lng, pageNo } = params || {};
     /* 좌표 기반 응급실 목록+실시간 정보 조회 */
     let url = 'http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytListInfoInqire'
-      + '?serviceKey=' + serviceKey
+      + '?serviceKey=' + encodePublicDataApiKey(serviceKey)
       + '&WGS84_LON=' + (lng || 127)
       + '&WGS84_LAT=' + (lat || 36.5)
       + '&numOfRows=50&pageNo=' + (pageNo || 1)
@@ -828,9 +837,9 @@ class ExternalApiService {
   /* ──────────── 국립중앙의료원 응급실 상세정보 (HPID 기반) ──────────── */
 
   async fetchEmergencyDetail(serviceKey, hpid) {
-    if (!serviceKey || !hpid) return null;
+    if (!normalizePublicDataApiKey(serviceKey) || !hpid) return null;
     const url = 'http://apis.data.go.kr/B552657/ErmctInfoInqireService/getEgytBassInfoInqire'
-      + '?serviceKey=' + serviceKey + '&HPID=' + hpid + '&pageNo=1&numOfRows=1&_type=json';
+      + '?serviceKey=' + encodePublicDataApiKey(serviceKey) + '&HPID=' + hpid + '&pageNo=1&numOfRows=1&_type=json';
     try {
       const response = await fetch(url);
       const data = await response.json();
@@ -916,7 +925,7 @@ class WeatherService {
    *  카카오 좌표→법정동코드(b_code)를 areaNo 로 사용. 발표시각 06/18 KST 중 최신.
    *  ※ KMA 키는 '생활기상지수(LivingWthrIdxServiceV4)' 활용신청이 별도로 되어 있어야 함. */
   async getKmaUvByCoord(kmaKey, kakaoRestKey, lat, lon) {
-    if (!kmaKey) throw new Error('기상청 인증키 없음');
+    if (!normalizePublicDataApiKey(kmaKey)) throw new Error('기상청 인증키 없음');
     if (!kakaoRestKey) throw new Error('카카오 REST 키 없음');
     /* 1) 카카오 좌표→법정동코드(areaNo) */
     let areaNo = '';
@@ -934,8 +943,8 @@ class WeatherService {
     let baseHour;
     if (hh >= 18) baseHour = 18; else if (hh >= 6) baseHour = 6; else { baseHour = 18; base.setDate(base.getDate() - 1); }
     const time = base.getFullYear() + String(base.getMonth() + 1).padStart(2, '0') + String(base.getDate()).padStart(2, '0') + String(baseHour).padStart(2, '0');
-    /* serviceKey: data.go.kr "Encoding 키"(이미 %XX 포함)는 그대로, "Decoding 키"(원문)는 encode. 이중 인코딩 방지. */
-    const _sk = /%[0-9A-Fa-f]{2}/.test(kmaKey) ? kmaKey : encodeURIComponent(kmaKey);
+    /* 공공데이터 인증키는 공통 규칙으로 한 번만 인코딩한다. */
+    const _sk = encodePublicDataApiKey(kmaKey);
     /* 생활기상지수 자외선 — 승인 서비스가 V3("3.0") 인지 V4 인지 계정마다 달라, 둘 다 시도해 먼저 되는 쪽 사용.
      *  (사용자 승인 = "생활기상지수 조회서비스(3.0)" = V3. V4 미승인 시 Forbidden, V3 활성화 지연 시 500.) (2026-06-17) */
     const baseTs = new Date(base.getFullYear(), base.getMonth(), base.getDate(), baseHour).getTime();
@@ -964,6 +973,8 @@ class WeatherService {
   }
 
   async getKmaWeather(apiKey, lat, lon) {
+    const keyForUrl = encodePublicDataApiKey(apiKey);
+    if (!keyForUrl) throw new Error('기상청 인증키 없음');
     const g = this._latLonToGrid(lat, lon);
     const now = new Date();
     const baseDate = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
@@ -975,10 +986,10 @@ class WeatherService {
     for (let i = ultraHours.length - 1; i >= 0; i--) {
       if (currentHour >= ultraHours[i]) { ultraBaseTime = String(ultraHours[i]).padStart(2, '0') + '00'; break; }
     }
-    const ultraUrl = 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst?serviceKey=' + encodeURIComponent(apiKey) + '&numOfRows=60&pageNo=1&dataType=JSON&base_date=' + baseDate + '&base_time=' + ultraBaseTime + '&nx=' + g.nx + '&ny=' + g.ny;
+    const ultraUrl = 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst?serviceKey=' + keyForUrl + '&numOfRows=60&pageNo=1&dataType=JSON&base_date=' + baseDate + '&base_time=' + ultraBaseTime + '&nx=' + g.nx + '&ny=' + g.ny;
 
     /* 단기예보: TMN(최저, baseTime=0200) + TMX(최고, baseTime=0500) 둘 다 호출 */
-    const vilagBase = 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=' + encodeURIComponent(apiKey) + '&numOfRows=300&pageNo=1&dataType=JSON&nx=' + g.nx + '&ny=' + g.ny;
+    const vilagBase = 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=' + keyForUrl + '&numOfRows=300&pageNo=1&dataType=JSON&nx=' + g.nx + '&ny=' + g.ny;
     const vilagUrl0200 = vilagBase + '&base_date=' + baseDate + '&base_time=0200';
     const vilagUrl0500 = vilagBase + '&base_date=' + baseDate + '&base_time=0500';
 

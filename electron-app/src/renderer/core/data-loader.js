@@ -876,6 +876,7 @@ if(typeof window.electronAPI!=='undefined'&&window.electronAPI.jsonLoad){
   commonMappings.push({dbKey:'quickMsgs',lsKey:'ec_quickMsgs',onLoaded:null});
   /* API 키 (재설치 시 복원) */
   commonMappings.push({dbKey:'kma_api_key',lsKey:'ec_kma_api_key',onLoaded:null});
+  commonMappings.push({dbKey:'uv_api_key',lsKey:'ec_uv_api_key',onLoaded:null});
   commonMappings.push({dbKey:'airkorea_api_key',lsKey:'ec_airkorea_api_key',onLoaded:null});
   commonMappings.push({dbKey:'drug_api_key',lsKey:'ec_drug_api_key',onLoaded:null});
   commonMappings.push({dbKey:'hira_api_key',lsKey:'ec_hira_api_key',onLoaded:null});
@@ -885,6 +886,7 @@ if(typeof window.electronAPI!=='undefined'&&window.electronAPI.jsonLoad){
   commonMappings.push({dbKey:'school_lat',lsKey:'ec_school_lat',onLoaded:null});
   commonMappings.push({dbKey:'school_lng',lsKey:'ec_school_lng',onLoaded:null});
   commonMappings.push({dbKey:'infectious_api_key',lsKey:'ec_infectious_api_key',onLoaded:null});
+  commonMappings.push({dbKey:'kdca_api_key',lsKey:'ec_kdca_api_key',onLoaded:null});
   /* 오늘의 메모 설정 (on/칸수/제목) — 업데이트·재설치 보존 (2026-06-10) */
   commonMappings.push({dbKey:'today_memo_settings',lsKey:'ec_today_memo_settings',onLoaded:null});
   /* 일지 출력 열 너비 (표시 항목 칩 px 조절) — 업데이트·재설치 보존 (2026-06-11) */
@@ -902,8 +904,8 @@ if(typeof window.electronAPI!=='undefined'&&window.electronAPI.jsonLoad){
   commonMappings.push({dbKey:'user_region',lsKey:'ec_user_region',onLoaded:null});
   commonMappings.push({dbKey:'airkorea_station',lsKey:'ec_airkorea_station',onLoaded:null});
   /* "반영됨" 플래그 — 재시작 후에도 ✓ 완료 버튼 상태 유지 */
-  ['kma_api_key','airkorea_api_key','drug_api_key','kakao_rest_api_key','kakao_js_api_key',
-   'hira_api_key','emergency_api_key','user_region','airkorea_station'].forEach(function(k){
+  ['kma_api_key','uv_api_key','airkorea_api_key','drug_api_key','kakao_rest_api_key','kakao_js_api_key',
+   'hira_api_key','emergency_api_key','kdca_api_key','user_region','airkorea_station'].forEach(function(k){
     commonMappings.push({dbKey:k+'_applied',lsKey:'ec_'+k+'_applied',onLoaded:null});
   });
 

@@ -327,6 +327,7 @@
     weatherReverseGeocode: function(lat, lon) { return _ipc('weather-reverse-geocode', { lat, lon }); },
     weatherOpenMeteo: function(lat, lon) { return _ipc('weather-openmeteo', { lat, lon }); },
     weatherKma: function(apiKey, lat, lon) { return _ipc('weather-kma', { apiKey, lat, lon }); },
+    weatherUvKma: function(kmaKey, kakaoRestKey, lat, lon) { return _ipc('weather-uv-kma', { kmaKey, kakaoRestKey, lat, lon }); },
     externalFetchExchange: function() { return _ipc('external-fetch-exchange'); },
     externalFetchStock: function(ticker) { return _ipc('external-fetch-stock', { ticker }); },
     externalFetchAirkorea: function(serviceKey, stationName) { return _ipc('external-fetch-airkorea', { serviceKey, stationName }); },
