@@ -77,6 +77,7 @@ const { listCalendars, listEvents, createEvent, updateEvent, deleteEvent, listAc
 const { createHealthDiaryDB } = require('./src/main/services/database');
 const { ServiceContainer } = require('./src/main/services/service-container');
 const AutoUpdaterService = require('./src/main/services/auto-updater-service');
+const { resolveStoredPublicDataApiKey, preparePublicDataProxyRequest } = require('./src/main/services/public-data-key-store');
 
 let mainWindow = null;
 let autoUpdaterService = null;
@@ -94,6 +95,10 @@ function _getStoredCommonString(key) {
     if (typeof entry === 'string') return entry;
     return entry && entry.exists && typeof entry.data === 'string' ? entry.data : '';
   } catch (_) { return ''; }
+}
+
+function _getPublicDataApiKey(clientValue, legacyKeys) {
+  return resolveStoredPublicDataApiKey(services.store(), clientValue, legacyKeys);
 }
 
 function createLoginWindow() {
@@ -399,7 +404,7 @@ app.whenReady().then(() => {
 
         /* 응급실 상세 정보도 미리 조회 */
         let emgDetails = [];
-        const emgApiKey = _getStoredCommonString('emergency_api_key');
+        const emgApiKey = _getPublicDataApiKey('', 'emergency_api_key');
         if (emgApiKey) {
           try {
             /* 국립중앙의료원 목록 5페이지 */
@@ -821,7 +826,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('weather-kma', async (event, { apiKey, lat, lon }) => {
-    try { return { success: true, data: await services.weather().getKmaWeather(apiKey, lat, lon) }; }
+    try { return { success: true, data: await services.weather().getKmaWeather(_getPublicDataApiKey(apiKey, 'kma_api_key'), lat, lon) }; }
     catch (err) { return { success: false, error: err.message }; }
   });
 
@@ -829,7 +834,8 @@ app.whenReady().then(() => {
   ipcMain.handle('weather-uv-kma', async (event, { kmaKey, kakaoRestKey, lat, lon }) => {
     try {
       const restKey = kakaoRestKey || _getStoredCommonString('kakao_rest_api_key');
-      return { success: true, data: await services.weather().getKmaUvByCoord(kmaKey, restKey, lat, lon) };
+      const publicKey = _getPublicDataApiKey(kmaKey, ['uv_api_key', 'kma_api_key']);
+      return { success: true, data: await services.weather().getKmaUvByCoord(publicKey, restKey, lat, lon) };
     } catch (err) { return { success: false, error: err.message }; }
   });
 
@@ -848,39 +854,40 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('external-fetch-airkorea', async (event, { serviceKey, stationName }) => {
-    try { return await services.externalApi().fetchAirkorea(serviceKey, stationName); }
+    try { return await services.externalApi().fetchAirkorea(_getPublicDataApiKey(serviceKey, 'airkorea_api_key'), stationName); }
     catch (err) { return { success: false, error: err.message }; }
   });
 
   ipcMain.handle('external-fetch-airkorea-station-info', async (event, { serviceKey, stationName }) => {
-    try { return await services.externalApi().fetchAirkoreaStationInfo(serviceKey, stationName); }
+    try { return await services.externalApi().fetchAirkoreaStationInfo(_getPublicDataApiKey(serviceKey, 'airkorea_api_key'), stationName); }
     catch (err) { return { success: false, error: err.message }; }
   });
 
   ipcMain.handle('external-fetch-drug-info', async (event, { serviceKey, drugName }) => {
-    try { return await services.externalApi().fetchDrugInfo(serviceKey, drugName); }
+    try { return await services.externalApi().fetchDrugInfo(_getPublicDataApiKey(serviceKey, 'drug_api_key'), drugName); }
     catch (err) { return { success: false, error: err.message }; }
   });
 
   ipcMain.handle('external-search-drug-list', async (event, { serviceKey, query }) => {
-    try { return await services.externalApi().searchDrugList(serviceKey, query); }
+    try { return await services.externalApi().searchDrugList(_getPublicDataApiKey(serviceKey, 'drug_api_key'), query); }
     catch (err) { return { success: false, error: err.message }; }
   });
 
   ipcMain.handle('external-fetch-med-facilities', async (event, { serviceKey, params }) => {
-    try { return await services.externalApi().fetchMedFacilities(serviceKey, params); }
+    try { return await services.externalApi().fetchMedFacilities(_getPublicDataApiKey(serviceKey, 'hira_api_key'), params); }
     catch (err) { return { success: false, error: err.message }; }
   });
 
   ipcMain.handle('external-fetch-emergency-detail', async (event, { serviceKey, hpids }) => {
     try {
-      const results = await Promise.all(hpids.map(id => services.externalApi().fetchEmergencyDetail(serviceKey, id)));
+      const key = _getPublicDataApiKey(serviceKey, 'emergency_api_key');
+      const results = await Promise.all(hpids.map(id => services.externalApi().fetchEmergencyDetail(key, id)));
       return { success: true, data: results.filter(r => r) };
     } catch (err) { return { success: false, error: err.message }; }
   });
 
   ipcMain.handle('external-fetch-emergency', async (event, { serviceKey, params }) => {
-    try { return await services.externalApi().fetchEmergencyInfo(serviceKey, params); }
+    try { return await services.externalApi().fetchEmergencyInfo(_getPublicDataApiKey(serviceKey, 'emergency_api_key'), params); }
     catch (err) { return { success: false, error: err.message }; }
   });
 
@@ -893,7 +900,7 @@ app.whenReady().then(() => {
   ipcMain.handle('medfac-bulk-fetch', async (event, { serviceKey, emergencyKey, params }) => {
     try {
       const res = await services.externalApi().bulkFetchMedFacilitiesInRadius(
-        serviceKey, emergencyKey, params,
+        _getPublicDataApiKey(serviceKey, 'hira_api_key'), _getPublicDataApiKey(emergencyKey, 'emergency_api_key'), params,
         function(progress){
           try { event.sender.send('medfac-bulk-progress', progress); } catch(e){}
         }
@@ -1004,6 +1011,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('open-med-facility', async (event, { schoolName, eduOffice, hiraKey, emergencyKey, schoolAddr, mode, kakaoRestKey, kakaoJsKey, schoolLat, schoolLng }) => {
     try {
+      hiraKey = _getPublicDataApiKey(hiraKey, 'hira_api_key');
+      emergencyKey = _getPublicDataApiKey(emergencyKey, 'emergency_api_key');
       /* 카카오 키 검증 — 두 키 모두 필요 */
       if (!kakaoJsKey || !kakaoRestKey) {
         return { success: false, error: '카카오 개발자 API 키가 등록되지 않았습니다.\n설정 → API Key 관리에서 REST API 키와 JavaScript 키를 먼저 등록해 주세요.' };
@@ -1145,8 +1154,11 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('external-fetch-json', async (event, { url }) => {
-    try { return await services.externalApi().fetchJson(url); }
-    catch (err) { return { success: false, error: err.message }; }
+    try {
+      const request = preparePublicDataProxyRequest(services.store(), url);
+      if (!request.success) return request;
+      return await services.externalApi().fetchJson(request.url, request.usesStoredKey ? { redirect: 'manual' } : undefined);
+    } catch (_) { return { success: false, error: '외부 데이터 서버에 연결하지 못했습니다.', errorKind: 'network' }; }
   });
 
   /* NEIS(급식·학사일정·시간표) — 클라이언트(웹 협업)가 자기 NEIS 키를 안 넣었으면 호스트 키로 폴백. 다른 API 키와 동일 정책 (2026-07-02) */
@@ -5004,12 +5016,12 @@ app.whenReady().then(() => {
   });
 
   /* KASI 특일정보 API 호출 → 캐시 저장 → 결과 반환.
-     · payload: { serviceKey, year }  ※ serviceKey 는 설정에서 사용자 입력한 키 (localStorage 우선)
+     · payload: { serviceKey, year }  ※ 저장된 공통 키 우선, 이전 개별 키는 하위 호환
      · 반환: { success, data:{YYYY-MM-DD:name,...}, cached:true } 또는 { success:false, error } */
   ipcMain.handle('stats-db-holidays-fetch', async (event, opts) => {
     try {
       const o = opts || {};
-      const key = String(o.serviceKey || '').trim();
+      const key = _getPublicDataApiKey(o.serviceKey, 'holiday_api_key');
       const yr = String(o.year || '').trim();
       if (!key) return { success: false, error: '특일정보 API 키가 없습니다 (설정 > API 관리에서 입력)' };
       if (!/^\d{4}$/.test(yr)) return { success: false, error: '연도 형식 오류 (YYYY)' };

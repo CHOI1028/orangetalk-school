@@ -11,6 +11,7 @@ import { resetAddPersonModal, matchKorean } from '../daily/daily-autocomplete.js
 import { S, ensureHolidayYear } from '../../core/app-state.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
 import { _sheetsAccountHtml, _sheetsAccountInit } from '../dashboard/dashboard-view.js';
+import { matchCareStudent, persistCareRegistration, applyCareResult, normalizeCareSchoolLevel } from '../../core/care-registration.js';
 
 /* 명단 연도는 언제나 '학년도' — 3월 1일 시작(달력 연도 아님). 예) 2025-02-26 → 2024학년도. (사용자 지시 2026-06-19)
    ※ 기존 typeof _academicYear 가드들이 이 로컬 정의로 해석돼 달력연도 폴백을 막는다. */
@@ -775,6 +776,7 @@ function _apCareClass(grade,cls){
 function _apCarePickStudent(id){
   const s=getStu(id);if(!s)return;
   const body=document.getElementById('apCareBody')||document.getElementById('apCareIndivList');if(!body)return;
+  body.dataset.careStudentId=String(id);
   /* 학교급(여러 학교급일 때만) + 학과(있으면) 접두 — 선택 학생 식별 명확화 (사용자 요청 2026-06-24) */
   const _multiLv=(typeof hasMultipleSchoolLevels==='function')?hasMultipleSchoolLevels():false;
   const _lvShort=_multiLv?(getLevelShort(s)||''):'';
@@ -837,28 +839,41 @@ function _apPulseHighlight(el){
     ], { duration:1500, easing:'ease-out' });
   }catch(_){}
 }
-function _apCareSave(id){
+/* DB 응답을 확인한 뒤에만 메모리와 화면에 반영한다. SSE가 학생 객체를 교체한 경우도 동기화. */
+async function _persistCare(s,changes){
+  const year=String(_academicYear());
+  const result=await persistCareRegistration(s,changes,{api:window.electronAPI,year:year});
+  if(result.success){
+    const current=getStu(s.uid||s.id);
+    if(current&&!current._notFound&&current!==s)applyCareResult(current,result.care,year);
+  }
+  return result;
+}
+function _careSaveNotice(message,failed){
+  const toast=document.getElementById('globalSaveToast');
+  if(toast){toast.textContent=message;toast.className='global-save-toast show';}
+  bus.emit('toast:show',{text:message});
+}
+function _careRefreshSaved(){
+  bus.emit('render:daily');bus.emit('render:dashboard');bus.emit('render:sidebar');
+  _apCareRefreshLists();
+}
+async function _apCareSave(id){
   const s=getStu(id);if(!s){bus.emit('toast:show', {text: '학생 정보를 찾을 수 없습니다'});return;}
   const reason=((document.getElementById('apCareReason')||{}).value||'').trim();
   const dust=((document.getElementById('apCareDust')||{}).value||'').trim();
   const memo=((document.getElementById('apCareMemo')||{}).value||'').trim();
   if(!reason&&!dust){bus.emit('toast:show', {text: '요보호 질환명 또는 미세먼지 기저질환명을 입력하세요'});return;}
-  if(reason){s.status='caution';s.condition=reason;s.is_care=1;s.care_reason=reason;}
-  s.dust_disease=dust;s.dustDisease=dust;s.care_memo=memo;s.careMemo=memo;s.careYear=_academicYear();
-  if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:s.is_care||0,care_reason:s.care_reason||s.condition||'',dust_disease:s.dust_disease||'',care_memo:s.care_memo||'',med_consent:s.med_consent||s.medConsent||'Y',emergency_consent:s.emergency_consent||s.emergencyConsent||'Y',_careManaged:true},String(_academicYear()));
-  }
-  /* 시스템 표준 토스트 */
-  const toast=document.getElementById('globalSaveToast');
-  if(toast){toast.textContent='저장 중\u2026';toast.className='global-save-toast show saving';setTimeout(function(){toast.textContent='모든 내용이 저장되었습니다.';toast.className='global-save-toast show';setTimeout(function(){toast.className='global-save-toast';},3000);},300);}
-  bus.emit('render:daily');
-  bus.emit('render:dashboard');
-  /* 아래 등록 명단 즉시 반영 (사용자 요청 2026-06-02) */
-  _apCareRefreshLists();
+  const addMode=_apCareMode==='add';
+  const result=await _persistCare(s,{care_reason:reason,dust_disease:dust,care_memo:memo});
+  if(!result.success){_careSaveNotice(result.error,true);return result;}
+  _careSaveNotice('요보호 / 미세먼지 기저질환이 저장되었습니다.');
+  _careRefreshSaved();
   /* 개별 등록(add) 완료 안내 모달 (사용자 요청 2026-06-02) */
-  if(_apCareMode==='add'){
+  if(addMode){
     _apConfirm({ title:'🛡 등록 완료', message:'<b style="color:var(--t1)">'+escHtml(s.name)+'</b> 학생을 요보호 / 미세먼지 기저질환으로 등록했습니다.', confirmText:'확인', noCancel:true });
   }
+  return result;
 }
 /* 요보호 명단 화면(인라인 표·명단 팝업·수정 선택 모달)을 현재 S.people 기준으로 즉시 재렌더 */
 function _apCareRefreshLists(){
@@ -907,21 +922,18 @@ function _apCareDelete(id){
     onConfirm:function(){ _apCareDeleteConfirmed(id); }
   });
 }
-function _apCareDeleteConfirmed(id){
+async function _apCareDeleteConfirmed(id){
   const s=getStu(id);if(!s)return;
-  s.status='';s.condition='';s.care_reason='';s.is_care=0;s.dust_disease='';s.dustDisease='';s.care_memo='';s.careMemo='';delete s.careYear;
-  if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:0,care_reason:'',dust_disease:'',care_memo:'',med_consent:s.med_consent||s.medConsent||'Y',emergency_consent:s.emergency_consent||s.emergencyConsent||'Y',_clearCare:true},String(_academicYear()));
-  }
-  const toast=document.getElementById('globalSaveToast');
-  if(toast){toast.textContent='저장 중\u2026';toast.className='global-save-toast show saving';setTimeout(function(){toast.textContent='모든 내용이 저장되었습니다.';toast.className='global-save-toast show';setTimeout(function(){toast.className='global-save-toast';},3000);},300);}
+  const result=await _persistCare(s,{_clearCare:true});
+  if(!result.success){_careSaveNotice(result.error,true);return result;}
   bus.emit('toast:show', {text: s.name+' 요보호 / 미세먼지 기저질환 해제 완료'});
   bus.emit('render:daily');
   bus.emit('render:dashboard');
   /* 해제 후 편집 폼을 초기 안내로 되돌리고 아래 명단 즉시 반영 */
   const _cbody=document.getElementById('apCareBody');
-  if(_cbody)_cbody.innerHTML='<div style="padding:16px;border:1px dashed var(--bdr);border-radius:10px;background:var(--bg2);text-align:center;font-size:11px;color:var(--t3)">해제되었습니다. 아래 명단에서 다른 학생을 선택하세요.</div>';
+  if(_cbody&&_cbody.dataset.careStudentId===String(id))_cbody.innerHTML='<div style="padding:16px;border:1px dashed var(--bdr);border-radius:10px;background:var(--bg2);text-align:center;font-size:11px;color:var(--t3)">해제되었습니다. 아래 명단에서 다른 학생을 선택하세요.</div>';
   _apCareRefreshLists();
+  return result;
 }
 /* ── 요보호 개별 등록: 학년 필터 → 학생 목록 ── */
 function _apCareFilterGrade(grade){
@@ -2679,14 +2691,7 @@ function addPerson(){
     if(!apCareStudentId){alert('학생 검색으로 학생을 먼저 선택하세요.');return;}
     const stu=getStu(apCareStudentId);
     if(!stu||stu.type!=='student'){alert('학생을 다시 선택하세요.');return;}
-    const reason=(document.getElementById('apCareReason')||{}).value||'';
-    const memo=(document.getElementById('apCareMemo')||{}).value||'';
-    stu.status='caution';
-    stu.condition=reason.trim()||'요보호';
-    stu.careMemo=memo.trim();
-    stu.careYear=_academicYear();
-    if(!stu.guardianType)stu.guardianType='부';
-    /* 보호자 연락처는 입력된 값이 있을 때만 저장 — 가짜 010-0000-0000 자동 채움 금지 */
+    return _apCareSave(apCareStudentId);
   } else if(isStaff){
     const pos=document.getElementById('apPosition').value.trim();
     const name=document.getElementById('apStaffName').value.trim();
@@ -3156,13 +3161,13 @@ function _apCareExportSheets(){
  *  · 잘못 올라온 항목은 삭제. */
 function _careUnmatchedKey(){ return 'ec_care_unmatched_'+String(_academicYear()); }
 function _careUnmatchedGet(){ try{ const a=JSON.parse(localStorage.getItem(_careUnmatchedKey())||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
-function _careUnmatchedSet(arr){ try{ localStorage.setItem(_careUnmatchedKey(), JSON.stringify(arr||[])); }catch(_){} }
-function _careUnmatchedRowKey(e){ return [String(e.name||'').trim(), e.grade||'', String(e.cls||''), e.num||''].join('|'); }
+function _careUnmatchedSet(arr){ try{ localStorage.setItem(_careUnmatchedKey(), JSON.stringify(arr||[])); return true; }catch(_){ return false; } }
+function _careUnmatchedRowKey(e){ return JSON.stringify([String(e.name||'').trim(),e.level||'',e.department||'',e.grade||'',String(e.cls||''),e.num||'',e.careReason||'',e.dustDisease||'',e.memo||'']); }
 function _careUnmatchedAdd(entries){
   const cur=_careUnmatchedGet(); const seen={};
   cur.forEach(function(e){seen[_careUnmatchedRowKey(e)]=true;});
   (entries||[]).forEach(function(e){ const k=_careUnmatchedRowKey(e); if(!seen[k]){ cur.push(e); seen[k]=true; } });
-  _careUnmatchedSet(cur);
+  return _careUnmatchedSet(cur);
 }
 function _careUnmatchedRemove(key){ _careUnmatchedSet(_careUnmatchedGet().filter(function(e){return _careUnmatchedRowKey(e)!==key;})); }
 /* 케어 패널 미매칭 배너 — 미매칭 있으면 "🔗 수동 매칭" 버튼 노출(인원관리 재진입 시에도 유지) */
@@ -3171,7 +3176,7 @@ function _apCareRenderUnmatched(){
   const list=_careUnmatchedGet();
   if(!list.length){ host.innerHTML=''; return; }
   host.innerHTML='<div style="margin:8px 0;padding:10px 14px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.06);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-    +'<span style="font-size:12px;font-weight:700;color:#d97706">⚠ 명단에 없어 매칭 안 된 학생 '+list.length+'명</span>'
+    +'<span style="font-size:12px;font-weight:700;color:#d97706">⚠ 매칭 / 저장 확인이 필요한 항목 '+list.length+'건</span>'
     +'<span style="font-size:10.5px;color:var(--t3);flex:1;min-width:120px">명단에 등록된 학생에게 수동으로 연결하거나 삭제할 수 있습니다.</span>'
     +'<button data-action="_apCareUnmatchedModal" style="padding:6px 12px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid rgba(6,182,212,0.4);background:rgba(6,182,212,0.1);color:var(--cyan);cursor:pointer;font-family:var(--f)">🔗 수동 매칭</button>'
     +'</div>';
@@ -3182,41 +3187,45 @@ function _apCareRenderUnmatched(){
 let _apCmState=null, _apCmDrag=null, _apCmDragGlobalBound=false;
 /* 수동 매칭 모달 공용 오프너 — 요보호/학생 등 모드별 cfg(title·subtitle·metaFn·onMatch·onRemove·refreshBanner·deleteLabel) 주입. */
 function _apCmOpen(list, cfg){
-  const _actStu=(S.people||[]).filter(function(p){return p.type==='student'&&p.grade>0;});
+  const _actStu=(S.people||[]).filter(function(p){return p.type==='student'&&(cfg.activeOnly?String(p.grade==null?'':p.grade).trim()!==''&&Number(p.is_enrolled)!==0:p.grade>0);});
   /* 미등록(일괄 삭제·전출 보관) 학생도 매칭 후보에 포함 — 미매칭 상대가 미등록 상태면 후보 목록에
    * 아예 안 보여 같은 사람으로 연결할 방법이 없던 문제 (사용자 보고 2026-06-12: 1-1-21 한경호가 후보에 없음).
    * 매칭(uid upsert) 시 is_enrolled=1 로 자동 복귀. */
   const _uidSeen={}; _actStu.forEach(function(s){_uidSeen[String(s.uid||s.id)]=true;});
   const _leftStu=(S.leavers||[]).filter(function(p){return p&&p.type==='student'&&p.grade>0&&!_uidSeen[String(p.uid||p.id)];})
     .map(function(p){return Object.assign({},p,{_unenrolled:true});});
-  const students=_actStu.concat(_leftStu);
+  const students=cfg.activeOnly?_actStu:_actStu.concat(_leftStu);
   const levelSet={}; students.forEach(function(s){if(s.level)levelSet[s.level]=true;});
   const levels=Object.keys(levelSet);
   const start=list[0];
   _apCmState={ items:list.slice(), idx:0, students:students,
-    selectedLevel:(start&&start.level)||levels[0]||'',
-    selectedGrade:(start&&start.grade!=null&&start.grade!=='')?String(start.grade):'',
+    selectedLevel:levels[0]||'',
+    selectedGrade:'',
     selectedDept:'',
     levels:levels,
     title:cfg.title, subtitle:cfg.subtitle, metaFn:cfg.metaFn, onMatch:cfg.onMatch,
     onRemove:cfg.onRemove, refreshBanner:cfg.refreshBanner, deleteLabel:cfg.deleteLabel||'🗑 이 미매칭 삭제',
+    waitForSave:cfg.waitForSave===true,
     onNew:cfg.onNew||null,   /* 신규 인원으로 등록 (새 uid) — 제공 시 푸터에 버튼 노출 (2026-06-12) */
     matchToast:cfg.matchToast };
-  /* 학과(department) 등록된 학교면 학과 기본값 설정 — 시작 항목의 학과 우선, 없으면 첫 학과 */
-  const _deps0=_apCmGetDepartments(_apCmState.selectedLevel);
-  if(_deps0.length){ _apCmState.selectedDept=(start&&start.department&&_deps0.indexOf(start.department)!==-1)?start.department:_deps0[0]; }
+  /* 엑셀 학교급 별칭과 명단 내부값을 맞추고, 실제 후보가 있는 필터로 시작한다. */
+  _apCmSyncFiltersToItem(start||{});
   _apCmRender();
 }
-function _careApplyToStudent(s,cur){
-  if(cur.careReason){s.status='caution';s.condition=cur.careReason;s.is_care=1;s.care_reason=cur.careReason;}
-  if(cur.dustDisease){s.dust_disease=cur.dustDisease;s.dustDisease=cur.dustDisease;}
-  if(cur.memo){s.care_memo=cur.memo;s.careMemo=cur.memo;}
-  s.careYear=_academicYear();
-  if(window.electronAPI&&window.electronAPI.studentsUpsert){
-    window.electronAPI.studentsUpsert({uid:s.uid||s.id,name:s.name,grade:s.grade,class_num:s.cls,student_num:s.num,gender:s.gender,birth_date:s.birth,type:s.type,level:s.level||'',department:s.department||'',is_care:s.is_care||0,care_reason:s.care_reason||s.condition||'',dust_disease:s.dust_disease||'',care_memo:s.care_memo||'',med_consent:s.med_consent||s.medConsent||'Y',emergency_consent:s.emergency_consent||s.emergencyConsent||'Y'},String(_academicYear()));
-  }
-  bus.emit('render:daily'); bus.emit('render:dashboard');
-  _apCareRefreshLists();
+function _careImportChanges(row){
+  /* 엑셀의 빈 셀은 기존값 보존. 삭제는 개별 수정/해제에서 명시적으로 한다. */
+  const changes={};
+  if(String(row.careReason||'').trim())changes.care_reason=String(row.careReason).trim();
+  if(String(row.dustDisease||'').trim())changes.dust_disease=String(row.dustDisease).trim();
+  if(String(row.memo||'').trim())changes.care_memo=String(row.memo).trim();
+  return changes;
+}
+async function _careApplyToStudent(s,cur){
+  const changes=_careImportChanges(cur);
+  if(!Object.keys(changes).length)return {success:false,error:'적용할 질환명이나 메모가 없습니다.'};
+  const result=await _persistCare(s,changes);
+  if(result.success)_careRefreshSaved();
+  return result;
 }
 function _apCareUnmatchedModal(){
   const list=_careUnmatchedGet();
@@ -3225,6 +3234,7 @@ function _apCareUnmatchedModal(){
     title:'🔗 요보호 · 미세먼지 미매칭 수동 매칭',
     subtitle:'명단에 등록된 학생에게 연결하면 그 학생에게 요보호/미세먼지 내용이 적용됩니다.',
     deleteLabel:'🗑 이 미매칭 삭제',
+    activeOnly:true, waitForSave:true,
     metaFn:function(cur){ const t=[cur.careReason,cur.dustDisease].filter(Boolean).join(' / ')||'(내용 없음)'; return t+(cur.memo?' · 메모: '+cur.memo:''); },
     onMatch:_careApplyToStudent,
     onRemove:function(cur){ _careUnmatchedRemove(_careUnmatchedRowKey(cur)); },
@@ -3392,17 +3402,25 @@ function _apCmRenderClassGrid(){
     el.addEventListener('click',function(){ _apCmMatchToStudent(this.dataset.acmPick); });
   });
 }
-function _apCmMatchToStudent(stuId){
-  const st=_apCmState; if(!st)return;
+async function _apCmMatchToStudent(stuId){
+  const st=_apCmState; if(!st||st.saving)return;
   const cur=st.items[st.idx]; const s=getStu(stuId);
   if(!cur||!s){bus.emit('toast:show',{text:'적용할 학생을 찾을 수 없습니다'});return;}
-  if(st.onMatch)st.onMatch(s,cur);
+  if(st.waitForSave){
+    st.saving=true;
+    let result;
+    try{result=await st.onMatch(s,cur);}
+    catch(_){result={success:false,error:'저장에 실패했습니다. 연결 상태를 확인하고 다시 시도해 주세요.'};}
+    finally{st.saving=false;}
+    if(!result||!result.success){bus.emit('toast:show',{text:(result&&result.error)||'저장을 확인하지 못했습니다.'});return;}
+  }else if(st.onMatch)st.onMatch(s,cur);
   if(st.onRemove)st.onRemove(cur);
   /* 비교 팝업이 열려 있으면 미매칭 칩·안내 박스·카운트 즉시 동기화 (2026-06-12) */
   try{ if(window._smartCompareSyncUnmatched)window._smartCompareSyncUnmatched(); }catch(_){}
   bus.emit('toast:show',{text:(st.matchToast?st.matchToast(s,cur):(s.name+' 에 매칭 완료'))});
-  st.items.splice(st.idx,1);
-  _apCmAdvanceOrClose();
+  const index=st.items.indexOf(cur);if(index>=0)st.items.splice(index,1);
+  if(st.refreshBanner)st.refreshBanner();
+  if(_apCmState===st)_apCmAdvanceOrClose();
 }
 function _apCmAdvanceOrClose(){
   const st=_apCmState; if(!st)return;
@@ -3414,33 +3432,50 @@ function _apCmAdvanceOrClose(){
 /* 항목으로 필터(학교급/학년/학과) 동기화 — 그 항목의 값이 있고 옵션에 존재하면 선택 */
 function _apCmSyncFiltersToItem(it){
   const st=_apCmState; if(!st||!it)return;
-  if(it.level)st.selectedLevel=it.level;
-  if(it.grade!=null&&it.grade!=='')st.selectedGrade=String(it.grade);
-  const deps=_apCmGetDepartments(st.selectedLevel);
+  const levels=st.levels||[];
+  const wantedLevel=normalizeCareSchoolLevel(it.level);
+  const actualLevel=wantedLevel?levels.find(function(lv){return normalizeCareSchoolLevel(lv)===wantedLevel;}):null;
+  st.selectedLevel=actualLevel||(levels.indexOf(st.selectedLevel)!==-1?st.selectedLevel:(levels[0]||''));
+  const grades=_apCmGetGrades(st.selectedLevel);
+  const gradeKey=function(value){
+    const text=String(value==null?'':value).trim().normalize('NFC').replace(/\s*학년$/,'').trim();
+    return /^\d+(?:\.0+)?$/.test(text)?text.replace(/\.0+$/,'').replace(/^0+(?=\d)/,''):text;
+  };
+  const wantedGrade=gradeKey(it.grade);
+  const actualGrade=wantedGrade?grades.find(function(g){return gradeKey(g)===wantedGrade;}):null;
+  st.selectedGrade=actualGrade!=null?String(actualGrade):(grades.indexOf(String(st.selectedGrade))!==-1?String(st.selectedGrade):(grades[0]||''));
+  /* 학과는 선택 학년에 실제 학생이 있는 값으로 제한해 빈 조합에 갇히지 않는다. */
+  const deps=_apCmGetDepartments(st.selectedLevel).filter(function(dept){
+    return st.students.some(function(s){
+      return (!st.selectedLevel||!s.level||s.level===st.selectedLevel)
+        && (st.selectedGrade===''||String(s.grade)===st.selectedGrade)
+        && String(s.department||'').trim()===dept;
+    });
+  });
   const itDept=(it.department||'').trim();
   st.selectedDept = deps.length ? (deps.indexOf(itDept)!==-1?itDept:(deps.indexOf(st.selectedDept)!==-1?st.selectedDept:deps[0])) : '';
 }
 function _apCmSkip(){
-  const st=_apCmState; if(!st)return;
+  const st=_apCmState; if(!st||st.saving)return;
   if(st.idx>=st.items.length-1){ _apCmClose(); return; }
   st.idx++;
   _apCmSyncFiltersToItem(st.items[st.idx]);
   _apCmApplyItemChange();
 }
 function _apCmDeleteCurrent(){
-  const st=_apCmState; if(!st)return;
+  const st=_apCmState; if(!st||st.saving)return;
   const cur=st.items[st.idx];
   _apConfirm({ title:'미매칭 항목 삭제', message:'<b style="color:var(--t1)">'+escHtml(cur.name||'')+'</b> 미매칭 항목을 삭제하시겠습니까?', confirmText:'삭제', cancelText:'취소', danger:true,
     onConfirm:function(){
-      const st2=_apCmState; if(!st2)return;
+      const st2=_apCmState; if(!st2||st2!==st||st2.saving)return;
       if(st2.onRemove)st2.onRemove(cur);
       if(st2.refreshBanner)st2.refreshBanner();
       try{ if(window._smartCompareSyncUnmatched)window._smartCompareSyncUnmatched(); }catch(_){}
-      st2.items.splice(st2.idx,1); _apCmAdvanceOrClose();
+      const index=st2.items.indexOf(cur);if(index>=0)st2.items.splice(index,1); _apCmAdvanceOrClose();
     }});
 }
 function _apCmNav(dir){
-  const st=_apCmState; if(!st)return;
+  const st=_apCmState; if(!st||st.saving)return;
   if(dir==='prev'&&st.idx>0)st.idx--;
   else if(dir==='next'&&st.idx<st.items.length-1)st.idx++;
   else return;
@@ -3665,6 +3700,8 @@ function _apCareBulkProcess(file){
       const hCare=_find(/요보호/);
       const hDust=_find(/미세먼지|기저질환/);
       const hMemo=_find(/메모|주의/);
+      const hLevel=_find(/학교급|학교구분/);
+      const hDept=_find(/학과|계열/);
       if(!hName){
         const _det=(headers||[]).filter(function(h){return String(h==null?'':h).trim();}).join(', ')||'(머리글을 못 읽음)';
         alert('이름(성명) 열을 찾을 수 없어 등록을 진행할 수 없습니다.\n\n· 첫 번째 시트에서 읽은 머리글: '+_det+'\n\n→ 다운로드한 양식의 1행(머리글)은 절대 변경하면 안 됩니다.\n   처음 제시된 1행을 그대로 둔 채, 아래에 데이터만 채워 다시 올려주세요.\n   (1행을 지우거나 글자를 바꾸거나 셀을 병합하면 이름 열을 인식하지 못합니다.)');
@@ -3675,22 +3712,20 @@ function _apCareBulkProcess(file){
       const parsed=[];
       rows.forEach(function(r){
         const name=String(r[hName]||'').trim();if(!name)return;
-        const grade=hGrade?parseInt(r[hGrade],10)||0:0;
+        const grade=hGrade?String(r[hGrade]==null?'':r[hGrade]).trim():'';
         const cls=hCls?normalizeClassInput(r[hCls]):'';
-        const num=hNum?parseInt(r[hNum],10)||0:0;
+        const num=hNum?String(r[hNum]==null?'':r[hNum]).trim():'';
         const careReason=hCare?String(r[hCare]||'').trim():'';
         const dustDisease=hDust?String(r[hDust]||'').trim():'';
         const memo=hMemo?String(r[hMemo]||'').trim():'';
-        const found=S.people.find(function(s){
-          if(s.type!=='student')return false;
-          if(s.name!==name)return false;
-          if(grade&&Number(s.grade)!==grade)return false;
-          if(cls!==''&&cls!=null&&String(s.cls)!==String(cls))return false;
-          if(num&&Number(s.num)!==num)return false;
-          return true;
-        });
-        parsed.push({name:name,grade:grade,cls:cls,num:num,careReason:careReason,dustDisease:dustDisease,memo:memo,found:found||null});
+        const row={name:name,grade:grade,cls:cls,num:num,level:hLevel?String(r[hLevel]||'').trim():'',department:hDept?String(r[hDept]||'').trim():'',careReason:careReason,dustDisease:dustDisease,memo:memo};
+        const match=matchCareStudent(S.people,row);
+        row.found=match.student;row.matchReason=match.reason;parsed.push(row);
       });
+      /* 한 파일에서 같은 학생을 여러 번 덮어쓰지 않는다. 중복 행은 사람이 확인한다. */
+      const counts=new Map();
+      parsed.forEach(function(p){if(p.found){const uid=String(p.found.uid||p.found.id);counts.set(uid,(counts.get(uid)||0)+1);}});
+      parsed.forEach(function(p){if(p.found&&counts.get(String(p.found.uid||p.found.id))>1){p.found=null;p.matchReason='duplicate-row';}});
       if(!parsed.length){bus.emit('toast:show',{text:'등록할 데이터가 없습니다'});return;}
       const _modal=document.getElementById('addPersonModal');
       const vArea=(_modal&&_modal.querySelector('#careValidationArea'))||document.getElementById('careValidationArea');
@@ -3701,36 +3736,40 @@ function _apCareBulkProcess(file){
 /* ── 요보호·미세먼지 DB/엑셀 지능 비교 결과 GUI (학생/교직원과 동일 톤) ──
  *  적용대상(동일/변경)과 미매칭(명단에 없는 학생)을 보여주고 [확인]으로 적용.
  *  미매칭은 [🔗 수동 매칭](확인 오른편, 미매칭 있을 때만 활성)으로 처리. (사용자 요청 2026-06-07) */
-function _showCareCompareGUI(vArea, parsed){
-  const _applyAll=function(){
-    let matched=0; const unmatchedRows=[]; const upsertPromises=[];
-    parsed.forEach(function(p){
-      if(!p.found){ unmatchedRows.push({name:p.name,grade:p.grade,cls:p.cls,num:p.num,careReason:p.careReason,dustDisease:p.dustDisease,memo:p.memo}); return; }
-      const found=p.found;
-      if(p.careReason){found.status='caution';found.condition=p.careReason;found.is_care=1;found.care_reason=p.careReason;}
-      if(p.dustDisease){found.dust_disease=p.dustDisease;found.dustDisease=p.dustDisease;}
-      if(p.memo){found.care_memo=p.memo;found.careMemo=p.memo;}
-      matched++;
-      if(window.electronAPI&&window.electronAPI.studentsUpsert){
-        upsertPromises.push(window.electronAPI.studentsUpsert({uid:found.uid||found.id,name:found.name,grade:found.grade,class_num:found.cls,student_num:found.num,gender:found.gender,birth_date:found.birth,type:found.type,level:found.level||'',department:found.department||'',is_care:found.is_care||0,care_reason:found.care_reason||found.condition||'',dust_disease:found.dust_disease||'',care_memo:found.care_memo||'',med_consent:found.med_consent||found.medConsent||'Y',emergency_consent:found.emergency_consent||found.emergencyConsent||'Y'},String(_academicYear())).catch(function(e){console.warn('[care] upsert 실패:',e);}));
+function _carePendingRow(p){
+  return {name:p.name,grade:p.grade,cls:p.cls,num:p.num,level:p.level||'',department:p.department||'',careReason:p.careReason,dustDisease:p.dustDisease,memo:p.memo,matchReason:p.matchReason||''};
+}
+let _careBulkSaving=false;
+async function _applyCareRows(parsed){
+  if(_careBulkSaving)return {success:false,busy:true,matched:0,failed:0,unmatched:0,skipped:0};
+  _careBulkSaving=true;
+  let matched=0,failed=0,skipped=0;const pending=[];
+  try{
+    for(const p of parsed){
+      if(p._applied){matched++;continue;}
+      if(!p.found){pending.push(_carePendingRow(p));continue;}
+      const current=matchCareStudent(S.people,p);
+      if(!current.student||String(current.student.uid||current.student.id)!==String(p.found.uid||p.found.id)){
+        p.matchReason='roster-changed';pending.push(_carePendingRow(p));continue;
       }
-    });
-    if(unmatchedRows.length)_careUnmatchedAdd(unmatchedRows);
-    _apCareRenderUnmatched();
-    const msg=document.getElementById('apCareBulkMsg');
-    if(msg)msg.innerHTML='<div style="color:#16a34a;font-size:11px;font-weight:600">✅ '+matched+'명 적용 완료'+(unmatchedRows.length?' <span style="color:#dc2626">('+unmatchedRows.length+'명 미매칭 — 🔗 수동 매칭)</span>':'')+'</div>';
-    bus.emit('toast:show', {text: '✅ '+matched+'명 적용 완료'});
-    Promise.all(upsertPromises).then(function(){
-      const reloadFn=(typeof _reloadStudentsFromDB==='function')?_reloadStudentsFromDB():Promise.resolve();
-      return reloadFn;
-    }).then(function(){
-      bus.emit('render:daily'); bus.emit('render:dashboard');
-      if(document.getElementById('apCareListPopup')){_apCareListPopup();}
-      if(document.getElementById('apCareInline')){_apCareInlineRender();}
-      if(typeof saveData==='function')saveData();
-    }).catch(function(e){console.warn('[care] 재로드 실패:',e);});
-  };
-  if(!vArea){ _applyAll(); return; } /* 표시 영역 없으면 안전하게 바로 적용 */
+      const changes=_careImportChanges(p);
+      if(!Object.keys(changes).length){skipped++;continue;}
+      const result=await _persistCare(current.student,changes);
+      if(result.success){p._applied=true;matched++;_careUnmatchedRemove(_careUnmatchedRowKey(p));}
+      else{failed++;p.matchReason='save-failed';pending.push(_carePendingRow(p));}
+    }
+    const pendingSaved=!pending.length||_careUnmatchedAdd(pending)!==false;
+    _apCareRenderUnmatched();_careRefreshSaved();
+    const unmatched=pending.length-failed;
+    const text=matched+'명 저장 완료'+(failed?' · '+failed+'명 저장 실패 (다시 시도해 주세요)':'')+(unmatched?' · '+unmatched+'명 매칭 확인 필요':'')+(skipped?' · 빈 내용 '+skipped+'건 건너뜀':'')+(!pendingSaved?' · 확인 필요 항목을 임시 보관하지 못했습니다. 원본 엑셀을 보관하고 다시 시도해 주세요.':'');
+    const msg=document.getElementById('apCareBulkMsg');if(msg)msg.textContent=text;
+    bus.emit('toast:show',{text:text});
+    return {success:failed===0&&pendingSaved,pendingSaved:pendingSaved,matched:matched,failed:failed,unmatched:unmatched,skipped:skipped};
+  }finally{_careBulkSaving=false;}
+}
+function _showCareCompareGUI(vArea, parsed){
+  const _applyAll=function(){return _applyCareRows(parsed);};
+  if(!vArea)return _applyAll();
   const _cv=function(v){return String(v==null?'':v).trim();};
   const identical=[], updated=[], unmatched=[];
   parsed.forEach(function(p){
@@ -3764,8 +3803,8 @@ function _showCareCompareGUI(vArea, parsed){
     +'</div>';
   if(_hasUnmatched){
     h+='<div style="margin-bottom:12px;padding:10px 12px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.06);border-radius:8px">';
-    h+='<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">🔗 미매칭 '+unmatched.length+'명 — 명단에 없는 학생입니다</div>';
-    h+='<div style="font-size:10px;color:var(--t3);margin-bottom:6px;line-height:1.6">학년·반·번호·이름이 현재 명단과 맞지 않습니다. [🔗 수동 매칭]에서 실제 학생에게 연결하거나, 명단을 먼저 등록하세요.</div>';
+    h+='<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">🔗 확인 필요 '+unmatched.length+'명 — 학생을 한 명으로 확정하지 못했습니다</div>';
+    h+='<div style="font-size:10px;color:var(--t3);margin-bottom:6px;line-height:1.6">학년·반·번호·이름과 학교급·학과를 확인해 주세요. 동명이인이나 파일 내 중복 행은 자동 적용하지 않습니다. [🔗 수동 매칭]에서 실제 학생을 선택하세요.</div>';
     h+='<div style="display:flex;flex-direction:column;gap:3px">';
     unmatched.forEach(function(p){
       const _pos=(p.grade?p.grade+'학년 ':'')+(String(p.cls)!==''?p.cls+'반 ':'')+(p.num?p.num+'번':'');
@@ -3773,6 +3812,7 @@ function _showCareCompareGUI(vArea, parsed){
     });
     h+='</div></div>';
   }
+  h+='<div style="font-size:10px;color:var(--t3);margin-bottom:8px">엑셀의 빈 질환명·메모는 기존 내용을 지우지 않습니다. 삭제하려면 개별 수정 또는 해제를 이용해 주세요.</div>';
   h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px">📋 확인한 명단 <span style="font-size:10px;color:var(--t3);font-weight:600">('+_roster.length+'명)</span></div>';
   h+='<div style="max-height:300px;overflow-y:auto;border:1px solid var(--bdr);border-radius:6px"><table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:var(--bg2);position:sticky;top:0">'
     +'<th style="border-bottom:1px solid var(--bdr);padding:5px">구분</th>'
@@ -3805,13 +3845,25 @@ function _showCareCompareGUI(vArea, parsed){
   if(cancelB)cancelB.addEventListener('click',_close);
   const confirmB=vArea.querySelector('[data-care-cmp="confirm"]');
   if(confirmB){
-    if(_act>0){ confirmB.addEventListener('click',function(){_close(); _applyAll();}); }
+    if(_act>0){ confirmB.addEventListener('click',function(){return _runApply(false);}); }
     else { confirmB.addEventListener('mouseenter',function(){_ambShowTip(this,'적용하거나 변경할 내용이 없습니다');}); confirmB.addEventListener('mouseleave',_ambHideTip); }
   }
   const matchB=vArea.querySelector('[data-care-cmp="match"]');
   if(matchB){
-    if(_hasUnmatched){ matchB.addEventListener('click',function(){ _close(); _applyAll(); _apCareUnmatchedModal(); }); }
+    if(_hasUnmatched){ matchB.addEventListener('click',function(){return _runApply(true);}); }
     else { matchB.addEventListener('mouseenter',function(){_ambShowTip(this,'수동 매칭할 미매칭 인원이 없습니다');}); matchB.addEventListener('mouseleave',_ambHideTip); }
+  }
+  async function _runApply(openMatching){
+    if(_careBulkSaving)return;
+    [confirmB,matchB,cancelB].forEach(function(b){if(b)b.disabled=true;});
+    if(confirmB)confirmB.textContent='저장 중…';
+    try{
+      const result=await _applyAll();
+      if(result.success||(openMatching&&result.pendingSaved))_close();
+      else if(confirmB)confirmB.textContent='실패 항목 다시 시도';
+      if(openMatching&&result.pendingSaved)_apCareUnmatchedModal();
+    }catch(_){bus.emit('toast:show',{text:'일괄 저장을 완료하지 못했습니다. 다시 시도해 주세요.'});}
+    finally{[confirmB,matchB,cancelB].forEach(function(b){if(b)b.disabled=false;});}
   }
 }
 

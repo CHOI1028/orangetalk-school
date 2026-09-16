@@ -6,6 +6,7 @@ import { openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { bus } from '../../core/event-bus.js';
 import { S, addRecord } from '../../core/app-state.js';
 import { playCautionSound } from '../../core/ui-utils.js';
+import { persistCareRegistration, applyCareResult } from '../../core/care-registration.js';
 
 /* 학년도는 3월 1일 시작(달력 연도 아님). 요보호 플래그 연도도 학년도 기준. (사용자 지시 2026-06-19) */
 function _academicYear(){
@@ -640,33 +641,57 @@ function careSearchPickStudent(id){
   if(_applyBtn) _applyBtn.addEventListener('click',function(){saveCareFromPopup();});
   if(_deleteBtn) _deleteBtn.addEventListener('click',function(){deleteCareFromPopup();});
 }
-function saveCareFromPopup(){
+let _carePopupSaving=false;
+async function saveCareFromPopup(){
+  if(_carePopupSaving)return;
   if(!_careSearchSelectedId){alert('학생을 먼저 선택하세요.');return;}
   const stu=getStu(_careSearchSelectedId);
   if(!stu||stu.type!=='student'){alert('학생을 다시 선택하세요.');return;}
   const reason=((document.getElementById('careSearchReason')||{}).value||'').trim();
   const memo=((document.getElementById('careSearchMemo')||{}).value||'').trim();
   if(!reason){alert('요보호 질환명을 입력하세요.');return;}
-  stu.status='caution';stu.condition=reason;stu.careMemo=memo;stu.careYear=_academicYear();
-  if(!stu.guardianType)stu.guardianType='부';
-  /* 보호자 연락처는 입력된 값이 있을 때만 저장 — 가짜 010-0000-0000 자동 채움 금지 */
-  saveData();renderDaily();bus.emit('render:dashboard');
-  const ov=document.getElementById('careSearchOverlay');if(ov)closeModalGracefully(ov);
-  const modal=document.getElementById('addPersonModal');if(modal)closeModalGracefully(modal);
-  resetAddPersonModal();
-  alert('요보호 학생으로 등록되었습니다.');
+  const selectedId=_careSearchSelectedId, ov=document.getElementById('careSearchOverlay');
+  const year=String(_academicYear());
+  _carePopupSaving=true;
+  try{
+    const result=await persistCareRegistration(stu,{care_reason:reason,care_memo:memo},{api:window.electronAPI,year:year});
+    if(!result.success){bus.emit('toast:show',{text:result.error});return;}
+    const current=getStu(stu.uid||stu.id);
+    if(current!==stu&&!current._notFound)applyCareResult(current,result.care,year);
+    renderDaily();bus.emit('render:dashboard');
+    /* 저장 중 다른 학생/창으로 이동했으면 새 입력 화면은 닫지 않는다. */
+    if(_careSearchSelectedId===selectedId&&document.getElementById('careSearchOverlay')===ov){
+      if(ov)closeModalGracefully(ov);
+      const modal=document.getElementById('addPersonModal');if(modal)closeModalGracefully(modal);
+      resetAddPersonModal();
+    }
+    bus.emit('toast:show',{text:'요보호 학생으로 등록되었습니다.'});
+  }finally{_carePopupSaving=false;}
 }
 
-function deleteCareFromPopup(){
+async function deleteCareFromPopup(){
+  if(_carePopupSaving)return;
   if(!_careSearchSelectedId){alert('학생을 먼저 선택하세요.');return;}
   const stu=getStu(_careSearchSelectedId);
   if(!stu||stu.type!=='student'){alert('학생을 다시 선택하세요.');return;}
   if(!confirm(stu.name+'의 요보호 등록을 해제하시겠습니까?'))return;
-  stu.status='';stu.condition='';stu.careMemo='';delete stu.careYear;
-  saveData();renderDaily();bus.emit('render:dashboard');
-  const ov=document.getElementById('careSearchOverlay');if(ov)closeModalGracefully(ov);
-  const modal=document.getElementById('addPersonModal');if(modal)closeModalGracefully(modal);
-  resetAddPersonModal();
+  const selectedId=_careSearchSelectedId, ov=document.getElementById('careSearchOverlay');
+  const year=String(_academicYear());
+  _carePopupSaving=true;
+  try{
+    /* 이 창은 요보호만 해제한다. 별도로 등록한 미세먼지 질환은 유지한다. */
+    const result=await persistCareRegistration(stu,{care_reason:'',care_memo:''},{api:window.electronAPI,year:year});
+    if(!result.success){bus.emit('toast:show',{text:result.error});return;}
+    const current=getStu(stu.uid||stu.id);
+    if(current!==stu&&!current._notFound)applyCareResult(current,result.care,year);
+    renderDaily();bus.emit('render:dashboard');
+    if(_careSearchSelectedId===selectedId&&document.getElementById('careSearchOverlay')===ov){
+      if(ov)closeModalGracefully(ov);
+      const modal=document.getElementById('addPersonModal');if(modal)closeModalGracefully(modal);
+      resetAddPersonModal();
+    }
+    bus.emit('toast:show',{text:'요보호 등록을 해제했습니다.'});
+  }finally{_carePopupSaving=false;}
 }
 const _bdayFiredToday={};
 /* 날짜 가드: 사이드바 달력이 오늘이 아닌 날짜에 둔 상태에서 신규 방문자 추가 시 확인 모달.

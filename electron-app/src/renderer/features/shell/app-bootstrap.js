@@ -8,6 +8,7 @@ import { S } from '../../core/app-state.js';
 import { toDateStr } from '../../core/format-utils.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
 import { verifyCdkey, hasCdkeyLicense } from '../../core/cdkey-license.js';
+import { hasPublicDataApiKeySetting } from '../../core/public-data-settings.js';
 import './update-overlay.js';  /* 종료 시 업데이트 적용 안내 오버레이 등록 (사이드 이펙트) */
 import './auto-popup-drag.js'; /* 모든 팝업 제목 드래그 자동화 (사이드 이펙트) */
 import './conn-toast.js';      /* 연결 상태 우하단 토스트 (사이드 이펙트) */
@@ -67,6 +68,8 @@ setInterval(_checkDateRollover, 60*1000);  /* 안전망: 1분마다 체크 */
       kakao_js_api_key:   'ec_kakao_js_api_key'
     };
     Object.keys(map).forEach(function(srcKey){
+      /* 공통 키가 있거나 삭제된 경우 번들 개별 키로 복구하지 않는다. */
+      if(srcKey.indexOf('kakao_')!==0&&hasPublicDataApiKeySetting())return;
       const v = (bundled[srcKey]||'').toString().trim();
       if(!v) return;
       const lsKey = map[srcKey];

@@ -6,6 +6,7 @@ import { renderSettingsPanel, triggerLocalTemplateDownload, openAccordion } from
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { bus } from '../../core/event-bus.js';
 import { dailyColEyeIcon } from '../emergency/emergency-view.js';
+import { persistCareRegistration, applyCareResult } from '../../core/care-registration.js';
 
 /* 명단(인원) 도메인의 연도는 언제나 '학년도' — 학년도는 3월 1일에 시작한다(달력 연도 아님).
    예) 2025-02-26 → 2024학년도. (사용자 지시 2026-06-19: 반드시 3/1 기점.)
@@ -178,14 +179,27 @@ function closeBulkDeleteConfirm(){
   const ov=document.getElementById('bulkDeleteConfirmOverlay');
   if(ov)closeModalGracefully(ov);
 }
-function confirmBulkDelete(type){
+let _careBulkDeleteSaving=false;
+async function confirmBulkDelete(type){
   if(type==='care'){
-    S.people.forEach(function(s){
-      if(s.status==='caution'||s.status==='watch'){s.status='normal';s.condition='';s.careMemo='';delete s.careYear;}
-    });
-    saveStudents();
-    closeBulkDeleteConfirm();
-    renderSettingsPanel('people');
+    if(_careBulkDeleteSaving)return;
+    const students=S.people.filter(function(s){return s.type==='student'&&(s.status==='caution'||s.status==='watch'||s.is_care===1||s.is_care==='1'||s.care_reason||s.condition);});
+    const year=String(_academicYear());
+    let saved=0,failed=0;
+    _careBulkDeleteSaving=true;
+    try{
+      for(const s of students){
+        /* 요보호 대상 명단 해제 범위: 미세먼지와 인적 정보는 보존한다. */
+        const result=await persistCareRegistration(s,{care_reason:'',care_memo:''},{api:window.electronAPI,year:year});
+        if(!result.success){failed++;continue;}
+        saved++;
+        const current=S.people.find(function(p){return String(p.uid||p.id)===String(s.uid||s.id);});
+        if(current&&current!==s)applyCareResult(current,result.care,year);
+      }
+      bus.emit('toast:show',{text:failed?'요보호 해제 '+saved+'명 완료, '+failed+'명 저장 실패. 연결 상태를 확인한 뒤 다시 시도해 주세요.':'요보호 '+saved+'명 해제 완료'});
+      if(!failed)closeBulkDeleteConfirm();
+      renderSettingsPanel('people');
+    }finally{_careBulkDeleteSaving=false;}
   } else if(type==='staff'){
     S.people=S.people.filter(function(s){return s.type!=='staff';});
     saveStudents();

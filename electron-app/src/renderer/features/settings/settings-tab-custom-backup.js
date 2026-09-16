@@ -14,6 +14,7 @@
  *    학교 이동 사용자의 데이터가 새 PC 로 따라가지 않아 잃어버리게 됨. CLAUDE.md 정책 항목 참조.
  */
 import { escHtml } from '../../core/helpers.js';
+import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 
 export function _renderCustomBackupTab(){
   let html = '<div class="settings-panel-title">🎨 커스텀 백업과 반영</div>';
@@ -25,8 +26,12 @@ export function _renderCustomBackupTab(){
     const _f = JSON.parse(localStorage.getItem('ec_user_sym_fav')||'{}');
     Object.keys(_f).forEach(function(k){ if(Array.isArray(_f[k])) _cbFavSymCount += _f[k].length; });
   } catch(_){}
-  let _cbApiKeyCount = 0;
-  ['ec_airkorea_api_key','ec_drug_api_key','ec_emergency_api_key','ec_hira_api_key','ec_kakao_js_api_key','ec_kakao_rest_api_key','ec_neis_api_key','ec_kdca_api_key'].forEach(function(k){
+  /* 공통 키는 한 건으로 센다. 통합 전 서로 다른 개별 키도 보존 표시한다. */
+  const _cbPublicKeys = new Set(['kma','uv','airkorea','drug','hira','emergency','kdca','holiday'].map(function(service){
+    return getPublicDataApiKey(service);
+  }).filter(Boolean));
+  let _cbApiKeyCount = _cbPublicKeys.size;
+  ['ec_kakao_js_api_key','ec_kakao_rest_api_key','ec_neis_api_key'].forEach(function(k){
     if(localStorage.getItem(k)) _cbApiKeyCount++;
   });
   let _cbUserSymCount = 0;

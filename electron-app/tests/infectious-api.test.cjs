@@ -7,6 +7,9 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'src/renderer/core/infectious-disease.js'), 'utf8')
+  .replace(/^import .*;\r?\n/gm, '')
+  .replace(/^export /gm, '');
+const settingsSource = fs.readFileSync(path.join(root, 'src/renderer/core/public-data-settings.js'), 'utf8')
   .replace(/^export /gm, '');
 const rawKey = 'SYNTHETIC+KEY/ONLY=';
 const row = (overrides = {}) => ({
@@ -26,19 +29,48 @@ function harness(handler = () => ok(), key = rawKey) {
   class Clock extends Date { static now() { return time; } }
   const context = vm.createContext({
     Date: Clock,
-    localStorage: { getItem: name => values.get(name) || '' },
+    localStorage: { getItem: name => values.has(name) ? values.get(name) : null },
     document: { getElementById: id => nodes[id] || null },
     window: { electronAPI: { externalFetchJson: async url => {
       requests.push(new URL(url));
       return handler(new URL(url), requests.length);
     } } }
   });
+  context.getPublicDataApiKey = vm.runInContext('(function(){' + settingsSource + '\nreturn getPublicDataApiKey;})()', context);
   vm.runInContext(source + '\nthis.api={normalizeInfectiousApiKey,getInfectiousErrorMessage,'
     + 'getInfectiousRequestKey,clearInfectiousCache,fetchRegion,fetchPeriod,fetchAge,'
     + 'getRegionTop,_runRegion,_runPeriod,_runAge,_tableHtml,INFECTIOUS_CACHE_TTL_MS};', context);
   return { api: context.api, context, requests, values, nodes,
     advance: ms => { time += ms; } };
 }
+
+test('common public-data key overrides the legacy KDCA key and is encoded only once', async () => {
+  const h = harness();
+  const commonKey = 'SYNTHETIC+COMMON/KEY=';
+  h.values.set('ec_public_data_api_key', encodeURIComponent(commonKey));
+  await h.api.fetchRegion(2026, '01');
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.requests[0].searchParams.get('serviceKey'), commonKey);
+  assert.equal(h.values.get('ec_kdca_api_key'), rawKey);
+});
+
+test('explicit deletion of the common key suppresses legacy KDCA fallback', async () => {
+  const h = harness();
+  h.values.set('ec_public_data_api_key', '');
+  const result = await h.api.fetchRegion(2026, '01');
+  assert.equal(result.error, 'no-key');
+  assert.equal(h.requests.length, 0);
+});
+
+test('changing the common key invalidates an earlier infectious cache key', async () => {
+  const h = harness();
+  h.values.set('ec_public_data_api_key', 'SYNTHETIC_COMMON_ONE');
+  await h.api.getRegionTop(2026, '01', 3);
+  h.values.set('ec_public_data_api_key', 'SYNTHETIC_COMMON_TWO');
+  await h.api.getRegionTop(2026, '01', 3);
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.requests[1].searchParams.get('serviceKey'), 'SYNTHETIC_COMMON_TWO');
+});
 
 for (const key of [rawKey, encodeURIComponent(rawKey), '  ' + encodeURIComponent(rawKey) + '  ']) {
   test('raw/encoded credential is transmitted once without changing storage: ' + key, async () => {

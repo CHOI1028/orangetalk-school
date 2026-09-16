@@ -223,7 +223,7 @@ class ExternalApiService {
 
   /* ──────────── 범용 JSON fetch (배너 등 원격 JSON 로드) ──────────── */
 
-  async fetchJson(url) {
+  async fetchJson(url, options = {}) {
     if (!url) return { success: false, error: 'URL이 없습니다' };
     let parsed;
     try { parsed = new URL(url); } catch { return { success: false, error: '유효하지 않은 URL' }; }
@@ -238,7 +238,8 @@ class ExternalApiService {
     try {
       const response = await fetch(url, {
         headers: { 'User-Agent': 'OrangePharmDiary/1.0' },
-        signal: AbortSignal.timeout(8000)
+        signal: AbortSignal.timeout(8000),
+        ...(options.redirect === 'manual' ? { redirect: 'manual' } : {})
       });
       const text = await response.text();
       /* 기존 success/data 계약 유지. HTTP 오류도 본문을 보존해 호출부에서 판별한다. */

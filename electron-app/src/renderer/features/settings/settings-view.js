@@ -21,6 +21,8 @@ import { _saveFooterMsgs, _resetFooterMsgs, getBannerTutorials, getLockedHeaderM
 import { _bindKioskCmsEvents } from '../kiosk/kiosk-cms-view.js';
 import { collabGenerateKey, collabCopyKey } from '../daily/daily-view.js';
 import { openPersonSearch } from '../../core/person-search-ui.js';
+import { getPublicDataApiKey, savePublicDataApiKey } from '../../core/public-data-settings.js';
+import { renderPublicDataSettings, renderPublicDataService, publicDataServiceForKey, bindPublicDataSettings } from './settings-public-data.js';
 /* ═══════════════════════════════════════
    SETTINGS — Thin Dispatcher
    Tab-specific code extracted to:
@@ -394,6 +396,16 @@ function _bindInputEvents(container){
   /* oninput for collabMyKey */
   const collabKey=container.querySelector('#collabMyKey');
   if(collabKey){collabKey.addEventListener('input',function(){this.value=this.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,5);});}
+  /* 공통 인증키는 명시적 저장 성공 후에만 적용한다. 기존 자동 저장과 분리. */
+  bindPublicDataSettings(container,{
+    onChanged:function(){
+      bus.emit('infectious:settings-changed');
+      try{window._medFacCache=null;}catch(_){}
+      if(window.fetchWeather)setTimeout(window.fetchWeather,100);
+      bus.emit('holidays:updated');
+    },
+    onRender:function(){renderSettingsPanel('apikeys');}
+  });
   /* API 키 입력 저장 — input(타이핑/붙여넣기 즉시 localStorage) + change(블러 시 DB 동기화·리렌더) */
   container.querySelectorAll('input[data-save-key]').forEach(function(inp){
     /* 타이핑/붙여넣기 즉시 localStorage 저장 — 키 붙여넣고 바로 다른 버튼 눌러도 반영되도록 */
@@ -412,7 +424,7 @@ function _bindInputEvents(container){
       }
       /* API 키 입력 시 날씨 소스 자동 전환 + settings.weather 동기화 */
       if(key==='ec_kma_api_key'||key==='ec_airkorea_api_key'){
-        const kma=localStorage.getItem('ec_kma_api_key')||'';
+        const kma=getPublicDataApiKey('kma');
         const newSrc=kma?'kma':'openmeteo';
         localStorage.setItem('ec_weather_source',newSrc);
         /* settings.weather에도 반영 (재시작 시 복원용) */
@@ -420,8 +432,8 @@ function _bindInputEvents(container){
           const s=JSON.parse(localStorage.getItem('ec_settings')||'{}');
           if(!s.weather)s.weather={};
           s.weather.source=newSrc;
-          s.weather.kmaApiKey=localStorage.getItem('ec_kma_api_key')||'';
-          s.weather.airkoreaApiKey=localStorage.getItem('ec_airkorea_api_key')||'';
+          s.weather.kmaApiKey=getPublicDataApiKey('kma');
+          s.weather.airkoreaApiKey=getPublicDataApiKey('airkorea');
           localStorage.setItem('ec_settings',JSON.stringify(s));
           if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','settings',s);
         }catch(e){}
@@ -466,7 +478,7 @@ function _bindInputEvents(container){
         window.electronAPI.dbSet('common',dbKey+'_applied',val).catch(function(){});
       }
       btn.disabled=true;btn.textContent='반영 중...';btn.style.background='var(--cyan)';
-      const airKey=(localStorage.getItem('ec_airkorea_api_key')||'').trim();
+      const airKey=getPublicDataApiKey('airkorea');
       /* 측정소명 반영 시 주소→시·군 자동 추출 (지역명 입력 자동 채움) */
       const regionPromise=(kind==='station'&&val&&airKey&&window.electronAPI&&window.electronAPI.externalFetchAirkoreaStationInfo)
         ? window.electronAPI.externalFetchAirkoreaStationInfo(airKey,val).then(function(r){
@@ -720,7 +732,7 @@ function _bindInputEvents(container){
       /* 2) 키별 연관 기능 즉시 갱신 */
       if(lsKey==='ec_kma_api_key'||lsKey==='ec_airkorea_api_key'){
         try{
-          const kma=localStorage.getItem('ec_kma_api_key')||'';
+          const kma=getPublicDataApiKey('kma');
           const newSrc=kma?'kma':'openmeteo';
           localStorage.setItem('ec_weather_source',newSrc);
           if(window.persistWeatherToSettings)window.persistWeatherToSettings();
@@ -817,8 +829,8 @@ function _bindInputEvents(container){
 
   /* 실제 fetch 실행 함수 — 불러오기·업데이트 공용 */
   async function _runMedfacBulkFetch(trigBtn){
-      const hiraKey=localStorage.getItem('ec_hira_api_key')||'';
-      const emgKey=localStorage.getItem('ec_emergency_api_key')||'';
+      const hiraKey=getPublicDataApiKey('hira');
+      const emgKey=getPublicDataApiKey('emergency');
       if(!hiraKey){ alert('심평원 API 키가 등록·반영되지 않았습니다.\n위의 "건강보험심사평가원 API" 카드에서 먼저 키를 입력하고 반영 버튼을 누르세요.'); return; }
       const schAddr=localStorage.getItem('ec_school_address')||'';
       if(!schAddr){ alert('기준위치(학교) 주소가 입력되지 않은 상태입니다.\n위 기준위치(학교) 주소를 먼저 입력해주세요.'); return; }
@@ -957,13 +969,15 @@ function _bindInputEvents(container){
 
   const resetAllBtn=container.querySelector('#apiKeysResetAllBtn');
   if(resetAllBtn){
-    resetAllBtn.addEventListener('click',function(){
-      if(!confirm('모든 API 키를 초기화하시겠습니까?\n\n지워지는 항목:\n· 기상청·에어코리아 키\n· 식약처 의약품 키\n· 카카오 REST·JavaScript 키\n· 심사평가원·응급의료 키\n· 특일정보 키 (공휴일 캐시 포함)\n· 학교 주소·지역명·측정소명\n\n(API 키 외의 보건일지 데이터는 영향받지 않습니다)')) return;
+    resetAllBtn.addEventListener('click',async function(){
+      if(!confirm('모든 API 키를 초기화하시겠습니까?\n\n지워지는 항목:\n· 공공데이터포털 공통 키와 기존 개별 키\n· 카카오 REST·JavaScript 키\n· 나이스 키\n· 학교 주소·지역명·측정소명\n· 공휴일 캐시\n\n(API 키 외의 보건일지 데이터는 영향받지 않습니다)')) return;
+      const commonReset=await savePublicDataApiKey('');
+      if(!commonReset.success){alert(commonReset.error);return;}
       const baseKeys=[
         'kma_api_key','airkorea_api_key','drug_api_key',
         'kakao_rest_api_key','kakao_js_api_key',
         'hira_api_key','emergency_api_key',
-        'holiday_api_key','neis_api_key','kdca_api_key',
+        'holiday_api_key','neis_api_key','kdca_api_key','uv_api_key',
         'school_address','user_region','airkorea_station'
       ];
       const keysToReset=[];
@@ -977,10 +991,21 @@ function _bindInputEvents(container){
         dbKeysToReset.push(k);
         dbKeysToReset.push(k+'_applied');
       });
-      keysToReset.forEach(function(k){localStorage.removeItem(k);});
-      if(window.electronAPI&&window.electronAPI.dbSet){
-        dbKeysToReset.forEach(function(k){window.electronAPI.dbSet('common',k,'').catch(function(){});});
+      resetAllBtn.disabled=true;
+      try{
+        await Promise.all(dbKeysToReset.map(async function(k){
+          const r=await window.electronAPI.dbSet('common',k,'');
+          if(!r||r.success!==true)throw new Error('reset_failed');
+          if(window.electronAPI.jsonSaveCommon){
+            const backup=await window.electronAPI.jsonSaveCommon(k,'');
+            if(!(typeof backup==='string'?!!backup:backup&&backup.success===true))throw new Error('backup_failed');
+          }
+        }));
+      }catch(_){
+        alert('일부 API 설정을 초기화하지 못했습니다. 공공데이터 연결은 중지되었습니다. 연결 상태를 확인하고 다시 초기화해 주세요.');
+        resetAllBtn.disabled=false;return;
       }
+      keysToReset.forEach(function(k){localStorage.removeItem(k);});
       /* 공휴일 캐시도 함께 비움 (학교 이동 시 옛 학교 PC 의 캐시가 따라가지 않도록).
          하드코딩 폐지로 전부 비움 — 키 재입력·반영 시 API 에서 다시 받음. */
       if(window.electronAPI&&window.electronAPI.statsDbHolidaysClear){
@@ -988,6 +1013,7 @@ function _bindInputEvents(container){
         try{ S.koreanHolidays={}; bus&&bus.emit&&bus.emit('render:calendar'); bus&&bus.emit&&bus.emit('holidays:updated'); }catch(_){}
       }
       if(window.persistWeatherToSettings)window.persistWeatherToSettings();
+      bus.emit('infectious:settings-changed');
       renderSettingsPanel('apikeys');
       bus&&bus.emit&&bus.emit('toast:show',{text:'모든 API 키가 초기화되었습니다'});
     });
@@ -1010,7 +1036,7 @@ function _bindInputEvents(container){
         }
         /* 하드코딩 폐지 — S.koreanHolidays 전체 비움(전부 API 재호출) */
         try{ S.koreanHolidays={}; bus&&bus.emit&&bus.emit('render:calendar'); bus&&bus.emit&&bus.emit('holidays:updated'); }catch(_){}
-        const key=(localStorage.getItem('ec_holiday_api_key')||'').trim();
+        const key=getPublicDataApiKey('holiday');
         if(!key){
           if(holStatusEl) holStatusEl.textContent='✓ 캐시 비움 — 키가 없어 재호출 생략 (공휴일 표시 안 됨)';
           holClearBtn.disabled=false; holClearBtn.textContent='🗑 캐시 비우기';
@@ -3155,7 +3181,8 @@ function _renderCopyrightTab(){
 /* ═══ 🔑 API 키 관리 탭 ═══ */
 function _renderApiKeysTab(){
   let h='<div class="settings-panel-title">🔑 API Key 관리</div>';
-  h+='<div class="settings-panel-desc">공공데이터포털에서 발급받은 API 키를 한곳에서 관리합니다.</div>';
+  h+='<div class="settings-panel-desc">공공데이터포털 키는 한 번만 저장하고, 각 서비스의 연결을 확인합니다.</div>';
+  h+=renderPublicDataSettings();
 
 
   /* API 키란 무엇인가 — 아코디언 */
@@ -3165,7 +3192,7 @@ function _renderApiKeysTab(){
   h+='<div style="display:none">';
   h+='<div style="padding:0 16px 16px;font-size:11px;color:var(--t2);line-height:1.9">';
   h+='<p style="margin-bottom:10px"><b style="color:var(--t1)">API 키가 뭔가요?</b><br>API 키는 외부 서비스(기상청, 에어코리아, 식약처 등)에서 데이터를 가져오기 위한 <b>본인 전용 인증 번호</b>입니다.<br>마치 도서관 회원증처럼, 이 번호가 있어야 해당 서비스의 데이터를 이용할 수 있습니다.</p>';
-  h+='<p style="margin-bottom:10px"><b style="color:var(--t1)">왜 각자 발급받아야 하나요?</b><br>공공데이터는 무료이지만, 너무 많은 요청이 한꺼번에 몰리지 않도록 <b>개인별 인증키</b>를 발급합니다.<br>하나의 키로 하루 약 10,000번 요청할 수 있어 학교 1곳에서 사용하기엔 충분합니다.</p>';
+  h+='<p style="margin-bottom:10px"><b style="color:var(--t1)">왜 각자 발급받아야 하나요?</b><br>공공데이터포털은 이용자를 식별하고 요청량을 관리하기 위해 <b>개인별 인증키</b>를 발급합니다.<br>동일 계정의 일반 인증키는 공통으로 사용하며, 서비스별 활용 신청과 호출 허용량은 각각 확인해야 합니다.</p>';
   h+='<p style="margin-bottom:10px"><b style="color:var(--t1)">발급 방법 (3분이면 됩니다)</b></p>';
   h+='<div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bdr);margin-bottom:10px">';
   h+='<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px"><span style="font-size:16px;flex-shrink:0">1\uFE0F\u20E3</span><span><b>data.go.kr 가입</b><br><a style="color:var(--cyan);cursor:pointer" data-action="openExternal" data-arg="https://www.data.go.kr/">공공데이터포털 (data.go.kr)</a>에 접속하여 회원가입합니다.</span></div>';
@@ -3190,6 +3217,7 @@ function _renderApiKeysTab(){
     return '<button type="button" data-api-apply="'+escHtml(lsKey)+'" style="padding:0 14px;border:none;border-radius:6px;background:'+bg+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s">'+label+'</button>';
   }
   function _apiCard(o){
+    if(publicDataServiceForKey(o.lsKey))return renderPublicDataService(o);
     const key=localStorage.getItem(o.lsKey)||'';
     const applied=_isApplied(o.lsKey);
     const badgeLabel=applied?'✓ 반영 완료':(key?'⚠ 반영 필요':'미등록');

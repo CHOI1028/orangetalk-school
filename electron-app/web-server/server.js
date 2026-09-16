@@ -25,6 +25,7 @@ const { exec } = require('child_process');
 
 const { createHealthDiaryDB } = require('../src/main/services/database');
 const { ServiceContainer } = require('../src/main/services/service-container');
+const { resolveStoredPublicDataApiKey, preparePublicDataProxyRequest } = require('../src/main/services/public-data-key-store');
 const { scopeKey: _scopePersonalKey, isPersonalKey: _isPersonalKey, migrateLegacyPersonalKeys: _migrateLegacyPersonalKeys } = require('../src/main/services/personal-keys');
 const { readSheet, writeSheet, getSheetMetadata, createSpreadsheet, batchUpdateSpreadsheet,
         driveListFolders, driveCreateFolder, driveMoveFile,
@@ -461,6 +462,12 @@ function _withFallback(clientVal, storedKey) {
   return (v != null && v !== '') ? v : '';
 }
 
+/* 공통 인증키를 호스트 저장소에서 매 요청 확인하여 오래된 공유 PC 키보다 우선한다.
+ * 공통 항목 미등록 시에만 이전 개별 키 폴백을 유지한다. */
+function _withPublicDataKey(clientValue, legacyKeys) {
+  return resolveStoredPublicDataApiKey(services.store(), clientValue, legacyKeys);
+}
+
 /* 개인 키 격리용 — 호출 컨텍스트에서 userId 추출.
  *   - 웹 클라이언트(sessionId 보유): 세션의 userId 사용. 미로그인이면 null.
  *   - Electron 메인(sessionId 없음): appConfig 의 currentUserId 사용. */
@@ -684,7 +691,7 @@ const handlers = {
   'stats-db-holidays-cached-years': () => ({ success: true, data: services.statsDB().getCachedHolidayYears() }),
   'stats-db-holidays-fetch': async (p) => {
     const o = p || {};
-    const key = String(o.serviceKey || '').trim();
+    const key = _withPublicDataKey(o.serviceKey, 'holiday_api_key');
     const yr = String(o.year || '').trim();
     if (!key) return { success: false, error: '특일정보 API 키가 없습니다 (설정 > API 관리에서 입력)' };
     if (!/^\d{4}$/.test(yr)) return { success: false, error: '연도 형식 오류 (YYYY)' };
@@ -964,15 +971,18 @@ const handlers = {
   'external-fetch-json': async (p) => {
     /* Electron과 동일한 success/data 계약 유지. HTTP 상태는 호출부에서 판별한다. */
     try {
-      if (!p.url) return { success: false, error: 'URL이 없습니다' };
+      const request = preparePublicDataProxyRequest(services.store(), p.url);
+      if (!request.success) return request;
+      if (!request.url) return { success: false, error: 'URL이 없습니다' };
       let parsed;
-      try { parsed = new URL(p.url); } catch { return { success: false, error: '유효하지 않은 URL' }; }
+      try { parsed = new URL(request.url); } catch { return { success: false, error: '유효하지 않은 URL' }; }
       if (parsed.protocol !== 'https:') return { success: false, error: 'HTTPS 프로토콜만 허용됩니다' };
       const host = parsed.hostname.toLowerCase();
       if (['localhost','127.0.0.1','0.0.0.0','[::1]'].includes(host) || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host)) {
         return { success: false, error: '내부 네트워크 접근이 차단되었습니다' };
       }
-      const res = await fetch(p.url, { headers: { 'User-Agent': 'OrangePharmDiary/1.0' }, signal: AbortSignal.timeout(8000) });
+      const res = await fetch(request.url, { headers: { 'User-Agent': 'OrangePharmDiary/1.0' }, signal: AbortSignal.timeout(8000),
+        ...(request.usesStoredKey ? { redirect: 'manual' } : {}) });
       const text = await res.text();
       return { success: true, data: text, status: res.status, contentType: res.headers.get('content-type') || '' };
     } catch (e) {
@@ -1260,8 +1270,8 @@ const handlers = {
     if (!kakaoRest) {
       return { success: false, error: '카카오 REST API 키가 등록되지 않았습니다. 호스트(또는 공용) PC 의 설정 → API 키 관리에서 카카오 REST API 키를 먼저 등록하고 카카오 어플리케이션의 카카오맵 서비스를 활성화(ON) 해 주세요.' };
     }
-    const hira = _withFallback(p.hiraKey, 'hira_api_key');
-    const emg = _withFallback(p.emergencyKey, 'emergency_api_key');
+    const hira = _withPublicDataKey(p.hiraKey, 'hira_api_key');
+    const emg = _withPublicDataKey(p.emergencyKey, 'emergency_api_key');
     const schoolAddr = _withFallback(p.schoolAddr, 'school_address');
     const schoolLat = _withFallback((p.schoolLat == null || p.schoolLat === '') ? '' : String(p.schoolLat), 'school_lat');
     const schoolLng = _withFallback((p.schoolLng == null || p.schoolLng === '') ? '' : String(p.schoolLng), 'school_lng');
@@ -1405,14 +1415,14 @@ const handlers = {
    *  키 폴백: 동료 PC 가 빈 키 보내도 호스트의 저장된 키로 호출. */
   'weather-kma': async (p) => {
     try {
-      const KEY = _withFallback(p.apiKey, 'kma_api_key');
+      const KEY = _withPublicDataKey(p.apiKey, 'kma_api_key');
       return { success: true, data: await services.weather().getKmaWeather(KEY, p.lat, p.lon) };
     }
     catch(e) { return { success: false, error: e.message }; }
   },
   'weather-uv-kma': async (p) => {
     try {
-      const KEY = _withFallback(p.kmaKey, 'uv_api_key') || _withFallback('', 'kma_api_key');
+      const KEY = _withPublicDataKey(p.kmaKey, ['uv_api_key', 'kma_api_key']);
       const restKey = _withFallback(p.kakaoRestKey, 'kakao_rest_api_key');
       return { success: true, data: await services.weather().getKmaUvByCoord(KEY, restKey, p.lat, p.lon) };
     }
@@ -1422,7 +1432,7 @@ const handlers = {
     try {
       /* 키·측정소 모두 호스트 blob 폴백 — 동료가 본인 PC localStorage 에 키·측정소
        * 입력 안 하고 빈 값으로 보내도 호스트가 등록한 값으로 호출 보장. */
-      const KEY = _withFallback(p.serviceKey, 'airkorea_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'airkorea_api_key');
       const STN = _withFallback(p.stationName, 'airkorea_station');
       return await services.externalApi().fetchAirkorea(KEY, STN);
     }
@@ -1435,7 +1445,7 @@ const handlers = {
   'external-fetch-drug-info': async (p) => {
     /* Electron 메인 서비스와 동일한 퍼지 매칭/에러 파싱 재사용 */
     try {
-      const KEY = _withFallback(p.serviceKey, 'drug_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'drug_api_key');
       return await services.externalApi().fetchDrugInfo(KEY, p.drugName);
     }
     catch(e) { return { success:false, error:e.message }; }
@@ -1443,28 +1453,28 @@ const handlers = {
   'external-search-drug-list': async (p) => {
     /* 약품 검색 팝업 자동완성 — e약은요 매칭 후보 50개. 키 폴백 동일. */
     try {
-      const KEY = _withFallback(p.serviceKey, 'drug_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'drug_api_key');
       return await services.externalApi().searchDrugList(KEY, p.query);
     }
     catch(e) { return { success:false, error:e.message }; }
   },
   'external-fetch-med-facilities': async (p) => {
     try {
-      const KEY = _withFallback(p.serviceKey, 'hira_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'hira_api_key');
       return await services.externalApi().fetchMedFacilities(KEY, p.params);
     }
     catch(e) { return { success:false, error:e.message }; }
   },
   'external-fetch-emergency': async (p) => {
     try {
-      const KEY = _withFallback(p.serviceKey, 'emergency_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'emergency_api_key');
       return await services.externalApi().fetchEmergencyInfo(KEY, p.params);
     }
     catch(e) { return { success:false, error:e.message }; }
   },
   'external-fetch-emergency-detail': async (p) => {
     try {
-      const KEY = _withFallback(p.serviceKey, 'emergency_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'emergency_api_key');
       const results = await Promise.all(p.hpids.map(id => services.externalApi().fetchEmergencyDetail(KEY, id)));
       return { success:true, data: results.filter(r => r) };
     }
@@ -1561,7 +1571,7 @@ const handlers = {
    *  렌더러가 측정소명 입력 시 좌표/주소 자동 채움에 사용. 서버측 키 폴백 동일. */
   'external-fetch-airkorea-station-info': async (p) => {
     try {
-      const KEY = _withFallback(p.serviceKey, 'airkorea_api_key');
+      const KEY = _withPublicDataKey(p.serviceKey, 'airkorea_api_key');
       return await services.externalApi().fetchAirkoreaStationInfo(KEY, p.stationName);
     } catch (err) { return { success: false, error: err.message }; }
   },
@@ -1574,8 +1584,8 @@ const handlers = {
     try {
       /* 다른 외부 API 핸들러와 동일한 키 폴백 정책 — 동료(웹 클라이언트) 가
        * 빈 키 보내도 호스트의 저장된 hira/emergency 키로 호출 보장. */
-      const hira = _withFallback(p.serviceKey, 'hira_api_key');
-      const emg  = _withFallback(p.emergencyKey, 'emergency_api_key');
+      const hira = _withPublicDataKey(p.serviceKey, 'hira_api_key');
+      const emg  = _withPublicDataKey(p.emergencyKey, 'emergency_api_key');
       const res = await services.externalApi().bulkFetchMedFacilitiesInRadius(
         hira, emg, p.params,
         function(_progress){ /* REST 응답엔 진행률을 흘릴 수 없어 무시 */ }

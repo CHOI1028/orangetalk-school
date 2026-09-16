@@ -5,6 +5,7 @@ import { renderSettingsPanel } from '../settings/settings-view.js';
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { S } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
+import { getPublicDataApiKey, hasPublicDataApiKeySetting } from '../../core/public-data-settings.js';
 
 /* ═══════════════════════════════════════
    HEADER WIDGET — cycling brand, piljeok, weather
@@ -765,7 +766,7 @@ function fetchWeather(){
         }
         localStorage.setItem('ec_weather_actual_source','openmeteo');
         /* 미세먼지: 에어코리아 키+측정소 있으면 우선 사용, 실패 시 Open-Meteo 폴백 */
-        const _airKey=(localStorage.getItem('ec_airkorea_api_key')||'').trim();
+        const _airKey=getPublicDataApiKey('airkorea');
         const _airStn=(localStorage.getItem('ec_airkorea_station')||'').trim();
         function _applyOpenMeteoDust(){
           if(aq&&aq.current&&(aq.current.pm10!==undefined||aq.current.pm2_5!==undefined)){
@@ -910,7 +911,7 @@ function _kmaSkyToEmoji(sky,pty){
   return{emoji:'🌤️',text:'맑음'};
 }
 function fetchWeatherKMA(){
-  const apiKey=localStorage.getItem('ec_kma_api_key')||'';
+  const apiKey=getPublicDataApiKey('kma');
   if(!apiKey){
     /* KMA 키 없으면 Open-Meteo로 폴백 (설정값은 유지) */
     _fetchWeatherOpenMeteo();
@@ -922,7 +923,7 @@ function fetchWeatherKMA(){
     /* 자외선지수 — 기상청 생활기상지수 API(data.go.kr) + 카카오 좌표→지역코드 (학교망에서 open-meteo 차단되어도 작동).
      *  실패 시에만 open-meteo 로 폴백. (사용자 보고/지시 2026-06-17) */
     if(window.electronAPI&&window.electronAPI.weatherUvKma){
-      window.electronAPI.weatherUvKma((localStorage.getItem('ec_uv_api_key')||apiKey),(localStorage.getItem('ec_kakao_rest_api_key')||''),lat,lon).then(function(r){
+      window.electronAPI.weatherUvKma(getPublicDataApiKey('uv'),(localStorage.getItem('ec_kakao_rest_api_key')||''),lat,lon).then(function(r){
         if(r&&r.success&&r.data&&r.data.uv!=null){ _setHeaderUv(r.data.uv); return; }
         /* 실패해도 직전 캐시값(ec_uvIndex)이 있으면 그대로 표시 중이므로 조용히. 캐시도 없을 때만 경고. */
         if(!(localStorage.getItem('ec_uvIndex')||'').trim()) console.warn('[WEATHER-UV-KMA] 미표시:', JSON.stringify(r));
@@ -987,7 +988,7 @@ function fetchWeatherKMA(){
     /* ② 에어코리아 미세먼지 (측정소명 기반).
      *  웹 클라이언트(__isWebBrowser) 는 본인 PC localStorage 가 비어 있어도 호출 시도 —
      *  server.js 의 external-fetch-airkorea 가 키·측정소 모두 호스트 blob 으로 폴백한다. */
-    const airKey=localStorage.getItem('ec_airkorea_api_key')||'';
+    const airKey=getPublicDataApiKey('airkorea');
     const airStation=localStorage.getItem('ec_airkorea_station')||'';
     if((airKey&&airStation)||window.__isWebBrowser){
       window.electronAPI.externalFetchAirkorea(airKey,airStation).then(function(res){
@@ -1044,7 +1045,7 @@ function _fetchWeatherOpenMeteo(){
         _setHeaderWeather(wmoToEmoji(code),wmoToText(code),temp,hi,lo);
       }
       /* 미세먼지: 에어코리아 키+측정소 우선 */
-      const _airKey2=(localStorage.getItem('ec_airkorea_api_key')||'').trim();
+      const _airKey2=getPublicDataApiKey('airkorea');
       const _airStn2=(localStorage.getItem('ec_airkorea_station')||'').trim();
       function _applyOm(){
         if(aq&&aq.current&&(aq.current.pm10!==undefined||aq.current.pm2_5!==undefined)){
@@ -1074,8 +1075,8 @@ function _persistWeatherToSettings(){
   if(!S.settings.weather)S.settings.weather={};
   S.settings.weather.source=localStorage.getItem('ec_weather_source')||'';
   S.settings.weather.show=localStorage.getItem('ec_weather_show')||'';
-  S.settings.weather.kmaApiKey=localStorage.getItem('ec_kma_api_key')||'';
-  S.settings.weather.airkoreaApiKey=localStorage.getItem('ec_airkorea_api_key')||'';
+  S.settings.weather.kmaApiKey=getPublicDataApiKey('kma');
+  S.settings.weather.airkoreaApiKey=getPublicDataApiKey('airkorea');
   S.settings.weather.userRegion=localStorage.getItem('ec_user_region')||'';
   S.settings.weather.airkoreaStation=localStorage.getItem('ec_airkorea_station')||'';
   if(window.electronAPI&&window.electronAPI.jsonSaveCommon){
@@ -1098,6 +1099,8 @@ setTimeout(function(){
     'ec_airkorea_station':w.airkoreaStation
   };
   Object.keys(map).forEach(function(k){
+    /* 공통 키 등록/삭제 뒤에는 예전 settings.json 키를 되살리지 않는다. */
+    if((k==='ec_kma_api_key'||k==='ec_airkorea_api_key')&&hasPublicDataApiKeySetting())return;
     if(localStorage.getItem(k))return;/* 이미 있으면 유지 */
     const v=map[k];
     if(v!=null&&v!==''){
@@ -1203,8 +1206,8 @@ function _renderWeatherCard(){
   const _wActual=localStorage.getItem('ec_weather_actual_source')||'';
   const _dActual=localStorage.getItem('ec_dust_source')||'';
   const _wSrc=localStorage.getItem('ec_weather_source')||'openmeteo';
-  const _kmaKey=(localStorage.getItem('ec_kma_api_key')||'').trim();
-  const _airKey=(localStorage.getItem('ec_airkorea_api_key')||'').trim();
+  const _kmaKey=getPublicDataApiKey('kma');
+  const _airKey=getPublicDataApiKey('airkorea');
   const _airStn=(localStorage.getItem('ec_airkorea_station')||'').trim();
   const _wSrcLabel=_wActual==='kma'?'기상청':_wActual==='openmeteo'?'OPEN METEO':((_wSrc==='kma'&&_kmaKey)?'기상청':'OPEN METEO');
   const _dSrcLabel=_dActual==='airkorea'?'에어코리아':_dActual==='openmeteo'?'OPEN METEO':((_airKey&&_airStn)?'에어코리아':'OPEN METEO');

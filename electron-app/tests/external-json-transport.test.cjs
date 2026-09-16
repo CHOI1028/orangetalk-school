@@ -5,11 +5,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { preparePublicDataProxyRequest } = require('../src/main/services/public-data-key-store');
 
 // Extract only the production functions: never start Electron/the web server or use real API keys.
 const serviceSource = fs.readFileSync(path.join(__dirname, '../src/main/services/external-api-service.js'), 'utf8');
 const serverSource = fs.readFileSync(path.join(__dirname, '../web-server/server.js'), 'utf8');
-const serviceMatch = serviceSource.match(/  async fetchJson\(url\) \{[\s\S]*?\n  \}/);
+const serviceMatch = serviceSource.match(/  async fetchJson\(url, options = \{\}\) \{[\s\S]*?\n  \}/);
 const serverMatch = serverSource.match(/  'external-fetch-json': async \(p\) => \{[\s\S]*?\n  \},/);
 assert.ok(serviceMatch, 'Production ExternalApiService.fetchJson must be found');
 assert.ok(serverMatch, 'Production external-fetch-json web handler must be found');
@@ -30,6 +31,8 @@ function harness(implementation, fetchImpl) {
   const signal = { synthetic: true };
   const invoke = vm.runInNewContext(implementation.expression, {
     URL,
+    preparePublicDataProxyRequest,
+    services: { store: () => ({ get: () => ({ exists: false, data: null }) }) },
     AbortSignal: { timeout(ms) { timeouts.push(ms); return signal; } },
     fetch: async (url, options) => {
       calls.push({ url, options });

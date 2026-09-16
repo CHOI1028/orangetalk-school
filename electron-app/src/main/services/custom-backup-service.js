@@ -69,6 +69,12 @@ class CustomBackupService {
     KEYS.collect('appDataCommonKeys', selectedIds).forEach(key => {
       try {
         const val = this._store.get('common', key);
+        if (key === 'public_data_api_key') {
+          /* 공통 키는 미등록/명시적 비움 상태가 다르므로 wrapper 자체를 저장하지 않는다. */
+          if (typeof val === 'string') cdObj[key] = val;
+          else if (val && val.exists && typeof val.data === 'string') cdObj[key] = val.data;
+          return;
+        }
         if (val !== undefined && val !== null) cdObj[key] = val;
       } catch (e) { /* 키 없으면 skip */ }
     });
@@ -190,7 +196,15 @@ class CustomBackupService {
       }
       Object.keys(cdObj).forEach(key => {
         try {
-          this._store.set('common', key, cdObj[key]);
+          let value = cdObj[key];
+          if (key === 'public_data_api_key') {
+            if (value && typeof value === 'object') {
+              if (!value.exists) return;
+              value = value.data;
+            }
+            if (typeof value !== 'string') return;
+          }
+          this._store.set('common', key, value);
           cdCount++;
         } catch (e) {
           console.warn('[custom-backup-import] app-data set 실패:', key, e.message);

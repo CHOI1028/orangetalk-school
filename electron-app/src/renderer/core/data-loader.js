@@ -16,6 +16,23 @@ import { _reloadStudentsFromDB } from './student-utils.js';
 import { _recToDbRow } from './record-utils.js';
 import { _pushRosterToRelay, _checkKioskRosterStale, _scheduleDailyRosterCheck } from './kiosk-roster.js';
 import { getSvWorkspaceCache } from '../features/survey/survey-view.js';
+import { loadPublicDataApiKey } from './public-data-settings.js';
+
+/* 공통 인증키는 빈 값도 유효한 '연결 중지' 설정이다. 범용 빈 값 복구/주기 쓰기를 거치지 않는다. */
+let _publicDataLoad=null;
+function _refreshPublicDataKey(){
+  if(_publicDataLoad)return _publicDataLoad;
+  const before=localStorage.getItem('ec_public_data_api_key');
+  _publicDataLoad=loadPublicDataApiKey().then(function(result){
+    if(result.success&&before!==localStorage.getItem('ec_public_data_api_key')){
+      bus.emit('infectious:settings-changed');
+      bus.emit('holidays:updated');
+      if(window.fetchWeather)setTimeout(window.fetchWeather,100);
+    }
+  }).catch(function(){ /* 네트워크 실패 시 기존 캐시 유지. 키·오류 원문은 출력하지 않는다. */ })
+    .finally(function(){_publicDataLoad=null;});
+  return _publicDataLoad;
+}
 
 /* 보건일지·응급·감염 기록 및 명단의 연도는 언제나 '학년도' — 3월 1일 시작(달력 연도 아님).
    예) 2025-02-26 → 2024학년도. 기록은 학년도 blob 단위로 저장되므로 로드/저장 연도가 학년도여야
@@ -461,7 +478,13 @@ function _peopleSig(){
   let h=ppl.length|0;
   for(let i=0;i<ppl.length;i++){
     const p=ppl[i]||{};
-    const str=(p.uid||'')+'|'+(p.name||'')+'|'+(p.type||'')+'|'+(p.grade||'')+'|'+(p.cls||'')+'|'+(p.num||'')+'|'+(p.department||'')+'|'+(p.level||'')+'|'+(p.position||'')+'|'+(p.gender||'')+'|'+(p.is_care||'')+'|'+(p.care_reason||'')+'|'+(p.dust_disease||'')+'|'+(p.med_consent||'')+'|'+(p.emergency_consent||'');
+    /* DB 재조회는 camel 필드, 저장 확인 응답은 snake 필드도 사용한다. 어느 경로든
+       같은 내용은 같은 해시로 비교하고, 요보호 메모만 바뀐 경우도 화면에 반영한다. */
+    const isCare=p.is_care!=null?Number(p.is_care)===1:(p.status==='caution'||p.status==='watch');
+    const careReason=p.care_reason!=null?p.care_reason:(p.condition||'');
+    const dustDisease=p.dust_disease!=null?p.dust_disease:(p.dustDisease||'');
+    const careMemo=p.care_memo!=null?p.care_memo:(p.careMemo||'');
+    const str=(p.uid||'')+'|'+(p.name||'')+'|'+(p.type||'')+'|'+(p.grade||'')+'|'+(p.cls||'')+'|'+(p.num||'')+'|'+(p.department||'')+'|'+(p.level||'')+'|'+(p.position||'')+'|'+(p.gender||'')+'|'+(isCare?'1':'0')+'|'+careReason+'|'+dustDisease+'|'+careMemo+'|'+(p.med_consent||'')+'|'+(p.emergency_consent||'');
     for(let j=0;j<str.length;j++){h=(h*31+str.charCodeAt(j))|0;}
   }
   return h;
@@ -470,6 +493,7 @@ function _startRealtimeSync(){
   if(_dbSyncTimer)return;
   _fullRefreshFn=function(){
     if(!window.electronAPI)return;
+    _refreshPublicDataKey();
     const yr=String(_academicYear());
     _mergeRecordsFromDB(window.electronAPI.recordsGetDaily,'records',yr);
     _mergeRecordsFromDB(window.electronAPI.recordsGetEmergency,'ecRecords',yr);
@@ -552,6 +576,7 @@ if(window.__isWebBrowser){
 }
 
 function _doBackendLoad(yr){
+  _refreshPublicDataKey();
   _reloadStudentsFromDB().then(function(){
     if(S.people.length>0){
       console.log('[DB] people: '+S.people.length+'명 (재학중)');

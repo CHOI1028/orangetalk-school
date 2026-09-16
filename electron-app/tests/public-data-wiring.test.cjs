@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { resolveStoredPublicDataApiKey } = require('../src/main/services/public-data-key-store');
 
 // Run production handlers in isolation: never start Electron, a server, or real network requests.
 const root = path.resolve(__dirname, '..');
@@ -23,13 +24,16 @@ function functionSource(source, name) {
 const storedMainSource = functionSource(mainSource, '_getStoredCommonString');
 const storedServerSource = functionSource(serverSource, '_getStoredCommon');
 const fallbackSource = functionSource(serverSource, '_withFallback');
+const publicMainSource = functionSource(mainSource, '_getPublicDataApiKey');
+const publicServerSource = functionSource(serverSource, '_withPublicDataKey');
 
 function webHarness(channel, { stored = {}, external = {}, weather = {} } = {}) {
   const match = serverSource.match(new RegExp("  '" + channel + "': async \\(p\\) => \\{[\\s\\S]*?\\n  \\},"));
   assert.ok(match, 'Production web handler must exist: ' + channel);
   const reads = [];
-  const invoke = vm.runInNewContext(storedServerSource + '\n' + fallbackSource
+  const invoke = vm.runInNewContext(storedServerSource + '\n' + fallbackSource + '\n' + publicServerSource
     + '\n({' + match[0] + '})[' + JSON.stringify(channel) + ']', {
+    resolveStoredPublicDataApiKey,
     services: {
       store: () => ({ get(scope, key) {
         reads.push({ scope, key });
@@ -68,7 +72,7 @@ for (const route of flatRoutes) {
       });
       assert.deepEqual(await h.run({ ...route.input, serviceKey: provided }), route.result);
       assert.deepEqual(calls, [[expected, route.argument]]);
-      if (provided) assert.equal(h.reads.length, 0, 'Host storage must not override an explicitly provided key');
+      if (provided) assert.deepEqual(h.reads, [{ scope: 'common', key: 'public_data_api_key' }], 'Only the common key is checked before an explicitly provided legacy key');
     });
   }
   test(route.channel + ': forwards service failure without false success wrapper', async () => {
@@ -185,10 +189,11 @@ for (const provided of ['CLIENT_KAKAO', '']) {
     assert.ok(match, 'Production main UV IPC handler must exist');
     let invoke;
     const calls = [], reads = [];
-    vm.runInNewContext(storedMainSource + '\n' + match[0], {
+    vm.runInNewContext(storedMainSource + '\n' + publicMainSource + '\n' + match[0], {
+      resolveStoredPublicDataApiKey,
       ipcMain: { handle(channel, handler) { assert.equal(channel, 'weather-uv-kma'); invoke = handler; } },
       services: {
-        store: () => ({ get(scope, key) { reads.push([scope, key]); return { exists: true, data: 'HOST_KAKAO' }; } }),
+        store: () => ({ get(scope, key) { reads.push([scope, key]); return key === 'kakao_rest_api_key' ? { exists: true, data: 'HOST_KAKAO' } : { exists: false, data: null }; } }),
         weather: () => ({ getKmaUvByCoord: async (...args) => { calls.push(args); return { uv: 5 }; } })
       }
     });
@@ -196,7 +201,7 @@ for (const provided of ['CLIENT_KAKAO', '']) {
       success: true, data: { uv: 5 }
     });
     assert.deepEqual(calls, [[clientKey, provided || 'HOST_KAKAO', 36.5, 127]]);
-    assert.deepEqual(reads, provided ? [] : [['common', 'kakao_rest_api_key']]);
+    assert.deepEqual(reads, (provided ? [] : [['common', 'kakao_rest_api_key']]).concat([['common', 'public_data_api_key']]));
   });
 }
 
@@ -206,11 +211,12 @@ assert.ok(prefetchStart >= 0 && prefetchEnd > prefetchStart, 'Production emergen
 const prefetchSource = mainSource.slice(prefetchStart, prefetchEnd);
 function prefetchHarness(key, list, detail) {
   const lists = [], details = [];
-  const invoke = vm.runInNewContext(storedMainSource + '\n(async () => {\n' + prefetchSource + '\nreturn emgDetails; })', {
+  const invoke = vm.runInNewContext(storedMainSource + '\n' + publicMainSource + '\n(async () => {\n' + prefetchSource + '\nreturn emgDetails; })', {
+    resolveStoredPublicDataApiKey,
     lat: '36.5', lng: '127',
     console: { log() {} },
     services: {
-      store: () => ({ get: () => ({ exists: true, data: key }) }),
+      store: () => ({ get: (scope, storedKey) => storedKey === 'emergency_api_key' ? { exists: true, data: key } : { exists: false, data: null } }),
       externalApi: () => ({
         fetchEmergencyInfo: async (received, params) => { lists.push([received, plain(params)]); return list(params.pageNo); },
         fetchEmergencyDetail: async (received, hpid) => { details.push([received, hpid]); return detail(hpid); }

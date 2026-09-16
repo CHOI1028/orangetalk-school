@@ -2,6 +2,7 @@
 /* ES Module */
 import { escHtml, escJs, appConfirmModal } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
+import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { renderSettingsPanel, openAccordion } from './settings-view.js';
 import { matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
 import { getSymData, _symPrompt, getMedSystemSyms, refreshMedHidden, getEffectiveSymCats, getEffectiveSymCatById } from '../symptom/symptom-view.js';
@@ -397,12 +398,7 @@ export function _bindDiaryTabEvents(){
   /* drug API link */
   const drugLink=document.querySelector('[data-action="open-drug-api-link"]');
   if(drugLink)drugLink.addEventListener('click',function(e){e.preventDefault();if(window.electronAPI&&window.electronAPI.openExternal)window.electronAPI.openExternal('https://www.data.go.kr/data/15075057/openapi.do');});
-  /* drug API key input focus/blur */
-  const drugInput=document.getElementById('drugApiKeyInput');
-  if(drugInput){
-    drugInput.addEventListener('focus',function(){if(!this.dataset.shown){this.value=localStorage.getItem('ec_drug_api_key')||'';this.dataset.shown='1';}});
-    drugInput.addEventListener('blur',function(){const v=this.value.trim();localStorage.setItem('ec_drug_api_key',v);if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','drug_api_key',v);if(v)this.value='••••••••'+v.slice(-8);this.dataset.shown='';});
-  }
+  /* 인증키 입력·저장은 API 관리의 공공데이터포털 공통 입력란에서만 처리한다. */
   /* test drug API button */
   const testDrugBtn=document.querySelector('[data-action="test-drug-api"]');
   if(testDrugBtn)testDrugBtn.addEventListener('click',function(){_testDrugApiKey();});
@@ -736,9 +732,9 @@ function _bulkUpdateUI(done, total, currentName){
 export async function _setMedBulkFetchStart(isUpdate){
   if(_bulkFetchRunning)return;
   let apiKey='';
-  try{apiKey=localStorage.getItem('ec_drug_api_key')||'';}catch(e){}
+  try{apiKey=getPublicDataApiKey('drug');}catch(e){}
   if(!apiKey){
-    alert('식약처 e약은요 API 키가 등록되지 않았습니다.\n\n설정 > API 키 설정에서 먼저 키를 등록해주세요.\n(공공데이터포털 https://data.go.kr 에서 무료 발급)');
+    alert('공공데이터포털 인증키가 등록되지 않았습니다.\n\n설정 > API 키 설정에서 공통 인증키를 등록하고, 식약처 e약은요 서비스의 활용 신청을 완료해 주세요.');
     return;
   }
   /* 시스템 약품 목록 로드 — medical-data.json 의 medicationDB 가 단일 출처 */
@@ -990,7 +986,7 @@ async function _fetchAndCacheDrugFromEyakey(drugName){
 
     /* 3) 사용자가 저장해둔 API 키 확인 */
     let drugKey='';
-    try{ drugKey=localStorage.getItem('ec_drug_api_key')||''; }catch(e){}
+    try{ drugKey=getPublicDataApiKey('drug'); }catch(e){}
     if(!drugKey){
       /* 키가 없어도 사용자 매핑은 유지. API 등재는 불가. 큐에서 제거하지 않음 — 나중에 키 등록되면 재개. */
       _toast('💊 '+drugName+' 추가됨 (API 키 미등록 — 식약처 키를 설정하면 상세정보가 자동 등재됩니다)', false);
@@ -2219,7 +2215,7 @@ function saveDeptMap(){
 
 /* ── 식약처 API 연결 테스트 ── */
 export function _testDrugApiKey(){
-  const key=localStorage.getItem('ec_drug_api_key')||'';
+  const key=getPublicDataApiKey('drug');
   const el=document.getElementById('drugApiTestResult');
   if(!key){if(el)el.innerHTML='<span style="color:#dc2626">❌ API 키가 입력되지 않았습니다.</span>';return;}
   if(el)el.innerHTML='<span style="color:var(--cyan)">⏳ 테스트 중...</span>';

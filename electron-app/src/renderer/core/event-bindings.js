@@ -8,6 +8,7 @@
 
 /* ── core ── */
 import { S } from './app-state.js';
+import { getPublicDataApiKey } from './public-data-settings.js';
 import {
   showHeaderTooltip, hideHeaderTooltip, toggleColSelector,
   closeInfForm,
@@ -235,8 +236,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const schoolName=_cu.school_name||S.settings.schoolName||'';
     const eduOffice=_cu.edu_office||S.settings.eduOffice||'';
     const schoolAddr=_cu.school_address||S.settings.schoolAddress||'';
-    const hiraKey=localStorage.getItem('ec_hira_api_key')||'';
-    const emgKey=localStorage.getItem('ec_emergency_api_key')||'';
+    const hiraKey=getPublicDataApiKey('hira');
+    const emgKey=getPublicDataApiKey('emergency');
     const kakaoRest=localStorage.getItem('ec_kakao_rest_api_key')||'';
     const kakaoJs=localStorage.getItem('ec_kakao_js_api_key')||'';
     /* 웹 클라이언트(동료 PC) 는 카드리스트 모드(SDK 미사용) + 서버 blob 폴백으로 동작 → 가드 우회.

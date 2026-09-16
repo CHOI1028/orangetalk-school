@@ -2,6 +2,7 @@
 /* ES Module */
 import { getStu, escHtml, escJs, getGuardianContact, getStudentBirth, getDeptForSymptom, saveData, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { openA4PrintDialog, saveA4Pdf } from '../../core/a4-print-dialog.js';
+import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 /* visit-pass-view 는 visit-pass-editor → symptom-view 의 circular dependency 가 있어
  * 물품 대여(rental-ledger)와 동일하게 dynamic import 로 우회 (커스텀 양식 칩 2026-06-12). */
 import { bus } from '../../core/event-bus.js';
@@ -1187,7 +1188,7 @@ export function openSymptomCategoryPopup(recId, opts){
         const _schAddr=localStorage.getItem('ec_school_address')||'';
         const _schLat=localStorage.getItem('ec_school_lat')||'';
         const _schLng=localStorage.getItem('ec_school_lng')||'';
-        window.electronAPI.openMedFacility(sn,eo,localStorage.getItem('ec_hira_api_key')||'',localStorage.getItem('ec_emergency_api_key')||'',_schAddr,undefined,kakaoRest,kakaoJs,_schLat,_schLng);
+        window.electronAPI.openMedFacility(sn,eo,getPublicDataApiKey('hira'),getPublicDataApiKey('emergency'),_schAddr,undefined,kakaoRest,kakaoJs,_schLat,_schLng);
       }
     }
     else if(action==='openEmsMsg'){_symOpenEmsMsg(btn.dataset.stuId,parseInt(btn.dataset.recId));}
@@ -5511,7 +5512,7 @@ function _showDrugInfo(drugName){
   if(!drugName)return;
   /* 기존 팝업 제거 */
   const old=document.getElementById('drugInfoPopup');if(old)old.remove();
-  const apiKey=localStorage.getItem('ec_drug_api_key')||'';
+  const apiKey=getPublicDataApiKey('drug');
   const pop=document.createElement('div');pop.id='drugInfoPopup';
   pop.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.92);opacity:0;background:var(--card);border:1px solid var(--cyan);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.35);width:420px;max-height:520px;z-index:9700;display:flex;flex-direction:column;overflow:hidden;transition:opacity .18s ease,transform .18s ease';
   const hdr='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px">'
@@ -5651,7 +5652,7 @@ function _drugChoseongMatch(name,query){
 }
 export function openDrugSearchPopup(){
   const oldOv=document.getElementById('drugSearchOverlay');if(oldOv){oldOv.remove();return;}
-  const apiKey=localStorage.getItem('ec_drug_api_key')||'';
+  const apiKey=getPublicDataApiKey('drug');
 
   /* 외곽 오버레이 + 내부 카드 구조 (다른 모달과 동일 패턴) — zoom 호환 */
   const ov=document.createElement('div');ov.id='drugSearchOverlay';

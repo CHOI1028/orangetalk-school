@@ -66,7 +66,55 @@ class StudentsDBService {
 
   /* ──────────── 저장 ──────────── */
 
+  /** 요보호 전용 부분 수정. 학생 정체성/재학 정보는 절대 새로 만들거나 덮어쓰지 않는다. */
+  updateCare(year, data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) ||
+        typeof data.uid !== 'string' || !data.uid.trim()) {
+      return { success: false, code: 'CARE_INVALID_INPUT', error: '요보호를 수정할 학생을 다시 선택해 주세요.' };
+    }
+    const owns = (key) => Object.prototype.hasOwnProperty.call(data, key);
+    for (const key of ['care_reason', 'dust_disease', 'care_memo']) {
+      if (owns(key) && typeof data[key] !== 'string') {
+        return { success: false, code: 'CARE_INVALID_INPUT', error: '요보호 질환명과 메모는 글자로 입력해 주세요.' };
+      }
+    }
+    const clear = data._clearCare === true || data._clearCare === 'true';
+    const reasonSet = owns('care_reason');
+    try {
+      /* 한 SQL문 안에서 누락 필드는 현재 DB값 유지. 다른 PC의 직전 수정도 덮어쓰지 않는다.
+         재적 명단에서 삭제된 학생/다른 학년도/없는 UID는 수정하지 않고 오류를 반환한다. */
+      const care = this._db.db.prepare(`
+        UPDATE students_info SET
+          is_care = CASE WHEN @clear = 1 THEN 0 WHEN @reasonSet = 1 THEN @isCare ELSE is_care END,
+          care_reason = CASE WHEN @clear = 1 THEN '' WHEN @reasonSet = 1 THEN @reason ELSE care_reason END,
+          dust_disease = CASE WHEN @clear = 1 THEN '' WHEN @dustSet = 1 THEN @dust ELSE dust_disease END,
+          care_memo = CASE WHEN @clear = 1 THEN '' WHEN @memoSet = 1 THEN @memo ELSE care_memo END,
+          updated_at = @now
+        WHERE uid = @uid AND school_year = @year AND is_enrolled = 1
+          AND EXISTS (SELECT 1 FROM students WHERE students.uid = students_info.uid)
+        RETURNING is_care,
+          COALESCE(care_reason, '') AS care_reason,
+          COALESCE(dust_disease, '') AS dust_disease,
+          COALESCE(care_memo, '') AS care_memo
+      `).get({
+        uid: data.uid, year: this._yr(year), now: this._db.now(),
+        clear: clear ? 1 : 0, reasonSet: reasonSet ? 1 : 0,
+        isCare: reasonSet && data.care_reason.trim() ? 1 : 0,
+        reason: reasonSet ? data.care_reason : '',
+        dustSet: owns('dust_disease') ? 1 : 0, dust: owns('dust_disease') ? data.dust_disease : '',
+        memoSet: owns('care_memo') ? 1 : 0, memo: owns('care_memo') ? data.care_memo : '',
+      });
+      if (!care) {
+        return { success: false, code: 'CARE_STUDENT_NOT_FOUND', error: '해당 학년도 재적 학생을 찾을 수 없습니다. 명단을 새로고침한 뒤 다시 선택해 주세요.' };
+      }
+      return { success: true, uid: data.uid, care };
+    } catch (_error) {
+      return { success: false, code: 'CARE_SAVE_FAILED', error: '요보호 정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+  }
+
   upsert(year, data) {
+    if (data && (data._careOnly === true || data._careOnly === 'true')) return this.updateCare(year, data);
     /* 입력 검증 */
     const v = HealthDiaryDB.validateStudent(data);
     if (!v.valid) return { success: false, error: v.errors.join('; ') };

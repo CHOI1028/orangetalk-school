@@ -11,6 +11,7 @@
  *   window._stateLog()     — 최근 변경 이력 조회
  */
 import { bus } from './event-bus.js';
+import { getPublicDataApiKey } from './public-data-settings.js';
 
 /* ═══ CONSTANTS ═══ */
 export const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
@@ -163,7 +164,7 @@ export function ensureHolidayYear(year) {
   }
   if (_holidayInflight.has(yr)) return;
   let key = '';
-  try { key = (localStorage.getItem('ec_holiday_api_key') || '').trim(); } catch (_) {}
+  try { key = getPublicDataApiKey('holiday'); } catch (_) {}
   if (!key) return; /* 키 없으면 조용히 종료 — 그 연도 휴일은 표시 안 함 */
   if (!window.electronAPI || !window.electronAPI.statsDbHolidaysFetch) return;
   _holidayInflight.add(yr);
@@ -184,7 +185,7 @@ export function ensureHolidayYear(year) {
    · 성공한 경우에만 true 반환 → 호출부에서 그때만 타임스탬프 기록(네트워크 실패 시 다음 부팅 재시도). */
 async function _refreshFutureHolidays() {
   let key = '';
-  try { key = (localStorage.getItem('ec_holiday_api_key') || '').trim(); } catch (_) {}
+  try { key = getPublicDataApiKey('holiday'); } catch (_) {}
   if (!key) return false;
   if (!window.electronAPI || !window.electronAPI.statsDbHolidaysFetch) return false;
   const curYr = new Date().getFullYear();

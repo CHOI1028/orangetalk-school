@@ -443,7 +443,7 @@ export function _bindRetentionTabEvents(){
                 'ec_cdkey_license', 'ec_cdkey', 'ec_cdkey_activated', 'ec_cdkey_notify',
                 'ec_theme','ec_bg_mode','ec_bg_selected','ec_bg_custom','ec_bg_random_daily','ec_bg_random_weekly', /* 배경·테마 UI */
                 'ec_header_glass','ec_footer_glass','ec_font_scale','ec_hdr_msg_interval','ec_hdr_msg_list','ec_header_msgs_user','ec_footer_msgs', /* 헤더·푸터·폰트 UI */
-                'ec_weather_source','ec_kma_api_key','ec_airkorea_api_key','ec_drug_api_key','ec_hira_api_key','ec_emergency_api_key','ec_kakao_js_api_key','ec_kakao_rest_api_key','ec_neis_api_key','ec_kdca_api_key', /* API 키 */
+                'ec_weather_source','ec_public_data_api_key','ec_kma_api_key','ec_airkorea_api_key','ec_drug_api_key','ec_hira_api_key','ec_emergency_api_key','ec_kakao_js_api_key','ec_kakao_rest_api_key','ec_neis_api_key','ec_kdca_api_key', /* API 키 */
                 'ec_meal_popup_on','ec_meal_popup_time','ec_neis_school_code','ec_neis_office_code','ec_neis_school_name','ec_neis_school_kind', /* 급식 자동 팝업 설정·학교코드·학교급 캐시 (2026-06-17) */
                 'ec_academic_color','ec_acad_popup_on','ec_acad_popup_when','ec_acad_popup_time', /* 학사일정 색상·자동 팝업 설정 (2026-06-17) */
                 'ec_class_popups','ec_class_popup_on', /* 수업 자동 팝업 — 선택한 수업·켜짐 상태 (2026-06-17) */

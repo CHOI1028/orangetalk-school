@@ -2,6 +2,7 @@
 /* ES Module */
 import { getStu, escHtml, escJs, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
+import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { openSymptomCategoryPopup, getCandidates, removeChip, formatMedicationDisplay, _symShowTip, _symHideTip, _symShowHistory } from '../symptom/symptom-view.js';
 import { shouldShowTreatmentBySymptom } from '../../core/record-utils.js';
 import { applyDailyColLayout, openBodyMap, ecSaveRecords, showHeaderTooltip, hideHeaderTooltip, migrateLegacyColWidths, sanitizeColWidths } from '../emergency/emergency-view.js';
@@ -3818,8 +3819,8 @@ export function openMedFacilityPopup(){
     return;
   }
   if(window.electronAPI&&window.electronAPI.openMedFacility){
-    const hiraKey=localStorage.getItem('ec_hira_api_key')||'';
-    const emgKey=localStorage.getItem('ec_emergency_api_key')||'';
+    const hiraKey=getPublicDataApiKey('hira');
+    const emgKey=getPublicDataApiKey('emergency');
     const schoolAddr=localStorage.getItem('ec_school_address')||'';
     let schoolLat=localStorage.getItem('ec_school_lat')||'';
     let schoolLng=localStorage.getItem('ec_school_lng')||'';

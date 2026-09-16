@@ -2,7 +2,7 @@
 /* ═══════════════════════════════════════════════════════════════
  *  감염병 유행 현황 (질병관리청_전수신고 감염병 발생현황, data.go.kr 15139178) — 2026-06-17
  *  ───────────────────────────────────────────────────────────────
- *  · 인증키: localStorage ec_kdca_api_key (설정 → API 관리 → 🦠 감염병 현황(질병관리청))
+ *  · 인증키: 설정 → API 관리 → 공공데이터포털 공통 인증키 (기존 개별 키도 호환)
  *  · Base: apis.data.go.kr/1790387/EIDAPIService
  *  · 사용 기능 3종:
  *      /Region     지역별 — searchType(1발생수/2 10만명당), searchYear, searchSidoCd
@@ -13,6 +13,8 @@
  *  · 모든 외부 호출은 메인 프로세스(externalFetchJson) 경유 → CORS/CSP 무관
  * ═══════════════════════════════════════════════════════════════ */
 
+import { getPublicDataApiKey } from './public-data-settings.js';
+
 const BASE = 'https://apis.data.go.kr/1790387/EIDAPIService';
 
 /* 저장된 설정은 변경하지 않고 요청할 때만 Encoding/Decoding 키를 통일한다.
@@ -22,7 +24,7 @@ export function normalizeInfectiousApiKey(value){
   try{ return /%[0-9a-f]{2}/i.test(key)?decodeURIComponent(key).trim():key; }
   catch(_){ return key; }
 }
-function _key(){ return normalizeInfectiousApiKey(localStorage.getItem('ec_kdca_api_key')); }
+function _key(){ return normalizeInfectiousApiKey(getPublicDataApiKey('kdca')); }
 function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
 
 /* 시도코드 (정의서 기준) */

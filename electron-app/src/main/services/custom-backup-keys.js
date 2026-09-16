@@ -49,6 +49,7 @@ const categories = [
   {
     id: 'apikeys', label: 'API 키 (카카오·HIRA·식약처·응급의료·기상청·에어코리아·특일정보·NEIS·질병관리청)',
     localStorageKeys: [
+      'ec_public_data_api_key', 'ec_kma_api_key', 'ec_uv_api_key',
       'ec_airkorea_api_key', 'ec_drug_api_key', 'ec_emergency_api_key',
       'ec_hira_api_key', 'ec_kakao_js_api_key', 'ec_kakao_rest_api_key',
       'ec_holiday_api_key',          /* KASI 특일정보 (공휴일 자동 갱신) — 2026-06-02 추가 */
@@ -56,6 +57,7 @@ const categories = [
       'ec_kdca_api_key',             /* 질병관리청 감염병 발생현황 (2026-06-17 추가) */
     ],
     appDataCommonKeys: [
+      'public_data_api_key',
       'holiday_api_key', 'neis_api_key', 'kdca_api_key',
       /* 캐시 자체는 학교 이동 시 따라갈 필요 없음 — 같은 키만 옮기면 새 PC 에서 즉시 재 fetch.
        * (캐시 키 holiday_cache_YYYY, holiday_cache_years 는 의도적으로 제외) */
