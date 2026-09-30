@@ -1,4 +1,5 @@
 ﻿/* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
+import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { getStu, escHtml, getGuardianContact, getStudentBirth, getCareTooltipHtml, showNameHoverPop, hideNameHoverPop, toDateStr, getStuGradeCol, isKinder, gradeClsLabel, closeModalGracefully, createEmptyState, saveRecordNow } from '../../core/helpers.js';
 import { hasMultipleSchoolLevels, getLevelShort } from '../../core/student-utils.js';
@@ -2542,7 +2543,7 @@ window._bmData=_bmData;
 /* 바디맵 마커 변경 시 해당 daily_records 를 즉시 DB에 저장 */
 function _bmPersist(recId){
   if(recId==null)return;
-  const rec=(S.records||[]).find(function(r){return r&&(r.id===recId||r._dbId===recId);});
+  const rec=getDailyRecord(recId);
   if(!rec)return;
   rec.bodymapData=_bmData[recId]||[];
   if(typeof saveRecordNow==='function')saveRecordNow(rec);
@@ -2571,7 +2572,7 @@ function _bmIsKinder(recId){
   if((S.settings||{}).schoolLevel==='kindergarten') return true;
   /* 특수학교: 개별 학생의 level 확인 */
   if((S.settings||{}).schoolLevel==='special'&&recId){
-    const rec=S.records.find(function(r){return r.id===recId;})||S.ecRecords&&S.ecRecords.find(function(r){return r.id===recId;});
+    const rec=getDailyRecord(recId)||S.ecRecords&&S.ecRecords.find(function(r){return r.id===recId;});
     if(rec){const s=getStu(rec.studentId);if(s&&s.level==='유')return true;}
   }
   return false;
@@ -3189,7 +3190,7 @@ function _symRefreshBmChip(recId){
   let _cnt=0;
   try{
     const bd=window._bmData||{};
-    const rec=(S.records||[]).find(function(r){return r&&r.id===recId;});
+    const rec=getDailyRecord(recId);
     const stuId=rec?rec.studentId:null;
     if(stuId!=null){
       (S.records||[]).forEach(function(r){if(r&&r.studentId===stuId&&bd[r.id]&&bd[r.id].length>0)_cnt++;});
@@ -3607,10 +3608,10 @@ export function toggleColSelector(){
   overlay.addEventListener('click',function(e){if(e.target===overlay)closeModalWithAnim(overlay);});
   renderColSelectorCards(overlay.querySelector('#colSelectorChips'));
 }
-export function applyDailyColLayout(){
+export function applyDailyColLayout(targetTable){
   const saved=getDailyColVisibility();
   const order=getDailyColOrder();
-  const table=document.getElementById('recTable');
+  const table=targetTable&&targetTable.tagName==='TABLE'?targetTable:document.getElementById('recTable');
   if(!table) return;
 
   /* 특수학교는 학교급 컬럼(19)을 항상 표시 — 유·초·중·고가 한 학교에 공존하므로
@@ -3753,11 +3754,11 @@ export function applyDailyColLayout(){
    * 표 확장(가로 스크롤)은 위의 동적 min-width 가 담당하므로 width 는 100% 로 둔다. */
   table.style.width='100%';
   /* 레이아웃 완료 후 테이블 표시 — 로그인 전이면 숨김 유지 (기본값→사용자값 깜빡임 방지) */
-  if(S._currentUser&&S._currentUser.id){
+  if(targetTable&&targetTable.tagName==='TABLE'||S._currentUser&&S._currentUser.id){
     table.style.visibility='visible';
   }
   /* 열 ON/OFF 후 리사이즈 핸들 재생성 */
-  setTimeout(crInsertHandles,50);
+  if(!targetTable||targetTable.tagName!=='TABLE')setTimeout(crInsertHandles,50);
 }
 function restoreDailyColVisibility(){
   applyDailyColLayout();

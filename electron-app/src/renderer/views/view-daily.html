@@ -31,6 +31,7 @@
 <button id="btnPrevDay" style="white-space:nowrap;min-width:fit-content;height:32px;padding:0 6px;background:rgba(34,197,94,0.12);color:#16a34a;border:1px solid rgba(34,197,94,0.3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box" title="전날 보건일지">◀</button>
 <span style="white-space:nowrap;height:32px;padding:0 10px;min-width:140px;justify-content:center;background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.25);border-radius:6px;font-size:11px;font-weight:700;user-select:none;display:inline-flex;align-items:center;box-sizing:border-box" id="dailyDateLabel">오늘의 보건일지</span>
 <button id="btnNextDay" style="white-space:nowrap;min-width:fit-content;height:32px;padding:0 6px;background:rgba(34,197,94,0.12);color:#16a34a;border:1px solid rgba(34,197,94,0.3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box" title="다음날 보건일지">▶</button>
+<button class="btn-add" id="dailyPeriodSearchBtn" type="button" aria-expanded="false" aria-controls="dailyPeriodPanel" data-tooltip="시작일과 종료일을 지정하여 방문·상담·처치 기록과 건수를 조회합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🔎 기간검색</button>
 <button class="btn-add" id="dailyQuickMsgBtn" data-tooltip="자주 사용하는 문구를 복사하여 전송할 수 있습니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">💬 상용 메시지</button>
 <button class="btn-add" id="dailyColSelectorBtn" data-tooltip="현재 일지에 무엇이 보이게 할 것인지 결정합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">🔧 열 필드 설정</button>
 <button class="btn-add" id="dailyRentalLedgerBtn" data-tooltip="보건실 물품 대여를 관리합니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">📦 물품 대여 대장</button>
@@ -40,6 +41,7 @@
 <button class="btn-add" id="dailySortDescBtn" data-tooltip="입실 시간이 늦은 학생 순으로 위에서 아래로 정렬됩니다.&#10;다른 식의 정렬 (학년반, 번호, 성별, 오름차순 정렬)이 되어 있더라도 방문자 등록이 이뤄지면 그 즉시 내림차순으로 재정렬되어 가장 최근 방문자가 가장 위에 위치하게 됩니다." style="white-space:nowrap;min-width:fit-content;padding:0 7px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600">↓ 내림차순</button>
       </div>
       </div><!-- /dailyToolbarWrap -->
+      <section id="dailyPeriodPanel" hidden></section>
       <!-- 오늘의 메모 아코디언 — today-memo.js 가 제어 (토글 ON 시 표시) -->
       <div id="dailyTodayMemo" style="display:none;margin:6px 0 4px"></div>
       <div id="dailyTableOuter" style="position:relative;margin-top:4px">

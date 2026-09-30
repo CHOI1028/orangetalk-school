@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
+import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { S, ensureHolidayYear } from '../../core/app-state.js';
 import { getStu, toDateStr, getStuGradeCol, saveData, saveRecordNow, closeModalGracefully, getSemesterInfo, dateObj, counselTreatText, isCounselSymLabel } from '../../core/helpers.js';
@@ -296,12 +297,13 @@ function _tpClampOut(rec, field, val){
   return val;
 }
 function tpAutoSave(){
-  const rec=S.records.find(function(r){return r.id===timePickerState.recId;});
+  const rec=getDailyRecord(timePickerState.recId);
   const input=document.getElementById('tpTimeInput');
   if(!rec||!input||!input.value)return;
   const _cv=_tpClampOut(rec, timePickerState.field, input.value);
   rec[timePickerState.field]=_cv;
   if(_cv!==input.value)input.value=_cv;
+  saveRecordNow(rec);
   saveData();bus.emit('render:daily');bus.emit('render:calendar');bus.emit('render:sidebar');
 }
 function tpShiftTime(mins){
@@ -314,17 +316,18 @@ function tpShiftTime(mins){
   tpAutoSave();
 }
 function tpRestore(){
-  const rec=S.records.find(function(r){return r.id===timePickerState.recId;});
+  const rec=getDailyRecord(timePickerState.recId);
   const input=document.getElementById('tpTimeInput');
   if(!rec||!input)return;
   input.value=timePickerState.originalVal;
   rec[timePickerState.field]=timePickerState.originalVal;
+  saveRecordNow(rec);
   saveData();bus.emit('render:daily');bus.emit('render:calendar');bus.emit('render:sidebar');
 }
 function closeTimePicker(){closeCellPopup();}
 export function openTimePicker(recId,field,btn){
   closeCellPopup();
-  const rec=S.records.find(function(r){return r.id===recId;});
+  const rec=getDailyRecord(recId);
   if(!rec||!btn)return;
   const val=rec[field]||'00:00';
   timePickerState={recId:recId,field:field,originalVal:val};

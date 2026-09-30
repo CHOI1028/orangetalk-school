@@ -974,9 +974,9 @@ body.light .daily-sel-box{border-color:rgba(59,130,246,0.5);background:rgba(59,1
 .daily-ctx-item.danger{color:var(--rs)}
 .daily-ctx-item.danger:hover{background:rgba(239,68,68,0.06);border-left-color:var(--rs)}
 .rec-table .mono{font-family:var(--fm)}
-.rec-table#recTable th{text-align:center}
-.rec-table#recTable td[data-col-index="0"],.rec-table#recTable td[data-col-index="1"],.rec-table#recTable td[data-col-index="2"],.rec-table#recTable td[data-col-index="3"],.rec-table#recTable td[data-col-index="4"],.rec-table#recTable td[data-col-index="5"],.rec-table#recTable td[data-col-index="10"],.rec-table#recTable td[data-col-index="11"],.rec-table#recTable td[data-col-index="12"],.rec-table#recTable td[data-col-index="14"],.rec-table#recTable td[data-col-index="15"],.rec-table#recTable td[data-col-index="16"]{text-align:center}
-.rec-table#recTable td[data-col-index="6"],.rec-table#recTable td[data-col-index="7"],.rec-table#recTable td[data-col-index="8"],.rec-table#recTable td[data-col-index="9"]{text-align:left}
+.rec-table:is(#recTable,#dailyPeriodTable) th{text-align:center}
+.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="0"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="1"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="2"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="3"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="4"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="5"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="10"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="11"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="12"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="14"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="15"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="16"]{text-align:center}
+.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="6"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="7"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="8"],.rec-table:is(#recTable,#dailyPeriodTable) td[data-col-index="9"]{text-align:left}
 .rec-table input,.rec-table select{background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10.5px;font-family:var(--f);outline:none;width:100%;transition:border-color 0.15s}
 .rec-table input:focus,.rec-table select:focus{border-color:var(--cyan)}
 #dailyTableWrap{position:relative;background:var(--card)}
@@ -2627,20 +2627,20 @@ td:hover .inf-note-btn{opacity:1}
 }
 
 /* ══════════ 일반 일지 증상/처치 칩 오버플로우 ══════════ */
-#recTable td[data-col-index="6"],
-#recTable td[data-col-index="8"]{
+:is(#recTable,#dailyPeriodTable) td[data-col-index="6"],
+:is(#recTable,#dailyPeriodTable) td[data-col-index="8"]{
   max-height:42px;overflow:hidden;position:relative;white-space:normal;line-height:1.3
 }
-#recTable td[data-col-index="6"] .chip-overflow-fade,
-#recTable td[data-col-index="8"] .chip-overflow-fade{
+:is(#recTable,#dailyPeriodTable) td[data-col-index="6"] .chip-overflow-fade,
+:is(#recTable,#dailyPeriodTable) td[data-col-index="8"] .chip-overflow-fade{
   position:absolute;bottom:0;right:0;left:0;height:16px;
   background:linear-gradient(transparent,var(--bg2));pointer-events:none;
   display:none
 }
-#recTable td[data-col-index="6"].has-overflow .chip-overflow-fade,
-#recTable td[data-col-index="8"].has-overflow .chip-overflow-fade{display:block}
-#recTable td[data-col-index="6"].has-overflow::after,
-#recTable td[data-col-index="8"].has-overflow::after{
+:is(#recTable,#dailyPeriodTable) td[data-col-index="6"].has-overflow .chip-overflow-fade,
+:is(#recTable,#dailyPeriodTable) td[data-col-index="8"].has-overflow .chip-overflow-fade{display:block}
+:is(#recTable,#dailyPeriodTable) td[data-col-index="6"].has-overflow::after,
+:is(#recTable,#dailyPeriodTable) td[data-col-index="8"].has-overflow::after{
   content:'...';position:absolute;bottom:1px;right:4px;font-size:10px;
   font-weight:700;color:var(--t3);background:var(--bg2);padding:0 2px;
   z-index:1;line-height:1

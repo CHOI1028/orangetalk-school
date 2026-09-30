@@ -7,6 +7,7 @@ import { bus } from '../../core/event-bus.js';
 import { S, addRecord } from '../../core/app-state.js';
 import { playCautionSound } from '../../core/ui-utils.js';
 import { persistCareRegistration, applyCareResult } from '../../core/care-registration.js';
+import { isDailyPeriodSearchActive, closeDailyPeriodSearch } from './daily-period-view.js';
 
 /* 학년도는 3월 1일 시작(달력 연도 아님). 요보호 플래그 연도도 학년도 기준. (사용자 지시 2026-06-19) */
 function _academicYear(){
@@ -78,6 +79,7 @@ export function matchKoreanFromStart(name,query){
 }
 
 export function dailyAutoComplete(){
+  if(isDailyPeriodSearchActive())return;
   const input=document.getElementById('dailySearchInput');
   const qRaw=input.value;
   const q=_normName(qRaw);
@@ -150,6 +152,7 @@ function highlightAC(){
 }
 
 export function dailySearchKeydown(e){
+  if(isDailyPeriodSearchActive())return;
   const items=document.querySelectorAll('#dailyACList .ac-item');
   if(e.key==='ArrowDown'){e.preventDefault();S.acHighlight=Math.min(S.acHighlight+1,items.length-1);highlightAC();}
   else if(e.key==='ArrowUp'){e.preventDefault();S.acHighlight=Math.max(S.acHighlight-1,0);highlightAC();}
@@ -765,6 +768,7 @@ export async function selectStudent(id, _preDate){
     _regDate = (_dateChoice==='today') ? _todayLocalStr() : S.selectedDate;
   }
   const s=getStu(id);
+  closeDailyPeriodSearch(false);
   const _dsi=document.getElementById('dailySearchInput');
   if(_dsi){ _dsi.value=''; _dsi.blur(); }   /* 일반탭이 아닐 때(검색창 없음)도 안전 — 빠른작업 방문자 검색 경유 (2026-06-18) */
   const _acl=document.getElementById('dailyACList'); if(_acl) _acl.classList.remove('show');

@@ -58,6 +58,7 @@ export function hideNameHoverPop(){
 export function closeModalGracefully(elOrId){
   const el = (typeof elOrId === 'string') ? document.getElementById(elOrId) : elOrId;
   if(!el || !el.isConnected) return;
+  if(typeof el._onModalClose === 'function'){ el._onModalClose(); return; }
   if(el.classList.contains('modal-closing')) return;
   el.classList.add('modal-closing');
   /* Windows 에서도 애니메이션이 확실히 재생되도록:

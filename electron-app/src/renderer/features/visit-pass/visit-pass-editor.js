@@ -4766,9 +4766,9 @@ else{document.addEventListener('DOMContentLoaded',function(){const el=document.g
 document.addEventListener('keydown', function(e){
   if(e.key==='Escape'){
     /* 침상 관련 팝업 우선 */
+    const bedAlm=document.getElementById('bedAlarmOverlay');if(bedAlm){closeModalGracefully(bedAlm);return;}
     const bedCfg=document.getElementById('bedConfigOverlay');if(bedCfg){closeModalGracefully(bedCfg);return;}
     const bedMgr=document.getElementById('bedManagerOverlay');if(bedMgr){closeModalGracefully(bedMgr);return;}
-    const bedAlm=document.getElementById('bedAlarmOverlay');if(bedAlm){_bedDismissAlarm();return;}
     const ems=document.getElementById('emsOverlay');if(ems&&ems.classList.contains('show')){closeEmsMsg();return;}
     const vp=document.getElementById('vpOverlay');if(vp&&vp.classList.contains('show')){
       const bgRm=document.getElementById('bgRmOverlay');if(bgRm){closeModalGracefully(bgRm);return;}

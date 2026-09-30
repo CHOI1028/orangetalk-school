@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
+import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { getStu, escHtml, escJs, getGuardianContact, getStudentBirth, getDeptForSymptom, saveData, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { openA4PrintDialog, saveA4Pdf } from '../../core/a4-print-dialog.js';
@@ -37,7 +38,7 @@ export function getCandidates(field){
 }
 
 export function removeChip(recId,field,val){
-  const r=S.records.find(function(x){return x.id===recId;});if(!r)return;
+  const r=getDailyRecord(recId);if(!r)return;
   if(field==='symptoms'){
     r.symptoms=r.symptoms.filter(function(s){return s!==val;});
     /* 증상 모두 삭제 시 전부 초기화, 아니면 해당 증상의 처치만 스마트 삭제 */
@@ -617,7 +618,7 @@ export function openSymptomCategoryPopup(recId, opts){
   try{ if(typeof _symBuildStatMedNames==='function')_symBuildStatMedNames(); }catch(_){}
 
   _symPopupRecId=recId;S._symPopupRecId=recId;
-  const rec=S.records.find(function(r){return r.id===recId;});
+  const rec=getDailyRecord(recId);
   if(!rec){_symOpening=false;return;}
   /* 협업 편집 잠금 확인 (2026-06-07) — 같은 방문 레코드를 다른 사람이 이미 열어 수정 중이면 중앙 경고.
    *  모든 진입점(일반일지·대시보드·응급·EMS)을 한 곳에서 커버. 강제차단 아님(그래도 열기 가능, last-write-wins).
@@ -1785,7 +1786,7 @@ function _symSelectCat(catId){
    *  · 🧍 색: 그 증상의 바디맵 마커가 있으면 초록(#22c55e), 없으면 보라(#a855f7)
    *  · 🧍 클릭: 바디맵 입력 팝업 → 마커에 symptom 필드 부착 → 닫으면 색 갱신
    *  · ✏️ 펜 클릭: 증상 메모 미니 팝업 → "증상명 (메모)" 형태로 rec.symptoms 갱신 */
-  const _curRecForBm=S.records.find(function(r){return r.id===_symPopupRecId;});
+  const _curRecForBm=getDailyRecord(_symPopupRecId);
   const _bmMarkers=(window._bmData||{})[_symPopupRecId]||[];
   allSyms.forEach(function(sym,si){
     /* base name 매칭 — 신구 포맷 모두: "증상" / "증상 (메모)" (옛 공백) / "증상(부위, 메모)" (새 공백 없음) */
@@ -2218,7 +2219,7 @@ function _symHideDefaultSym(catId,name){
 
 /* 즉시 저장 + 일지 반영 */
 function _symAutoSave(_silent){
-  const rec=S.records.find(function(r){return r.id===_symPopupRecId;});
+  const rec=getDailyRecord(_symPopupRecId);
   if(rec){
     /* 저장 직전 바디맵 부위 라벨 재구성 — 어느 흐름에서 마커가 추가/변경되었더라도 항상 라벨이 동기화되도록 안전망.
      * 사용자 보고 2026-05-19: 부위 마커는 추가됐는데 출력에 부위가 안 보이던 누락 보완. */
@@ -2382,7 +2383,7 @@ function _symToggleSym(sym){
   if(!wasSelected){
     const _recIdA=(typeof S!=='undefined'&&S._symPopupRecId!=null)?S._symPopupRecId:null;
     if(_recIdA!=null && window._bmData && Array.isArray(window._bmData[_recIdA]) && window._bmData[_recIdA].length){
-      const _recA=Array.isArray(S.records)?S.records.find(function(r){return r.id===_recIdA;}):null;
+      const _recA=Array.isArray(S.records)?getDailyRecord(_recIdA):null;
       if(_recA && String(_recA.memo||'').indexOf('키오스크')!==-1){
         const _mA=String(sym).match(/^(.+?)\s*\(/);
         const _baseA=_mA?_mA[1].trim():String(sym);
@@ -2515,7 +2516,7 @@ function _symRecomputeFlatTreatments(){
    *  상담 분류는 처치 블록이 없어 treatmentBySym 경로가 없으므로 여기서 직접 합류.
    *  일반일지 처치 칸·DB·처치 통계가 기존 rec.treatment 경로로 자동 정합 (사용자 요청 2026-06-25). */
   try{
-    const _cr=S.records.find(function(x){return x.id===_symPopupRecId;});
+    const _cr=getDailyRecord(_symPopupRecId);
     const _ct=(_cr&&_cr.counselLog&&_cr.counselLog.treatmentText)?String(_cr.counselLog.treatmentText).trim():'';
     if(_ct && _symSelectedTreatments.indexOf(_ct)===-1) _symSelectedTreatments.push(_ct);
   }catch(_){}
@@ -2582,7 +2583,7 @@ function _symRenderSingleBlock(recId, opts){
   const idx=opts.index||0;
   const symKey=opts.symKey||'';
   /* v3 (사용자 결정 2026-05-21) — V/S 측정 칩 값 부착용 rec 참조 */
-  const _curRec = S.records.find(function(r){return r.id===recId;});
+  const _curRec = getDailyRecord(recId);
 
   /* === Header: breadcrumb(s) + bodymap btn === */
   let headerHtml='';
@@ -2921,7 +2922,7 @@ function _symCounselRound(rec){
 }
 const _CL_TA_CSS='width:100%;box-sizing:border-box;background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;padding:8px 10px;color:var(--t1);font-size:12px;line-height:1.55;font-family:var(--f);outline:none;resize:vertical;min-height:54px';
 function _symRenderCounselBlock(recId, counselLabels){
-  const rec=S.records.find(function(r){return r.id===recId;}); if(!rec)return '';
+  const rec=getDailyRecord(recId); if(!rec)return '';
   const log=_symCounselLogOf(rec)||{};
   const topics=counselLabels.map(_symBaseName);
   const round=_symCounselRound(rec);
@@ -2977,7 +2978,7 @@ function _symRenderCounselBlock(recId, counselLabels){
 /* 입력 → rec.counselLog 수집·저장 (idle 600ms 디바운스 — 방문 이력 등 실시간 반영) */
 let _symCounselSaveTimer=null;
 function _symCounselSaveNow(recId){
-  const rec=S.records.find(function(r){return r.id===recId;}); if(!rec)return;
+  const rec=getDailyRecord(recId); if(!rec)return;
   const blk=document.querySelector('.sym-counsel-block[data-rec-id="'+recId+'"]'); if(!blk)return;
   const log=_symCounselLogOf(rec)||{};
   blk.querySelectorAll('[data-cl-field]').forEach(function(el){ log[el.dataset.clField]=el.value; });
@@ -3234,7 +3235,7 @@ export function _symBuildCounselPrintHtml(rec){
 function _symCounselExport(recId, mode){
   if(_symCounselSaveTimer){clearTimeout(_symCounselSaveTimer);_symCounselSaveTimer=null;}
   _symCounselSaveNow(recId);                       /* 미저장 입력 flush 후 출력 */
-  const rec=S.records.find(function(r){return r.id===recId;}); if(!rec)return;
+  const rec=getDailyRecord(recId); if(!rec)return;
   if(mode==='excel'){ _symCounselExportExcel(rec); return; }
   const b=_symBuildCounselPrintHtml(rec);
   if(mode==='pdf')saveA4Pdf({html:b.html, title:b.fname, cssMargins:true});
@@ -3283,7 +3284,7 @@ function _symCounselExportExcel(rec){
  *  rec.counselLog.treatmentText 에 보관 → _symRecomputeFlatTreatments 가 flat(rec.treatment)에 1건 합류.
  *  일반일지 처치 칸·DB·처치 통계가 기존 처치 경로로 자동 정합. */
 function _symOpenCounselTreatModal(recId){
-  const rec=S.records.find(function(x){return x.id===recId;}); if(!rec)return;
+  const rec=getDailyRecord(recId); if(!rec)return;
   const cur=(rec.counselLog&&rec.counselLog.treatmentText)?String(rec.counselLog.treatmentText):'';
   const old=document.getElementById('clTreatModal'); if(old)old.remove();
   const ov=document.createElement('div');
@@ -3319,7 +3320,7 @@ function _symOpenCounselTreatModal(recId){
 }
 /* 상담 처치란 적용 — flat 재계산 + 저장(rec.treatment·counselLog·DB) + 일반일지/패널 갱신 */
 function _symCounselApplyTreat(recId){
-  const rec=S.records.find(function(x){return x.id===recId;}); if(!rec)return;
+  const rec=getDailyRecord(recId); if(!rec)return;
   rec._dirty=true;
   if(typeof _symRecomputeFlatTreatments==='function')_symRecomputeFlatTreatments();
   if(typeof _symAutoSave==='function')_symAutoSave();      /* rec.treatment·treatmentBySym·DB 반영 */
@@ -3374,7 +3375,7 @@ function _symBindTreatPanelEvents(panel){
       const _clRid=_clBlk?parseInt(_clBlk.dataset.recId,10):0;
       const _clAct=clEl.dataset.clAct;
       if(_clAct==='hist'){
-        const _clRec=S.records.find(function(x){return x.id===_clRid;});
+        const _clRec=getDailyRecord(_clRid);
         if(_clRec)_symOpenCounselHistModal(_clRec.studentId,_clRid);
       }
       else if(_clAct==='cal')_clOpenCalPopup(_clRid, clEl);
@@ -3389,7 +3390,7 @@ function _symBindTreatPanelEvents(panel){
       else if(_clAct==='print')_symCounselExport(_clRid,'print');
       else if(_clAct==='treatToggle'){
         /* 체크 ON → 입력 모달, OFF → 처치란 비우고 flat 에서 제거 (사용자 요청 2026-06-25) */
-        const _trec=S.records.find(function(x){return x.id===_clRid;});
+        const _trec=getDailyRecord(_clRid);
         if(_trec){
           if(clEl.checked){ _symOpenCounselTreatModal(_clRid); }
           else { if(_trec.counselLog) _trec.counselLog.treatmentText=''; _symCounselApplyTreat(_clRid); }
@@ -3398,7 +3399,7 @@ function _symBindTreatPanelEvents(panel){
       else if(_clAct==='treatEdit') _symOpenCounselTreatModal(_clRid);
       else if(_clAct==='treatDelete'){
         /* 칩 ✕ — 처치란 문구 즉시 삭제 + 일반일지표 반영 (사용자 요청 2026-06-26) */
-        const _trec=S.records.find(function(x){return x.id===_clRid;});
+        const _trec=getDailyRecord(_clRid);
         if(_trec){ if(_trec.counselLog) _trec.counselLog.treatmentText=''; _symCounselApplyTreat(_clRid); }
       }
       return;
@@ -3561,7 +3562,7 @@ export function _symRenderTreatPanel(recId){
    *  · rec.treatment(평면)은 외부(침상 관리 bed-management-view, V/S·침상 등록)가 record-level 처치만 추가하므로
    *    비legacy 에서는 record-level(침상·V/S)만 재동기화한다. 일반/증상별 처치는 in-memory 가 유일 진실.
    *  · legacy(옛 일지)는 평면이 진실이므로 기존처럼 전체 재동기화 유지. */
-  const _curRec=S.records.find(function(r){return r.id===recId;});
+  const _curRec=getDailyRecord(recId);
   if(_curRec&&Array.isArray(_curRec.treatment)){
     if(_symRecordIsLegacy){
       _curRec.treatment.forEach(function(t){
@@ -3856,7 +3857,7 @@ function _symChipStillHas(needle){
 }
 function _symClearOrphanVsPa(recId, hadVs, hadPa){
   if((!hadVs && !hadPa) || recId==null) return;
-  var rec=Array.isArray(S.records)?S.records.find(function(r){return r.id===recId;}):null;
+  var rec=Array.isArray(S.records)?getDailyRecord(recId):null;
   if(!rec) return;
   if(hadVs && !_symChipStillHas('V/S 측정')){
     rec.vsHistory=[]; rec.temp=''; rec.bp=''; rec.pulse=''; rec.resp=''; rec.respiration=''; rec.spo2=''; rec.bst='';
@@ -3899,7 +3900,7 @@ function _symRemoveTreat(t, symKey){
   /* 침상 이용 삭제 시 — 침상 점유도 해제. */
   if(t==='침상 이용'||t==='침상 안정'){
     try{
-      const rec=S.records.find(function(r){return r.id===_symPopupRecId;});
+      const rec=getDailyRecord(_symPopupRecId);
       if(rec&&typeof releaseBedByStudentId==='function')releaseBedByStudentId(rec.studentId);
     }catch(_){}
   }
@@ -4949,9 +4950,10 @@ function _symComplete(){
   _symAutoSave(true);
   /* 빈 레코드 정리 — 신규/기존 무관, 닫는 시점에 _symRecordIsEmpty 면 삭제 (위 함수 주석 참고). */
   const _emptyRecId=_symPopupRecId;
-  const _emptyRec=_emptyRecId ? S.records.find(function(r){return r.id===_emptyRecId;}) : null;
+  const _emptyRec=_emptyRecId ? getDailyRecord(_emptyRecId) : null;
   if(_emptyRec && _symRecordIsEmpty(_emptyRec)){
     const _delId=_emptyRec._dbId || _emptyRec.id;
+    _emptyRec._deleted=true;
     S.records=S.records.filter(function(r){return r.id!==_emptyRec.id;});
     if(window.electronAPI && window.electronAPI.recordsDailyDelete && _delId){
       window.electronAPI.recordsDailyDelete(_delId).catch(function(e){console.warn('[sym] 빈 레코드 삭제 실패:',e);});
@@ -5183,7 +5185,7 @@ function _symOpenVsPopup(recId,anchorBtn,symKey){
     const popup=document.querySelector('.cell-ac-popup');
     if(!popup){
       clearInterval(_obsTimer);
-      const rec=S.records.find(function(r){return r.id===recId;});
+      const rec=getDailyRecord(recId);
       if(!rec)return;
       const _has=!!(rec.temp||rec.bp||rec.pulse||rec.resp||rec.spo2||rec.bst||(rec.vsHistory&&rec.vsHistory.length));
       if(_has){
@@ -5265,7 +5267,7 @@ function _physAssessDisplayStr(pa){
 }
 /* 저장 + per-sym '신체사정' 칩 추가/제거. saveRecordNow 가 우하단 "저장 중→저장되었습니다" 토스트 자동 발생. */
 function _symPhysAssessSave(recId,symKey){
-  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const rec=getDailyRecord(recId);if(!rec)return;
   const pa=_symPhysAssessData(rec);
   const _has=_symPhysAssessHasContent(pa);
   if(symKey&&symKey!=='__legacy__'){
@@ -5290,7 +5292,7 @@ function _symPhysAssessSave(recId,symKey){
 }
 /* 팝업 내용 렌더(체크박스 세로 + 연필). 체크/상세 변경 시 in-place 재렌더. */
 function _symRenderPhysAssessBody(popup,recId,symKey){
-  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const rec=getDailyRecord(recId);if(!rec)return;
   const pa=_symPhysAssessData(rec);
   let h='<div class="pa-pop-header" style="padding:8px 12px;border-bottom:1px solid var(--bdr);background:var(--popup-head);border-radius:8px 8px 0 0;cursor:grab;user-select:none"><span style="font-size:12.5px;font-weight:700;color:var(--t1)">🩺 신체사정</span></div>';
   h+='<div style="padding:8px 12px 4px;font-size:11px;color:var(--t3);line-height:1.5">해당 항목을 선택하고, 오른쪽 칸에 소견을 바로 적을 수 있습니다.</div>';
@@ -5379,7 +5381,7 @@ function _symRenderPhysAssessBody(popup,recId,symKey){
 }
 /* 신체사정 팝업 열기 — 증상 팝업 위(z 10200), 외부클릭 부드럽게 닫기. */
 function _symOpenPhysAssessPopup(recId,anchorBtn,symKey){
-  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const rec=getDailyRecord(recId);if(!rec)return;
   _symPhysAssessData(rec);
   const _ex=document.querySelector('.cell-ac-popup');if(_ex)_ex.remove();
   const rect=(anchorBtn&&anchorBtn.getBoundingClientRect)?anchorBtn.getBoundingClientRect():{left:100,top:100,bottom:120};
@@ -5413,7 +5415,7 @@ function _symOpenPhysAssessDetailDock(recId,anchorChip,item,symKey,parentPopup){
   if(typeof hideHeaderTooltip==='function')try{hideHeaderTooltip();}catch(_){}
   const existing=document.getElementById('physAssessDetailDock');
   if(existing){ const _prev=existing.dataset.item||''; existing.remove(); if(_prev===item)return; }
-  const rec=S.records.find(function(r){return r.id===recId;});if(!rec)return;
+  const rec=getDailyRecord(recId);if(!rec)return;
   const pa=_symPhysAssessData(rec);
   const _initial=pa.details[item]?String(pa.details[item]):'';
   const dock=document.createElement('div');
@@ -8409,7 +8411,7 @@ function _symAskBedFullChoice(recId, symKey){
   /* 이 침상 흐름의 원복 기준 캡처 — 예/아니오 없이 외부 클릭으로 끄거나, '예' 후 침상 모달을 확인 없이
    *  취소하면 들어갔던 '침상' 칩을 제거(+picker 로 바뀐 퇴실시간 원복). 칩은 _symToggleTreat/_symHandleBedRest
    *  가 이미 추가했고, 여기 시점의 퇴실시간이 흐름 시작 전 값이다. 매 호출마다 새로 캡처해 스테일 방지. (2026-06-15) */
-  _symBedRestRevert={recId:recId, symKey:symKey, prevTimeOut:(function(){var _r=S.records.find(function(r){return r.id===recId;});return _r?(_r.timeOut||''):'';})()};
+  _symBedRestRevert={recId:recId, symKey:symKey, prevTimeOut:(function(){var _r=getDailyRecord(recId);return _r?(_r.timeOut||''):'';})()};
   let _bedChoiceResolved=false; /* 예/아니오 를 명시적으로 고르면 true → 외부 클릭 원복 안 함 */
   const old=document.getElementById('symBedAskOverlay');if(old)old.remove();
   const ov=document.createElement('div');
@@ -8443,7 +8445,7 @@ function _symAskBedFullChoice(recId, symKey){
      *  침상 모달을 확인 없이 취소하면 _bedCloseManager → bus 'bed:addCancelled' → _symRevertBedRest 가 원복. */
     S._pendingBedRestRecId=recId;
     setTimeout(function(){
-      const _rec=S.records.find(function(r){return r.id===recId;});
+      const _rec=getDailyRecord(recId);
       if(_rec && typeof openBedManager==='function'){
         openBedManager(_rec.studentId||null);
       }
@@ -8455,7 +8457,7 @@ function _symAskBedFullChoice(recId, symKey){
      * 설정값: 보건일지 설정 > "침상안정 퇴실 시간" (ec_daily_bedrest_minutes, 기본 30, 1~120). */
     S._pendingBedRestRecId=null;
     try{
-      const _rec=S.records.find(function(r){return r.id===recId;});
+      const _rec=getDailyRecord(recId);
       if(_rec){
         const _tm=(_rec.timeIn||'').match(/^(\d{1,2}):(\d{2})/);
         if(_tm){
@@ -8498,7 +8500,7 @@ function _symAskBedFullChoice(recId, symKey){
 
 /* 침상 이용 처치 클릭 — 모달 분기 (사용자 요청 2026-05-19). */
 function _symHandleBedRest(recId, symKey){
-  const rec=(typeof S.records!=='undefined')?S.records.find(function(r){return r.id===recId;}):null;
+  const rec=(typeof S.records!=='undefined')?getDailyRecord(recId):null;
   if(!rec){bus.emit('toast:show', {text: '레코드를 찾을 수 없습니다.'});return;}
   /* 처치 칩 보장 — per-symptom (선택 증상 map). 사용자 결정 2026-05-28. */
   if(symKey && symKey!=='__legacy__'){
@@ -8855,7 +8857,7 @@ export function _symShowHistory(stuId,curRecId){
   const existing=document.getElementById('symHistoryOverlay');
   if(existing){_symCloseHistory();return;}
   /* 현재 레코드 제외한 과거 방문만 필터 (칩 건수와 일치 — 날짜 기준 고유 카운트) */
-  const curRec=S.records.find(function(r){return r.id===curRecId;});
+  const curRec=getDailyRecord(curRecId);
   const curDate=curRec?curRec.date:'';
   const _histKeys=stuKeySet(stuId);   /* 이력 누락 수정 (2026-08-26) — uid/구id·타입 혼재 모두 매칭 */
   const allVisits=S.records.filter(function(r){return recInStuKeys(r,_histKeys)&&r.date!==curDate;}).sort(function(a,b){return b.date.localeCompare(a.date);});

@@ -64,6 +64,7 @@ function render(records, currentId) {
     _makeDraggable() {}
   });
   vm.runInContext(productionFunctions, context);
+  vm.runInContext(read('src/renderer/core/daily-record-access.js').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,''),context);
   context._symShowHistory('fixture-student', currentId);
   assert.deepEqual(records, before, 'Displaying history must not modify records');
   const html = nodes.find(node => node.id === 'symHistoryPop').innerHTML;

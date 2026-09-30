@@ -30,6 +30,7 @@ import { sidebarSearch, toggleSideCharts, goToPrevDay, goToNextDay, dailySortByT
 import { dailyAutoComplete, dailySearchKeydown, selectStudent } from '../features/daily/daily-autocomplete.js';
 import { openRentalLedger } from '../features/daily/rental-ledger-view.js';
 import { openDiaryPrint } from '../features/daily/diary-print-view.js';
+import { initDailyPeriodSearch } from '../features/daily/daily-period-view.js';
 
 /* ── stats ── */
 import { setStatsPeriod } from '../features/stats/stats-view.js';
@@ -504,6 +505,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     e.preventDefault();
     /* 모달별 닫기 방법 — show 클래스 제거 또는 remove */
+    if(typeof top._onModalClose === 'function'){ top._onModalClose(); return; }
     if(top.classList.contains('show') && top.classList.contains('modal-overlay')){
       top.classList.remove('show');
     } else {
@@ -612,6 +614,7 @@ document.addEventListener('DOMContentLoaded', function(){
  * ═══════════════════════════════════════ */
 
 export function bindViewDailyEvents(){
+  initDailyPeriodSearch();
   function $id(id){ return document.getElementById(id); }
   function on(el, ev, fn){ if(el) el.addEventListener(ev, fn); }
 
