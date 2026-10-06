@@ -1,3 +1,4 @@
+import { showFeedback } from '../../core/ui-feedback.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /**
  * DASHBOARD (Req 3) + Sheets 계정 선택 공통 UI
@@ -93,49 +94,58 @@ function _dashGetDateRange(subIdxOffset){
 let _dashTreatCache=null;
 let _dashRepeatCache=null;
 
-async function _dashFetchStats(){
-  _dashStatsCache=null;_dashPrevCache=null;_dashYoyCache=null;_dashSummaryCache=null;_dashTreatCache=null;_dashRepeatCache=null;
+let _dashRequestEpoch=0;
+function _dashShowFeedback(kind){
+  const area=document.getElementById('dashContentArea');if(!area)return;
+  let state=document.getElementById('schoolDashboardFeedback');
+  if(!state){state=document.createElement('div');state.id='schoolDashboardFeedback';area.insertBefore(state,document.getElementById('dashPanelSummary'));}
+  state.hidden=!kind;
+  area.setAttribute('aria-busy',String(kind==='loading'));
+  ['dashPanelSummary','dashPanelDeptStats','dashPanelDeptChart'].forEach(id=>{
+    const panel=document.getElementById(id);if(panel)panel.hidden=!!kind;
+  });
+  const pdf=document.getElementById('dashPdfBtn');if(pdf)pdf.disabled=!!kind;
+  if(kind)showFeedback(state,{kind,
+    title:kind==='loading'?'선택한 기간의 통계를 불러오는 중입니다':kind==='info'?'조회할 기간을 선택해 주세요':'통계를 불러오지 못했습니다',
+    description:kind==='loading'?'조회가 끝나면 통계표와 차트를 표시합니다.':kind==='info'?'시작일과 종료일을 모두 선택하면 해당 기간의 통계를 표시합니다.':'연결 상태를 확인한 뒤 다시 조회해 주세요. 조회 실패는 방문 0건을 의미하지 않습니다.',
+    actionLabel:kind==='error'?'다시 조회':'',onAction:()=>renderDashboard()});
+}
+async function _dashFetchStats(epoch){
   const range=_dashGetDateRange();
-  console.log('[DASH FETCH] period=',S.statsPeriod,'subIdx=',S._dashSubIdx,'range=',range);
-  if(!range){console.log('[DASH FETCH] range null — skip');return;}
+  if(!range){
+    _dashStatsCache=null;_dashPrevCache=null;_dashYoyCache=null;
+    _dashSummaryCache=null;_dashTreatCache=null;_dashRepeatCache=null;
+    return true;
+  }
+  const request=async(name,...args)=>{
+    const api=window.electronAPI;
+    if(!api||typeof api[name]!=='function')throw new Error('Statistics unavailable');
+    const result=await api[name](...args);
+    if(!result||!result.success||result.data==null)throw new Error('Statistics unavailable');
+    return result.data;
+  };
   try{
-    /* 진료과 카테고리 로드 */
     await _dashLoadDeptCats();
-    /* 현재 기간 집계 */
-    const r1=await window.electronAPI.statsDbDeptGrade(range.year,range.from,range.to);
-    if(r1&&r1.success)_dashStatsCache=r1.data;
-    console.log('[DASH FETCH] stats cache updated. total=',_dashStatsCache&&_dashStatsCache.total);
-
-    /* 요약 통계 (상위 증상) */
-    const r2=await window.electronAPI.statsDbSummary(range.year,range.from,range.to);
-    if(r2&&r2.success)_dashSummaryCache=r2.data;
-
-    /* 처치·투약 통계 (DB 기반) */
-    const r5=await window.electronAPI.statsDbTreatment(range.year,range.from,range.to);
-    if(r5&&r5.success)_dashTreatCache=r5.data;
-
-    /* 재방문 통계 (DB 기반) */
-    const r6=await window.electronAPI.statsDbRepeatVisitors(range.year,range.from,range.to,3);
-    if(r6&&r6.success)_dashRepeatCache=r6.data;
-
-    /* 이전 기간 집계 */
+    const current=await request('statsDbDeptGrade',range.year,range.from,range.to);
+    const summary=await request('statsDbSummary',range.year,range.from,range.to);
+    const treatment=await request('statsDbTreatment',range.year,range.from,range.to);
+    const repeat=await request('statsDbRepeatVisitors',range.year,range.from,range.to,3);
+    let previous=null,yoy=null;
     if(S.statsPeriod!=='today'&&S.statsPeriod!=='custom'){
-      const prevRange=_dashGetDateRange(1);
-      if(prevRange){
-        const r3=await window.electronAPI.statsDbDeptGrade(prevRange.year,prevRange.from,prevRange.to);
-        if(r3&&r3.success)_dashPrevCache=r3.data;
-      }
+      const prev=_dashGetDateRange(1);
+      if(prev)previous=await request('statsDbDeptGrade',prev.year,prev.from,prev.to);
     }
-
-    /* 전년 동기 집계 (today·custom·year 제외) */
     if(S.statsPeriod!=='today'&&S.statsPeriod!=='custom'&&S.statsPeriod!=='year'){
-      /* 현재 기간 진행 중이면 오늘 날짜까지만 YoY 비교 */
-      const today=toDateStr(new Date());
-      const yoyTo=(S._dashSubIdx===0&&range.to>today)?today:range.to;
-      const r4=await window.electronAPI.statsDbDeptGradeYoY(range.year,range.from,yoyTo);
-      if(r4&&r4.success)_dashYoyCache=r4.data;
+      const today=toDateStr(new Date()),to=(S._dashSubIdx===0&&range.to>today)?today:range.to;
+      yoy=await request('statsDbDeptGradeYoY',range.year,range.from,to);
     }
-  }catch(e){console.error('[dashboard] _dashFetchStats 오류:',e);}
+    if(epoch!==_dashRequestEpoch)return false;
+    _dashStatsCache=current;_dashSummaryCache=summary;_dashTreatCache=treatment;
+    _dashRepeatCache=repeat;_dashPrevCache=previous;_dashYoyCache=yoy;
+    return true;
+  }catch(_){
+    return false;
+  }
 }
 
 /* 진료과 카테고리 — 백엔드 유효 매핑(사용자 상분류 편집 반영) 로드 (캐시) */
@@ -201,7 +211,7 @@ async function _dashOpenUncatTool(){
   ov.id='dashUncatOv';
   ov.style.cssText='position:fixed;inset:0;z-index:30000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)';
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:580px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;font-family:var(--f)">'
-    +'<div style="padding:14px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr)">'
+    +'<div style="padding:14px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr)">'
     +'<div style="font-size:14px;font-weight:800;color:var(--t1)">🏷️ 미분류 증상 대분류 지정</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.55">아래는 현재 <b style="color:var(--t2)">기타</b>로 집계되는 증상입니다(미분류·자유기입 포함).<br>진료과(대분류)를 골라 <b style="color:var(--t2)">[적용]</b>하면 같은 증상의 모든 기록(해당 기간)이 그 진료과로 집계됩니다.</div></div>'
     +'<div style="flex:1;overflow-y:auto;padding:4px 18px">'+rows+'</div>'
@@ -360,9 +370,14 @@ document.addEventListener('wheel',_showScrollbars,{passive:true});
 }
 
 export async function renderDashboard(){
+  const epoch=++_dashRequestEpoch;
   _closeDateVisitors();
-  await _dashRenderSubTabs();
-  await _dashFetchStats();
+  _dashShowFeedback('loading');
+  try{await _dashRenderSubTabs();}catch(_){if(epoch===_dashRequestEpoch)_dashShowFeedback('error');return;}
+  if(epoch!==_dashRequestEpoch)return;
+  const loaded=await _dashFetchStats(epoch);
+  if(epoch!==_dashRequestEpoch)return;
+  if(!loaded){_dashShowFeedback('error');return;}
   const filtered=getFilteredRecords();
   const periodLabels={today:'오늘',week:'주간',month:'월간',semester:'학기',year:'연도',custom:'선택 기간'};
   const tabs=_dashGetSubTabs();const subLabel=tabs[S._dashSubIdx]?tabs[S._dashSubIdx].label:'';
@@ -403,13 +418,18 @@ export async function renderDashboard(){
       dEl.addEventListener('mouseenter',function(e){if(e.target.classList.contains('dash-hover-border'))e.target.style.borderColor='var(--cyan)';},true);
       dEl.addEventListener('mouseleave',function(e){if(e.target.classList.contains('dash-hover-border'))e.target.style.borderColor='var(--bdr)';},true);
     }
-    /* 항상 렌더링 — 데이터 없으면 빈 프레임 */
+    if(!_dashGetDateRange()){
+      _dashShowFeedback('info');
+      return;
+    }
+    _dashShowFeedback('');
     _dashRenderSummary(filtered);
     _dashRenderDeptStatsInline(filtered);
     _dashRenderDeptChart(filtered);
     return;
   }
 
+  _dashShowFeedback('');
   document.getElementById('dashDate').textContent=S.selectedDate+' ('+getDow(S.selectedDate)+') 기준 · '+dateLabel;
   _dashRenderSummary(filtered);
   _dashRenderDeptStatsInline(filtered);
@@ -768,11 +788,11 @@ function _dashRenderDeptStatsInline(filtered){
 
   /* 하단 버튼 */
   h+='<div style="display:flex;gap:4px;justify-content:center;padding:12px 0 4px;margin-top:12px;flex-wrap:wrap">';
-  h+='<button data-action="dept-copy" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드 데이터 복사</button>';
-  h+='<button data-action="dept-excel" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>';
-  h+='<button data-action="dept-png" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG 다운로드</button>';
+  h+='<button data-action="dept-copy" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#7c3aed;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드 데이터 복사</button>';
+  h+='<button data-action="dept-excel" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#16a34a;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>';
+  h+='<button data-action="dept-png" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#0891b2;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG 다운로드</button>';
   /* PDF 다운로드 버튼 제거됨 */
-  h+='<button data-action="dept-sheet" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>';
+  h+='<button data-action="dept-sheet" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#1e8e3e;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>';
   h+='</div>';
   panel.innerHTML=h;
   _dashBindPanelDelegation(panel);
@@ -900,7 +920,7 @@ function _dashRenderDeptChart(filtered){
     const px=noData?6:Math.max(12,Math.round(cnt/maxVal*barH));
     const colFade=col+'33';
     const opacity=noData?'0.25':'1';
-    return '<div style="width:100%;max-width:42px;height:'+px+'px;background:linear-gradient(180deg,'+col+','+col+'cc);border-radius:4px 4px 0 0;box-shadow:0 -2px 8px '+colFade+';transition:height 0.5s ease-out;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;opacity:'+opacity+'" title="'+title+'"><span style="font-size:11px;'+_barStroke+'">'+cnt+'</span></div>';
+    return '<div style="width:100%;max-width:42px;height:'+px+'px;background:'+col+';border-radius:4px 4px 0 0;box-shadow:0 -2px 8px '+colFade+';transition:height 0.5s ease-out;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;opacity:'+opacity+'" title="'+title+'"><span style="font-size:11px;'+_barStroke+'">'+cnt+'</span></div>';
   }
 
   /* ── 레이아웃 결정 ── */
@@ -917,7 +937,7 @@ function _dashRenderDeptChart(filtered){
     h+='<div style="display:flex;gap:20px;flex-wrap:wrap">';
     h+='<div id="dashChartDept" style="flex:'+Math.max(6,_deptBarCount-4)+';min-width:200px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 8px 10px;position:relative">';
   }
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:24px;padding-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#3B82F6,#8B5CF6);border-radius:2px"></span>진료과(증상)별 분포 <span style="font-size:10px;color:var(--t3);font-weight:500">(총 '+totalDept+'건)</span><span style="flex:1"></span>'+_copyBtnHtml('dashChartDept','진료과별 차트 복사됨')+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:24px;padding-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#2563eb;border-radius:2px"></span>진료과(증상)별 분포 <span style="font-size:10px;color:var(--t3);font-weight:500">(총 '+totalDept+'건)</span><span style="flex:1"></span>'+_copyBtnHtml('dashChartDept','진료과별 차트 복사됨')+'</div>';
   /* 진료과별 남/여/미상 집계 — 백엔드 _guessDepts 와 동일한 정규식 매칭 로직 사용해 counts 와 합계 일치.
      단순 _deptCats14 indexOf 만으로는 자유 입력 증상(예: "감기 기운")이 매칭 안 돼 모두 "기타"로 흘러가 합계가 폭발하는 문제 방지. */
   const _deptMale={}, _deptFemale={}, _deptUnknown={};
@@ -1038,7 +1058,7 @@ function _dashRenderDeptChart(filtered){
   /* 학생/교직원 도넛 — 진료과 막대 옆에서 비주얼 균형이 맞도록 큼직하게.
      특수학교 등 진료과가 전체 폭을 쓰는 경우(_gradeFullWidth=true)는 더 넉넉히. */
   const _roleSz=_gradeFullWidth?260:230;
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#3B82F6,#FACC15);border-radius:2px"></span>'+(_isKinder?'원아':'학생')+'/교직원 방문 현황<span style="flex:1"></span>'+_copyBtnHtml('dashChartRole','학생/교직원 복사됨')+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#2563eb;border-radius:2px"></span>'+(_isKinder?'원아':'학생')+'/교직원 방문 현황<span style="flex:1"></span>'+_copyBtnHtml('dashChartRole','학생/교직원 복사됨')+'</div>';
   /* 호버 툴팁 — 학생·교직원 건수와 비율 */
   const _roleTotal=_stuCount+_staffCount;
   const _stuPct=_roleTotal>0?(_stuCount/_roleTotal*100).toFixed(1):'0';
@@ -1124,7 +1144,7 @@ function _dashRenderDeptChart(filtered){
   const _donutSz=Math.max(80,Math.min(150,Math.round(700/_genderCount)));
 
   h+='<div id="dashChartGender" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative">';
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,'+_maleCol+','+_femaleCol+');border-radius:2px"></span>'+(_isKinder?'아동 나이별 방문 남/여 분포':'학년별 방문 남/여학생 분포')+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartGender','남/여 분포 복사됨')+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:'+_maleCol+';border-radius:2px"></span>'+(_isKinder?'아동 나이별 방문 남/여 분포':'학년별 방문 남/여학생 분포')+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartGender','남/여 분포 복사됨')+'</div>';
   /* 학교급이 여러 개(특수학교 또는 통합학교)면 학교급별 행 분리. 단일 학교급이면 한 행. */
   const _genderMultiLevel=(_isMulti||_isSpecial);
   const _lvNameMap={'유':'유치원','초':'초등학교','중':'중학교','고':'고등학교','대':'대학교/전공과'};
@@ -1328,7 +1348,7 @@ function _dashRenderDeptChart(filtered){
   const _clsMultiLevel=(_isMulti||_isSpecial);
 
   h+='<div id="dashChartClsGender" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:18px 16px 16px;position:relative">';
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#10B981,#38BDF8);border-radius:2px"></span>'+(_isKinder?'아동 나이 - 반별 방문 남/여학생 분포':'반별 방문 남/여학생 분포')+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartClsGender','남/여 분포 복사됨')+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#059669;border-radius:2px"></span>'+(_isKinder?'아동 나이 - 반별 방문 남/여학생 분포':'반별 방문 남/여학생 분포')+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartClsGender','남/여 분포 복사됨')+'</div>';
   h+='<div style="font-size:10px;color:var(--t3);margin-bottom:10px">(1학년 1반부터 순서대로 정렬됩니다.)</div>';
   /* 학교급이 여러 개면 학교급별 행 분리. 단일 학교급이면 한 행.
      ── grid 10열 고정. 11개 이상이면 자동으로 다음 줄로 wrap (가로 스크롤 제거). */
@@ -1442,7 +1462,7 @@ function _dashRenderDeptChart(filtered){
   const _htCellH=32;
 
   h+='<div id="dashChartHourly" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 16px 14px;position:relative">';
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:14px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#A5D6A7,#1B5E20);border-radius:2px"></span>시간대별 방문 분포<span style="font-size:10px;color:var(--t3);font-weight:500">(총 '+_htGrand+'건)</span><span style="flex:1"></span>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:14px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#A5D6A7;border-radius:2px"></span>시간대별 방문 분포<span style="font-size:10px;color:var(--t3);font-weight:500">(총 '+_htGrand+'건)</span><span style="flex:1"></span>';
   /* 톱니바퀴 설정 버튼 */
   h+='<button data-action="hourly-settings" title="시간대 설정" class="dash-copy-btn" style="background:none;border:none;cursor:pointer;padding:3px;opacity:0.35;transition:opacity 0.2s;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>';
   h+=_copyBtnHtml('dashChartHourly','시간대별 분포 복사됨')+'</div>';
@@ -1613,7 +1633,7 @@ function _dashRenderDeptChart(filtered){
     let _hmFinvizMode=_dashHmFinviz;
     if(_hmFinvizMode===undefined){const _hmSaved=localStorage.getItem('dash_hm_finviz');_hmFinvizMode=_hmSaved===null?true:_hmSaved==='true';_dashHmFinviz=_hmFinvizMode;}
     h+='<div id="dashChartHeatmap" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 16px 14px;position:relative">';
-    h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#FFB5B5,#9B0000);border-radius:2px"></span>'+(_isKinder?'연령별':'학급별')+' 건강 히트맵<span style="flex:1"></span>';
+    h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#FFB5B5;border-radius:2px"></span>'+(_isKinder?'연령별':'학급별')+' 건강 히트맵<span style="flex:1"></span>';
     /* Finviz 토글 */
     h+='<span style="font-size:9px;color:var(--t3);margin-right:2px">표 스타일</span>';
     h+='<div class="sv-toggle'+(_hmFinvizMode?' on':'')+'" data-action="toggle-finviz" style="transform:scale(0.7);margin:0 -2px"></div>';
@@ -1933,7 +1953,7 @@ function _dashRenderDeptChart(filtered){
   h+='<div style="display:flex;gap:12px;flex-wrap:wrap">';
   if(days.length>1){
     h+='<div id="dashChartTrend" style="flex:2;min-width:250px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative">';
-    h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#06b6d4,#0891b2);border-radius:2px"></span>'+escHtml(_trendTitle)+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartTrend','방문자 추이 복사됨')+'</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#0891b2;border-radius:2px"></span>'+escHtml(_trendTitle)+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartTrend','방문자 추이 복사됨')+'</div>';
     /* 꺾은선 그래프 */
     const _cdVals=days.map(function(d){return dayCount[d]||0;});
     /* compute max including MA values for y-axis scaling */
@@ -1955,11 +1975,11 @@ function _dashRenderDeptChart(filtered){
     /* 그리드 */
     for(let gi=0;gi<=4;gi++){const gy=padY+(cH/4)*gi;const gv=Math.round(dMaxV*(4-gi)/4);svg+='<line x1="'+padX+'" y1="'+gy+'" x2="'+(svgW-padX)+'" y2="'+gy+'" stroke="var(--bdr)" stroke-width="0.5" stroke-dasharray="3,3"/>';svg+='<text x="'+(padX-4)+'" y="'+(gy+3)+'" text-anchor="end" fill="var(--t3)" font-size="7" font-family="var(--fm)">'+gv+'</text>';}
     /* 영역 채우기 (gradient) */
-    svg+='<defs><linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06b6d4" stop-opacity="0.25"/><stop offset="100%" stop-color="#06b6d4" stop-opacity="0.02"/></linearGradient></defs>';
+    svg+='<defs></defs>';
     let areaPath='M'+(padX+gap*0+gap/2)+','+_cdY(_cdVals[0]);
     for(let i=1;i<_cdVals.length;i++){areaPath+=' L'+(padX+gap*i+gap/2)+','+_cdY(_cdVals[i]);}
     areaPath+=' L'+(padX+gap*(_cdVals.length-1)+gap/2)+','+(padY+cH)+' L'+(padX+gap/2)+','+(padY+cH)+' Z';
-    svg+='<path d="'+areaPath+'" fill="url(#lineGrad)"/>';
+    svg+='<path d="'+areaPath+'" fill="#06b6d4" fill-opacity="0.14"/>';
     /* 꺾은선 */
     let linePath='M'+(padX+gap*0+gap/2)+','+_cdY(_cdVals[0]);
     for(let i=1;i<_cdVals.length;i++){linePath+=' L'+(padX+gap*i+gap/2)+','+_cdY(_cdVals[i]);}
@@ -2047,7 +2067,7 @@ function _dashRenderDeptChart(filtered){
   });
   const _bedDays=Object.keys(_bedCount).sort();
   h+='<div id="dashChartBed" style="flex:2;min-width:250px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:linear-gradient(180deg,#8B5CF6,#EC4899);border-radius:2px"></span>침상 이용 추이<span style="flex:1"></span>'+_copyBtnHtml('dashChartBed','침상 이용 추이 복사됨')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:#7c3aed;border-radius:2px"></span>침상 이용 추이<span style="flex:1"></span>'+_copyBtnHtml('dashChartBed','침상 이용 추이 복사됨')+'</div>';
   if(_bedDays.length>0){
     const _bedVals=_bedDays.map(function(d){return _bedCount[d];});
     const _bedMax=Math.max.apply(null,_bedVals)||1;
@@ -2058,12 +2078,12 @@ function _dashRenderDeptChart(filtered){
     function _bedY(v){return _bedPadY+_bedCH-(v/_bedDMax)*_bedCH;}
     let _bedSvg='<svg viewBox="0 0 '+_bedSvgW+' '+_bedSvgH+'" style="width:100%;height:'+_bedSvgH+'px">';
     for(let bgi=0;bgi<=3;bgi++){const bgy=_bedPadY+(_bedCH/3)*bgi;const bgv=Math.round(_bedDMax*(3-bgi)/3);_bedSvg+='<line x1="'+_bedPadX+'" y1="'+bgy+'" x2="'+(_bedSvgW-_bedPadX)+'" y2="'+bgy+'" stroke="var(--bdr)" stroke-width="0.5" stroke-dasharray="3,3"/>';_bedSvg+='<text x="'+(_bedPadX-4)+'" y="'+(bgy+3)+'" text-anchor="end" fill="var(--t3)" font-size="7" font-family="var(--fm)">'+bgv+'</text>';}
-    _bedSvg+='<defs><linearGradient id="bedGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.25"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.02"/></linearGradient></defs>';
+    _bedSvg+='<defs></defs>';
     if(_bedDays.length>1){
       let _bedArea='M'+(_bedPadX+_bedGap/2)+','+_bedY(_bedVals[0]);
       for(let bi=1;bi<_bedVals.length;bi++)_bedArea+=' L'+(_bedPadX+_bedGap*bi+_bedGap/2)+','+_bedY(_bedVals[bi]);
       _bedArea+=' L'+(_bedPadX+_bedGap*(_bedVals.length-1)+_bedGap/2)+','+(_bedPadY+_bedCH)+' L'+(_bedPadX+_bedGap/2)+','+(_bedPadY+_bedCH)+' Z';
-      _bedSvg+='<path d="'+_bedArea+'" fill="url(#bedGrad)"/>';
+      _bedSvg+='<path d="'+_bedArea+'" fill="#8B5CF6" fill-opacity="0.14"/>';
       let _bedLine='M'+(_bedPadX+_bedGap/2)+','+_bedY(_bedVals[0]);
       for(let bi2=1;bi2<_bedVals.length;bi2++)_bedLine+=' L'+(_bedPadX+_bedGap*bi2+_bedGap/2)+','+_bedY(_bedVals[bi2]);
       _bedSvg+='<path d="'+_bedLine+'" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
@@ -2230,7 +2250,7 @@ function _dashRenderDeptChart(filtered){
 
   /* ▸ 처치별 분포 */
   h+='<div id="dashChartTreat" style="flex:1;min-width:180px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative;overflow:visible">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:linear-gradient(180deg,#F59E0B,#EF4444);border-radius:2px"></span>처치별 분포<span style="flex:1"></span>'+_copyBtnHtml('dashChartTreat','처치별 분포 복사됨')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:#d97706;border-radius:2px"></span>처치별 분포<span style="flex:1"></span>'+_copyBtnHtml('dashChartTreat','처치별 분포 복사됨')+'</div>';
   if(_treatSorted.length){
     _treatSorted.forEach(function(t,i){
       const pct=Math.max(8,Math.round(t[1]/_treatMax*100));
@@ -2244,7 +2264,7 @@ function _dashRenderDeptChart(filtered){
 
   /* ▸ 반별 방문 TOP — 처치와 투약 사이 */
   h+='<div id="dashChartClsTop" style="flex:1;min-width:180px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative;overflow:visible">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:linear-gradient(180deg,#F97316,#EF4444);border-radius:2px"></span>반별 방문 TOP '+_clsTopN+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartClsTop','반별 TOP 복사됨')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:#ea580c;border-radius:2px"></span>반별 방문 TOP '+_clsTopN+'<span style="flex:1"></span>'+_copyBtnHtml('dashChartClsTop','반별 TOP 복사됨')+'</div>';
   if(_clsSorted.length){
     /* 반별 성별 집계 */
     filtered.forEach(function(r){const s=getStu(r.studentId);if(!s||s.type==='staff'||!s.grade)return;const key=_isSpecial?((s.level||'')+'_'+s.grade+'_'+s.cls):(s.department?(s.department+'_'+s.grade+'_'+s.cls):(s.grade+'_'+s.cls));if(!_clsGenderMap[key])_clsGenderMap[key]={m:0,f:0};let g=s.gender;if(g==='M')g='남';else if(g==='F')g='여';if(g==='남')_clsGenderMap[key].m++;else if(g==='여')_clsGenderMap[key].f++;if(S.statsPeriod==='today'){if(!_clsStudents[key])_clsStudents[key]=[];_clsStudents[key].push({label:_stuInfoOf(r),recId:r.id,date:r.date,studentId:r.studentId});}});
@@ -2262,7 +2282,7 @@ function _dashRenderDeptChart(filtered){
 
   /* ▸ 투약 TOP10 */
   h+='<div id="dashChartTopMed" style="flex:1;min-width:180px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative;overflow:visible">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:linear-gradient(180deg,#10B981,#3B82F6);border-radius:2px"></span>투약 TOP 10<span style="flex:1"></span>'+_copyBtnHtml('dashChartTopMed','투약 TOP10 복사됨')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:#059669;border-radius:2px"></span>투약 TOP 10<span style="flex:1"></span>'+_copyBtnHtml('dashChartTopMed','투약 TOP10 복사됨')+'</div>';
   if(_medSorted.length){
     _medSorted.forEach(function(m,i){
       const pct=Math.max(8,Math.round(m[1]/_medMax*100));
@@ -2284,7 +2304,7 @@ function _dashRenderDeptChart(filtered){
 
   /* ▸ 요일별 분포 */
   h+='<div id="dashChartDow" style="flex:2;min-width:150px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative;overflow:visible;display:flex;flex-direction:column">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:linear-gradient(180deg,#3B82F6,#06B6D4);border-radius:2px"></span>요일별 분포<span style="flex:1"></span>'+_copyBtnHtml('dashChartDow','요일별 분포 복사됨')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:#2563eb;border-radius:2px"></span>요일별 분포<span style="flex:1"></span>'+_copyBtnHtml('dashChartDow','요일별 분포 복사됨')+'</div>';
   const _dowColors=['#EC4899','#06B6D4','#F97316','#14B8A6','#92400E'];
   const _dowKeys=['월','화','수','목','금'];
   const _dowFullNames={'월':'월요일','화':'화요일','수':'수요일','목':'목요일','금':'금요일'};
@@ -2302,7 +2322,7 @@ function _dashRenderDeptChart(filtered){
 
   /* ▸ 증상 TOP10 */
   h+='<div id="dashChartTopSym" style="flex:3;min-width:180px;border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative;overflow:visible">';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:linear-gradient(180deg,#EC4899,#8B5CF6);border-radius:2px"></span>증상 TOP 10<span style="flex:1"></span>'+_copyBtnHtml('dashChartTopSym','증상 TOP10 복사됨')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:14px;background:#db2777;border-radius:2px"></span>증상 TOP 10<span style="flex:1"></span>'+_copyBtnHtml('dashChartTopSym','증상 TOP10 복사됨')+'</div>';
   if(_symSorted.length){
     _symSorted.forEach(function(s,i){
       const pct=Math.max(8,Math.round(s[1]/_symMax*100));
@@ -2328,7 +2348,7 @@ function _dashRenderDeptChart(filtered){
     const _revisitMax=_revisitSorted.length?_revisitSorted[0][1]:1;
     if(_revisitSorted.length){
       h+='<div id="dashChartRevisit" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 16px 14px;position:relative">';
-      h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#F43F5E,#FB923C);border-radius:2px"></span>재방문 '+(_isKinder?'원아':'학생')+' TOP 10 <span style="font-size:10px;color:var(--t3);font-weight:500">(2회 이상)</span><span style="flex:1"></span>'+_copyBtnHtml('dashChartRevisit','재방문 TOP 복사됨')+'</div>';
+      h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#F43F5E;border-radius:2px"></span>재방문 '+(_isKinder?'원아':'학생')+' TOP 10 <span style="font-size:10px;color:var(--t3);font-weight:500">(2회 이상)</span><span style="flex:1"></span>'+_copyBtnHtml('dashChartRevisit','재방문 TOP 복사됨')+'</div>';
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px">';
       _revisitSorted.forEach(function(e,i){
         let s=getStu(e[0]);
@@ -2344,7 +2364,7 @@ function _dashRenderDeptChart(filtered){
         h+='<div style="font-size:10px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(name)+'</div>';
         h+='<div style="font-size:8px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(grade)+'">'+escHtml(grade)+'</div>';
         h+='</div>';
-        h+='<div style="flex:1;height:14px;background:var(--bg2);border-radius:3px;overflow:hidden;position:relative"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,'+col+','+col+'88);border-radius:3px;transition:width 0.5s"></div></div>';
+        h+='<div style="flex:1;height:14px;background:var(--bg2);border-radius:3px;overflow:hidden;position:relative"><div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:3px;transition:width 0.5s"></div></div>';
         h+='<span style="font-size:11px;font-family:var(--fm);color:var(--t1);font-weight:800;min-width:28px;text-align:right">'+e[1]+'<span style="font-size:8px;color:var(--t3);font-weight:500">회</span></span>';
         h+='</div>';
       });
@@ -2384,7 +2404,7 @@ function _dashRenderDeptChart(filtered){
   let _gSymMax=1;_gSymSorted.forEach(function(k){const m=_mSymCount[k]||0, f=_fSymCount[k]||0;if(m>_gSymMax)_gSymMax=m;if(f>_gSymMax)_gSymMax=f;});
 
   h+='<div id="dashChartGenderSym" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 16px 14px;position:relative">';
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#10B981,#38BDF8);border-radius:2px"></span>남여 증상 비교<span style="flex:1"></span>'+_copyBtnHtml('dashChartGenderSym','남녀 증상 비교 복사됨')+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#059669;border-radius:2px"></span>남여 증상 비교<span style="flex:1"></span>'+_copyBtnHtml('dashChartGenderSym','남녀 증상 비교 복사됨')+'</div>';
   h+='<div style="font-size:10px;color:var(--t3);margin-bottom:12px">상위 12개 증상의 성별 분포를 비교합니다.</div>';
   /* 범례 */
   h+='<div style="display:flex;gap:16px;justify-content:center;margin-bottom:10px">';
@@ -2400,13 +2420,13 @@ function _dashRenderDeptChart(filtered){
       /* 왼쪽 남학생 (오른쪽 정렬 바) */
       h+='<div style="flex:1;display:flex;align-items:center;justify-content:flex-end;gap:4px">';
       h+='<span style="font-size:9px;font-family:var(--fm);color:#10B981;font-weight:700">'+mV+'</span>';
-      h+='<div style="width:'+mPct+'%;max-width:100%;height:16px;background:linear-gradient(270deg,#10B981,#10B98166);border-radius:3px 0 0 3px;transition:width 0.5s"></div>';
+      h+='<div style="width:'+mPct+'%;max-width:100%;height:16px;background:#059669;border-radius:3px 0 0 3px;transition:width 0.5s"></div>';
       h+='</div>';
       /* 중앙 라벨 */
       h+='<div style="width:72px;text-align:center;font-size:10px;color:var(--t1);font-weight:600;flex-shrink:0;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+sym+'</div>';
       /* 오른쪽 여학생 (왼쪽 정렬 바) */
       h+='<div style="flex:1;display:flex;align-items:center;gap:4px">';
-      h+='<div style="width:'+fPct+'%;max-width:100%;height:16px;background:linear-gradient(90deg,#38BDF8,#38BDF866);border-radius:0 3px 3px 0;transition:width 0.5s"></div>';
+      h+='<div style="width:'+fPct+'%;max-width:100%;height:16px;background:#38BDF8;border-radius:0 3px 3px 0;transition:width 0.5s"></div>';
       h+='<span style="font-size:9px;font-family:var(--fm);color:#38BDF8;font-weight:700">'+fV+'</span>';
       h+='</div>';
       h+='</div>';
@@ -2445,7 +2465,7 @@ function _dashRenderDeptChart(filtered){
   });
 
   h+='<div id="dashChartSeason" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 16px 14px;position:relative">';
-  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#22C55E,#3B82F6);border-radius:2px"></span>계절별 질환 트렌드<span style="flex:1"></span>'+_copyBtnHtml('dashChartSeason','계절별 트렌드 복사됨')+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#16a34a;border-radius:2px"></span>계절별 질환 트렌드<span style="flex:1"></span>'+_copyBtnHtml('dashChartSeason','계절별 트렌드 복사됨')+'</div>';
   h+='<div style="font-size:10px;color:var(--t3);margin-bottom:14px">최근 2년간 데이터 기반 계절별 상위 5개 증상</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">';
   _seasonKeys.forEach(function(sk){
@@ -2502,7 +2522,7 @@ function _dashRenderDeptChart(filtered){
     const _careSz=Math.max(80,Math.min(150,Math.round(700/_careGradeCount)));
 
     h+='<div id="dashChartCare" style="border:1.5px dashed var(--bdr);border-radius:12px;padding:14px 12px 10px;position:relative;margin-top:12px">';
-    h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:linear-gradient(180deg,#EF4444,#94A3B8);border-radius:2px"></span>요보호 대상 '+(_isKinder?'원아':'학생')+' 현황 <span style="font-size:10px;color:var(--t3);font-weight:500">(총 '+_careTotal+'명)</span><span style="flex:1"></span>'+_copyBtnHtml('dashChartCare','요보호 현황 복사됨')+'</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:16px;background:#dc2626;border-radius:2px"></span>요보호 대상 '+(_isKinder?'원아':'학생')+' 현황 <span style="font-size:10px;color:var(--t3);font-weight:500">(총 '+_careTotal+'명)</span><span style="flex:1"></span>'+_copyBtnHtml('dashChartCare','요보호 현황 복사됨')+'</div>';
     /* 다중 학교급(특수학교·복합학교) 인 경우 학교급별로 행 분할.
        단일 학교급(일반 학교)은 한 줄에 모두 배치. */
     const _careGroupByLv=(_isSpecial||_isMulti);
@@ -3123,11 +3143,11 @@ function _dashOpenDeptStats(){
     +_buildSummaryTable('전체 '+(_deptPeriodTitle[S.statsPeriod]||'')+' 통계 (학생+교직원)',filtered,deptCats,deptKeys,prevFiltered,yoyFiltered,true)
     +'</div>'
     +'<div style="display:flex;gap:4px;justify-content:center;padding:10px 20px;border-top:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap;background:var(--card);border-radius:0 0 14px 14px">'
-    +'<button data-action="dept-copy" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드 복사</button>'
-    +'<button data-action="dept-excel" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>'
-    +'<button data-action="dept-png" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG 다운로드</button>'
+    +'<button data-action="dept-copy" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#7c3aed;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드 복사</button>'
+    +'<button data-action="dept-excel" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#16a34a;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>'
+    +'<button data-action="dept-png" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#0891b2;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG 다운로드</button>'
     /* PDF 다운로드 버튼 제거됨 */
-    +'<button data-action="dept-sheet" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>'
+    +'<button data-action="dept-sheet" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#1e8e3e;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>'
     +'</div></div>';
   document.body.appendChild(ov);
   _dashBindPanelDelegation(ov);
@@ -3468,7 +3488,7 @@ function _deptStatsSheet(){
   html+='<div style="background:var(--bg2);padding:14px 18px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</div></div>';
   html+='<div style="padding:18px">';
-  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#34a853,#1e8e3e);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:8px;background:#1e8e3e;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>';
   html+='<div><div style="font-size:13px;font-weight:700;color:var(--t1)">내 Google 드라이브에 저장</div>';
   html+='<div style="font-size:10px;color:var(--t3)">새 스프레드시트가 자동으로 생성됩니다</div></div></div>';
   html+='<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:12px;font-size:11px;color:var(--t2)">';
@@ -3487,7 +3507,7 @@ function _deptStatsSheet(){
   html+='</div></div>';
   html+='</div>';
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
-  html+='<button id="deptSheetsSendBtn" data-action="dept-sheets-send" style="padding:7px 22px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
+  html+='<button id="deptSheetsSendBtn" data-action="dept-sheets-send" style="padding:7px 22px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   ov.addEventListener('click',function(e){
@@ -3523,7 +3543,7 @@ async function _deptSheetsBrowse(){
   const ex=document.getElementById('driveFolderPicker');if(ex)ex.remove();
   const pk=document.createElement('div');pk.id='driveFolderPicker';
   pk.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9700;display:flex;align-items:center;justify-content:center';
-  pk.innerHTML='<div style="background:var(--card);border-radius:12px;width:400px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,0.3);overflow:hidden"><div style="padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">📂 폴더 선택</div><div id="driveFolderList" style="padding:12px 16px;max-height:300px;overflow-y:auto;min-height:60px"><div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">불러오는 중...</div></div><div style="padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between"><button data-action="drive-folder-new" style="padding:5px 12px;font-size:10px;font-weight:600;background:var(--bg);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">+ 새 폴더</button><button data-action="drive-folder-select" style="padding:5px 14px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">이 폴더 선택</button></div></div>';
+  pk.innerHTML='<div style="background:var(--card);border-radius:12px;width:400px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,0.3);overflow:hidden"><div style="padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">📂 폴더 선택</div><div id="driveFolderList" style="padding:12px 16px;max-height:300px;overflow-y:auto;min-height:60px"><div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">불러오는 중...</div></div><div style="padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between"><button data-action="drive-folder-new" style="padding:5px 12px;font-size:10px;font-weight:600;background:var(--bg);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">+ 새 폴더</button><button data-action="drive-folder-select" style="padding:5px 14px;font-size:10px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">이 폴더 선택</button></div></div>';
   pk.addEventListener('click',function(e){
     if(e.target===pk){_closeDrivePicker();return;}
     const el=e.target.closest('[data-action]');if(!el)return;
@@ -4257,7 +4277,7 @@ function _dashRenderVisitsChart(filtered){
   const polyArea=padX+','+(padY+chartH)+' '+polyLine+' '+pts[pts.length-1].x+','+(padY+chartH);
 
   let svg='<svg viewBox="0 0 '+svgW+' '+svgH+'" style="width:100%;height:'+svgH+'px">';
-  svg+='<defs><linearGradient id="dashAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+accentColor+'" stop-opacity="0.3"/><stop offset="100%" stop-color="'+accentColor+'" stop-opacity="0.02"/></linearGradient></defs>';
+  svg+='<defs></defs>';
   /* 그리드 */
   for(let gi=0;gi<=4;gi++){
     const gy=padY+(chartH/4)*gi;
@@ -4265,7 +4285,7 @@ function _dashRenderVisitsChart(filtered){
     svg+='<text x="'+(padX-4)+'" y="'+(gy+3)+'" text-anchor="end" fill="var(--t3)" font-size="8" font-family="var(--fm)">'+Math.round(maxV*(4-gi)/4)+'</text>';
   }
   /* 영역 */
-  svg+='<polygon points="'+polyArea+'" fill="url(#dashAreaGrad)"/>';
+  svg+='<polygon points="'+polyArea+'" fill="'+accentColor+'" fill-opacity="0.16"/>';
   /* 선 */
   svg+='<polyline points="'+polyLine+'" fill="none" stroke="'+accentColor+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
   /* 점 + 레이블 */
@@ -4346,7 +4366,7 @@ function _dashRenderGrade(filtered){
     const ratio=(e[1]/gradeTotal*100).toFixed(1);
     h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" title="'+e[0]+gradeLabel+': '+e[1]+'건 ('+ratio+'%)">';
     h+='<span style="font-size:10px;font-family:var(--fm);color:var(--t1);font-weight:700">'+e[1]+'</span>';
-    h+='<div style="width:100%;max-width:52px;height:'+pct+'%;min-height:4px;background:linear-gradient(180deg,'+_dashPastel[i%_dashPastel.length]+','+_dashPastel[i%_dashPastel.length]+'aa);border-radius:6px 6px 0 0;transition:height 0.6s ease-out;box-shadow:0 -2px 8px '+_dashPastel[i%_dashPastel.length]+'33"></div>';
+    h+='<div style="width:100%;max-width:52px;height:'+pct+'%;min-height:4px;background:'+_dashPastel[i%_dashPastel.length]+';border-radius:6px 6px 0 0;transition:height 0.6s ease-out;box-shadow:0 -2px 8px '+_dashPastel[i%_dashPastel.length]+'33"></div>';
     h+='<span style="font-size:10px;color:var(--t2);font-weight:600">'+e[0]+gradeLabel+'</span>';
     h+='</div>';
   });
@@ -4980,7 +5000,7 @@ function _crkBuildPdf(selectedTopics, mode){
     +'th{background:#f0f0f0;font-weight:700;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'.rec-head{background:#fce7f3;font-weight:800;padding:7px 9px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'.long-cell{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}'
-    +'.bar{height:5px;background:linear-gradient(90deg,#06b6d4,#8b5cf6);border-radius:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'.bar{height:5px;background:#0891b2;border-radius:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'h2{text-align:center;margin:10px 0;font-size:20px;letter-spacing:8px}'
     +'</style></head><body>'
     +'<div class="bar"></div><h2>상 담 내 역</h2><div class="bar" style="margin-bottom:16px"></div>';
@@ -5222,8 +5242,8 @@ function _rkRender(){
   });
   h+='</div>';
   h+='<div style="margin-left:auto;display:flex;gap:4px;align-items:center">';
-  h+='<button data-rk="excel" style="padding:9px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>';
-  h+='<button data-rk="sheets" style="padding:9px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>';
+  h+='<button data-rk="excel" style="padding:9px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#16a34a;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>';
+  h+='<button data-rk="sheets" style="padding:9px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;background:#1e8e3e;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 보내기</button>';
   h+='</div></div>';
   /* 기간 선택(custom) — 방문 통계와 동일 GUI */
   if(_rk.period==='custom'){
@@ -5247,7 +5267,7 @@ function _rkRender(){
   h+='<div style="display:grid;grid-template-columns:repeat('+colN+',1fr);gap:10px">';
   (groups||[]).forEach(function(g){
     h+='<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;display:flex;flex-direction:column">';
-    h+='<div style="padding:9px 14px;font-size:12px;font-weight:800;color:var(--t1);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))">'+g.title+'<span style="margin-left:auto;font-size:10px;color:var(--t3);font-weight:600">'+(g.kind==='class'?g.list.length+'개 반':g.list.length+'명')+'</span></div>';
+    h+='<div style="padding:9px 14px;font-size:12px;font-weight:800;color:var(--t1);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px;background:rgba(6,182,212,0.10)">'+g.title+'<span style="margin-left:auto;font-size:10px;color:var(--t3);font-weight:600">'+(g.kind==='class'?g.list.length+'개 반':g.list.length+'명')+'</span></div>';
     h+='<div style="flex:1;overflow-y:auto;max-height:max(340px,calc(100vh - 470px));padding:6px;scrollbar-width:thin">';
     if(!g.list.length)h+='<div style="padding:30px 10px;text-align:center;color:var(--t3);font-size:11px">데이터 없음</div>';
     g.list.forEach(function(it,i){

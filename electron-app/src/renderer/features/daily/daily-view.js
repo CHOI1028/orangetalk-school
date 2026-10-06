@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
+import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { getStu, escHtml, escJs, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
@@ -12,6 +13,7 @@ import { S, monthNames, dayNames } from '../../core/app-state.js';
 import { closeEmsPopup } from '../kiosk/ems-popup-view.js';
 import { openTimePicker } from './diary-print-view.js';
 import { tmSyncDailyMemo } from './today-memo.js';
+import { isDailyPeriodSearchActive, closeDailyPeriodSearch, refreshDailyPeriodSearch } from './daily-period-view.js';
 import { bus } from '../../core/event-bus.js';
 
 let _nameHoverEl=null;
@@ -37,6 +39,13 @@ function _closeSvOverlay(ov){if(ov)closeModalGracefully(ov);}
 /* ═══════════════════════════════════════
    CALENDAR (persistent, Req 3-5)
    ═══════════════════════════════════════ */
+// The context calendar only browses history; it does not change the open diary.
+let _contextCalendarDate=null;
+let _calContextFocus=false;
+function _isSchoolContextCalendar(){
+  return document.body.classList.contains('school-interface') && document.body.classList.contains('school-context-open');
+}
+
 export function renderCalendar(){
   const el = document.getElementById('mainCalendar');
   const year=S.calYear, month=S.calMonth;
@@ -56,9 +65,9 @@ export function renderCalendar(){
   monthPopup+='</div>';
 
   let html=`<div class="mcal-hdr">
-    <div class="mcal-nav"><button class="mcal-btn" id="calPrevBtn">◂</button></div>
+    <div class="mcal-nav"><button type="button" class="mcal-btn" id="calPrevBtn" aria-label="이전 달">◂</button></div>
     <div class="mcal-title"><span class="mcal-year">${year}년${yearPopup}</span> <span class="mcal-month">${monthNames[month]}${monthPopup}</span></div>
-    <div class="mcal-nav"><button class="mcal-btn" id="calNextBtn">▸</button></div>
+    <div class="mcal-nav"><button type="button" class="mcal-btn" id="calNextBtn" aria-label="다음 달">▸</button></div>
   </div><div class="mcal-grid">`;
 
   ['일','월','화','수','목','금','토'].forEach((d,i)=>{
@@ -73,8 +82,12 @@ export function renderCalendar(){
     const cellIdx=startDay+(d-1);const weekRow=Math.floor(cellIdx/7);
     let cls='mcal-cell';if(weekRow===0)cls+=' week1';
     if(ds===today)cls+=' today';
-    if(ds===S.selectedDate&&(S.currentView==='daily'||S.currentView==='story'))cls+=' selected';
-    if(ds===S.selectedDate&&S.currentView==='dashboard')cls+=' dash-selected';
+    if(_isSchoolContextCalendar()){
+      if(ds===(_contextCalendarDate||S.selectedDate))cls+=' selected';
+    } else {
+      if(ds===S.selectedDate&&(S.currentView==='daily'||S.currentView==='story'))cls+=' selected';
+      if(ds===S.selectedDate&&S.currentView==='dashboard')cls+=' dash-selected';
+    }
     if(dow===0)cls+=' sun';
     if(dow===6)cls+=' sat';
     const isWkend=dow===0||dow===6;
@@ -89,6 +102,9 @@ export function renderCalendar(){
   const rem=(7-totalCells%7)%7;
   for(let i=1;i<=rem;i++) html+=`<div class="mcal-cell other"><span class="day-n">${i}</span></div>`;
   html+='</div>';
+  if(document.body.classList.contains('school-interface')){
+    html+='<div class="school-context-calendar-legend" aria-label="날짜 표시 안내"><span><i class="legend-today" aria-hidden="true"></i>오늘</span><span><i class="legend-selected" aria-hidden="true"></i>선택일</span><span><i class="legend-visit" aria-hidden="true"></i>방문 기록</span></div>';
+  }
   el.innerHTML=html;
 
   /* ── Calendar event listeners ── */
@@ -103,7 +119,7 @@ export function renderCalendar(){
     btn.addEventListener('click',function(){S.calMonth=parseInt(this.dataset.calMonth);renderCalendar();});
   });
   el.querySelectorAll('[data-cal-date]').forEach(function(btn){
-    btn.addEventListener('click',function(){selectDate(this.dataset.calDate);});
+    btn.addEventListener('click',function(){selectDate(this.dataset.calDate,_isSchoolContextCalendar());});
   });
 
   // Fix month popup display
@@ -111,7 +127,18 @@ export function renderCalendar(){
   // 달력은 항상 표시
 }
 
-export function selectDate(d){
+export function selectDate(d,contextOnly=false){
+  _calContextFocus=contextOnly;
+  if(contextOnly){
+    _contextCalendarDate=d;
+    _calFocusActive=true;
+    renderCalendar();
+    _showDateVisitors(d,'context');
+    const calendar=document.getElementById('mainCalendar');
+    if(calendar){calendar.tabIndex=-1;calendar.focus({preventScroll:true});}
+    return;
+  }
+  closeDailyPeriodSearch(false);
   _lastRegisteredRecId=null;
   S.selectedDate=d;
   /* 달력에서 날짜를 선택하면 방향키(↑↓←→)로 날짜 이동 활성 — 모든 탭(일반/응급/감염/조사/교육/대시보드) 일관.
@@ -181,6 +208,7 @@ function _dailyAnimateTransition(){
 let _calFocusActive=false;
 document.addEventListener('keydown',function(e){
   if(!_calFocusActive)return;
+  if(_calContextFocus && (!_isSchoolContextCalendar() || !document.getElementById('mainCalendar')?.contains(document.activeElement)))return;
   /* 입력칸 포커스 중이면 보통 양보. 단, 달력 날짜 클릭 시 자동 포커스되는 '빈' 검색창(dailySearchInput)에선
    * 방향키로 날짜 이동을 계속 허용 — 검색창에 글자를 입력하면(값 있음) 다시 캐럿 이동으로 양보. (2026-06-08) */
   const _ae=document.activeElement;
@@ -195,7 +223,7 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowDown')delta=7;
   else return;
   e.preventDefault();
-  const d=dateObj(S.selectedDate);
+  const d=dateObj(_calContextFocus?(_contextCalendarDate||S.selectedDate):S.selectedDate);
   d.setDate(d.getDate()+delta);
   /* 첫 주 위로 / 마지막 주 아래로 이동 시 표시 월 자동 전환 — S.calYear/calMonth 동기화 */
   const newYr=d.getFullYear(), newMo=d.getMonth();
@@ -203,7 +231,7 @@ document.addEventListener('keydown',function(e){
     S.calYear=newYr;
     S.calMonth=newMo;
   }
-  selectDate(toDateStr(d));
+  selectDate(toDateStr(d),_calContextFocus);
 });
 /* 입력 필드 포커스 시 달력 키보드 비활성화.
  * 단, 검색창(dailySearchInput)은 달력 날짜 클릭 시 자동 포커스되므로 예외 — 빈 검색창에서 방향키 날짜이동을 유지. (2026-06-08) */
@@ -217,9 +245,10 @@ document.addEventListener('focusin',function(e){
 
 /* ── 달력 날짜 클릭 → 사이드바 달력 아래 방문자 드롭다운 ── */
 function _showDateVisitors(dateStr,mode){
-  _closeDateVisitors();
-  const dayRecs=S.records.filter(function(r){return r.date===dateStr;}).sort(function(a,b){return a.timeIn.localeCompare(b.timeIn);});
-  if(!dayRecs.length)return;
+  _closeDateVisitors(true);
+  const isContext=mode==='context';
+  const dayRecs=S.records.filter(function(r){return r.date===dateStr;}).sort(function(a,b){return String(a.timeIn||'').localeCompare(String(b.timeIn||''));});
+  if(!dayRecs.length&&!isContext)return;
   const cal=document.getElementById('mainCalendar');
   const searchBox=document.getElementById('sidebarSearchBox');
   const searchResults=document.getElementById('sideSearchResults');
@@ -228,19 +257,21 @@ function _showDateVisitors(dateStr,mode){
   /* 학교급 여러 개 혼재 시 학반 앞에 학교급(초/중/고/유) 접두어 표시 */
   const _multiLv = hasMultipleSchoolLevels();
   panel.className='date-visitors-panel';panel.id='dateVisitorsPanel';
+  if(isContext){panel.dataset.contextHistory='true';panel.setAttribute('aria-label',dateStr+' 방문 이력');}
   const dow=['일','월','화','수','목','금','토'][dateObj(dateStr).getDay()];
-  let html='<div class="dv-header"><span>'+dateStr+' ('+dow+') 방문 '+dayRecs.length+'명</span><button class="dv-close-btn" style="border:none;background:none;color:var(--t3);cursor:pointer;font-size:14px;padding:0 4px">✕</button></div>';
+  let html='<div class="dv-header"><span>'+escHtml(dateStr)+' ('+dow+') 방문 '+dayRecs.length+(isContext?'건':'명')+'</span><button class="dv-close-btn" style="border:none;background:none;color:var(--t3);cursor:pointer;font-size:14px;padding:0 4px">✕</button></div>';
   html+='<div class="dv-list">';
+  if(!dayRecs.length)html+='<p class="dv-empty">이 날짜에는 방문 기록이 없습니다.</p>';
   dayRecs.forEach(function(r){
-    const s=getStu(r.studentId);
+    const s=getStu(r.studentId)||{};
     const isStf=s.type==='staff';
     const lvShort=(_multiLv&&!isStf)?(getLevelShort(s)||''):'';
     const lvPrefix=lvShort?'<span style="font-weight:700;color:var(--cyan);margin-right:3px">'+escHtml(lvShort)+'</span>':'';
-    const classInfo=isStf?(s.position||'교직원'):(s.grade+'-'+s.cls+' '+s.num+'번');
-    const symptoms=r.symptoms.join(', ')||'-';
+    const classInfo=isStf?(s.position||'교직원'):([s.grade&&s.grade+'학년',s.cls&&s.cls+'반',s.num&&s.num+'번'].filter(Boolean).join(' ')||'학반 정보 없음');
+    const symptoms=(Array.isArray(r.symptoms)?r.symptoms.join(', '):r.symptoms)||'-';
     html+='<div class="dv-item" style="cursor:default">'
-      +'<span class="dv-name">'+escHtml(s.name)+'</span>'
-      +'<span class="dv-time" style="font-family:var(--fm);font-size:10px;color:var(--t3)">'+escHtml(r.timeIn)+'</span>'
+      +'<span class="dv-name">'+escHtml(s.name||'이름 미등록')+'</span>'
+      +'<span class="dv-time" style="font-family:var(--fm);font-size:10px;color:var(--t3)">'+escHtml(r.timeIn||'-')+'</span>'
       +'<span class="dv-info">'+lvPrefix+escHtml(classInfo)+'</span>'
       +'<span class="dv-sym">'+escHtml(symptoms)+'</span>'
       +'</div>';
@@ -249,6 +280,10 @@ function _showDateVisitors(dateStr,mode){
   panel.innerHTML=html;
   const _dvCloseBtn=panel.querySelector('.dv-close-btn');
   if(_dvCloseBtn) _dvCloseBtn.addEventListener('click',function(){_closeDateVisitors();});
+  if(isContext){
+    cal.insertAdjacentElement('afterend',panel);
+    return;
+  }
   /* 이름 검색창(+검색결과) 바로 아래에 삽입 */
   const anchor=searchResults||searchBox;
   if(anchor&&anchor.parentElement){
@@ -293,29 +328,29 @@ function _showDateVisitors(dateStr,mode){
 }
 function _dvOutsideClick(e){
   const panel=document.getElementById('dateVisitorsPanel');
-  if(panel&&!panel.contains(e.target)&&!e.target.closest('.cal-day'))_closeDateVisitors();
+  if(panel&&!panel.dataset.contextHistory&&!panel.contains(e.target)&&!e.target.closest('[data-cal-date],.mcal-btn,.mcal-title'))_closeDateVisitors();
 }
-export function _closeDateVisitors(){
+export function _closeDateVisitors(immediate=false){
   const panel=document.getElementById('dateVisitorsPanel');
-  if(panel){
-    const sidebar=panel.parentElement;
-    /* 닫힘 애니메이션 — 페이드아웃 + 살짝 위로 collapse */
-    panel.style.transformOrigin='top center';
-    panel.style.transition='opacity .18s ease, transform .18s ease, max-height .22s ease, margin .18s ease';
-    panel.style.opacity='0';
-    panel.style.transform='scaleY(0.92) translateY(-4px)';
-    panel.style.maxHeight='0px';
-    panel.style.marginTop='0';
-    panel.style.marginBottom='0';
-    setTimeout(function(){
-      /* 애니메이션 완료 후 실제 제거 + 숨겨둔 사이드바 요소 복원 */
-      Array.from(sidebar.children).forEach(function(ch){
-        if(ch._dvPrevDisplay!==undefined){ch.style.display=ch._dvPrevDisplay;delete ch._dvPrevDisplay;}
-      });
-      panel.remove();
-    },220);
-  }
   document.removeEventListener('mousedown',_dvOutsideClick);
+  if(!panel)return;
+  const sidebar=panel.parentElement;
+  clearTimeout(panel._dvCloseTimer);
+  const removePanel=function(){
+    if(sidebar)Array.from(sidebar.children).forEach(function(ch){
+      if(ch._dvPrevDisplay!==undefined){ch.style.display=ch._dvPrevDisplay;delete ch._dvPrevDisplay;}
+    });
+    panel.remove();
+  };
+  if(immediate||panel.dataset.contextHistory){removePanel();return;}
+  panel.style.transformOrigin='top center';
+  panel.style.transition='opacity .18s ease, transform .18s ease, max-height .22s ease, margin .18s ease';
+  panel.style.opacity='0';
+  panel.style.transform='scaleY(0.92) translateY(-4px)';
+  panel.style.maxHeight='0px';
+  panel.style.marginTop='0';
+  panel.style.marginBottom='0';
+  panel._dvCloseTimer=setTimeout(removePanel,220);
 }
 
 /* ── 응급처치/감염병 리스트 이름 호버 → 방문 이력 표시
@@ -814,11 +849,13 @@ function updateDailyDateLabel(){
   }
 }
 export function goToToday(){
+  const wasPeriod=closeDailyPeriodSearch(false);
   const today=toDateStr(new Date());
-  if(S.selectedDate===today)return;
+  if(S.selectedDate===today){if(wasPeriod)renderDaily();return;}
   selectDate(today);
 }
 export function goToPrevDay(){
+  closeDailyPeriodSearch(false);
   _lastRegisteredRecId=null;
   const d=dateObj(S.selectedDate);
   d.setDate(d.getDate()-1);
@@ -828,9 +865,10 @@ export function goToPrevDay(){
   renderCalendar();
 }
 export function goToNextDay(){
+  const wasPeriod=closeDailyPeriodSearch(false);
   _lastRegisteredRecId=null;
   const today=toDateStr(new Date());
-  if(S.selectedDate>=today)return;
+  if(S.selectedDate>=today){if(wasPeriod)renderDaily();return;}
   const d=dateObj(S.selectedDate);
   d.setDate(d.getDate()+1);
   S.selectedDate=toDateStr(d);
@@ -872,12 +910,17 @@ function dailyUndoDelete(){
 }
 document.addEventListener('keydown',function(e){
   /* 공통 — 입력 필드/편집 가능 요소 포커스 시 모두 스킵 (브라우저 기본 동작에 양보) */
+  if(S.currentView!=='daily')return;
+  const _general=document.getElementById('dailyCat-general');
+  const _generalActive=!!(_general&&_general.classList.contains('active'));
+  if(_generalActive&&isDailyPeriodSearchActive())return;
   const _ae=document.activeElement||{};
   const _aeTag=_ae.tagName;
   const _inInput=(_aeTag==='INPUT'||_aeTag==='TEXTAREA'||_aeTag==='SELECT'||(_ae.contentEditable==='true'));
 
   /* ⌘/Ctrl+Z — 삭제 취소 */
   if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){
+    if(!_generalActive)return;
     /* V/S 팝업 떠 있을 때는 dailyUndoDelete 차단 (V/S 복구 핸들러가 처리) — input ID 가 recId 포함된 형식으로 바뀜에 따라 prefix 검색 */
     if(document.querySelector('[id^="vsTemp_"]'))return;
     if(_inInput)return;
@@ -1014,6 +1057,7 @@ function dailyInitDrag(){
   /* document 레벨 — 일반 일지 뷰 내부에서만 드래그 시작 */
   document.addEventListener('mousedown',function(e){
     /* view-daily 가 활성(보이는) 상태가 아니면 무시 — 다른 뷰의 텍스트 드래그 선택 방해 방지 */
+    if(isDailyPeriodSearchActive())return;
     const dv=document.getElementById('view-daily');
     if(!dv||!dv.classList.contains('active'))return;
     /* 시작 위치 제한 없음 — 흰 영역(캔버스) 밖 어느 배경에서든 드래그 행 선택 시작 가능 (사용자 요청 2026-06-10).
@@ -1408,7 +1452,7 @@ function dailyBulkMove(){
         console.log('[date-move] 날짜 클릭됨:',newDate,'선택된 rec IDs:',_dragSelectedRecIds);
         const movedRecs=[];
         _dragSelectedRecIds.forEach(function(rid){
-          const rec=S.records.find(function(r){return r.id===rid;});
+          const rec=getDailyRecord(rid);
           console.log('[date-move] rid='+rid+' (type:'+typeof rid+') → rec found?',!!rec,rec?'id='+rec.id+' (type:'+typeof rec.id+')':'');
           if(rec){
             rec.date=newDate;
@@ -1649,6 +1693,7 @@ export function togglePrivacyMode(forced){
   const setToggle=document.getElementById('setPrivacyModeToggle');
   if(setToggle)setToggle.checked=_privacyOn;
   _applyPrivacyToRows();
+  if(isDailyPeriodSearchActive())refreshDailyPeriodSearch();
 }
 /* 페이지 로드 시 저장된 프라이버시 모드 적용 */
 if(typeof document!=='undefined'){
@@ -1669,7 +1714,7 @@ setTimeout(function(){_alignMedFacBtn();},800);
 window.addEventListener('resize',function(){setTimeout(function(){_alignMedFacBtn();},100);});
 
 /* ── recBody event delegation ── */
-function _bindRecBodyActions(tbody){
+export function bindDailyRecordActions(tbody,beforeAction){
   /* 중복 바인딩 방지 — renderDaily 마다 새 리스너 쌓이면 1번 클릭에 N번 실행됨 */
   if(tbody._recBodyBound)return;
   tbody._recBodyBound=true;
@@ -1679,6 +1724,7 @@ function _bindRecBodyActions(tbody){
     if(delBtn){e.stopPropagation();e.preventDefault();}
   },true);
   tbody.addEventListener('click',function(e){
+    if(beforeAction && beforeAction(e)===false){e.stopPropagation();return;}
     /* 삭제 버튼 우선 처리 */
     const delBtn=e.target.closest('.row-delete-x');
     if(delBtn){
@@ -1698,6 +1744,7 @@ function _bindRecBodyActions(tbody){
         if(tr){
           const stuId=tr.dataset.stuId;
           const recId=tr.dataset.recId?parseInt(tr.dataset.recId):null;
+          if(beforeAction){if(recId)openSymptomCategoryPopup(recId);return;}
           /* 기존 선택 해제 + 이 row 만 선택 */
           document.querySelectorAll('#recBody tr.daily-selected').forEach(function(r){r.classList.remove('daily-selected');});
           tr.classList.add('daily-selected');
@@ -1758,7 +1805,243 @@ export function _dailyResetEntryOverlay(){
   if(_dailyOverlayHideTimer){ clearTimeout(_dailyOverlayHideTimer); _dailyOverlayHideTimer=null; }
   const _ov=document.getElementById('dailyLoadingOverlay'); if(_ov)_ov.style.display='flex';
 }
+/* Both date and period views use exactly the same diary row markup and chips. */
+export function renderDailyRecordRows(dayRecs,options={}){
+  const _sl=S.settings.schoolLevel||'elementary';
+  const _majorAbbrev=S.settings.majorAbbrev||{};
+  /* 학교급 약칭 (특수학교용) */
+  const _studentLevelAbbrev=function(s){return s.level||'';};
+  return dayRecs.map((r,i)=>{
+    r={...r, symptoms:Array.isArray(r.symptoms)?r.symptoms:[], treatment:Array.isArray(r.treatment)?r.treatment:[], treatmentBySym:r.treatmentBySym||{}};
+    let s=getStu(r.studentId||r.personUid);
+    if(options.period){s={...s,name:r.personName||s.name,type:r.personType||s.type,position:r.staffPosition||s.position||''};}
+    if(options.period && Object.prototype.hasOwnProperty.call(r,'studentGrade')){
+      s={...s,id:r.personUid||r.studentId,name:r.personName||s.name,type:r.personType||s.type,
+        grade:r.studentGrade,cls:r.studentClass,num:r.studentNum,gender:r.studentGender||'',
+        level:r.studentLevel||'',department:r.studentDepartment||'',position:r.staffPosition||s.position||''};
+    }
+    /* 명단 미등록 placeholder — person_uid IS NULL 인 가져오기 기록.
+     *  fallback 학생 객체에 원본 엑셀 식별정보를 덧씌워 학년·반·번호·성별·학과·이름까지 보이고,
+     *  _placeholder 플래그로 후속 흐름에서 매칭 처리/시각 구분 가능. 이름이 없을 때만 안내 문구로 대체. */
+    if(r.isPlaceholder && r.unmatchedIdentity){
+      const _id=r.unmatchedIdentity;
+      const _idName=_id.name && String(_id.name).trim();
+      s=Object.assign({},s,{
+        name:_idName||'현재 등록된 정보가 없습니다.',
+        grade:_id.grade||s.grade||'',
+        cls:_id.class_num||s.cls||'',
+        num:_id.student_num||s.num||'',
+        gender:_id.gender||s.gender||'',
+        type:_id.person_type||s.type||'student',
+        level:_id.level||s.level||'',
+        department:_id.department||s.department||'',
+        position:_id.department||s.position||'',
+        _placeholder:true,
+      });
+    }
+    const isCare=(s.status==='caution'||s.status==='watch')&&!!(s.condition||(s.careMemo&&s.careMemo.trim&&s.careMemo.trim()));
+    const isStaff=s.type==='staff';
+    /* gradeCol: school-type aware */
+    let gradeCol;
+    if(isStaff){
+      gradeCol=s.position||'교직원';
+    } else if(_sl==='kindergarten'){
+      gradeCol=s.grade?s.grade+'세':'-';
+    } else {
+      /* 특수학교 포함 — 학교급은 별도 컬럼에서 표시하고 학년반은 "1-1" 단순 형식으로 통일 */
+      gradeCol=s.grade&&s.cls?s.grade+'-'+s.cls:(s.grade||'-');
+    }
+    /* 과 컬럼: 학과 있는 학생용 — 풀네임 표시 */
+    let majorAbbr='';
+    if((_sl==='high'||_sl==='special')&&!isStaff){
+      majorAbbr=s.department||s.major||'';
+    }
+    /* V/S 표기: 라벨:값 공백 구분. 단위는 생략. 혈압은 그대로 "수축기/이완기" (사용자 요청 2026-05-19) */
+    const vitals=(function(){
+      /* v3 (사용자 결정 2026-05-21) — 한글 라벨 → 영문 약어 (T·BP·P·R·SpO₂·BST). 의학 표준 순서. */
+      const _parts=[];
+      if(r.temp) _parts.push('T: '+r.temp);
+      if(r.bp) _parts.push('BP: '+r.bp);
+      if(r.pulse) _parts.push('P: '+r.pulse);
+      const _resp = r.respiration || r.resp || '';
+      if(_resp) _parts.push('R: '+_resp);
+      if(r.spo2) _parts.push('SpO₂: '+r.spo2);
+      if(r.bst) _parts.push('BST: '+r.bst);
+      return _parts.join(', ');
+    })();
+    const hasMemo=_memoHasAny(r.studentId)?'📌':'';
+    const bday=isBirthdayToday(s);
+    /* 번호/반 컬럼 */
+    const numCol=isStaff?'-':(_sl==='kindergarten'?(s.cls||'-'):(s.num||'-'));
+    /* === 다중 증상 분층 표시 판정 ===
+     *  · 증상 2개 이상 + import 일지 아님 → 무조건 셀 내부를 점선으로 행 분리 (사용자 결정 2026-05-28).
+     *  · 단, 옛 일지/외부 import(증상별 매핑 없이 평면 처치만 있는 레코드) 는 분기 시 처치가 사라지므로 단일 행 유지. */
+    const _showLayered = shouldShowTreatmentBySymptom(r);
+    /* 증상 칩 1개 렌더링 — 일반일지 표에서는 그 증상의 바디맵 부위+NRS 를 합쳐 표시한다.
+     *  예: 저장값 "복통"(또는 "복통(자유기입)") + 바디맵 마커(우측 중앙복부, nrs 9) → "복통(우측 중앙복부 NRS: 9)".
+     *  · 부위·NRS 는 바디맵 데이터에서, 자유기입 메모는 저장 라벨 괄호에서. (사용자 요청 2026-06-14) */
+    const _dvBodyPartsForSym = (baseName) => {
+      let arr=(window._bmData||{})[r.id];
+      if((!arr||!arr.length)&&r.bodymapData&&r.bodymapData.length) arr=r.bodymapData;
+      if(!arr||!arr.length) return [];
+      const out=[],seen={};
+      arr.forEach(function(m){ if(m&&m.symptom===baseName&&m.label){ const t=m.nrs?(m.label+' NRS: '+m.nrs):m.label; if(!seen[t]){seen[t]=1;out.push(t);} } });
+      return out;
+    };
+    const _renderSymChip = (sym) => {
+      const _base=String(sym).split('(')[0].trim();
+      const _mm=String(sym).match(/\(([^)]*)\)\s*$/);
+      const _memo=_mm?_mm[1].trim():'';
+      const _parts=_dvBodyPartsForSym(_base);
+      const _inside=[_parts.join(', '),_memo].filter(Boolean).join(', ');
+      const _disp=_inside?(_base+'('+_inside+')'):_base;
+      return `<span class="tag ${getSymClass(sym)}" style="cursor:pointer" data-action="openSymptom" data-rid="${r.id}" data-htip="${escHtml(_disp)}">${escHtml(_disp)}</span>`;
+    };
+    /* v3 — 특정 sym 의 약품 리스트를 "약명(도즈), 약명" 문자열로 직렬화 (사용자 결정 2026-05-21).
+     * 없거나 비어 있으면 빈 문자열 → 옛 호환 r.medication 으로 폴백. */
+    const _medStrForSym = (sym) => {
+      if(!r.medsBySym || typeof r.medsBySym !== 'object') return '';
+      const arr = r.medsBySym[sym];
+      if(!Array.isArray(arr) || !arr.length) return '';
+      const dm = (r.medDosesBySym && typeof r.medDosesBySym==='object' && r.medDosesBySym[sym]) || {};
+      return arr.map(function(m){const d=dm[m]||''; return d?(m+'('+d+')'):m;}).join(', ');
+    };
+    /* 처치 칩 1개 렌더링.
+     * v3 — sym 인자 받으면 그 sym 의 _medsBySym 약품 사용, 없으면 r.medication (옛 단일/legacy 호환). */
+    const _renderTreatChip = (t, sym) => {
+      /* 합성/단일 투약 칩("투약[약명 (용량)], 보건교육" 등) — 약명이 칩 텍스트에 이미 포함돼 있으므로
+       *  medStr 을 덧붙이지 않고 그대로 렌더. (다중 증상 행에서 r.medication 합집합이 다른 증상 약품을
+       *  잘못 덧붙이던 문제 방지. 옵션3 합성칩은 medsBySym 추출 없이 통째 저장됨. 2026-06-15) */
+      const _isMedLiteral=t.indexOf('투약[')===0;
+      const _isMedTreat=t==='투약'||t.indexOf('투약(')===0||_isMedLiteral||t==='연고 적용'||t==='파스 적용'||t==='인공눈물 적용';
+      const _medStr = (sym ? _medStrForSym(sym) : '') || r.medication || '';
+      const _medTip=(_isMedTreat&&!_isMedLiteral&&_medStr)?(' data-med-tip="'+escHtml(_medStr)+'"'):'';
+      const _bedTip=(t==='침상 이용'||t==='침상안정')?' data-bed-tip="'+r.studentId+'"':'';
+      const _label=_isMedLiteral?t:(t==='투약'&&_medStr?formatMedicationDisplay(_medStr):(_isMedTreat&&_medStr?(t+': '+_medStr):t));
+      /* 'V/S 측정' 은 값을 칩에 붙이지 않는다 — 값은 처치 아래 인라인 표로 표시(2026-07-21). 칩 자체는 아래 전용 줄에서 별도 렌더. */
+      return `<span class="treat-tag" style="cursor:pointer;position:relative" data-action="openSymptom" data-rid="${r.id}"${_medTip}${_bedTip} data-htip="${escHtml(_label)}">${escHtml(_label)}</span>`;
+    };
+    /* 증상·처치 셀 내부 HTML 미리 계산.
+     *  V/S·신체사정 = 처치 칸 전용 줄 + '자세히/간략히' 토글. 기본 간략히(표 숨김), '자세히' 클릭 시 그 칩 바로
+     *  아래에 값 표를 펼침. 칩 표시는 '값 존재' 기준(옛/import 호환). '📈 시간대 그래프' 는 저장된 V/S 값 그래프.
+     *  (사용자 요청 2026-07-21) */
+    let _symCellInner, _treatCellInner;
+    const _hasVsData=!!((r.vsHistory&&r.vsHistory.length)||r.temp||r.bp||r.pulse||r.resp||r.respiration||r.spo2||r.bst);
+    const _hasPaData=(function(){
+      const pa=r&&r.physicalAssessment;
+      if(!pa||typeof pa!=='object'||Array.isArray(pa))return false;
+      const _it=Array.isArray(pa.items)?pa.items:[];
+      const _dt=(pa.details&&typeof pa.details==='object'&&!Array.isArray(pa.details))?pa.details:{};
+      return ['시진','촉진','타진','청진'].some(function(x){return _it.indexOf(x)!==-1||(_dt[x]&&String(_dt[x]).trim());});
+    })();
+    const _vsOpen=_vsExpandedRids.has(String(r.id));
+    const _paOpen=_paExpandedRids.has(String(r.id));
+    /* 'V/S (간략히/자세히)' · '신체사정 (간략히/자세히)' 하나의 칩이 토글 — 기본 간략히(표 숨김), 클릭 시 그 칩 아래 표 펼침. (사용자 요청 2026-07-21) */
+    const _vsLineHtml = _hasVsData
+      ? `<div class="layer vs-treat-line" style="display:block;margin-bottom:2px"><span class="treat-tag" style="cursor:pointer;position:relative" data-action="vsToggleDetail" data-rid="${r.id}" data-htip="클릭하여 V/S 표 ${_vsOpen?'접기':'펼치기'}">V/S (${_vsOpen?'자세히':'간략히'})</span><span class="treat-tag vs-graph-chip" style="cursor:pointer;position:relative;background:rgba(56,189,248,0.16);color:#0284c7;border:1px solid rgba(56,189,248,0.45)" data-action="vsOpenTimeseries" data-rid="${r.id}" data-htip="시간대별 값을 그래프로 보기">📈 시간대 그래프</span>${_vsOpen?`<div class="inline-detail-table" data-action="openSymptomVs" data-rid="${r.id}" style="cursor:pointer;display:block;overflow-x:auto;max-width:100%;margin-top:3px" data-htip="클릭하여 V/S 측정 입력 열기">${_vsTableHtml(r)}</div>`:''}</div>`
+      : '';
+    const _paLineHtml = _hasPaData
+      ? `<div class="layer pa-treat-line" style="display:block;margin-top:2px"><span class="treat-tag" style="cursor:pointer;position:relative" data-action="paToggleDetail" data-rid="${r.id}" data-htip="클릭하여 신체사정 표 ${_paOpen?'접기':'펼치기'}">신체사정 (${_paOpen?'자세히':'간략히'})</span>${_paOpen?`<div class="inline-detail-table" data-action="openSymptomPa" data-rid="${r.id}" style="cursor:pointer;display:block;overflow-x:auto;max-width:100%;margin-top:3px" data-htip="클릭하여 신체사정 입력 열기">${_paTableHtml(r)}</div>`:''}</div>`
+      : '';
+    const _filterVsPa=(t)=>t!=='V/S 측정'&&t!=='신체사정';
+    if(_showLayered){
+      /* 다중 증상 — 각 증상이 한 층. V/S·신체사정은 전용 줄로 분리, 그 외 처치만 증상별 층에. */
+      _symCellInner = r.symptoms.map(sym => `<div class="layer">${_renderSymChip(sym)}</div>`).join('');
+      /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층(첫 번째)에 직접 합류 (사용자 보고 2026-08-25) */
+      const _clTreat=counselTreatText(r);
+      const _clSymIdx=_clTreat?r.symptoms.findIndex(isCounselSymLabel):-1;
+      const _otherLayers = r.symptoms.map((sym, idx) => {
+        const symTreats = (r.treatmentBySym[sym] || []).filter(_filterVsPa);
+        let chips = symTreats.map(function(t){ return _renderTreatChip(t, sym); }).join('');
+        if(idx===_clSymIdx) chips += _renderTreatChip(_clTreat, sym);
+        const _memoSuffix = (idx===0 && r.treatmentMemo)
+          ? `<span class="treat-memo" style="cursor:pointer;font-size:11px;color:var(--t2);margin-left:${symTreats.length?'4px':'0'}" data-action="openSymptom" data-rid="${r.id}" title="${escHtml(r.treatmentMemo)}">${escHtml(r.treatmentMemo)}</span>`
+          : '';
+        const inner = chips + _memoSuffix;
+        return `<div class="layer">${inner || '<span style="color:var(--t3);font-size:11px;font-style:italic">-</span>'}</div>`;
+      }).join('');
+      _treatCellInner = _vsLineHtml + _otherLayers + _paLineHtml;
+    } else {
+      /* 단일 증상 또는 옛 일지 */
+      _symCellInner = r.isImported
+        ? `<span class="imported-text" style="font-size:11px;color:var(--t2);cursor:pointer" data-action="openSymptom" data-rid="${r.id}">${escHtml(r.symptoms.join(', ')||'-')}</span>`
+        : r.symptoms.map(_renderSymChip).join('');
+      _treatCellInner = r.isImported
+        ? `<span class="imported-text" style="font-size:11px;color:var(--t2);cursor:pointer" data-action="openSymptom" data-rid="${r.id}">${escHtml(r.treatment.join(', ')||'-')}</span>`
+        : (function(){
+            const _tc = r.treatment.filter(_filterVsPa).map(_renderTreatChip).join('') + (r.treatmentMemo?`<span class="treat-memo" style="cursor:pointer;font-size:11px;color:var(--t2);margin-left:${r.treatment.length?'4px':'0'}" data-action="openSymptom" data-rid="${r.id}" title="${escHtml(r.treatmentMemo)}">${escHtml(r.treatmentMemo)}</span>`:'');
+            const _body = _vsLineHtml + _tc + _paLineHtml;
+            /* 처치 미입력(V/S·신체사정·칩·메모 모두 없음) → 빈 칸 대신 "+" 버튼. */
+            return _body || `<span class="cell-plus" data-action="openSymptom" data-rid="${r.id}">+</span>`;
+          })();
+    }
+    /* V/S·신체사정 '자세히' 표가 처치 칸 안에 펼쳐지면 칸 높이 제한(chip-clamp)을 풀어 표가 안 잘리게. */
+    const _rowCls=[r.isImported?'imported-row':'',(_vsOpen||_paOpen)?'detail-open':''].filter(Boolean);
+    return `<tr data-row-idx="${i}" data-rec-id="${r.id}" data-stu-id="${r.studentId}" style="cursor:pointer"${_rowCls.length?(' class="'+_rowCls.join(' ')+'"'):''}>
+      <td data-col-index="0" class="mono">${options.period?escHtml(r.date):i+1}${r.isImported?'<span style="display:block;font-size:7px;font-weight:700;color:#6366f1;line-height:1;margin-top:1px">이전</span>':''}</td>
+      <td data-col-index="19" style="text-align:center;font-size:10px">${s&&s.level?escHtml(s.level):'-'}</td>
+      <td data-col-index="17" style="text-align:center;font-size:10px">${escHtml(majorAbbr)}</td>
+      <td data-col-index="1">${escHtml(gradeCol)}</td>
+      <td data-col-index="2" class="mono">${escHtml(numCol)}</td>
+      <td data-col-index="3">${isCare?'<span class="yo-chip-wrap"><span class="yo-badge" data-action="openCare" data-sid="'+s.id+'" style="cursor:pointer" title="클릭하여 요보호 등록/변경">요보호</span><span class="yo-chip-pop">'+getCareTooltipHtml(s)+'</span></span>':''}</td>
+      <td data-col-index="15" style="position:relative;text-align:center">${(function(){const vt=S._vipTags[r.studentId]||[];if(vt.length){const t=vt[vt.length-1];const _tip=vt.map(function(v){return '★ '+v.text;}).join('\n');return '<span class="vip-star-wrap vip-hover-wrap" style="position:relative;display:inline-block" data-action="openVipEdit" data-sid="'+r.studentId+'"><span style="color:'+t.color+';font-size:13px;cursor:pointer">★</span><span class="vip-hover-pop">'+escHtml(_tip)+'</span><span class="vip-tbl-x" data-action="vipClearAll" data-sid="'+r.studentId+'">✕</span></span>';}return '<span class="cell-plus" data-action="openVipEdit" data-sid="'+r.studentId+'">+</span>';})()}</td>
+      <td data-col-index="4"><div class="name-cell">${bday?'<span style="position:absolute;left:0;font-size:13px">🎂</span>':''}${bday?getStudentNameHoverHtml(s).replace('class="name-hover-anchor"','class="name-hover-anchor birthday-name"'):getStudentNameHoverHtml(s)}</div></td>
+      <td data-col-index="5">${(s.gender==='M'||s.gender==='남')?'남':(s.gender==='F'||s.gender==='여')?'여':(s.gender||'-')}</td>
+      <td data-col-index="16" style="text-align:center">${(function(){
+        /* _bmData(메모리) 우선, 없으면 레코드의 bodymapData(DB 로드분) 폴백 — 키오스크 자동 등록 직후
+         * 메모리 동기화가 빠진 행도 DB 에 바디맵이 있으면 ✅ 표시 (사용자 보고 2026-06-13). 폴백 시 메모리도 복구. */
+        let _bmArr=(window._bmData||{})[r.id];
+        if((!_bmArr||!_bmArr.length)&&r.bodymapData&&r.bodymapData.length){ _bmArr=r.bodymapData; try{ window._bmData=window._bmData||{}; window._bmData[r.id]=r.bodymapData; }catch(_e){} }
+        return (_bmArr&&_bmArr.length)?'<span style="cursor:pointer;font-size:13px" data-action="openBodyMap" data-rid="'+r.id+'" title="바디맵 보기/편집">✅</span>':'<span class="cell-plus" data-action="openBodyMap" data-rid="'+r.id+'">+</span>';
+      })()}</td>
+      <td data-col-index="6" style="position:relative"><div class="chip-clamp${_showLayered?' multi-layer':''}"${_showLayered?'':` data-htip="${escHtml((r.symptoms||[]).join(', '))}"`}>${_symCellInner}</div></td>
+      <td data-col-index="8" style="position:relative"><div class="chip-clamp${_showLayered?' multi-layer':''}"${_showLayered?'':` data-htip="${escHtml((r.treatment.join(', ')+(r.treatmentMemo?(r.treatment.length?' / ':'')+r.treatmentMemo:'')).trim())}"`}>${_treatCellInner}</div></td>
+      <!-- 의약품 컬럼 삭제됨 -->
+      <td data-col-index="10" class="mono" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" data-action="openTimePicker" data-rid="${r.id}" data-field="timeIn" data-htip="클릭하여 수정">${r.timeIn}</td>
+      <td data-col-index="11" class="mono" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" data-action="openTimePicker" data-rid="${r.id}" data-field="timeOut" data-htip="클릭하여 수정">${r.timeOut||'-'}</td>
+      <!-- V/S(idx 12) 열 제거 — V/S 는 처치 칸 'V/S 측정' 칩 + 아래 인라인 표로 표시(2026-07-21) -->
+      <td data-col-index="13" style="text-align:center;white-space:nowrap">${r.nurse||'-'}</td>
+      <td data-col-index="14" style="position:relative;padding-right:32px"><span class="memo-plus" data-action="toggleMemo" data-sid="${r.studentId}" data-rid="${r.id}">${hasMemo||'+'}</span><button class="row-delete-x" data-action="dailyDeleteRecord" data-rid="${r.id}">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+/* Reuse the diary header, row renderer, column preferences and click dispatcher. */
+export function renderDailyPeriodTable(container,records,privacy,beforeAction){
+  const source=document.querySelector('#recTable thead');
+  if(!source)throw new Error('보건일지 표 머리글을 찾을 수 없습니다.');
+  const head=source.cloneNode(true);
+  head.querySelectorAll('span[id^="_sortArrow"]').forEach(node=>node.remove());
+  head.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
+  head.querySelectorAll('[data-sort]').forEach(node=>node.removeAttribute('data-sort'));
+  head.querySelectorAll('.col-resize-handle, [class*="cr-handle"], span[id^="_sortArrow"]').forEach(node=>node.remove());
+  const dateHead=head.querySelector('[data-col-index="0"]');
+  dateHead.textContent='날짜';
+  container.innerHTML='<table class="rec-table daily-period-table" id="dailyPeriodTable">'+head.outerHTML
+    +'<tbody>'+renderDailyRecordRows(records,{period:true})+'</tbody></table>';
+  const table=container.querySelector('table');
+  table.querySelectorAll('.row-delete-x').forEach(node=>node.remove());
+  applyDailyColLayout(table);
+  table.querySelectorAll('[data-col-index="0"]').forEach(node=>{
+    node.classList.remove('col-hidden');node.style.display='';node.style.width='88px';node.style.minWidth='88px';
+  });
+  table.querySelectorAll('th[data-col-index="10"],th[data-col-index="11"]').forEach(node=>{node.style.width=Math.max(52,parseFloat(node.style.width)||0)+'px';});
+  table.querySelectorAll('tbody > tr').forEach(tr=>{
+    if(privacy){
+      tr.querySelectorAll('td:not([data-col-index="0"]):not([data-col-index="10"]):not([data-col-index="11"])').forEach(td=>{td.innerHTML='•••';td.removeAttribute('data-htip');});
+    }
+    const sym=tr.querySelector('td[data-col-index="6"] .multi-layer');
+    const treat=tr.querySelector('td[data-col-index="8"] .multi-layer');
+    if(sym&&treat){
+      const a=sym.querySelectorAll(':scope > .layer'), b=treat.querySelectorAll(':scope > .layer:not(.vs-treat-line):not(.pa-treat-line)');
+      if(a.length===b.length)a.forEach((node,i)=>{const height=Math.max(node.offsetHeight,b[i].offsetHeight);node.style.minHeight=b[i].style.minHeight=height+'px';});
+    }
+  });
+  bindDailyRecordActions(table.querySelector('tbody'),beforeAction);
+}
+
 export function renderDaily(){
+  if(isDailyPeriodSearchActive()){refreshDailyPeriodSearch();return;}
   /* 렌더링 시작: 테이블 숨김 → applyDailyColLayout()에서 표시 (열 너비 변동 깜빡임 방지) */
   const _tblEl=document.getElementById('recTable');
   if(_tblEl)_tblEl.style.visibility='hidden';
@@ -1941,7 +2224,13 @@ export function renderDaily(){
     let _emptyMsg=_emptyWrap&&_emptyWrap.querySelector('.daily-empty-msg');
     if(!_emptyMsg&&_emptyWrap){_emptyMsg=document.createElement('div');_emptyMsg.className='daily-empty-msg';_emptyMsg.style.cssText='text-align:center;padding:56px 0;color:var(--t3);font-size:12px;width:100%';_emptyWrap.appendChild(_emptyMsg);}
     /* 부팅 초기 DB 로딩 중이면 "로딩 중..." 안내, 아니면 기존 "오늘 입력된 데이터가 없습니다." */
-    if(_emptyMsg)_emptyMsg.textContent = S._dailyLoading ? '로딩 중입니다. 잠시만 기다려주세요.' : '오늘 입력된 데이터가 없습니다.';
+    if(_emptyMsg){
+      _emptyMsg.setAttribute('role','status');
+      _emptyMsg.setAttribute('aria-live','polite');
+      _emptyMsg.setAttribute('aria-busy',String(!!S._dailyLoading));
+      _emptyMsg.dataset.uiState=S._dailyLoading?'loading':'empty';
+      _emptyMsg.textContent = S._dailyLoading ? '선택한 날짜의 방문 기록을 불러오는 중입니다. 잠시만 기다려 주세요.' : '선택한 날짜에 등록된 방문 기록이 없습니다. 위 검색창에서 학생을 찾거나 달력에서 다른 날짜를 선택해 주세요.';
+    }
     if(_emptyMsg)_emptyMsg.style.display='block';
     applyDailyColLayout();
     return;
@@ -1958,196 +2247,7 @@ export function renderDaily(){
     if(_userW&&_userW[i]){c.style.width=_userW[i]+'px';}
     else if(_origColW[i]){c.style.width=_origColW[i];}
   });
-  const _sl=S.settings.schoolLevel||'elementary';
-  const _majorAbbrev=S.settings.majorAbbrev||{};
-  /* 학교급 약칭 (특수학교용) */
-  const _studentLevelAbbrev=function(s){return s.level||'';};
-  tbody.innerHTML=dayRecs.map((r,i)=>{
-    let s=getStu(r.studentId);
-    /* 명단 미등록 placeholder — person_uid IS NULL 인 가져오기 기록.
-     *  fallback 학생 객체에 원본 엑셀 식별정보를 덧씌워 학년·반·번호·성별·학과·이름까지 보이고,
-     *  _placeholder 플래그로 후속 흐름에서 매칭 처리/시각 구분 가능. 이름이 없을 때만 안내 문구로 대체. */
-    if(r.isPlaceholder && r.unmatchedIdentity){
-      const _id=r.unmatchedIdentity;
-      const _idName=_id.name && String(_id.name).trim();
-      s=Object.assign({},s,{
-        name:_idName||'현재 등록된 정보가 없습니다.',
-        grade:_id.grade||s.grade||'',
-        cls:_id.class_num||s.cls||'',
-        num:_id.student_num||s.num||'',
-        gender:_id.gender||s.gender||'',
-        type:_id.person_type||s.type||'student',
-        level:_id.level||s.level||'',
-        department:_id.department||s.department||'',
-        position:_id.department||s.position||'',
-        _placeholder:true,
-      });
-    }
-    const isCare=(s.status==='caution'||s.status==='watch')&&!!(s.condition||(s.careMemo&&s.careMemo.trim&&s.careMemo.trim()));
-    const isStaff=s.type==='staff';
-    /* gradeCol: school-type aware */
-    let gradeCol;
-    if(isStaff){
-      gradeCol=s.position||'교직원';
-    } else if(_sl==='kindergarten'){
-      gradeCol=s.grade?s.grade+'세':'-';
-    } else {
-      /* 특수학교 포함 — 학교급은 별도 컬럼에서 표시하고 학년반은 "1-1" 단순 형식으로 통일 */
-      gradeCol=s.grade&&s.cls?s.grade+'-'+s.cls:(s.grade||'-');
-    }
-    /* 과 컬럼: 학과 있는 학생용 — 풀네임 표시 */
-    let majorAbbr='';
-    if((_sl==='high'||_sl==='special')&&!isStaff){
-      majorAbbr=s.department||s.major||'';
-    }
-    /* V/S 표기: 라벨:값 공백 구분. 단위는 생략. 혈압은 그대로 "수축기/이완기" (사용자 요청 2026-05-19) */
-    const vitals=(function(){
-      /* v3 (사용자 결정 2026-05-21) — 한글 라벨 → 영문 약어 (T·BP·P·R·SpO₂·BST). 의학 표준 순서. */
-      const _parts=[];
-      if(r.temp) _parts.push('T: '+r.temp);
-      if(r.bp) _parts.push('BP: '+r.bp);
-      if(r.pulse) _parts.push('P: '+r.pulse);
-      const _resp = r.respiration || r.resp || '';
-      if(_resp) _parts.push('R: '+_resp);
-      if(r.spo2) _parts.push('SpO₂: '+r.spo2);
-      if(r.bst) _parts.push('BST: '+r.bst);
-      return _parts.join(', ');
-    })();
-    const hasMemo=_memoHasAny(r.studentId)?'📌':'';
-    const bday=isBirthdayToday(s);
-    /* 번호/반 컬럼 */
-    const numCol=isStaff?'-':(_sl==='kindergarten'?(s.cls||'-'):(s.num||'-'));
-    /* === 다중 증상 분층 표시 판정 ===
-     *  · 증상 2개 이상 + import 일지 아님 → 무조건 셀 내부를 점선으로 행 분리 (사용자 결정 2026-05-28).
-     *  · 단, 옛 일지/외부 import(증상별 매핑 없이 평면 처치만 있는 레코드) 는 분기 시 처치가 사라지므로 단일 행 유지. */
-    const _showLayered = shouldShowTreatmentBySymptom(r);
-    /* 증상 칩 1개 렌더링 — 일반일지 표에서는 그 증상의 바디맵 부위+NRS 를 합쳐 표시한다.
-     *  예: 저장값 "복통"(또는 "복통(자유기입)") + 바디맵 마커(우측 중앙복부, nrs 9) → "복통(우측 중앙복부 NRS: 9)".
-     *  · 부위·NRS 는 바디맵 데이터에서, 자유기입 메모는 저장 라벨 괄호에서. (사용자 요청 2026-06-14) */
-    const _dvBodyPartsForSym = (baseName) => {
-      let arr=(window._bmData||{})[r.id];
-      if((!arr||!arr.length)&&r.bodymapData&&r.bodymapData.length) arr=r.bodymapData;
-      if(!arr||!arr.length) return [];
-      const out=[],seen={};
-      arr.forEach(function(m){ if(m&&m.symptom===baseName&&m.label){ const t=m.nrs?(m.label+' NRS: '+m.nrs):m.label; if(!seen[t]){seen[t]=1;out.push(t);} } });
-      return out;
-    };
-    const _renderSymChip = (sym) => {
-      const _base=String(sym).split('(')[0].trim();
-      const _mm=String(sym).match(/\(([^)]*)\)\s*$/);
-      const _memo=_mm?_mm[1].trim():'';
-      const _parts=_dvBodyPartsForSym(_base);
-      const _inside=[_parts.join(', '),_memo].filter(Boolean).join(', ');
-      const _disp=_inside?(_base+'('+_inside+')'):_base;
-      return `<span class="tag ${getSymClass(sym)}" style="cursor:pointer" data-action="openSymptom" data-rid="${r.id}" data-htip="${escHtml(_disp)}">${escHtml(_disp)}</span>`;
-    };
-    /* v3 — 특정 sym 의 약품 리스트를 "약명(도즈), 약명" 문자열로 직렬화 (사용자 결정 2026-05-21).
-     * 없거나 비어 있으면 빈 문자열 → 옛 호환 r.medication 으로 폴백. */
-    const _medStrForSym = (sym) => {
-      if(!r.medsBySym || typeof r.medsBySym !== 'object') return '';
-      const arr = r.medsBySym[sym];
-      if(!Array.isArray(arr) || !arr.length) return '';
-      const dm = (r.medDosesBySym && typeof r.medDosesBySym==='object' && r.medDosesBySym[sym]) || {};
-      return arr.map(function(m){const d=dm[m]||''; return d?(m+'('+d+')'):m;}).join(', ');
-    };
-    /* 처치 칩 1개 렌더링.
-     * v3 — sym 인자 받으면 그 sym 의 _medsBySym 약품 사용, 없으면 r.medication (옛 단일/legacy 호환). */
-    const _renderTreatChip = (t, sym) => {
-      /* 합성/단일 투약 칩("투약[약명 (용량)], 보건교육" 등) — 약명이 칩 텍스트에 이미 포함돼 있으므로
-       *  medStr 을 덧붙이지 않고 그대로 렌더. (다중 증상 행에서 r.medication 합집합이 다른 증상 약품을
-       *  잘못 덧붙이던 문제 방지. 옵션3 합성칩은 medsBySym 추출 없이 통째 저장됨. 2026-06-15) */
-      const _isMedLiteral=t.indexOf('투약[')===0;
-      const _isMedTreat=t==='투약'||t.indexOf('투약(')===0||_isMedLiteral||t==='연고 적용'||t==='파스 적용'||t==='인공눈물 적용';
-      const _medStr = (sym ? _medStrForSym(sym) : '') || r.medication || '';
-      const _medTip=(_isMedTreat&&!_isMedLiteral&&_medStr)?(' data-med-tip="'+escHtml(_medStr)+'"'):'';
-      const _bedTip=(t==='침상 이용'||t==='침상안정')?' data-bed-tip="'+r.studentId+'"':'';
-      const _label=_isMedLiteral?t:(t==='투약'&&_medStr?formatMedicationDisplay(_medStr):(_isMedTreat&&_medStr?(t+': '+_medStr):t));
-      /* 'V/S 측정' 은 값을 칩에 붙이지 않는다 — 값은 처치 아래 인라인 표로 표시(2026-07-21). 칩 자체는 아래 전용 줄에서 별도 렌더. */
-      return `<span class="treat-tag" style="cursor:pointer;position:relative" data-action="openSymptom" data-rid="${r.id}"${_medTip}${_bedTip} data-htip="${escHtml(_label)}">${escHtml(_label)}</span>`;
-    };
-    /* 증상·처치 셀 내부 HTML 미리 계산.
-     *  V/S·신체사정 = 처치 칸 전용 줄 + '자세히/간략히' 토글. 기본 간략히(표 숨김), '자세히' 클릭 시 그 칩 바로
-     *  아래에 값 표를 펼침. 칩 표시는 '값 존재' 기준(옛/import 호환). '📈 시간대 그래프' 는 저장된 V/S 값 그래프.
-     *  (사용자 요청 2026-07-21) */
-    let _symCellInner, _treatCellInner;
-    const _hasVsData=!!((r.vsHistory&&r.vsHistory.length)||r.temp||r.bp||r.pulse||r.resp||r.respiration||r.spo2||r.bst);
-    const _hasPaData=(function(){
-      const pa=r&&r.physicalAssessment;
-      if(!pa||typeof pa!=='object'||Array.isArray(pa))return false;
-      const _it=Array.isArray(pa.items)?pa.items:[];
-      const _dt=(pa.details&&typeof pa.details==='object'&&!Array.isArray(pa.details))?pa.details:{};
-      return ['시진','촉진','타진','청진'].some(function(x){return _it.indexOf(x)!==-1||(_dt[x]&&String(_dt[x]).trim());});
-    })();
-    const _vsOpen=_vsExpandedRids.has(String(r.id));
-    const _paOpen=_paExpandedRids.has(String(r.id));
-    /* 'V/S (간략히/자세히)' · '신체사정 (간략히/자세히)' 하나의 칩이 토글 — 기본 간략히(표 숨김), 클릭 시 그 칩 아래 표 펼침. (사용자 요청 2026-07-21) */
-    const _vsLineHtml = _hasVsData
-      ? `<div class="layer vs-treat-line" style="display:block;margin-bottom:2px"><span class="treat-tag" style="cursor:pointer;position:relative" data-action="vsToggleDetail" data-rid="${r.id}" data-htip="클릭하여 V/S 표 ${_vsOpen?'접기':'펼치기'}">V/S (${_vsOpen?'자세히':'간략히'})</span><span class="treat-tag vs-graph-chip" style="cursor:pointer;position:relative;background:rgba(56,189,248,0.16);color:#0284c7;border:1px solid rgba(56,189,248,0.45)" data-action="vsOpenTimeseries" data-rid="${r.id}" data-htip="시간대별 값을 그래프로 보기">📈 시간대 그래프</span>${_vsOpen?`<div class="inline-detail-table" data-action="openSymptomVs" data-rid="${r.id}" style="cursor:pointer;display:block;overflow-x:auto;max-width:100%;margin-top:3px" data-htip="클릭하여 V/S 측정 입력 열기">${_vsTableHtml(r)}</div>`:''}</div>`
-      : '';
-    const _paLineHtml = _hasPaData
-      ? `<div class="layer pa-treat-line" style="display:block;margin-top:2px"><span class="treat-tag" style="cursor:pointer;position:relative" data-action="paToggleDetail" data-rid="${r.id}" data-htip="클릭하여 신체사정 표 ${_paOpen?'접기':'펼치기'}">신체사정 (${_paOpen?'자세히':'간략히'})</span>${_paOpen?`<div class="inline-detail-table" data-action="openSymptomPa" data-rid="${r.id}" style="cursor:pointer;display:block;overflow-x:auto;max-width:100%;margin-top:3px" data-htip="클릭하여 신체사정 입력 열기">${_paTableHtml(r)}</div>`:''}</div>`
-      : '';
-    const _filterVsPa=(t)=>t!=='V/S 측정'&&t!=='신체사정';
-    if(_showLayered){
-      /* 다중 증상 — 각 증상이 한 층. V/S·신체사정은 전용 줄로 분리, 그 외 처치만 증상별 층에. */
-      _symCellInner = r.symptoms.map(sym => `<div class="layer">${_renderSymChip(sym)}</div>`).join('');
-      /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층(첫 번째)에 직접 합류 (사용자 보고 2026-08-25) */
-      const _clTreat=counselTreatText(r);
-      const _clSymIdx=_clTreat?r.symptoms.findIndex(isCounselSymLabel):-1;
-      const _otherLayers = r.symptoms.map((sym, idx) => {
-        const symTreats = (r.treatmentBySym[sym] || []).filter(_filterVsPa);
-        let chips = symTreats.map(function(t){ return _renderTreatChip(t, sym); }).join('');
-        if(idx===_clSymIdx) chips += _renderTreatChip(_clTreat, sym);
-        const _memoSuffix = (idx===0 && r.treatmentMemo)
-          ? `<span class="treat-memo" style="cursor:pointer;font-size:11px;color:var(--t2);margin-left:${symTreats.length?'4px':'0'}" data-action="openSymptom" data-rid="${r.id}" title="${escHtml(r.treatmentMemo)}">${escHtml(r.treatmentMemo)}</span>`
-          : '';
-        const inner = chips + _memoSuffix;
-        return `<div class="layer">${inner || '<span style="color:var(--t3);font-size:11px;font-style:italic">-</span>'}</div>`;
-      }).join('');
-      _treatCellInner = _vsLineHtml + _otherLayers + _paLineHtml;
-    } else {
-      /* 단일 증상 또는 옛 일지 */
-      _symCellInner = r.isImported
-        ? `<span class="imported-text" style="font-size:11px;color:var(--t2);cursor:pointer" data-action="openSymptom" data-rid="${r.id}">${escHtml(r.symptoms.join(', ')||'-')}</span>`
-        : r.symptoms.map(_renderSymChip).join('');
-      _treatCellInner = r.isImported
-        ? `<span class="imported-text" style="font-size:11px;color:var(--t2);cursor:pointer" data-action="openSymptom" data-rid="${r.id}">${escHtml(r.treatment.join(', ')||'-')}</span>`
-        : (function(){
-            const _tc = r.treatment.filter(_filterVsPa).map(_renderTreatChip).join('') + (r.treatmentMemo?`<span class="treat-memo" style="cursor:pointer;font-size:11px;color:var(--t2);margin-left:${r.treatment.length?'4px':'0'}" data-action="openSymptom" data-rid="${r.id}" title="${escHtml(r.treatmentMemo)}">${escHtml(r.treatmentMemo)}</span>`:'');
-            const _body = _vsLineHtml + _tc + _paLineHtml;
-            /* 처치 미입력(V/S·신체사정·칩·메모 모두 없음) → 빈 칸 대신 "+" 버튼. */
-            return _body || `<span class="cell-plus" data-action="openSymptom" data-rid="${r.id}">+</span>`;
-          })();
-    }
-    /* V/S·신체사정 '자세히' 표가 처치 칸 안에 펼쳐지면 칸 높이 제한(chip-clamp)을 풀어 표가 안 잘리게. */
-    const _rowCls=[r.isImported?'imported-row':'',(_vsOpen||_paOpen)?'detail-open':''].filter(Boolean);
-    return `<tr data-row-idx="${i}" data-rec-id="${r.id}" data-stu-id="${r.studentId}" style="cursor:pointer"${_rowCls.length?(' class="'+_rowCls.join(' ')+'"'):''}>
-      <td data-col-index="0" class="mono">${i+1}${r.isImported?'<span style="display:block;font-size:7px;font-weight:700;color:#6366f1;line-height:1;margin-top:1px">이전</span>':''}</td>
-      <td data-col-index="19" style="text-align:center;font-size:10px">${s&&s.level?escHtml(s.level):'-'}</td>
-      <td data-col-index="17" style="text-align:center;font-size:10px">${majorAbbr}</td>
-      <td data-col-index="1">${gradeCol}</td>
-      <td data-col-index="2" class="mono">${numCol}</td>
-      <td data-col-index="3">${isCare?'<span class="yo-chip-wrap"><span class="yo-badge" data-action="openCare" data-sid="'+s.id+'" style="cursor:pointer" title="클릭하여 요보호 등록/변경">요보호</span><span class="yo-chip-pop">'+getCareTooltipHtml(s)+'</span></span>':''}</td>
-      <td data-col-index="15" style="position:relative;text-align:center">${(function(){const vt=S._vipTags[r.studentId]||[];if(vt.length){const t=vt[vt.length-1];const _tip=vt.map(function(v){return '★ '+v.text;}).join('\n');return '<span class="vip-star-wrap vip-hover-wrap" style="position:relative;display:inline-block" data-action="openVipEdit" data-sid="'+r.studentId+'"><span style="color:'+t.color+';font-size:13px;cursor:pointer">★</span><span class="vip-hover-pop">'+escHtml(_tip)+'</span><span class="vip-tbl-x" data-action="vipClearAll" data-sid="'+r.studentId+'">✕</span></span>';}return '<span class="cell-plus" data-action="openVipEdit" data-sid="'+r.studentId+'">+</span>';})()}</td>
-      <td data-col-index="4"><div class="name-cell">${bday?'<span style="position:absolute;left:0;font-size:13px">🎂</span>':''}${bday?getStudentNameHoverHtml(s).replace('class="name-hover-anchor"','class="name-hover-anchor birthday-name"'):getStudentNameHoverHtml(s)}</div></td>
-      <td data-col-index="5">${(s.gender==='M'||s.gender==='남')?'남':(s.gender==='F'||s.gender==='여')?'여':(s.gender||'-')}</td>
-      <td data-col-index="16" style="text-align:center">${(function(){
-        /* _bmData(메모리) 우선, 없으면 레코드의 bodymapData(DB 로드분) 폴백 — 키오스크 자동 등록 직후
-         * 메모리 동기화가 빠진 행도 DB 에 바디맵이 있으면 ✅ 표시 (사용자 보고 2026-06-13). 폴백 시 메모리도 복구. */
-        let _bmArr=(window._bmData||{})[r.id];
-        if((!_bmArr||!_bmArr.length)&&r.bodymapData&&r.bodymapData.length){ _bmArr=r.bodymapData; try{ window._bmData=window._bmData||{}; window._bmData[r.id]=r.bodymapData; }catch(_e){} }
-        return (_bmArr&&_bmArr.length)?'<span style="cursor:pointer;font-size:13px" data-action="openBodyMap" data-rid="'+r.id+'" title="바디맵 보기/편집">✅</span>':'<span class="cell-plus" data-action="openBodyMap" data-rid="'+r.id+'">+</span>';
-      })()}</td>
-      <td data-col-index="6" style="position:relative"><div class="chip-clamp${_showLayered?' multi-layer':''}"${_showLayered?'':` data-htip="${escHtml((r.symptoms||[]).join(', '))}"`}>${_symCellInner}</div></td>
-      <td data-col-index="8" style="position:relative"><div class="chip-clamp${_showLayered?' multi-layer':''}"${_showLayered?'':` data-htip="${escHtml((r.treatment.join(', ')+(r.treatmentMemo?(r.treatment.length?' / ':'')+r.treatmentMemo:'')).trim())}"`}>${_treatCellInner}</div></td>
-      <!-- 의약품 컬럼 삭제됨 -->
-      <td data-col-index="10" class="mono" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" data-action="openTimePicker" data-rid="${r.id}" data-field="timeIn" data-htip="클릭하여 수정">${r.timeIn}</td>
-      <td data-col-index="11" class="mono" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" data-action="openTimePicker" data-rid="${r.id}" data-field="timeOut" data-htip="클릭하여 수정">${r.timeOut||'-'}</td>
-      <!-- V/S(idx 12) 열 제거 — V/S 는 처치 칸 'V/S 측정' 칩 + 아래 인라인 표로 표시(2026-07-21) -->
-      <td data-col-index="13" style="text-align:center;white-space:nowrap">${r.nurse||'-'}</td>
-      <td data-col-index="14" style="position:relative;padding-right:32px"><span class="memo-plus" data-action="toggleMemo" data-sid="${r.studentId}" data-rid="${r.id}">${hasMemo||'+'}</span><button class="row-delete-x" data-action="dailyDeleteRecord" data-rid="${r.id}">✕</button></td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML=renderDailyRecordRows(dayRecs);
 
   if(!dayRecs.length){
     /* 빈 상태 — macOS 친근한 안내 (검색·달력에서 다른 날짜로 이동 안내) */
@@ -2163,7 +2263,7 @@ export function renderDaily(){
     tbody.innerHTML='<tr><td class="daily-empty-cell" colspan="15" style="padding:0;background:transparent">'+_emptyHtml+'</td></tr>';
   }
   /* ── recBody event delegation for [data-action] ── */
-  _bindRecBodyActions(tbody);
+  bindDailyRecordActions(tbody);
   applyDailyColLayout();
   if(_crInsertHandlesRef)setTimeout(_crInsertHandlesRef,30);
   _updateSortArrows();
@@ -2839,7 +2939,7 @@ export function openRecentVisitModal(){
   const ov=document.createElement('div'); ov.id='rvBrowserOv';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13060;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="rvBrowserBox" style="background:var(--card);border-radius:14px;width:460px;max-width:94vw;height:80vh;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">📋</span><div style="font-size:14px;font-weight:800;color:var(--t1)">최근 보건실 방문 이력 보기</div></div>'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">📋</span><div style="font-size:14px;font-weight:800;color:var(--t1)">최근 보건실 방문 이력 보기</div></div>'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--bdr)"><input id="rvSearchInput" type="text" placeholder="이름으로 검색 (학생·교직원)" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;font-size:13px;padding:9px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);outline:none"></div>'
     +'<div id="rvSearchList" style="max-height:34vh;overflow:auto;border-bottom:1px solid var(--bdr);scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)"></div>'
     +'<div id="rvHistArea" style="flex:1;overflow:auto;padding:12px 16px;scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)"><div style="color:var(--t3);font-size:11.5px;text-align:center;padding:20px 0">이름을 검색해 인원을 선택하면<br>최근 보건실 방문 이력이 표시됩니다.</div></div>'
@@ -2868,7 +2968,7 @@ export function openRecentVisitModal(){
   listEl.addEventListener('click',function(e){
     const row=e.target.closest('[data-rvid]'); if(!row)return;
     const cap=_captureVisitHistoryHtml(row.dataset.rvid);
-    histEl.innerHTML='<div style="margin:-12px -16px 10px;padding:12px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(139,92,246,0.05))">'+cap.titleHTML+'</div>'+cap.bodyHTML;
+    histEl.innerHTML='<div style="margin:-12px -16px 10px;padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.08)">'+cap.titleHTML+'</div>'+cap.bodyHTML;
     histEl.scrollTop=0;
   });
   inp.addEventListener('input',_renderList);
@@ -2883,7 +2983,7 @@ export function openVisitorLogModal(opts){
   const ov=document.createElement('div'); ov.id='vlogOv';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13055;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="vlogBox" style="background:var(--card);border-radius:14px;width:440px;max-width:94vw;height:72vh;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">📝</span><div style="font-size:14px;font-weight:800;color:var(--t1)">방문자 검색 및 일지 작성</div></div>'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">📝</span><div style="font-size:14px;font-weight:800;color:var(--t1)">방문자 검색 및 일지 작성</div></div>'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--bdr)"><input id="vlogInput" type="text" placeholder="이름으로 검색 (학생·교직원)" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;font-size:13px;padding:9px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);outline:none"></div>'
     +'<div id="vlogList" style="flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)"><div style="color:var(--t3);font-size:11.5px;text-align:center;padding:20px 0">이름을 검색해 방문자를 선택하면<br>증상·처치 입력 후 일반 일지에 기록됩니다.</div></div>'
     +'</div>';
@@ -3253,7 +3353,7 @@ function openCellEdit(recId,field,btn){
     listDiv.querySelectorAll('.cell-ac-item').forEach(el=>{el.addEventListener('click',()=>selectItem(el.textContent));});
   }
   function selectItem(val){
-    const rec=S.records.find(r=>r.id===recId);
+    const rec=getDailyRecord(recId);
     if(!rec){closeCellPopup();return;}
     if(field==='symptoms'){if(!rec.symptoms.includes(val))rec.symptoms.push(val);const dept=getDeptForSymptom(val);if(dept&&!rec.dept)rec.dept=dept;}
     else if(field==='dept'){rec.dept=rec.dept?(rec.dept+', '+val):val;}
@@ -3329,7 +3429,7 @@ function _paTableHtml(r){
   return t;
 }
 function vsAutoSave(recId){
-  const r=S.records.find(function(x){return x.id===recId;});if(!r)return;
+  const r=getDailyRecord(recId);if(!r)return;
   /* 사용자 보고 2026-05-27 — input ID 에 recId 포함하지 않으면 두 모달 DOM 공존 시
    *  document.getElementById 가 첫 매치(다른 학생 모달의 input)를 반환해서 학생 데이터가 오염됨.
    *  ID 에 recId 붙여 모달별 unique 보장. */
@@ -3363,7 +3463,7 @@ function vsCheckAlert(){
   if(re)re.style.color=parseInt(re.value)>=_vitalThresholds.resp?'#ef4444':'var(--t1)';
 }
 function vsRestore(recId){
-  const r=S.records.find(function(x){return x.id===recId;});if(!r)return;
+  const r=getDailyRecord(recId);if(!r)return;
   r.temp=vsOriginal.temp;r.bp=vsOriginal.bp;r.pulse=vsOriginal.pulse;r.resp=vsOriginal.resp;r.respiration=vsOriginal.resp;r.spo2=vsOriginal.spo2;r.bst=vsOriginal.bst;r._dirty=true;saveRecordNow(r);
   const _g=function(id){return document.getElementById(id+'_'+recId)||document.getElementById(id);};
   const t=_g('vsTemp');if(t)t.value=vsOriginal.temp;
@@ -3375,7 +3475,7 @@ function vsRestore(recId){
   vsCheckAlert();saveData();renderDaily();
 }
 function vsClearAll(recId){
-  const r=S.records.find(function(x){return x.id===recId;});if(!r)return;
+  const r=getDailyRecord(recId);if(!r)return;
   r.temp='';r.bp='';r.pulse='';r.resp='';r.respiration='';r.spo2='';r.bst='';
   const _g=function(id){return document.getElementById(id+'_'+recId)||document.getElementById(id);};
   const t=_g('vsTemp');if(t)t.value='';
@@ -3399,7 +3499,7 @@ document.addEventListener('keydown',function(e){
 });
 export function openVitalsEdit(recId,btn){
   closeCellPopup();
-  const r=S.records.find(function(x){return x.id===recId;});
+  const r=getDailyRecord(recId);
   if(!r)return;
   /* 호흡수는 DB 에서 r.respiration 로 들어옴 — r.resp 가 비어 있으면 r.respiration 폴백 */
   const _respCur=r.resp||r.respiration||'';
@@ -3491,7 +3591,7 @@ export function openVitalsEdit(recId,btn){
    · 마지막(최신 시각) 측정값을 단일 V/S 컬럼에 미러링 → 통계·단일표시 호환
    ══════════════════════════════════════════ */
 export function openVsTimeseries(recId){
-  const r=S.records.find(function(x){return x.id===recId;});if(!r)return;
+  const r=getDailyRecord(recId);if(!r)return;
   const stu=getStu(r.personUid||r.studentId)||{};
   const _isStf=(stu.type==='staff');
   /* 제목 표기 — 이름(학교급 학과 학년 반 번) 형식. 학과는 입력 시, 학교급은 학교급이 여럿일 때만 표시, 띄어쓰기 (사용자 요청 2026-06-16) */
@@ -3851,6 +3951,22 @@ export function openMedFacilityPopup(){
 /* 오래된 심평원 API 검색 제거 — 카카오 REST API로 대체됨 */
 
 /* ── Event bus registrations ── */
+bus.on('daily:period-open', function(){
+  dailyCloseCtxPopup();
+  dailyClearDragSelect();
+  _dd.active=false;
+  _dd.moved=false;
+  _dd.lastClickIdx=-1;
+  if(_ddAutoScrollRaf!==null){cancelAnimationFrame(_ddAutoScrollRaf);_ddAutoScrollRaf=null;}
+  _ddLastMoveEvent=null;
+  if(_dd.box){_dd.box.remove();_dd.box=null;}
+  _calFocusActive=false;
+  S.dailySelectedRecId=null;
+  S.dailyLockedStudentId=null;
+  S._visitHistoryLocked=false;
+  document.querySelectorAll('#recBody tr.daily-selected').forEach(function(row){row.classList.remove('daily-selected');});
+  _hideVisitHistory();
+});
 bus.on('render:daily', function(){
   renderDaily();
   /* 보건일지 표 변경 시 최근 보건실 방문 이력 카드도 함께 갱신.

@@ -11,6 +11,10 @@ const start = source.indexOf('let _infectCache=null;');
 const end = source.indexOf('/* 시간표 검색 위젯', start);
 assert(start >= 0 && end > start, 'Production infectious widget boundaries must exist');
 const widgetSource = source.slice(start, end);
+const helpersStart = source.indexOf('function _schoolWidgetIcon(');
+const helpersEnd = source.indexOf('function _hwAddBtn(', helpersStart);
+assert(helpersStart >= 0 && helpersEnd > helpersStart, 'Production widget presentation helpers must exist');
+const helpersSource = source.slice(helpersStart, helpersEnd);
 const TTL = 5 * 60 * 1000;
 const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const success = (name = 'Synthetic disease', year = 2026, sidoNm = '전국') => ({ rows: [{ icdNm: name, val: 1234 }], year, sidoNm });
@@ -31,6 +35,7 @@ function harness() {
     clearInfectiousCache() { state.cleared++; },
     bus: { on(name, handler) { state.listeners.set(name, handler); } },
     userSidoCd: () => state.sido,
+    getPublicDataApiKey: () => state.apiKey,
     getInfectiousRequestKey(year, sido) {
       let key = state.apiKey;
       try { key = decodeURIComponent(key); } catch (_) {}
@@ -51,7 +56,7 @@ function harness() {
     escHtml: escapeHtml,
     renderHomeDashboard() { state.renders++; }
   });
-  vm.runInContext(widgetSource, context);
+  vm.runInContext(helpersSource + '\n' + widgetSource, context);
   return {
     state,
     body: () => vm.runInContext('_wInfectTrendBody()', context),
@@ -64,7 +69,7 @@ function harness() {
 
 test('initial render starts one request and repeated loading renders do not duplicate it', async () => {
   const h = harness();
-  assert.match(h.body(), /로딩 중/);
+  assert.match(h.body(), /data-state="loading"/);
   for(let i = 0; i < 10; i++) h.body();
   await flush();
   assert.equal(h.state.requests.length, 1);
@@ -120,7 +125,7 @@ for(const result of [success(), { error: 'fetch' }]) {
     h.body(); await flush();
     assert.equal(h.state.requests.length, 1);
     h.state.now++;
-    assert.match(h.body(), /로딩 중/); await flush();
+    assert.match(h.body(), /data-state="loading"/); await flush();
     assert.equal(h.state.requests.length, 2);
     assert.equal(h.state.requests[1].force, false);
   });
@@ -129,13 +134,15 @@ for(const result of [success(), { error: 'fetch' }]) {
 test('missing key guidance is replaced by a fresh query after registering a key', async () => {
   const h = harness();
   h.state.apiKey = '';
-  h.body(); await flush();
-  h.resolve(0, { error: 'no-key' }); await flush();
-  assert.match(h.body(), /인증키를 등록/);
+  assert.match(h.body(), /data-state="api"/);
+  assert.match(h.body(), /API 키를 등록/);
+  assert.match(h.body(), /open-widget-api-settings/);
+  await flush();
+  assert.equal(h.state.requests.length, 0, 'Missing credentials must not start a request');
   h.state.apiKey = 'SYNTHETIC-NEW-KEY';
-  assert.match(h.body(), /로딩 중/); await flush();
-  assert.equal(h.state.requests.length, 2);
-  h.resolve(1, success('New key data')); await flush();
+  assert.match(h.body(), /data-state="loading"/); await flush();
+  assert.equal(h.state.requests.length, 1);
+  h.resolve(0, success('New key data')); await flush();
   assert.match(h.body(), /New key data/);
 });
 
@@ -148,7 +155,7 @@ test('reapplying the same key clears both caches through the settings event', as
   h.settingsChanged();
   assert.equal(h.state.cleared, 1);
   assert.equal(h.state.renders, oldRenderCount + 1);
-  assert.match(h.body(), /로딩 중/); await flush();
+  assert.match(h.body(), /data-state="loading"/); await flush();
   assert.equal(h.state.requests.length, 2);
   h.resolve(1, success('Recovered after settings apply')); await flush();
   assert.match(h.body(), /Recovered after settings apply/);
@@ -175,7 +182,7 @@ for(const change of ['key', 'sido', 'year']) {
     if(change === 'sido') h.state.sido = '01';
     if(change === 'year') h.state.now = Date.UTC(2027, 0, 1, 12);
     const html = h.body(); await flush();
-    assert.match(html, /로딩 중/);
+    assert.match(html, /data-state="loading"/);
     assert.doesNotMatch(html, /Old data/);
     assert.equal(h.state.requests.length, 2);
     if(change === 'sido') assert.equal(h.state.requests[1].sido, '01');
@@ -214,7 +221,7 @@ test('a late old response cannot clear the loading flag of a newer in-flight req
   h.state.apiKey = 'SYNTHETIC-OTHER-KEY';
   h.body(); await flush();
   h.resolve(0, success('Obsolete response')); await flush();
-  for(let i = 0; i < 10; i++) assert.match(h.body(), /로딩 중/);
+  for(let i = 0; i < 10; i++) assert.match(h.body(), /data-state="loading"/);
   await flush();
   assert.equal(h.state.requests.length, 2);
   h.resolve(1, success('Current data')); await flush();
@@ -227,7 +234,7 @@ test('configuration changed without a render still prevents the old response fro
   h.state.sido = '02';
   h.resolve(0, success('Obsolete response')); await flush();
   assert(h.state.renders > 0, 'Completion must request a current-state render');
-  assert.match(h.body(), /로딩 중/); await flush();
+  assert.match(h.body(), /data-state="loading"/); await flush();
   assert.equal(h.state.requests.length, 2);
   assert.equal(h.state.requests[1].sido, '02');
 });
@@ -237,7 +244,9 @@ test('empty data keeps its year and region and offers an explicit refresh', asyn
   h.body(); await flush();
   h.resolve(0, { rows: [], year: 2026, sidoNm: '서울' }); await flush();
   const html = h.body();
-  assert.match(html, /2026년 서울 발생 데이터 없음/);
+  assert.match(html, /data-state="empty"/);
+  assert.match(html, /2026년 서울/);
+  assert.match(html, /자료가 없다는 것이 발생이 없다는 뜻은 아니에요/);
   assert.match(html, /retry-infect-trend/);
   h.retry(); await flush();
   assert.equal(h.state.requests[1].force, true);

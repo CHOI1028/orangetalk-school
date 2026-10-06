@@ -1,0 +1,38 @@
+/* 기간 검색: 기존 일지 표·칩 스타일을 공유하며 검색 조건과 건수만 별도로 표시한다. */
+#dailyPeriodSearchBtn{white-space:nowrap;min-width:fit-content;padding:0 8px;font-size:11.5px;height:32px;display:inline-flex;align-items:center;box-sizing:border-box;font-weight:600}
+#dailyPeriodSearchBtn[aria-expanded="true"]{background:rgba(6,182,212,.14);color:var(--cyan);border-color:var(--cyan)}
+#dailyPeriodPanel[hidden]{display:none!important}
+#dailyPeriodPanel{margin-top:10px;border:1px solid var(--bdr);border-radius:10px;background:var(--card);padding:14px;color:var(--t1);font-size:12px;min-width:0;min-height:0;display:flex;flex-direction:column;flex:1;overflow:auto}
+#dailyPeriodPanel>*{flex-shrink:0}
+#view-daily #dailyCat-general.daily-period-active{flex-shrink:1}
+#dailyCat-general.daily-period-active #dailyToolbarWrap{flex-shrink:0}
+#dailyCat-general.daily-period-active #dailyTableOuter,
+#dailyCat-general.daily-period-active #dailyVisitorCount,
+#dailyCat-general.daily-period-active #dailyTodayMemo{display:none!important}
+.daily-period-form{display:flex;align-items:flex-end;flex-wrap:wrap;gap:8px}
+.daily-period-form label{display:flex;flex-direction:column;gap:5px;font-weight:700;color:var(--t2)}
+.daily-period-form input,.daily-period-tools select{border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--t1);padding:7px 9px;font:inherit;min-height:32px;box-sizing:border-box}
+.daily-period-form input{width:152px;color-scheme:dark}
+body.light .daily-period-form input{color-scheme:light}
+.daily-period-form .btn,.daily-period-pages .btn{font-size:12px;min-height:32px;padding:6px 12px;white-space:nowrap}
+.daily-period-form .btn:disabled,.daily-period-pages .btn:disabled{opacity:.45;cursor:default}
+.daily-period-separator{padding-bottom:9px;color:var(--t3)}
+.daily-period-close{margin-left:auto}
+.daily-period-status{margin:12px 0 8px;min-height:18px;color:var(--t2);line-height:1.6}
+.daily-period-status.is-error{color:#dc2626}
+.daily-period-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.daily-period-summary>span{border:1px solid var(--bdr);border-radius:7px;padding:8px 12px;background:var(--bg2);color:var(--t2)}
+.daily-period-summary strong{font-size:17px;color:var(--cyan);margin-left:6px;margin-right:2px}
+.daily-period-summary small{display:block;flex-basis:100%;color:var(--t3);line-height:1.6;font-size:11px}
+.daily-period-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;color:var(--t3);font-size:11px}
+.daily-period-tools label{white-space:nowrap;color:var(--t2);font-size:12px}
+.daily-period-results{overflow:auto;min-height:128px;flex:1 1 auto!important;border:1px solid var(--bdr);border-radius:7px}
+.daily-period-results:empty{min-height:0}
+.daily-period-results:empty{border:0}
+.daily-period-table th{cursor:default}
+.daily-period-table [data-col-index="0"]{white-space:nowrap}
+.daily-period-table td[data-col-index="14"]{padding-right:6px!important}
+.daily-period-empty{text-align:center;padding:42px 16px;color:var(--t3)}
+.daily-period-pages{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;color:var(--t2)}
+.daily-period-pages>span:first-child{margin-right:auto}
+@media(max-width:640px){#dailyPeriodPanel{padding:10px}.daily-period-form input{width:136px}.daily-period-close{margin-left:0}.daily-period-summary>span{flex:1;min-width:110px}.daily-period-tools>span{flex-basis:100%}}

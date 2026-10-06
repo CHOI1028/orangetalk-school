@@ -1356,7 +1356,8 @@ const handlers = {
     try {
       /* global fetch (Node 18+) */
       const res = await fetch(p.relayUrl + '/api/v1/nurse/receptions/' + p.channelId, {
-        headers: { 'Authorization': 'Bearer ' + p.nurseToken }
+        headers: { 'Authorization': 'Bearer ' + p.nurseToken },
+        signal: AbortSignal.timeout(7500)
       });
       return await res.json();
     } catch (e) { return { success: false, error: e.message }; }

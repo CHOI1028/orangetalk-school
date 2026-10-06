@@ -59,21 +59,27 @@ const OBF_OPTIONS = {
   sourceMap: false,
 };
 
-// 난독화 대상 메인 프로세스 JS 파일
+// Root entrypoints only; all src/ modules (including credential bundles) are handled by the src walker.
 const MAIN_JS_FILES = [
   'main.js',
   'preload.js',
-  'src/main/services/google-auth.js',
-  'src/main/services/sheets-api.js',
-  'src/main/services/calendar-api.js',
-  // 암호화 자격증명 번들 (bundle-credentials.js가 생성한 파일)
-  'src/main/services/bundled-credentials.js',
 ];
+
+const STANDALONE_RUNTIME_MODULES = new Set([
+  'src/renderer/features/kiosk/kiosk-reception-runtime.js',
+  'src/renderer/features/kiosk/kiosk-call-audio.js',
+]);
+
+// These functions are serialized into standalone HTML. Keep their literals self-contained.
+function obfuscationOptions(filename) {
+  const relative = String(filename).replace(/\\/g, '/');
+  return { ...OBF_OPTIONS, stringArray: !STANDALONE_RUNTIME_MODULES.has(relative) };
+}
 
 function obfuscateJs(code, filename) {
   try {
     const result = JavaScriptObfuscator.obfuscate(code, {
-      ...OBF_OPTIONS,
+      ...obfuscationOptions(filename),
       sourceMapFileName: filename + '.map',
     });
     return result.getObfuscatedCode();
@@ -192,4 +198,5 @@ function main() {
   console.log('빌드 후 원본 복원이 필요하면: node scripts/obfuscate.js --restore');
 }
 
-main();
+if (require.main === module) main();
+module.exports = { obfuscateJs, obfuscationOptions };

@@ -16,36 +16,36 @@
     }
   </style>
   <div id="view-orange" class="view">
-    <div style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
-      <div class="magic-index-tab active" id="orangeSubTab1" data-orange-tab="mall" style="z-index:2;cursor:pointer"><img src="assets/logo/logo_big.png" style="height:14px;width:auto;object-fit:contain;vertical-align:-3px;display:inline-block;margin-right:4px">오렌지몰</div>
-      <div class="magic-index-tab" id="orangeSubTabTutorial" data-orange-tab="together" style="cursor:pointer">🤝 함께하는 보건일지</div>
-      <div class="magic-index-tab" id="orangeSubTabQna" data-orange-tab="qna" style="cursor:pointer">❓ Q&amp;A</div>
-      <div class="magic-index-tab" id="orangeSubTabDownload" data-orange-tab="download" style="cursor:pointer">📦 업데이트 자료실</div>
+    <div class="school-subnav school-orange-subnav" style="display:flex;align-items:flex-end;gap:0;margin-bottom:0;padding-left:0">
+      <div class="magic-index-tab active" id="orangeSubTab1" data-orange-tab="mall" style="z-index:2;cursor:pointer">오렌지몰</div>
+      <div class="magic-index-tab" id="orangeSubTabTutorial" data-orange-tab="together" style="cursor:pointer">함께하는 보건일지</div>
+      <div class="magic-index-tab" id="orangeSubTabQna" data-orange-tab="qna" style="cursor:pointer">Q&amp;A</div>
+      <div class="magic-index-tab" id="orangeSubTabDownload" data-orange-tab="download" style="cursor:pointer">업데이트 자료실</div>
     </div>
     <div class="magic-chart-body" style="padding:16px">
       <!-- 탭1: 오렌지몰 — link_banner.png 배경. 이미지 안의 "오렌지팜 바로가기" 텍스트 영역이 클릭 영역. -->
       <div id="orangeSubMall" class="magic-sub-content active" style="display:block">
         <div id="orangeMallCanvas" style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/link_banner.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
-          <button id="orangeMallBtn" class="orange-cta-btn" type="button" title="오렌지몰 바로가기" style="position:absolute;right:9%;top:43%;transform:translateY(-50%);padding:12px 32px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">오렌지팜 바로가기</button>
+          <button id="orangeMallBtn" class="orange-cta-btn" type="button" title="오렌지몰 바로가기" style="position:absolute;right:9%;top:43%;transform:translateY(-50%);padding:12px 32px;font-size:15px;font-weight:800;background:#ea580c;color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">오렌지팜 바로가기</button>
 
         </div>
       </div>
       <!-- 탭2: 함께하는 보건일지 — together.png 배경 + "이야기 하러가기" 버튼 -->
       <div id="orangeSubTogether" class="magic-sub-content" style="display:none">
         <div style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/together.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
-          <button id="orangeTogetherBtn" class="orange-cta-btn" type="button" title="함께하는 보건일지 페이지로 이동" style="position:absolute;left:6%;top:81.73%;transform:translateY(-50%);padding:12px 48px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">이야기 하러가기</button>
+          <button id="orangeTogetherBtn" class="orange-cta-btn" type="button" title="함께하는 보건일지 페이지로 이동" style="position:absolute;left:6%;top:81.73%;transform:translateY(-50%);padding:12px 48px;font-size:15px;font-weight:800;background:#ea580c;color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">이야기 하러가기</button>
         </div>
       </div>
       <!-- 탭3: Q&A — question.png 배경 + "자주 묻는 질문 보기" 버튼 -->
       <div id="orangeSubQna" class="magic-sub-content" style="display:none">
         <div style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/question.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
-          <button id="orangeQnaBtn" class="orange-cta-btn" type="button" title="Q&amp;A 페이지로 이동" style="position:absolute;left:12.37%;top:81.73%;transform:translate(-50%,-50%);padding:12px 28px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">자주 묻는 질문 보기</button>
+          <button id="orangeQnaBtn" class="orange-cta-btn" type="button" title="Q&amp;A 페이지로 이동" style="position:absolute;left:12.37%;top:81.73%;transform:translate(-50%,-50%);padding:12px 28px;font-size:15px;font-weight:800;background:#ea580c;color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">자주 묻는 질문 보기</button>
         </div>
       </div>
       <!-- 탭4: 업데이트 자료실 — update_board.png 배경 + "최신 자료 보기" 버튼 -->
       <div id="orangeSubDownload" class="magic-sub-content" style="display:none">
         <div style="position:relative;width:100%;aspect-ratio:1787/624;padding:0;border-radius:14px;border:1.5px solid var(--bdr);background-image:url('src/orangefarm/update_board.png');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;font-family:var(--f);overflow:hidden">
-          <button id="orangeDownloadBtn" class="orange-cta-btn" type="button" title="업데이트 자료실로 이동" style="position:absolute;left:12.23%;top:81.81%;transform:translate(-50%,-50%);padding:12px 52px;font-size:15px;font-weight:800;background:linear-gradient(180deg,#fb923c 0%,#ea580c 100%);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">최신 자료 보기</button>
+          <button id="orangeDownloadBtn" class="orange-cta-btn" type="button" title="업데이트 자료실로 이동" style="position:absolute;left:12.23%;top:81.81%;transform:translate(-50%,-50%);padding:12px 52px;font-size:15px;font-weight:800;background:#ea580c;color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(234,88,12,0.4);font-family:var(--f);z-index:2;letter-spacing:0.3px;white-space:nowrap">최신 자료 보기</button>
         </div>
       </div>
     </div>

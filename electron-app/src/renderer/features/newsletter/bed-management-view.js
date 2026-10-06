@@ -25,7 +25,7 @@ S._bedConfig = S._bedConfigRaw;
 S._bedUsage = JSON.parse(localStorage.getItem('ec_bed_usage')) || [];
 let _bedAlarmInterval = null;
 const _bedCountdownInterval = null;
-let _bedAlarmAudio = null;
+let _bedAlarmSession = null;
 
 function _bedLabel(bed,idx){
   /* 자동 이름: "침상 1", "침상 2", ... */
@@ -201,70 +201,125 @@ function _bedFlipDigits(str,cls){
 }
 
 function _bedShowAlarm(usage){
+  /* 겹친 퇴실 알림은 한 창/한 재생 세션에 모아 소리 참조를 잃지 않는다. */
+  if(_bedAlarmSession && _bedAlarmIsVisible(_bedAlarmSession)){
+    _bedAppendAlarmUsage(_bedAlarmSession,usage);
+    S._bedUsage=S._bedUsage.filter(function(u){ return u.bedId!==usage.bedId||u.endTime!==usage.endTime; });
+    _saveBedUsage();
+    return;
+  }
+  _bedDismissAlarm();
   const ov=document.createElement('div');
   ov.className='modal-overlay show';
   ov.id='bedAlarmOverlay';
   ov.style.zIndex='10100';
   ov.style.background='rgba(0,0,0,0.5)';
-  let bedLabel='침상';
-  S._bedConfig.beds.forEach(function(b,i){ if(b.id===usage.bedId) bedLabel=_bedLabel(b,i); });
   ov.innerHTML='<div class="modal-content" style="width:380px;max-width:90vw;padding:0;text-align:center;overflow:hidden">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0;font-weight:800;font-size:15px;color:var(--t1)">⏰ 침상 이용 시간 종료</div>'
-    +'<div style="padding:30px 20px">'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0;font-weight:800;font-size:15px;color:var(--t1)">⏰ 침상 이용 시간 종료</div>'
+    +'<div style="padding:24px 20px">'
     +'<div style="font-size:40px;margin-bottom:12px">🔔</div>'
-    +'<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:8px">'+usage.studentName+' 학생</div>'
-    +'<div style="font-size:13px;color:var(--t2);margin-bottom:6px">'+bedLabel+'</div>'
+    +'<div data-bed-alarm-list style="max-height:40vh;overflow-y:auto;margin-bottom:12px"></div>'
     +'<div style="font-size:13px;color:var(--t2)">침상 이용 시간이 종료되었습니다.</div>'
     +'</div>'
-    +'<div style="padding:0 20px 20px"><button class="btn btn-primary btn-sm" data-action="dismissAlarm" style="width:100%">확인</button></div>'
+    +'<div style="padding:0 20px 20px"><button class="btn btn-primary btn-sm" data-action="dismissAlarm" style="width:100%">확인 · 알람 끄기</button></div>'
     +'</div>';
-  ov.addEventListener('click',function(e){ if(e.target===ov) _bedDismissAlarm(); });
+  const alarm={overlay:ov,closed:false,audio:null,stopSynthetic:null,retryTimer:null,observer:null,unloadHandler:null};
+  _bedAlarmSession=alarm;
+  _bedAppendAlarmUsage(alarm,usage);
+  /* 공통 팝업 닫기/Ctrl+W에서도 화면과 소리를 함께 정리한다. */
+  ov._onModalClose=function(){_bedDismissAlarm(alarm);};
+  ov.addEventListener('click',function(e){ if(e.target===ov) _bedDismissAlarm(alarm); });
   document.body.appendChild(ov);
-  ov.querySelector('[data-action="dismissAlarm"]').addEventListener('click',function(){_bedDismissAlarm();});
-  document.addEventListener('keydown',_bedAlarmEscHandler);
+  ov.querySelector('[data-action="dismissAlarm"]').addEventListener('click',function(){_bedDismissAlarm(alarm);});
+  document.addEventListener('keydown',_bedAlarmEscHandler,true);
+  alarm.unloadHandler=function(){_bedDismissAlarm(alarm);};
+  window.addEventListener('beforeunload',alarm.unloadHandler);
+  /* 다른 화면 코드가 DOM만 숨기거나 제거해도 재생을 남기지 않는 안전망. */
+  if(typeof MutationObserver!=='undefined'){
+    alarm.observer=new MutationObserver(function(){
+      if(!_bedAlarmIsVisible(alarm)) _bedDismissAlarm(alarm);
+    });
+    alarm.observer.observe(ov,{attributes:true,attributeFilter:['class','style','hidden']});
+    alarm.observer.observe(document.body,{childList:true});
+  }
   /* play alarm audio based on per-bed selection */
+  const alarmSel=usage.alarmSound||'random';
+  const idx=alarmSel==='random'?Math.floor(Math.random()*4)+1:(parseInt(alarmSel,10)||1);
   try{
-    const alarmSel=usage.alarmSound||'random';
-    let idx;
-    if(alarmSel==='random') idx=Math.floor(Math.random()*4)+1;
-    else idx=parseInt(alarmSel,10)||1;
     /* 실제 파일 재생 (1~3=mp3, 4=wav) */
     const audio=new Audio(_bedAlarmSrc(idx));
     audio.loop=true;
     audio.volume=1.0;
-    _bedAlarmAudio=audio;
-    audio.play().catch(function(){
-      /* mp3 재생 실패 시 Web Audio 합성음 폴백 */
-      let _alarmLoopActive=true;
-      _bedAlarmAudio={stop:function(){_alarmLoopActive=false;if(_bedAudioStopFn){try{_bedAudioStopFn();}catch(e){}}}};
-      function _playLoop(){
-        if(!_alarmLoopActive)return;
-        _bedPlaySyntheticAlarm(String(idx),function(){
-          if(_alarmLoopActive)setTimeout(_playLoop,500);
-        });
-      }
-      _playLoop();
+    alarm.audio=audio;
+    audio.play().catch(function(error){
+      /* pause()로 취소된 play()도 reject된다. 닫힌 알림/취소에는 대체음을 시작하지 않는다. */
+      if(!_bedAlarmIsVisible(alarm)||(error&&error.name==='AbortError'))return;
+      _bedStartSyntheticLoop(alarm,idx);
     });
-  }catch(e){}
+  }catch(e){
+    if(_bedAlarmIsVisible(alarm)&&(!e||e.name!=='AbortError'))_bedStartSyntheticLoop(alarm,idx);
+  }
   /* Auto-remove usage */
   S._bedUsage=S._bedUsage.filter(function(u){ return u.bedId!==usage.bedId||u.endTime!==usage.endTime; });
   _saveBedUsage();
 }
 
-function _bedAlarmEscHandler(e){
-  if(e.key==='Escape') _bedDismissAlarm();
+function _bedAppendAlarmUsage(alarm,usage){
+  let bedLabel='침상';
+  S._bedConfig.beds.forEach(function(b,i){ if(b.id===usage.bedId)bedLabel=_bedLabel(b,i); });
+  const row=document.createElement('div');
+  row.style.marginBottom='10px';
+  row.innerHTML='<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px">'+escHtml(usage.studentName||'')+' 학생</div>'
+    +'<div style="font-size:13px;color:var(--t2)">'+escHtml(bedLabel)+'</div>';
+  alarm.overlay.querySelector('[data-bed-alarm-list]').appendChild(row);
 }
-function _bedDismissAlarm(){
-  if(_bedAlarmAudio){
-    try{
-      if(typeof _bedAlarmAudio.stop==='function')_bedAlarmAudio.stop();
-      if(typeof _bedAlarmAudio.pause==='function'){_bedAlarmAudio.pause();_bedAlarmAudio.currentTime=0;}
-    }catch(e){}
-    _bedAlarmAudio=null;
+
+function _bedAlarmIsVisible(alarm){
+  if(!alarm||alarm.closed||_bedAlarmSession!==alarm)return false;
+  const ov=alarm.overlay;
+  if(!ov.isConnected||ov.hidden||!ov.classList.contains('show')||ov.classList.contains('modal-closing'))return false;
+  const style=getComputedStyle(ov);
+  return style.display!=='none'&&style.visibility!=='hidden';
+}
+
+function _bedStartSyntheticLoop(alarm,idx){
+  function playLoop(){
+    alarm.retryTimer=null;
+    if(!_bedAlarmIsVisible(alarm))return;
+    /* 미리 듣기의 공유 stop 함수를 사용하지 않고 이 알림의 합성음만 소유한다. */
+    alarm.stopSynthetic=_bedPlaySyntheticAlarm(String(idx),function(){
+      alarm.stopSynthetic=null;
+      if(_bedAlarmIsVisible(alarm))alarm.retryTimer=setTimeout(playLoop,500);
+    },false);
   }
-  const ov=document.getElementById('bedAlarmOverlay');
-  if(ov) ov.remove();
-  document.removeEventListener('keydown',_bedAlarmEscHandler);
+  playLoop();
+}
+
+function _bedAlarmEscHandler(e){
+  if(e.key!=='Escape'||!_bedAlarmSession)return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  _bedDismissAlarm();
+}
+function _bedDismissAlarm(expectedSession){
+  const alarm=expectedSession||_bedAlarmSession;
+  if(!alarm||alarm.closed)return;
+  /* 비동기 reject/onended보다 먼저 취소 상태를 기록한다. */
+  alarm.closed=true;
+  if(_bedAlarmSession===alarm){
+    _bedAlarmSession=null;
+    document.removeEventListener('keydown',_bedAlarmEscHandler,true);
+  }
+  if(alarm.observer)alarm.observer.disconnect();
+  if(alarm.unloadHandler)window.removeEventListener('beforeunload',alarm.unloadHandler);
+  if(alarm.retryTimer!==null)clearTimeout(alarm.retryTimer);
+  if(alarm.audio){
+    try{alarm.audio.pause();}catch(e){}
+    try{alarm.audio.currentTime=0;}catch(e){}
+    alarm.audio=null;
+  }
+  if(alarm.stopSynthetic){try{alarm.stopSynthetic();}catch(e){}alarm.stopSynthetic=null;}
+  alarm.overlay.remove();
   /* refresh bed manager if open */
   if(document.getElementById('bedManagerOverlay')) _bedRenderBody();
 }
@@ -297,7 +352,7 @@ function openBedManager(stuId){
   ov.style.alignItems='flex-start';
   ov.style.paddingTop='13vh';
   ov.innerHTML='<div class="modal-content" style="width:'+modalW+';max-width:94vw;max-height:92vh;padding:0;overflow-y:auto;scrollbar-width:thin">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0;position:sticky;top:0;z-index:1">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0;position:sticky;top:0;z-index:1">'
     +'<span style="font-size:15px;font-weight:800;color:var(--t1)">🛏 침상 이용 등록</span>'
     +'<span style="font-size:12px;color:var(--t3)">'+stuDesc+'</span>'
     +'</div>'
@@ -699,7 +754,7 @@ function _bedAlarmSrc(idx){ const n=String(idx); return './assets/sounds/alarm_'
 /* Web Audio API 기반 합성 알람음 — mp3 파일 없이 작동 */
 let _bedAudioCtx=null;
 let _bedAudioStopFn=null;
-function _bedPlaySyntheticAlarm(preset,onEnd){
+function _bedPlaySyntheticAlarm(preset,onEnd,trackPreview){
   try{
     if(!_bedAudioCtx){_bedAudioCtx=new (window.AudioContext||window.webkitAudioContext)();}
     const ctx=_bedAudioCtx;
@@ -732,8 +787,10 @@ function _bedPlaySyntheticAlarm(preset,onEnd){
     });
     osc.start(now);
     osc.stop(t+0.05);
-    _bedAudioStopFn=function(){try{osc.stop(ctx.currentTime);}catch(e){}};
-    osc.onended=function(){_bedAudioStopFn=null;if(onEnd)onEnd();};
+    const stop=function(){try{osc.stop(ctx.currentTime);}catch(e){}};
+    if(trackPreview!==false)_bedAudioStopFn=stop;
+    osc.onended=function(){if(_bedAudioStopFn===stop)_bedAudioStopFn=null;if(onEnd)onEnd();};
+    return stop;
   }catch(e){
     bus.emit('toast:show', {text: '오디오 재생을 지원하지 않는 환경입니다.'});
     if(onEnd)onEnd();
@@ -1626,7 +1683,7 @@ function openBedConfig(){
   /* 오버레이 배경 투명 — 뒤 침상 이용 등록 팝업이 보이도록 */
   ov.style.background='transparent';ov.style.pointerEvents='none';
   ov.innerHTML='<div class="modal-content bed-config-modal" style="width:400px;max-width:92vw;padding:0;overflow:hidden;pointer-events:auto;transition:opacity 0.22s ease, transform 0.22s cubic-bezier(0.4,0,0.2,1)">'
-    +'<div class="bed-config-header" style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0;font-size:15px;font-weight:800;color:var(--t1);cursor:grab;user-select:none">⚙ 침상 구성</div>'
+    +'<div class="bed-config-header" style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0;font-size:15px;font-weight:800;color:var(--t1);cursor:grab;user-select:none">⚙ 침상 구성</div>'
     +'<div id="bedConfigBody" style="padding:20px"></div>'
     +'</div>';
   ov.addEventListener('click',function(e){ if(e.target===ov) _bedCloseConfig(); });
@@ -1817,7 +1874,7 @@ function _bedShowReleaseToast(stu){
   ov.style.zIndex='12500';
   ov.style.background='rgba(0,0,0,0.35)';
   ov.innerHTML='<div class="modal-content" style="width:380px;max-width:92vw;padding:0;transform:scale(0.9);opacity:0;transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease">'
-    +'<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);border-radius:12px 12px 0 0"><span style="font-size:14px;font-weight:800;color:var(--t1)">🛏 퇴실 처리</span></div>'
+    +'<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);border-radius:12px 12px 0 0"><span style="font-size:14px;font-weight:800;color:var(--t1)">🛏 퇴실 처리</span></div>'
     +'<div style="padding:22px 24px;text-align:center">'
     +'<div style="font-size:32px;margin-bottom:10px">✅</div>'
     +'<div style="font-size:13px;color:var(--t1);line-height:1.7">'+(gradeClass?'<b style="color:var(--cyan)">'+escHtml(gradeClass)+'</b> ':'')+'<b style="color:var(--cyan)">'+escHtml(stu.name||'')+'</b>'+(stu.type==='staff'?'':' 학생')+'의<br>퇴실 처리가 완료되었습니다.</div>'
@@ -1872,7 +1929,7 @@ function _openBedTeacherMsg(stuId,durationMin){
   ov.id='bedTeacherMsgOverlay';
   ov.style.zIndex='11500';
   ov.innerHTML='<div class="modal-content" style="width:520px;max-width:94vw;padding:0">'
-    +'<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
+    +'<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
     +'<span style="font-size:14px;font-weight:800;color:var(--t1)">📋 담임/교과 교사 전송 메시지</span>'
     +'<span style="cursor:pointer;font-size:18px;color:var(--t3);padding:0 6px" data-action="closeTeacherMsg">✕</span>'
     +'</div>'

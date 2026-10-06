@@ -1,3 +1,4 @@
+import { showFeedback } from './ui-feedback.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ═══════════════════════════════════════════════════════════════
  *  감염병 유행 현황 (질병관리청_전수신고 감염병 발생현황, data.go.kr 15139178) — 2026-06-17
@@ -216,7 +217,7 @@ export function showInfectiousModal(){
   ov.id='infectOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13050;opacity:0;transition:opacity 0.15s';
   ov.innerHTML='<div id="infectBox" style="background:var(--card);border-radius:14px;width:580px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.18s">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(239,68,68,0.10),rgba(168,85,247,0.06));display:flex;align-items:center;gap:8px">'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(239,68,68,0.10);display:flex;align-items:center;gap:8px">'
       +'<span style="font-size:18px">🦠</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">감염병 유행 현황</div><div style="font-size:10.5px;color:var(--t3)">질병관리청 전수신고 감염병 발생현황</div></div>'
       +'</div>'   /* X 닫기 제거 — 바깥 클릭으로 닫음 (사용자 요청 2026-06-17) */
     +'<div style="display:flex;border-bottom:1px solid var(--bdr)">'
@@ -273,7 +274,11 @@ function _tableHtml(headers, rows){
   h+='</tbody></table>';
   return h;
 }
-function _loading(){ const b=document.getElementById('infectBody'); if(b)b.innerHTML='<div style="text-align:center;color:var(--t3);padding:16px 0">조회 중…</div>'; }
+function _loading(){showFeedback('infectBody',{kind:'loading',title:'감염병 현황을 조회하고 있습니다'});}
+function _infectFeedback(body,result){
+  showFeedback(body,result ? {kind:'error',title:'감염병 현황을 불러오지 못했습니다',description:getInfectiousErrorMessage(result),actionLabel:'다시 조회',onAction:()=>{const button=document.getElementById('ifGo');if(button)button.click();}}
+    : {kind:'empty',title:'해당 조건의 발생 자료가 없습니다',description:'연도·지역·조회 기간을 바꿔 다시 조회해 주세요.'});
+}
 function _errMsg(r){ return _esc(getInfectiousErrorMessage(r)); }
 function _beginQuery(){
   const query={epoch:++_queryEpoch,body:document.getElementById('infectBody'),key:_key()};
@@ -281,7 +286,9 @@ function _beginQuery(){
   return query;
 }
 function _queryBody(query){
-  return query.epoch===_queryEpoch&&query.key===_key()&&document.getElementById('infectBody')===query.body?query.body:null;
+  const current=query.epoch===_queryEpoch&&query.key===_key()&&document.getElementById('infectBody')===query.body?query.body:null;
+  if(current)current.setAttribute('aria-busy','false');
+  return current;
 }
 
 async function _runRegion(force){
@@ -290,11 +297,11 @@ async function _runRegion(force){
   const sido=(document.getElementById('ifSido')||{}).value||'00';
   const r=await fetchRegion(y, sido, {force:force===true});
   const body=_queryBody(query); if(!body) return;
-  if(r.error){ body.innerHTML='<div style="color:var(--t2)">'+_errMsg(r)+'</div>'; return; }
+  if(r.error){ _infectFeedback(body,r); return; }
   const agg=Object.create(null);
   r.rows.forEach(function(x){ if(!x.icdNm||x.val<=0)return; agg[x.icdNm]=(agg[x.icdNm]||0)+x.val; });
   const list=Object.keys(agg).map(function(k){return [k,agg[k]];}).sort(function(a,b){return b[1]-a[1];});
-  if(!list.length){ body.innerHTML='<div style="color:var(--t2);text-align:center;padding:12px 0">해당 조건의 발생 데이터가 없습니다. (연도를 바꿔보세요)</div>'; return; }
+  if(!list.length){ _infectFeedback(body,null); return; }
   body.innerHTML='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">'+_esc(sidoName(sido))+' · '+_esc(String(y))+'년 · 발생수 많은 순</div>'
     +_tableHtml(['감염병명','발생수(명)'], list.map(function(x){return [x[0], x[1].toLocaleString()];}));
 }
@@ -309,9 +316,9 @@ async function _runPeriod(force){
   }
   const r=await fetchPeriod(sy, ey, pt, {force:force===true});
   const body=_queryBody(query); if(!body) return;
-  if(r.error){ body.innerHTML='<div style="color:var(--t2)">'+_errMsg(r)+'</div>'; return; }
+  if(r.error){ _infectFeedback(body,r); return; }
   const rows=r.rows.filter(function(x){return x.icdNm&&x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,100);
-  if(!rows.length){ body.innerHTML='<div style="color:var(--t2);text-align:center;padding:12px 0">해당 조건의 발생 데이터가 없습니다.</div>'; return; }
+  if(!rows.length){ _infectFeedback(body,null); return; }
   body.innerHTML='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">'+_esc(sy)+'~'+_esc(ey)+' · '+({1:'연도별',2:'월별',3:'주별'}[pt]||'')+' · 발생수 많은 순(상위 100)</div>'
     +_tableHtml(['기간','감염병명','발생수(명)'], rows.map(function(x){return [x.period||x.year, x.icdNm, x.val.toLocaleString()];}));
 }
@@ -321,12 +328,12 @@ async function _runAge(force){
   const unit=(document.getElementById('ifUnit')||{}).value||'10';
   const r=await fetchAge(y, unit, {force:force===true});
   const body=_queryBody(query); if(!body) return;
-  if(r.error){ body.innerHTML='<div style="color:var(--t2)">'+_errMsg(r)+'</div>'; return; }
+  if(r.error){ _infectFeedback(body,r); return; }
   /* 감염병별 합계 → 발생 많은 병 선택 드롭다운 + 그 병의 연령분포 */
   const byDis=Object.create(null);
   r.rows.forEach(function(x){ if(!x.icdNm)return; byDis[x.icdNm]=(byDis[x.icdNm]||0)+(x.ageRange==='계'?0:x.val); });
   const dises=Object.keys(byDis).filter(function(k){return byDis[k]>0;}).sort(function(a,b){return byDis[b]-byDis[a];});
-  if(!dises.length){ body.innerHTML='<div style="color:var(--t2);text-align:center;padding:12px 0">해당 조건의 발생 데이터가 없습니다.</div>'; return; }
+  if(!dises.length){ _infectFeedback(body,null); return; }
   const sel=dises[0];
   let dopt=''; dises.slice(0,60).forEach(function(d){ dopt+='<option value="'+_esc(d)+'">'+_esc(d)+'</option>'; });
   const ageRows=r.rows.filter(function(x){return x.icdNm===sel&&x.ageRange&&x.ageRange!=='계'&&x.val>0;});

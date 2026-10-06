@@ -488,7 +488,7 @@ document.addEventListener('keydown',function(e){
   if(e.key==='F1'){e.preventDefault();showShortcutCheatsheet();return;}
   if(mod&&!e.shiftKey&&!e.altKey&&key==='f'){const inp=_gsFindSearchInput();if(inp){e.preventDefault();inp.focus();if(inp.select)try{inp.select();}catch(_){}return;}}
   if(mod&&!e.shiftKey&&!e.altKey&&key==='n'&&!inInput){const btn=_gsFindAddButton();if(btn){e.preventDefault();btn.click();return;}}
-  if(mod&&!e.shiftKey&&!e.altKey&&key==='w'){const topM=_gsFindTopModal();if(topM){e.preventDefault();if(topM.classList.contains('show')&&topM.classList.contains('modal-overlay'))topM.classList.remove('show');else topM.remove();return;}}
+  if(mod&&!e.shiftKey&&!e.altKey&&key==='w'){const topM=_gsFindTopModal();if(topM){e.preventDefault();if(typeof topM._onModalClose==='function'){topM._onModalClose();return;}if(topM.classList.contains('show')&&topM.classList.contains('modal-overlay'))topM.classList.remove('show');else topM.remove();return;}}
   if(mod&&!e.shiftKey&&!e.altKey&&key==='s'){e.preventDefault();_gsTriggerSave();return;}
   if(mod&&e.key==='Enter'){const topM2=_gsFindTopModal();if(topM2){const primary=_gsFindPrimaryBtn(topM2);if(primary){e.preventDefault();primary.click();return;}}}
   if(mod&&e.key==='/'){if(inInput)return;e.preventDefault();showShortcutCheatsheet();return;}

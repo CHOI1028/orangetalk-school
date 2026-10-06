@@ -2629,7 +2629,7 @@ function _svHBar(label,count,total,highlight){
   const pct=total?Math.round(count/total*100):0;
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'
     +'<span style="font-size:11px;color:var(--t2);min-width:110px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(label)+'</span>'
-    +'<div style="flex:1;height:14px;background:var(--bg2);border-radius:4px;overflow:hidden"><div style="width:'+pct+'%;height:100%;border-radius:4px;background:'+(highlight?'linear-gradient(90deg,#06b6d4,#0891b2)':'rgba(6,182,212,0.45)')+';transition:width .4s"></div></div>'
+    +'<div style="flex:1;height:14px;background:var(--bg2);border-radius:4px;overflow:hidden"><div style="width:'+pct+'%;height:100%;border-radius:4px;background:'+(highlight?'#0891b2':'rgba(6,182,212,0.45)')+';transition:width .4s"></div></div>'
     +'<span style="font-size:10px;color:var(--t3);min-width:64px;text-align:right">'+count+'명 ('+pct+'%)</span>'
     +'</div>';
 }
@@ -2708,7 +2708,7 @@ function _svRenderQuestionStats(rows){
         const barH=maxD?Math.round(c/maxD*78):0;
         h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%">'
           +'<span style="font-size:10px;color:'+(hot?'var(--cyan)':'var(--t3)')+';font-weight:'+(hot?'800':'400')+'">'+(c||'')+'</span>'
-          +'<div style="width:68%;max-width:34px;height:'+barH+'%;min-height:'+(c?3:1)+'px;border-radius:4px 4px 0 0;background:'+(hot?'linear-gradient(180deg,#06b6d4,#0891b2)':'rgba(6,182,212,0.4)')+';transition:height .4s"></div>'
+          +'<div style="width:68%;max-width:34px;height:'+barH+'%;min-height:'+(c?3:1)+'px;border-radius:4px 4px 0 0;background:'+(hot?'#0891b2':'rgba(6,182,212,0.4)')+';transition:height .4s"></div>'
           +'<span style="font-size:10px;color:var(--t2);font-weight:600">'+escHtml(o)+(t==='star'?'★':'')+'</span>'
           +'</div>';
       });

@@ -33,6 +33,11 @@ if(!window.electronAPI){
 <!-- [BACKUP] 가정통신문 마법사 — 추후 공개 예정 -->
 <!-- [BACKUP] 가정통신문 의존 — survey-newsletter-editor.js 주석 시 함께 비활성 -->
 <link rel="stylesheet" href="src/renderer/styles/health-diary.css">
+<link rel="stylesheet" href="src/renderer/styles/daily-period.css">
+<link rel="stylesheet" href="src/renderer/styles/sibling-ui.css">
+<link rel="stylesheet" href="src/renderer/styles/school-workspace.css">
+<link rel="stylesheet" href="src/renderer/styles/school-classic-remodel.css">
+<script type="module" src="src/renderer/features/shell/sibling-layout.js"></script>
 <script src="./node_modules/html2canvas/dist/html2canvas.min.js"></script>
 <script src="./node_modules/jspdf/dist/jspdf.umd.min.js"></script>
 <script src="./node_modules/qrcode-generator/dist/qrcode.js"></script><!-- 키오스크 접속 URL QR 코드 (2026-06-12) -->
@@ -43,7 +48,7 @@ if(!window.electronAPI){
 <style>html.electron #spCenter{display:none!important}</style>
 <script>if(window.electronAPI)document.documentElement.classList.add('electron');</script>
 </head>
-<body class="light">
+<body class="light school-interface school-classic">
 <script>
 /* ═══ 테마 복원 — 저장된 모드로 즉시 전환 (flash 방지) ═══ */
 (function(){
@@ -95,64 +100,95 @@ if(!window.electronAPI){
 <div id="splash">
   <div class="sp-center" id="spCenter">
     <div class="sp-img-wrap">
-      <!-- 이미지 자연 크기 1250×750. width/height 모두 명시 + aspect-ratio 로 디코딩 전에도 박스 슬롯 확정 → 깜빡임 0 -->
       <img id="splashImg" src="assets/splash-logo.png" alt="오렌지톡" width="520" height="312" style="width:520px;height:312px;max-width:90vw;aspect-ratio:1250/750;display:block;object-fit:contain">
     </div>
     <div class="sp-loading sp-dot-anim"><span class="sp-loading-text">로딩중</span><span class="sp-dot">.</span><span class="sp-dot">.</span><span class="sp-dot">.</span></div>
   </div>
-  <div class="sp-left" id="spLeft">
-    <div class="sp-subtitle">오렌지톡</div>
-    <div class="sp-desc">보건교사를 위해<br>보건교사가 만든 보건일지</div>
-    <div class="sp-tagline">누구도 차별하지 않는 보건실 업무 도구</div>
-  </div>
-  <div class="sp-right" id="spRight">
-    <div class="sp-mode" id="spMode" style="display:none"></div>
-    <div class="sp-login" id="spLogin">
-      <div class="sp-pin-title" id="spLoginTitle">사용자를 선택하세요</div>
-      <div id="spUserList" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:320px;max-height:240px;overflow-y:auto;padding:4px 0"></div>
-      <div class="sp-pin-msg" id="spPinMsg"></div>
-      <div class="sp-pin-btns">
-        <button id="btnSetup">+ 사용자 등록</button>
-        <button id="btnDeleteUser" style="background:transparent;color:var(--t3);border:1px solid var(--bdr)">🗑 사용자 삭제</button>
-      </div>
+  <div class="school-entry-shell">
+    <div class="school-entry-brand" id="spLeft"><div class="school-entry-brand-top">
+  <img class="school-entry-logo" src="assets/icons/orangetalk_logo.png" alt="오렌지톡" width="184" height="64">
+  <span class="school-entry-edition"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-6h6v6M10 8h4M8 12h.01M16 12h.01"/></svg><span>초·중·고등학교<br>보건교사용</span></span>
+</div></div>
+    <div class="school-entry-panel" id="spRight">
+      <div class="sp-mode" id="spMode" style="display:none"></div>
+      <section class="sp-login school-choice" id="spLogin" aria-labelledby="spLoginTitle">
+        <div class="school-choice-access">
+          <div class="school-choice-welcome">
+            <p class="school-choice-eyebrow">오늘의 보건실</p>
+            <h1 class="sp-pin-title" id="spLoginTitle">선생님, 반가워요!</h1>
+            <p class="school-entry-intro">함께할 사용자를 선택하고 하루를 시작해 보세요.</p>
+          </div>
+          <div class="school-entry-users">
+            <div class="school-choice-user-heading">
+              <h2>사용자 선택 <span class="school-entry-count" id="spUserCount"></span></h2>
+              <div class="school-choice-user-actions">
+                <button type="button" id="btnSetup" class="school-entry-secondary school-entry-add">+ 사용자 등록</button>
+                <button type="button" id="btnDeleteUser" class="school-entry-secondary school-entry-quiet"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg><span>사용자 삭제</span></button>
+              </div>
+            </div>
+            <div id="spUserList" role="list" aria-label="등록된 사용자"></div>
+            <div class="sp-pin-msg" id="spPinMsg" role="status" aria-live="polite"></div>
+            <div class="school-entry-user-footer">
+              <p class="school-entry-footnote">이름을 누르면 보건실로 들어가요.<br>프로필 사진도 자유롭게 바꿀 수 있어요.</p>
+
+            </div>
+          </div>
+        </div>
+        <aside class="school-choice-story" aria-labelledby="spStoryTitle">
+          <img class="school-choice-watermark" src="assets/logo/orangefarm_logo.png" alt="" aria-hidden="true">
+          <div class="school-choice-story-content">
+            <p class="school-choice-eyebrow"><span class="school-choice-leaf" aria-hidden="true"></span> 오렌지팜과 함께하는 학교 보건실</p>
+            <h2 id="spStoryTitle">작은 돌봄이 쌓이는 곳,<br><em>선생님의 보건실.</em></h2>
+            <p class="school-choice-story-copy">아이들의 하루를 살피는 선생님 곁에서,<br>기록과 일정은 오렌지톡이 함께할게요.</p>
+            <section class="school-choice-news" aria-labelledby="spUpdatesTitle">
+              <div class="school-choice-news-heading"><h3 id="spUpdatesTitle">패치노트</h3></div>
+              <div class="school-choice-release-list" data-school-release-notes></div>
+            </section>
+          </div>
+        </aside>
+      </section>
+      <section class="sp-setup" id="spSetup" aria-labelledby="spSetupTitle">
+        <div class="school-entry-heading">
+          <div><p class="school-entry-kicker">나의 보건실 준비하기</p><h1 class="sp-setup-title" id="spSetupTitle">선생님의 보건실을 준비해 볼까요?</h1><p class="school-entry-intro">소속 유형을 선택하고 학교와 사용자 정보를 입력해 주세요.</p></div>
+          <span class="school-entry-welcome-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span>
+        </div>
+        <div class="school-entry-widget">
+          <div class="school-entry-widget-heading"><h2><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-6h6v6M10 8h4M8 12h.01M16 12h.01"/></svg><span id="setupCardTitle">소속 유형 선택</span></h2><span class="school-entry-count" id="setupStageCount">1 / 2</span></div>
+          <div class="school-entry-widget-body">
+            <ol class="school-setup-steps" aria-label="사용자 등록 단계">
+              <li id="setupAffiliationStep" class="is-current" aria-current="step"><span>01</span> 소속 유형</li>
+              <li id="setupProfileStep"><span>02</span> 사용자 정보</li>
+            </ol>
+            <div class="sp-form">
+              <label id="setupLevelLabel">소속 유형을 선택해 주세요.</label>
+              <div id="setupSchoolLevelRow" role="group" aria-labelledby="setupLevelLabel">
+                <button type="button" class="sp-level-btn" data-level="elementary">초등학교</button>
+                <button type="button" class="sp-level-btn" data-level="middle">중학교</button>
+                <button type="button" class="sp-level-btn" data-level="high">고등학교</button>
+                <button type="button" class="sp-level-btn" data-level="special">특수학교</button>
+                <button type="button" class="sp-level-btn" data-level="kindergarten">유치원</button>
+              </div>
+              <button type="button" class="sp-form-back school-entry-secondary" id="setupStep1Back">사용자 선택으로</button>
+              <div id="setupStep2" style="display:none;flex-direction:column;gap:8px;width:100%">
+                <div class="school-setup-summary"><span>소속 유형</span><strong id="setupSelectedLevel"></strong><button type="button" id="setupChangeLevel">변경</button></div>
+                <label id="setupStep2Label" for="setupEduOffice">소속 교육청을 선택해 주세요</label>
+                <select id="setupEduOffice" class="pink"><option value="">-- 선택하세요 --</option></select>
+              </div>
+              <div id="setupStep3" style="display:none;flex-direction:column;gap:16px;width:100%">
+                <div class="school-entry-field"><label id="setupSchoolLabel" for="setupSchool">학교 이름</label><input id="setupSchool" placeholder="예: 행복초등학교" autocomplete="organization"></div>
+                <div class="school-entry-field-grid">
+                  <div class="school-entry-field"><label for="setupName">사용자 이름</label><input id="setupName" placeholder="이름을 입력해 주세요" autocomplete="name"></div>
+                  <div class="school-entry-field"><label for="setupPosition">직위</label><select id="setupPosition" class="pink"><option value="보건교사">보건교사</option><option value="보건지원강사">보건지원강사</option><option value="">직접 입력</option></select><input id="setupPositionCustom" placeholder="직위를 입력하세요" aria-label="직위 직접 입력" style="display:none"></div>
+                </div>
+                <div class="school-entry-actions school-setup-actions"><button type="button" class="sp-form-back school-entry-secondary" id="btnSetupBack">사용자 선택으로</button><button type="button" class="sp-form-btn school-entry-primary" id="btnSetupDone">등록하고 시작하기</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="sp-setup" id="spSetup">
-      <div class="sp-setup-title">사용자 등록</div>
-      <div class="sp-form" style="width:100%;max-width:420px">
-        <!-- 1단계: 소속 유형(학교급) 선택 -->
-        <label>소속 유형을 선택해 주세요.</label>
-        <div id="setupSchoolLevelRow" style="display:flex;gap:6px;flex-wrap:wrap">
-          <button type="button" class="sp-level-btn" data-level="elementary">초등학교</button>
-          <button type="button" class="sp-level-btn" data-level="middle">중학교</button>
-          <button type="button" class="sp-level-btn" data-level="high">고등학교</button>
-          <button type="button" class="sp-level-btn" data-level="special">특수학교</button>
-          <button type="button" class="sp-level-btn" data-level="kindergarten">유치원</button>
-        </div>
-        <button class="sp-form-back" id="setupStep1Back" style="margin-top:8px">← 뒤로</button>
-        <!-- 2단계: 교육청 또는 지역 (동적) -->
-        <div id="setupStep2" style="display:none;flex-direction:column;gap:6px;width:100%">
-          <label id="setupStep2Label">소속 교육청을 선택해 주세요</label>
-          <select id="setupEduOffice" class="pink">
-            <option value="">-- 선택하세요 --</option>
-          </select>
-        </div>
-        <!-- 나머지 입력 -->
-        <div id="setupStep3" style="display:none;flex-direction:column;gap:11px;width:100%">
-          <label id="setupSchoolLabel">학교 이름</label><input id="setupSchool" placeholder="예: 행복고등학교">
-          <label>사용자 이름</label><input id="setupName" placeholder="이름">
-          <label>직위</label>
-          <select id="setupPosition" class="pink"><option value="보건교사">보건교사</option><option value="보건지원강사">보건지원강사</option><option value="">직접 입력</option></select>
-          <input id="setupPositionCustom" placeholder="직위를 입력하세요" style="display:none;margin-top:6px">
-          <button class="sp-form-btn" id="btnSetupDone">등록 완료</button>
-          <button class="sp-form-back" id="btnSetupBack">← 뒤로</button>
-        </div>
-      </div>
-    </div>
-    <!-- PIN 복구 화면 제거됨 — 사용자 선택 로그인으로 전환 -->
   </div>
 </div>
-
-
 
 <!-- ═══ FIXED HEADER ═══ -->
 <header class="top-header">
@@ -171,26 +207,28 @@ if(!window.electronAPI){
         <div id="headerUserInfo" style="font-size:12px;color:#e2e8f0;margin-top:3px;letter-spacing:0.3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       </div>
       <div class="header-btn-stack">
-        <button class="settings-btn" id="headerSettingsBtn">⚙ 설정</button>
-        <button class="theme-btn" id="themeBtn">🌙 다크모드</button>
         <button class="settings-btn" id="headerLockBtn">🏠 처음화면</button>
+        <button class="theme-btn" id="themeBtn">🌙 다크모드</button>
+        <button class="settings-btn" id="headerSettingsBtn">⚙ 환경설정</button>
       </div>
     </div>
   </div>
+  <nav class="school-nav-band" aria-label="주요 메뉴">
   <div class="header-row2">
-    <button class="nav-link" data-view="home" data-color="cyan">🏠 대시보드</button>
-    <button class="nav-link active" data-view="daily" data-color="blue">📋 보건일지</button>
-    <button class="nav-link" data-view="dashboard" data-color="orange">📈 방문 통계</button>
+    <button class="nav-link" data-view="home" data-color="cyan"><span class="school-nav-icon" aria-hidden="true">🏠</span><span class="school-nav-label">보건실 홈</span></button>
+    <button class="nav-link active" data-view="daily" data-color="blue"><span class="school-nav-icon" aria-hidden="true">📋</span><span class="school-nav-label">보건일지</span></button>
+    <button class="nav-link" data-view="dashboard" data-color="orange"><span class="school-nav-icon" aria-hidden="true">📈</span><span class="school-nav-label">방문 통계</span></button>
     <button class="nav-link" data-view="orange" data-color="orange" aria-label="오렌지팜" title="오렌지팜"><img src="assets/logo/orangefarm_logo.png" alt="오렌지팜" style="height:22px;width:auto;object-fit:contain;display:inline-block;vertical-align:middle;margin:-4px 0"></button>
-    <button class="nav-link" data-view="magic" data-color="green">📒 매직 스테이션</button>
+    <button class="nav-link" data-view="magic" data-color="green"><span class="school-nav-icon" aria-hidden="true">📒</span><span class="school-nav-label">매직 스테이션</span></button>
     <span class="nav-spacer"></span>
   </div>
+  </nav>
 </header>
 
 <div class="app">
 
 <!-- ═══ SIDEBAR (persistent) ═══ -->
-<div class="sidebar">
+<div class="sidebar" id="schoolSidebar" role="complementary" aria-label="날짜와 방문 이력">
   <!-- 키오스크 상태 표시 -->
   <div id="kioskSidePanel" style="display:none;margin-top:26px;margin-bottom:14px">
     <div class="cc" id="kioskSideContent" style="padding:10px;position:relative">
@@ -215,7 +253,7 @@ if(!window.electronAPI){
   </div>
   <div class="mcal" id="mainCalendar"></div>
   <div class="search-box" id="sidebarSearchBox" style="position:relative">
-    <input type="text" placeholder="이름 검색 (방문이력 검색)" id="sideSearch" style="padding-right:60px">
+    <input type="text" placeholder="이름 검색 (방문이력 검색)" id="sideSearch" aria-label="방문 이력 이름 검색" style="padding-right:72px">
     <button id="advSearchSidebarBtn" class="adv-search-hover-btn" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1">상세 검색</button>
   </div>
   <div id="sideSearchResults" class="search-results"></div>
@@ -252,7 +290,7 @@ if(!window.electronAPI){
 </div>
 
 <!-- ═══ MAIN ═══ -->
-<div class="main">
+<div class="main" id="schoolMain" role="main" aria-label="보건실 업무">
 
   <!-- VIEW: HOME (🏠 대시보드 — 위젯 기반 홈 화면) -->
   <div id="view-home" class="view">
@@ -318,8 +356,8 @@ if(!window.electronAPI){
 <div id="infCalWrap" style="display:none;position:fixed;z-index:9999"></div>
 <div id="clockPickerWrap" style="display:none;position:fixed;z-index:2147483600;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.22),0 2px 8px rgba(0,0,0,0.1);width:248px;color:#111;overflow:hidden"></div>
 <!-- 위젯 보관함 팝업 (body 직속) -->
-<div id="gp2WidgetStore" style="display:none;position:fixed;z-index:11000;width:92vw;max-width:1100px;background:linear-gradient(145deg,#2a2d35 0%,#1e2028 50%,#16181d 100%);border:0.5px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.05);overflow:hidden">
-  <div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr)">
+<div id="gp2WidgetStore" style="display:none;position:fixed;z-index:11000;width:92vw;max-width:1100px;background:#2a2d35;border:0.5px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.05);overflow:hidden">
+  <div style="background:rgba(6,182,212,0.10);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr)">
     <span style="font-size:13px;font-weight:800;color:var(--t1)">📦 위젯 보관함</span>
     <span style="font-size:10px;color:var(--t3)">클릭하면 플래너에 추가됩니다</span>
   </div>
@@ -328,8 +366,8 @@ if(!window.electronAPI){
 
 <div class="modal-overlay" id="settingsModal">
   <div class="modal-content" style="width:900px;max-width:95vw;padding:0;overflow:hidden">
-    <div class="modal-header" style="margin:0;padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))">
-      <span class="modal-title">⚙ 설정</span>
+    <div class="modal-header" style="margin:0;padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10)">
+      <span class="modal-title">⚙ 환경설정</span>
     </div>
     <div class="settings-notion">
       <div class="settings-sidebar" id="settingsSidebar">
@@ -406,7 +444,7 @@ if(!window.electronAPI){
 <div class="vp-overlay" id="vpOverlay">
   <!-- 커스텀 양식 1~7 선택 시에만 표시되는 보조 안내 모달 — JS 가 vp-modal 우측 상단에 부착 위치 계산 -->
   <div id="vpCustomFormTip" style="display:none;position:fixed;width:280px;z-index:3010;background:var(--card);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,0.5);overflow:hidden;font-family:var(--f)">
-    <div style="padding:10px 14px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <div style="padding:10px 14px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px">
       <span>💡 커스텀 양식 사용 안내</span>
       <button id="vpCustomFormTipClose" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--bdr);background:transparent;color:var(--t3);cursor:pointer;font-size:11px;line-height:1;padding:0;outline:none" title="닫기">✕</button>
     </div>
@@ -787,7 +825,7 @@ if(!window.electronAPI){
     </div>
     <!-- Print 버튼 — PDF/PNG 제거 (사용자 요청 2026-05-20). 인쇄만 제공. -->
     <div class="vp-print-bar" style="display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;padding:8px 12px">
-      <button class="vp-print-btn" id="vpPrintBtn" style="flex:1;padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none">🖨 인쇄</button>
+      <button class="vp-print-btn" id="vpPrintBtn" style="flex:1;padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;background:#4f46e5;color:#fff;border:none">🖨 인쇄</button>
       <button id="vpFactoryResetBtn" data-tip="이 양식의 제목·라벨·문구·추가 행·서명 위치 등 모든 사용자 수정을 처음 상태로 되돌립니다." style="flex:1;padding:6px 12px;font-size:10px;font-weight:800;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.14);color:#ef4444;white-space:nowrap">↺ 초기 상태로 되돌리기</button>
     </div>
     </div><!-- /vp-right-panel -->

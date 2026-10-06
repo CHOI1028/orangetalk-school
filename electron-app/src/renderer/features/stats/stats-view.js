@@ -238,8 +238,8 @@ function _renderTrendSvg(container, labels, values){
     svg+='<line x1="'+padX+'" y1="'+y+'" x2="'+(w-padX)+'" y2="'+y+'" stroke="var(--bdr)" stroke-width="0.5" stroke-dasharray="3,3"/>';
   }
   svg+='<polyline points="'+points.join(' ')+'" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-  svg+='<polygon points="'+padX+','+(padY+chartH)+' '+points.join(' ')+' '+(padX+(values.length>1?(values.length-1)*step:chartW/2))+','+(padY+chartH)+'" fill="url(#areaGrad)" opacity="0.15"/>';
-  svg+='<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--cyan)"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>';
+  svg+='<polygon points="'+padX+','+(padY+chartH)+' '+points.join(' ')+' '+(padX+(values.length>1?(values.length-1)*step:chartW/2))+','+(padY+chartH)+'" fill="var(--cyan)" opacity="0.15"/>';
+  svg+='<defs></defs>';
   values.forEach(function(v,i){
     const x=padX+(values.length>1?i*step:chartW/2);
     const y2=padY+chartH-(v/maxV)*chartH;

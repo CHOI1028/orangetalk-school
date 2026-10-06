@@ -127,6 +127,7 @@ test('counsel save preserves multiline text and blank fields verbatim', () => {
     saveRecordNow: r => { saved = structuredClone(r); }, bus: { emit() {} }
   });
   vm.runInContext(section('function _symCounselSaveNow(recId){', 'function _symCounselQueueSave('), context);
+  context.getDailyRecord=id=>context.S.records.find(r=>r.id===id);
   context._symCounselSaveNow(1);
   for(const [field, value] of Object.entries(values)) assert.equal(saved.counselLog[field], value);
   assert.equal(saved.counselLog.treatmentText, '기존 처치 문구');

@@ -25,7 +25,7 @@ function _appModal({title, body, okText='확인', cancelText='취소', danger=fa
       ? 'background:rgba(239,68,68,0.15);color:#dc2626;border:1px solid rgba(239,68,68,0.4)'
       : 'background:rgba(6,182,212,0.12);color:var(--cyan);border:1px solid rgba(6,182,212,0.4)';
     ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:460px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45)">'
-      + '<div style="padding:16px 18px 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--bg2),transparent)">'
+      + '<div style="padding:16px 18px 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;background:var(--bg2)">'
       +   '<img src="assets/logo/logo_big.png" alt="" style="width:28px;height:28px;border-radius:6px;flex-shrink:0;object-fit:cover">'
       +   '<div style="font-size:14px;font-weight:800;color:var(--t1);flex:1">'+escHtml(title||'알림')+'</div>'
       + '</div>'
@@ -695,7 +695,7 @@ async function _openRetentionCleanupDialog(kind){
   }
 
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:760px;max-width:94vw;max-height:84vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45)">'
-    + '<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,rgba(234,179,8,0.06),transparent);display:flex;align-items:center;gap:10px">'
+    + '<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(234,179,8,0.06);display:flex;align-items:center;gap:10px">'
     +   '<span style="font-size:15px;font-weight:800;color:var(--t1);flex:1">📋 참조 없는 '+labelKind+' 명단 정리</span>'
     +   '<button id="retCleanupClose" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--t2);cursor:pointer;font-size:14px">✕</button>'
     + '</div>'

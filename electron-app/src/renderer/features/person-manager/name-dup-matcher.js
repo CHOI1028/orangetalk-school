@@ -141,17 +141,17 @@ function _buildHtml(){
   const pct = ((st.idx+1) / total * 100).toFixed(1);
   let h = '<div class="modal-content ndm-box" id="ndmBox" style="width:920px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:var(--card);border:1px solid rgba(0,0,0,0.08);box-shadow:0 28px 60px rgba(0,0,0,0.32);position:relative">';
   /* 헤더 (회색 + 드래그) */
-  h += '<div class="ndm-head" id="ndmDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#eef2f6,#e5e9ee);border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
+  h += '<div class="ndm-head" id="ndmDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:#eef2f6;border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
     + '<span style="display:inline-flex;flex-direction:column;gap:2px;margin-right:2px;opacity:0.5"><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span></span>'
     + '<span style="font-size:13px;font-weight:700;color:var(--t1);flex:1">🔀 동명이인 매칭 — 작년 기록 연결</span>'
     + '<span id="ndmCounter" style="font-size:10.5px;padding:3px 9px;background:rgba(245,158,11,0.12);color:#b45309;border-radius:10px;font-weight:700">'+(st.idx+1)+' / '+total+'</span>'
     + '</div>';
   /* 진행 막대 */
-  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="ndmProgress" style="height:100%;background:linear-gradient(90deg,#06b6d4,#0891b2);width:'+pct+'%;transition:width .25s ease"></div></div>';
+  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="ndmProgress" style="height:100%;background:#0891b2;width:'+pct+'%;transition:width .25s ease"></div></div>';
   /* 현재 그룹 카드 + 우상단 주황 메시지 버튼 */
-  h += '<div style="padding:12px 16px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid var(--bdrl);background:linear-gradient(180deg,rgba(245,158,11,0.04),transparent)">'
+  h += '<div style="padding:12px 16px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid var(--bdrl);background:rgba(245,158,11,0.04)">'
     + '<div id="ndmHeadInfo" style="flex:1"></div>'
-    + '<button id="ndmMsgBtn" class="ndm-msg-btn" style="padding:9px 16px;font-size:11.5px;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:9px;cursor:pointer;box-shadow:0 3px 9px rgba(234,88,12,0.30);white-space:nowrap;align-self:flex-start">📋 담임 선생님에게 물어보는 메시지 복사하기</button>'
+    + '<button id="ndmMsgBtn" class="ndm-msg-btn" style="padding:9px 16px;font-size:11.5px;font-weight:800;background:#d97706;color:#fff;border:none;border-radius:9px;cursor:pointer;box-shadow:0 3px 9px rgba(234,88,12,0.30);white-space:nowrap;align-self:flex-start">📋 담임 선생님에게 물어보는 메시지 복사하기</button>'
     + '</div>';
   /* 네비 + 본문 */
   h += '<div style="padding:8px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl)">'
@@ -372,7 +372,7 @@ function _openMessagePopup(){
   ov.style.zIndex = '13000';
   ov.innerHTML = ''
     + '<div class="modal-content" style="width:520px;max-width:94vw;padding:0">'
-    +   '<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
+    +   '<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
     +     '<span style="font-size:14px;font-weight:800;color:var(--t1)">📋 담임 선생님께 보낼 메시지</span>'
     +     '<span id="ndmMsgClose" style="cursor:pointer;font-size:18px;color:var(--t3);padding:0 6px">✕</span>'
     +   '</div>'

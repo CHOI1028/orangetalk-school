@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
 import { _closeDateVisitors, _hideVisitHistory, _dailyResetEntryOverlay } from '../daily/daily-view.js';
+import { closeDailyPeriodSearch } from '../daily/daily-period-view.js';
 import { adjustPanelHeights } from '../emergency/emergency-view.js';
 import { bus } from '../../core/event-bus.js';
 import { renderHomeDashboard } from '../dashboard/home-dashboard.js';
@@ -28,6 +29,7 @@ export function switchView(view, btn){
     bus.emit('toast:show', { text: '매직 스테이션은 준비 중입니다.', kind: 'info' });
     return;
   }
+  if(view!=='daily')closeDailyPeriodSearch(false);
   S.currentView = view;
   try{ floatingPostitOnViewChange(view); }catch(_){}
   /* fade-in 은 매 전환마다 재생되어야 하므로 모든 view 에서 사전 제거 후 active 갱신.
@@ -117,11 +119,13 @@ S.memoData=JSON.parse(localStorage.getItem('ec_memos'))||{};
 let dailyCat='general';
 
 export function switchDailyCat(cat,btn){
+  const wasPeriod=closeDailyPeriodSearch(false);
   dailyCat=cat;
   document.querySelectorAll('.magic-index-tab[data-cat]').forEach(function(t){t.classList.toggle('active',t.dataset.cat===cat);});
   document.querySelectorAll('.daily-cat-content').forEach(function(c){c.classList.remove('active');});
   const el=document.getElementById('dailyCat-'+cat);
   if(el)el.classList.add('active');
+  if(wasPeriod)bus.emit('render:daily');
   if(cat==='emergency')bus.emit('render:ecList');
   if(cat==='infection')bus.emit('render:infList');
   if(cat==='survey'){if(!_svInitialized){svSwitchSub('template');_svInitialized=true;}}

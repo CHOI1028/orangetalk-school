@@ -201,7 +201,7 @@ export function openPersonSearch(opts){
     /* 다중 선택 푸터 — 선택 인원 수 + 완료 버튼 (multiSelect 전용) */
     +(multi ? '<div data-ps="footer" style="padding:10px 16px;border-top:1px solid var(--bdrl);display:flex;align-items:center;justify-content:space-between;background:var(--bg2)">'
       +'<span data-ps-count style="font-size:11.5px;font-weight:700;color:var(--cyan)"></span>'
-      +'<button data-ps-complete style="padding:8px 28px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">완료</button>'
+      +'<button data-ps-complete style="padding:8px 28px;font-size:12px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">완료</button>'
     +'</div>' : '')
     +'</div>';
 

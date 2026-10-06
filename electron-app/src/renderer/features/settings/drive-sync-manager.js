@@ -37,7 +37,7 @@ import { _sheetsAccountHtml, _sheetsAccountInit, _driveFolderNew } from '../dash
     const ex=document.getElementById('driveFolderPicker');if(ex)closeModalGracefully(ex);
     const pk=document.createElement('div');pk.id='driveFolderPicker';
     pk.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9700;display:flex;align-items:center;justify-content:center';
-    pk.innerHTML='<div style="background:var(--card);border-radius:12px;width:400px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,0.3);overflow:hidden"><div style="padding:12px 16px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">📂 동기화 폴더 선택</div><div id="driveFolderList" style="padding:12px 16px;max-height:300px;overflow-y:auto;min-height:60px"><div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">불러오는 중...</div></div><div style="padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between"><button data-action="drive-folder-new" style="padding:5px 12px;font-size:10px;font-weight:600;background:var(--bg);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">+ 새 폴더</button><button data-action="drive-select-folder" style="padding:5px 14px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">이 폴더 선택</button></div></div>';
+    pk.innerHTML='<div style="background:var(--card);border-radius:12px;width:400px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,0.3);overflow:hidden"><div style="padding:12px 16px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">📂 동기화 폴더 선택</div><div id="driveFolderList" style="padding:12px 16px;max-height:300px;overflow-y:auto;min-height:60px"><div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">불러오는 중...</div></div><div style="padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between"><button data-action="drive-folder-new" style="padding:5px 12px;font-size:10px;font-weight:600;background:var(--bg);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">+ 새 폴더</button><button data-action="drive-select-folder" style="padding:5px 14px;font-size:10px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">이 폴더 선택</button></div></div>';
     pk.addEventListener('click',function(e){if(e.target===pk)_closeDrivePicker();});
     const newFolderBtn=pk.querySelector('[data-action="drive-folder-new"]');
     if(newFolderBtn)newFolderBtn.addEventListener('click',function(){_driveFolderNew();});
@@ -80,7 +80,7 @@ import { _sheetsAccountHtml, _sheetsAccountInit, _driveFolderNew } from '../dash
     const isUpload = mode === 'upload';
     const title = isUpload ? '☁️ Google Drive에 업로드' : '☁️ Google Drive에서 불러오기';
     const btnLabel = isUpload ? '업로드' : '불러오기';
-    const btnColor = isUpload ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : 'linear-gradient(135deg,#34a853,#1e8e3e)';
+    const btnColor = isUpload ? '#2563eb' : '#1e8e3e';
     const desc = isUpload
       ? '현재 보건일지 데이터를 Google Drive에 백업합니다.'
       : 'Google Drive에서 백업 파일을 불러와 현재 데이터를 복원합니다. 기존 데이터가 덮어씌워집니다.';

@@ -1,28 +1,7 @@
-; ─────────────────────────────────────────────────────────────────────────────
-; Custom NSIS hooks for OrangeTalk installer (electron-builder)
-;
-; 핵심 동작:
-; - preInit : NSIS 가 옛 InstallLocation 레지스트리에서 캐시된 경로 (예:
-;   $LOCALAPPDATA\Programs\MyHealthDiary\OrangePharmDiary) 를 기본값으로
-;   제안하면 컴맹 사용자가 그대로 수락 → 정리 hook 충돌로 새 설치까지 손상.
-;   preInit 에서 $INSTDIR 를 무조건 표준 경로로 덮어써서 그 경로 사고 자체를 차단.
-;
-; - customInit / customUnInit : 옛 프로세스 트리 단위 강제 종료 (파일 락 해제).
-;
-; - customInstall : 새 OrangeTalk 설치 직후 옛 설치 흔적을 "자동 발견·자동 정리".
-;   각 옛 productName 별로:
-;     1. HKCU/HKLM 레지스트리에서 InstallLocation 읽기 (사용자 커스텀 경로도 OK)
-;     2. $INSTDIR 와 충돌(같거나 부모) 검사 — 충돌하면 정리 skip (자기 보호)
-;     3. 옛 UninstallString silent 실행 (가장 깔끔)
-;     4. Uninstaller 없으면 RMDir 폴백
-;   추가로 표준 경로 (Programs\<name>) 와 표준 바로가기·레지스트리도 한 번 더 정리.
-;
-; ⚠ 절대 안 건드림 : %APPDATA%\MyHealthDiary  (= userData)
-;    학생·교직원·보건일지 기록·설정·Kakao 키·키오스크 채널·백업 등이 보관되는
-;    위치. 옛 Uninstaller 도 deleteAppDataOnUninstall:false 설정으로 만들어졌으므로
-;    이 폴더 절대 안 지움. 새 OrangeTalk 이 그대로 인계받음.
-;    NSIS 스크립트 어디에서도 $APPDATA 변수를 RMDir 으로 호출하지 않는다.
-; ─────────────────────────────────────────────────────────────────────────────
+; OrangeTalk installer hooks.
+; Preserve legacy install folders and registry entries: an old path may contain user data.
+; Never execute an arbitrary legacy uninstaller or recursively remove its install directory.
+; Keep current-install process handling and only remove known shortcuts / obsolete updater caches.
 
 !include "LogicLib.nsh"
 
@@ -76,58 +55,8 @@
   !insertmacro KillAllAndSettle
 !macroend
 
-; 지정 hive(HKCU/HKLM) 에서 옛 productName 의 InstallLocation 을 읽어
-; $INSTDIR 와 충돌 없으면 옛 Uninstaller silent 실행 → 안전 정리.
-!macro SafeCleanInstallLocation HIVE REG_NAME
-  Push $R0
-  Push $R1
-  Push $R2
-  Push $R3
-  ReadRegStr $R0 ${HIVE} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${REG_NAME}" "InstallLocation"
-  ${If} $R0 != ""
-    StrLen $R1 $R0
-    StrCpy $R2 $INSTDIR $R1
-    ${If} $R2 != $R0
-      ReadRegStr $R3 ${HIVE} "Software\Microsoft\Windows\CurrentVersion\Uninstall\${REG_NAME}" "UninstallString"
-      ${If} $R3 != ""
-        ExecWait '$R3 /S _?=$R0'
-      ${EndIf}
-      RMDir /r $R0
-    ${EndIf}
-  ${EndIf}
-  Pop $R3
-  Pop $R2
-  Pop $R1
-  Pop $R0
-!macroend
-
-; 표준 설치 경로 ($LOCALAPPDATA\Programs\<name>) 가 남아 있는 경우 정리.
-; $INSTDIR 와 충돌 시 skip.
-!macro SafeRmStandardFolder OLD_PATH
-  Push $R0
-  Push $R1
-  StrLen $R0 "${OLD_PATH}"
-  StrCpy $R1 $INSTDIR $R0
-  ${If} $R1 != "${OLD_PATH}"
-    RMDir /r "${OLD_PATH}"
-  ${EndIf}
-  Pop $R1
-  Pop $R0
-!macroend
-
 !macro customInstall
-  ; ── 1단계: 레지스트리 기반 자동 발견·정리 (커스텀 경로 포함) ──
-  !insertmacro SafeCleanInstallLocation HKCU "OrangePharmDiary"
-  !insertmacro SafeCleanInstallLocation HKLM "OrangePharmDiary"
-  !insertmacro SafeCleanInstallLocation HKCU "OrangefarmDiary"
-  !insertmacro SafeCleanInstallLocation HKLM "OrangefarmDiary"
-  !insertmacro SafeCleanInstallLocation HKCU "MyHealthDiary"
-  !insertmacro SafeCleanInstallLocation HKLM "MyHealthDiary"
-
-  ; ── 2단계: 표준 경로 잔재 폴더 한 번 더 검사 ──
-  !insertmacro SafeRmStandardFolder "$LOCALAPPDATA\Programs\OrangePharmDiary"
-  !insertmacro SafeRmStandardFolder "$LOCALAPPDATA\Programs\OrangefarmDiary"
-  !insertmacro SafeRmStandardFolder "$LOCALAPPDATA\Programs\MyHealthDiary"
+  ; Legacy installs remain available for explicit manual removal.
 
   ; ── 3단계: 바로가기 정리 ──
   Delete "$DESKTOP\OrangePharmDiary.lnk"
@@ -136,17 +65,9 @@
   Delete "$SMPROGRAMS\OrangePharmDiary.lnk"
   Delete "$SMPROGRAMS\OrangefarmDiary.lnk"
   Delete "$SMPROGRAMS\MyHealthDiary.lnk"
-  RMDir /r "$SMPROGRAMS\OrangePharmDiary"
-  RMDir /r "$SMPROGRAMS\OrangefarmDiary"
-  RMDir /r "$SMPROGRAMS\MyHealthDiary"
-
-  ; ── 4단계: 레지스트리 잔재 정리 ──
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OrangePharmDiary"
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OrangefarmDiary"
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyHealthDiary"
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\OrangePharmDiary"
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\OrangefarmDiary"
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyHealthDiary"
+  RMDir "$SMPROGRAMS\OrangePharmDiary"
+  RMDir "$SMPROGRAMS\OrangefarmDiary"
+  RMDir "$SMPROGRAMS\MyHealthDiary"
 
   ; ── 5단계: 멈춘 자동업데이트 캐시 정리 (다운그레이드 무한루프 원천 차단) ──
   ;  전국에서 보고된 증상: pending 에 옛 버전 설치파일이 남아 있으면 종료 시 자동설치가

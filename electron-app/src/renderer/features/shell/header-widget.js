@@ -1274,8 +1274,8 @@ function _renderWeatherCard(){
     if(pm25Pts)h+='<span style="font-size:10px;display:flex;align-items:center;gap:4px;color:'+t3+'"><span style="width:8px;height:3px;border-radius:2px;background:#06b6d4"></span>PM2.5</span>';
     h+='</div>';
     h+='<svg viewBox="0 0 '+w+' 80" style="width:100%;height:80px">';
-    h+='<defs><linearGradient id="wc-tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b" stop-opacity="0.2"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>';
-    h+='<path d="'+tArea+'" fill="url(#wc-tg)"/>';
+    h+='<defs></defs>';
+    h+='<path d="'+tArea+'" fill="#f59e0b" fill-opacity="0.1"/>';
     h+='<polyline points="'+tPts.trim()+'" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
     if(pm10Pts)h+='<polyline points="'+pm10Pts.trim()+'" fill="none" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="5,3" stroke-linecap="round"/>';
     if(pm25Pts)h+='<polyline points="'+pm25Pts.trim()+'" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5,3" stroke-linecap="round"/>';

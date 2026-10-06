@@ -1,4 +1,5 @@
 ﻿/* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
+import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { getStu, escHtml, getGuardianContact, getStudentBirth, getCareTooltipHtml, showNameHoverPop, hideNameHoverPop, toDateStr, getStuGradeCol, isKinder, gradeClsLabel, closeModalGracefully, createEmptyState, saveRecordNow } from '../../core/helpers.js';
 import { hasMultipleSchoolLevels, getLevelShort } from '../../core/student-utils.js';
@@ -6,7 +7,7 @@ import { crInsertHandles, showVisitHistory, toggleMemo, _memoHasAny, colWidthUnd
 import { closeModalWithAnim, matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
 import { _makeDraggable, openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { switchView } from '../shell/view-router.js';
-import { playQuickMenuSound } from '../../core/ui-utils.js';
+import { playQuickMenuSound, appConfirmModal } from '../../core/ui-utils.js';
 import { loadTabOrder, closeSettings, openAdvancedSearch } from '../settings/settings-view.js';
 import { S, addEcRecord, addInfRecord } from '../../core/app-state.js';
 import { _bmBodyPartsAdult, _bmFaceParts, _bmTeethParts, _bmHandTopParts, _bmPalmParts, _bmFootTopParts, _bmFootBottomParts, _BM_LR_POSITIONS, _BM_LR_POSITIONS_PROGRAM } from '../../core/bodymap-anchors.js';
@@ -76,18 +77,87 @@ function _ecToDbRow(rec){
     })
   };
 }
-export function ecSaveRecords(){
-  if(!window.electronAPI)return;
-  S.ecRecords.forEach(function(rec){
-    const row=_ecToDbRow(rec);
-    if(rec._dbId){
-      window.electronAPI.recordsEmergencyUpdate(row).catch(function(err){console.error('[DB] emergency update 실패:',err);});
-    }else{
-      window.electronAPI.recordsEmergencyInsert(row).then(function(res){
-        if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-      }).catch(function(err){console.error('[DB] emergency insert 실패:',err);});
+// Serialize writes per record, including the initial insert, and keep drafts until acknowledgement.
+const _clinicalSaveQueues=new WeakMap();
+const _clinicalDraftKeys=new WeakMap();
+const _clinicalOpenRecords={EC:null,INF:null};
+function _clinicalDraft(kind,rec){
+  if(!rec)return;
+  const key='ec_form_draft_'+kind+'_'+rec.id;
+  let keys=_clinicalDraftKeys.get(rec);if(!keys){keys=new Set();_clinicalDraftKeys.set(rec,keys);}keys.add(key);
+  try{localStorage.setItem(key,JSON.stringify(rec));}catch(_){}
+}
+function _clinicalIndicator(kind,rec,message,state){
+  if(_clinicalOpenRecords[kind]!==rec)return;
+  const ind=document.getElementById(kind==='EC'?'ecSaveIndicator':'infSaveIndicator');
+  if(ind){ind.textContent=message;ind.className='ec-save-indicator '+state;ind.setAttribute('role','status');ind.style.color=state==='error'?'var(--red, #b91c1c)':'';}
+}
+function _persistClinicalRecord(kind,rec){
+  const toRow=kind==='EC'?_ecToDbRow:_infToDbRow;
+  const row=toRow(rec);_clinicalDraft(kind,rec);
+  const previous=_clinicalSaveQueues.get(rec)||Promise.resolve();
+  const pending=previous.catch(function(){}).then(async function(){
+    try{
+      const prefix=kind==='EC'?'recordsEmergency':'recordsInfection';
+      const inserting=!rec._dbId;
+      const method=prefix+(inserting?'Insert':'Update');
+      row.id=rec._dbId||rec.id;
+      if(!window.electronAPI||typeof window.electronAPI[method]!=='function')throw Error("save_unavailable");
+      const result=await window.electronAPI[method](row);
+      if(!result||result.success!==true||(!inserting&&result.changes===0)||(inserting&&!result.id))throw Error("save_not_acknowledged");
+      if(inserting){
+        const oldId=rec.id;rec._dbId=result.id;rec.id=result.id;row.id=result.id;
+        if(kind==='EC'&&ecCurrentId===oldId)ecCurrentId=result.id;
+        if(kind==='INF'&&infCurrentId===oldId)infCurrentId=result.id;
+        _clinicalDraft(kind,rec);
+      }
+      if(_clinicalSaveQueues.get(rec)===pending&&JSON.stringify(toRow(rec))===JSON.stringify(row)){
+        _clinicalIndicator(kind,rec,'모든 내용이 저장되었습니다.','saved');
+      }
+      try{if(kind==='EC')renderEcList();else renderInfList();}catch(error){console.warn('[clinical] list refresh failed',error);}
+      return true;
+    }catch(error){
+      _clinicalDraft(kind,rec);
+      _clinicalIndicator(kind,rec,'저장하지 못했습니다. 입력 내용은 유지됩니다. 연결을 확인하고 다시 시도해 주세요.','error');
+      console.warn('[clinical] save failed',error);return false;
     }
   });
+  _clinicalSaveQueues.set(rec,pending);return pending;
+}
+function _scheduleClinicalSave(kind){
+  const rec=_clinicalOpenRecords[kind];if(!rec)return;
+  _clinicalDraft(kind,rec);_clinicalIndicator(kind,rec,'저장 중...','saving');
+  if(kind==='EC'){clearTimeout(ecSaveTimer);ecSaveTimer=setTimeout(function(){ecSaveTimer=null;_persistClinicalRecord(kind,rec);},400);}
+  else{clearTimeout(infSaveTimer);infSaveTimer=setTimeout(function(){infSaveTimer=null;_persistClinicalRecord(kind,rec);},400);}
+}
+async function _closeClinicalForm(kind){
+  const overlay=document.getElementById(kind==='EC'?'ecFormOverlay':'infFormOverlay');
+  if(!overlay||overlay._clinicalClosing)return false;
+  const rec=_clinicalOpenRecords[kind];
+  if(!rec){await appConfirmModal('편집 중인 자료를 확인하지 못했습니다. 창을 닫지 않고 입력 내용을 유지합니다.','저장 확인',{okOnly:true,okLabel:'확인'});return false;}
+  if(kind==='EC'){clearTimeout(ecSaveTimer);ecSaveTimer=null;}else{clearTimeout(infSaveTimer);infSaveTimer=null;}
+  overlay._clinicalClosing=true;
+  const controls=Array.from(overlay.querySelectorAll('input:not(:disabled),textarea:not(:disabled),select:not(:disabled),button:not(:disabled)'));
+  controls.forEach(function(el){el.disabled=true;});overlay.setAttribute('aria-busy','true');
+  try{
+    if(!await _persistClinicalRecord(kind,rec)){
+      await appConfirmModal('저장을 확인하지 못해 창을 닫지 않았습니다. 입력 내용은 유지되니 연결 상태를 확인한 뒤 다시 닫기를 눌러 주세요.','저장 확인',{okOnly:true,okLabel:'확인'});
+      return false;
+    }
+    if(_clinicalOpenRecords[kind]!==rec)return false;
+    for(const key of _clinicalDraftKeys.get(rec)||[]){try{localStorage.removeItem(key);}catch(_){}}
+    _clinicalDraftKeys.delete(rec);_clinicalOpenRecords[kind]=null;
+    overlay.classList.remove('show');document.body.style.overflow='';
+    if(kind==='EC')ecCurrentId=null;else infCurrentId=null;
+    if(typeof queueGlobalSaveToast==='function')queueGlobalSaveToast();
+    return true;
+  }finally{
+    controls.forEach(function(el){el.disabled=false;});overlay.removeAttribute('aria-busy');overlay._clinicalClosing=false;
+  }
+}
+
+export function ecSaveRecords(){
+  return Promise.all(S.ecRecords.map(function(rec){return _persistClinicalRecord('EC',rec);}));
 }
 /* DB에서 불러온 레코드를 렌더러 도메인 모델로 복원 (snake→camel + 중첩 객체 재구성) */
 function _ecHydrate(r){
@@ -177,7 +247,7 @@ export function renderEcList(){
   if(!tbody)return;
   if(!yearRecs.length){
     const _ecEmpty = (typeof createEmptyState==='function')
-      ? createEmptyState({icon:'🚑',title:'이 연도의 응급처치 기록이 없습니다',desc:'위 검색창에서 학생을 검색하고 Enter를 누르면<br>새 기록지가 자동 생성됩니다.',actionLabel:'학생 검색'})
+      ? createEmptyState({icon:'🚑',title:'이 연도의 응급처치 기록이 없습니다',desc:'위 검색창에서 학생을 검색하고 Enter를 누르면 새 기록지가 자동 생성됩니다.',actionLabel:'학생 검색'})
       : '<div style="text-align:center;padding:40px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px">🚑</div>이 연도의 응급처치 기록이 없습니다.</div>';
     tbody.innerHTML='<tr><td colspan="13" style="padding:0;background:transparent">'+_ecEmpty+'</td></tr>';
     const _ecActBtn=tbody.querySelector('[data-empty-action]');
@@ -314,11 +384,7 @@ export function ecSelectStudent(id){
   };
   addEcRecord(newRec);
   /* 새 레코드 즉시 DB 삽입하여 _dbId 확보 */
-  if(window.electronAPI&&window.electronAPI.recordsEmergencyInsert){
-    window.electronAPI.recordsEmergencyInsert(_ecToDbRow(newRec)).then(function(res){
-      if(res&&res.success&&res.id){newRec._dbId=res.id;newRec.id=res.id;ecCurrentId=res.id;}
-    }).catch(function(err){console.error('[DB] emergency insert 실패:',err);});
-  }
+  _persistClinicalRecord('EC',newRec);
   openEcForm(newRec.id);
 }
 
@@ -576,39 +642,16 @@ function openEcForm(recId){
   const rec=S.ecRecords.find(function(r){return r.id===recId;});
   if(!rec)return;
   ecCurrentId=recId;
+  _clinicalOpenRecords.EC=rec;
   const body=document.getElementById('ecFormBody');
   body.innerHTML=ecBuildFormHtml(rec);
   _attachEcFormListeners(body);
+  document.getElementById('ecFormOverlay')._onModalClose=closeEcForm;
   document.getElementById('ecFormOverlay').classList.add('show');
   document.body.style.overflow='hidden';
 }
 
-function closeEcForm(){
-  /* 팝업 닫을 때 DB에 저장 후 localStorage 임시 삭제 */
-  const closingId=ecCurrentId;
-  if(closingId){
-    const rec=S.ecRecords.find(function(r){return r.id===closingId;});
-    if(rec&&window.electronAPI){
-      const row=_ecToDbRow(rec);
-      if(rec._dbId){
-        window.electronAPI.recordsEmergencyUpdate(row).then(function(){
-          if(typeof queueGlobalSaveToast==='function')queueGlobalSaveToast();
-        }).catch(function(err){console.error('[DB] emergency update 실패:',err);});
-      }else{
-        window.electronAPI.recordsEmergencyInsert(row).then(function(res){
-          if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-          if(typeof queueGlobalSaveToast==='function')queueGlobalSaveToast();
-        }).catch(function(err){console.error('[DB] emergency insert 실패:',err);});
-      }
-    }
-    try{localStorage.removeItem('ec_form_draft_EC_'+closingId);}catch(_){}
-  }
-  document.getElementById('ecFormOverlay').classList.remove('show');
-  document.body.style.overflow='';
-  ecCurrentId=null;
-  if(ecSaveTimer){clearTimeout(ecSaveTimer);ecSaveTimer=null;}
-  renderEcList();
-}
+function closeEcForm(){return _closeClinicalForm('EC');}
 
 /* 의식 상태 라디오 변경 — 선택한 프리셋(명료~혼수)을 fieldKey 에 저장.
  * 기록 시점(recConsciousness)이면 바로 아래 "환자 상태"에 의식값을 기입(앞쪽 의식 토큰만 교체). */
@@ -691,43 +734,7 @@ function ecFieldChange(input,directField){
   ecDebounceSave();
 }
 
-function ecDebounceSave(){
-  /* 편집 중: localStorage 임시 저장 */
-  if(ecCurrentId){
-    const rec=S.ecRecords.find(function(r){return r.id===ecCurrentId;});
-    if(rec){
-      try{localStorage.setItem('ec_form_draft_EC_'+ecCurrentId,JSON.stringify(rec));}catch(_){}
-    }
-  }
-  const ind=document.getElementById('ecSaveIndicator');
-  if(ind){ind.textContent='저장 중…';ind.className='ec-save-indicator saving';}
-  if(ecSaveTimer)clearTimeout(ecSaveTimer);
-  ecSaveTimer=setTimeout(function(){
-    /* 실제 DB 반영 + 리스트 실시간 갱신 */
-    if(ecCurrentId){
-      const rec=S.ecRecords.find(function(r){return r.id===ecCurrentId;});
-      if(rec&&window.electronAPI){
-        const row=_ecToDbRow(rec);
-        if(rec._dbId){
-          window.electronAPI.recordsEmergencyUpdate(row).then(function(){
-            if(typeof renderEcList==='function')renderEcList();
-          }).catch(function(err){console.error('[DB] emergency update 실패:',err);});
-        } else if(window.electronAPI.recordsEmergencyInsert){
-          window.electronAPI.recordsEmergencyInsert(row).then(function(res){
-            if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-            if(typeof renderEcList==='function')renderEcList();
-          }).catch(function(err){console.error('[DB] emergency insert 실패:',err);});
-        } else if(typeof renderEcList==='function'){
-          renderEcList();
-        }
-      } else if(typeof renderEcList==='function'){
-        renderEcList();
-      }
-    }
-    if(ind){ind.textContent='모든 내용이 저장되었습니다.';ind.className='ec-save-indicator saved';}
-    setTimeout(function(){if(ind)ind.className='ec-save-indicator hide';},3000);
-  },400);
-}
+function ecDebounceSave(){_scheduleClinicalSave('EC');}
 
 function ecAccidentCombine(){
   const d=document.getElementById('ecAccidentDate');
@@ -907,7 +914,7 @@ function cpRender(){
     nums+='<circle class="cpnc" data-v="'+i+'" cx="'+nx+'" cy="'+ny+'" r="13" fill="'+(act?activeColor:'transparent')+'"/>';
     nums+='<text class="cpnt" data-v="'+i+'" x="'+nx+'" y="'+(ny+4.5)+'" text-anchor="middle" font-size="12" font-weight="700" fill="'+(act?'#fff':'#475569')+'" style="user-select:none;pointer-events:none">'+i+'</text>';
   }
-  const headerBg='linear-gradient(135deg,#0e7490,#06b6d4)';
+  const headerBg='#0e7490';
   wrap.innerHTML=
     '<div id="cpHeader" style="background:'+headerBg+';padding:10px 18px 8px;user-select:none">'
     +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,0.6);margin-bottom:4px">시간 선택</div>'
@@ -1311,17 +1318,7 @@ function _infToDbRow(rec){
   };
 }
 function infSaveRecords(){
-  if(!window.electronAPI)return;
-  S.infRecords.forEach(function(rec){
-    const row=_infToDbRow(rec);
-    if(rec._dbId){
-      window.electronAPI.recordsInfectionUpdate(row).catch(function(err){console.error('[DB] infection update 실패:',err);});
-    }else{
-      window.electronAPI.recordsInfectionInsert(row).then(function(res){
-        if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-      }).catch(function(err){console.error('[DB] infection insert 실패:',err);});
-    }
-  });
+  return Promise.all(S.infRecords.map(function(rec){return _persistClinicalRecord('INF',rec);}));
 }
 /* [REMOVED] infSaveNotes — dead code. 감염병 메모는 진행 기록(progress)에 포함. */
 function _infHydrate(r){
@@ -1433,7 +1430,7 @@ export function renderInfList(){
   if(!tbody)return;
   if(!yearRecs.length){
     const _infEmpty = (typeof createEmptyState==='function')
-      ? createEmptyState({icon:'🦠',title:'이 연도의 감염병 관리 기록이 없습니다',desc:'위 검색창에서 학생을 검색하고 Enter를 누르면<br>새 기록지가 자동 생성됩니다.',actionLabel:'학생 검색'})
+      ? createEmptyState({icon:'🦠',title:'이 연도의 감염병 관리 기록이 없습니다',desc:'위 검색창에서 학생을 검색하고 Enter를 누르면 새 기록지가 자동 생성됩니다.',actionLabel:'학생 검색'})
       : '<div style="text-align:center;padding:40px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px">🦠</div>이 연도의 감염병 관리 기록이 없습니다.</div>';
     tbody.innerHTML='<tr><td colspan="14" style="padding:0;background:transparent">'+_infEmpty+'</td></tr>';
     const _infActBtn=tbody.querySelector('[data-empty-action]');
@@ -1563,11 +1560,7 @@ export function infSelectStudent(id){
   };
   addInfRecord(newRec);
   /* 새 레코드 즉시 DB 삽입하여 _dbId 확보 */
-  if(window.electronAPI&&window.electronAPI.recordsInfectionInsert){
-    window.electronAPI.recordsInfectionInsert(_infToDbRow(newRec)).then(function(res){
-      if(res&&res.success&&res.id){newRec._dbId=res.id;newRec.id=res.id;infCurrentId=res.id;}
-    }).catch(function(err){console.error('[DB] infection insert 실패:',err);});
-  }
+  _persistClinicalRecord('INF',newRec);
   openInfForm(newRec.id);
 }
 
@@ -1675,9 +1668,11 @@ function openInfForm(recId){
   const rec=S.infRecords.find(function(r){return r.id===recId;});
   if(!rec)return;
   infCurrentId=recId;
+  _clinicalOpenRecords.INF=rec;
   const body=document.getElementById('infFormBody');
   body.innerHTML=infBuildFormHtml(rec);
   _attachInfFormListeners(body);
+  document.getElementById('infFormOverlay')._onModalClose=closeInfForm;
   document.getElementById('infFormOverlay').classList.add('show');
   document.body.style.overflow='hidden';
 }
@@ -1734,32 +1729,7 @@ function _attachInfFormListeners(container){
   });
 }
 
-export function closeInfForm(){
-  /* 팝업 닫을 때 DB에 저장 후 localStorage 임시 삭제 */
-  const closingId=infCurrentId;
-  if(closingId){
-    const rec=S.infRecords.find(function(r){return r.id===closingId;});
-    if(rec&&window.electronAPI){
-      const row=_infToDbRow(rec);
-      if(rec._dbId){
-        window.electronAPI.recordsInfectionUpdate(row).then(function(){
-          if(typeof queueGlobalSaveToast==='function')queueGlobalSaveToast();
-        }).catch(function(err){console.error('[DB] infection update 실패:',err);});
-      }else{
-        window.electronAPI.recordsInfectionInsert(row).then(function(res){
-          if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-          if(typeof queueGlobalSaveToast==='function')queueGlobalSaveToast();
-        }).catch(function(err){console.error('[DB] infection insert 실패:',err);});
-      }
-    }
-    try{localStorage.removeItem('ec_form_draft_INF_'+closingId);}catch(_){}
-  }
-  document.getElementById('infFormOverlay').classList.remove('show');
-  document.body.style.overflow='';
-  infCurrentId=null;
-  if(infSaveTimer){clearTimeout(infSaveTimer);infSaveTimer=null;}
-  renderInfList();
-}
+export function closeInfForm(){return _closeClinicalForm('INF');}
 
 function infFieldChange(input,directField){
   if(!infCurrentId)return;
@@ -1811,43 +1781,7 @@ function infToggleField(path,value,btn){
   infDebounceSave();
 }
 
-function infDebounceSave(){
-  /* 편집 중: localStorage 임시 저장 */
-  if(infCurrentId){
-    const rec=S.infRecords.find(function(r){return r.id===infCurrentId;});
-    if(rec){
-      try{localStorage.setItem('ec_form_draft_INF_'+infCurrentId,JSON.stringify(rec));}catch(_){}
-    }
-  }
-  const ind=document.getElementById('infSaveIndicator');
-  if(ind){ind.textContent='저장 중…';ind.className='ec-save-indicator saving';}
-  if(infSaveTimer)clearTimeout(infSaveTimer);
-  infSaveTimer=setTimeout(function(){
-    /* 실제 DB 반영 + 리스트 실시간 갱신 */
-    if(infCurrentId){
-      const rec=S.infRecords.find(function(r){return r.id===infCurrentId;});
-      if(rec&&window.electronAPI){
-        const row=_infToDbRow(rec);
-        if(rec._dbId){
-          window.electronAPI.recordsInfectionUpdate(row).then(function(){
-            if(typeof renderInfList==='function')renderInfList();
-          }).catch(function(err){console.error('[DB] infection update 실패:',err);});
-        } else if(window.electronAPI.recordsInfectionInsert){
-          window.electronAPI.recordsInfectionInsert(row).then(function(res){
-            if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-            if(typeof renderInfList==='function')renderInfList();
-          }).catch(function(err){console.error('[DB] infection insert 실패:',err);});
-        } else if(typeof renderInfList==='function'){
-          renderInfList();
-        }
-      } else if(typeof renderInfList==='function'){
-        renderInfList();
-      }
-    }
-    if(ind){ind.textContent='모든 내용이 저장되었습니다.';ind.className='ec-save-indicator saved';}
-    setTimeout(function(){if(ind)ind.className='ec-save-indicator hide';},3000);
-  },400);
-}
+function infDebounceSave(){_scheduleClinicalSave('INF');}
 
 function infProgressChange(input){
   if(!infCurrentId)return;
@@ -2542,7 +2476,7 @@ window._bmData=_bmData;
 /* 바디맵 마커 변경 시 해당 daily_records 를 즉시 DB에 저장 */
 function _bmPersist(recId){
   if(recId==null)return;
-  const rec=(S.records||[]).find(function(r){return r&&(r.id===recId||r._dbId===recId);});
+  const rec=getDailyRecord(recId);
   if(!rec)return;
   rec.bodymapData=_bmData[recId]||[];
   if(typeof saveRecordNow==='function')saveRecordNow(rec);
@@ -2571,7 +2505,7 @@ function _bmIsKinder(recId){
   if((S.settings||{}).schoolLevel==='kindergarten') return true;
   /* 특수학교: 개별 학생의 level 확인 */
   if((S.settings||{}).schoolLevel==='special'&&recId){
-    const rec=S.records.find(function(r){return r.id===recId;})||S.ecRecords&&S.ecRecords.find(function(r){return r.id===recId;});
+    const rec=getDailyRecord(recId)||S.ecRecords&&S.ecRecords.find(function(r){return r.id===recId;});
     if(rec){const s=getStu(rec.studentId);if(s&&s.level==='유')return true;}
   }
   return false;
@@ -2941,7 +2875,7 @@ export function openBodyMap(recId,anchor,opts){
   const bodyFile =kinder?'assets/bodymap/child_body.png' :'assets/bodymap/adult_body.png';
 
   ov.innerHTML='<div class="modal-content" style="width:98vw;max-width:1200px;height:96vh;padding:0;overflow:hidden;display:flex;flex-direction:column">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));flex-shrink:0">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);flex-shrink:0">'
     +'<div><span style="font-size:14px;font-weight:800;color:var(--t1)">🩺 바디맵 '+(_readOnly?'— 읽기 전용 보기':'— 통증 부위 선택')+'</span><div style="font-size:12px;color:var(--t3);margin-top:3px;line-height:1.5">'+(_readOnly?'이력 조회 모드 · 입력은 해당 일자의 일지를 다시 열어 진행하세요.':'원클릭은 불편한 곳 체크 표시, 더블클릭은 불편한 곳 통증 척도 입력, 체크 또는 척도를 한 번 더 클릭하여 해제할 수 있고 제시된 부위명을 수정버튼을 클릭하여 수정할 수 있습니다.<br>체크, 척도 동그라미를 클릭해서 이동도 가능하고 부위 태그를 클릭하여 360도 회전도 가능합니다.')+'</div></div>'
     +''/* 확인 버튼 제거 — 바깥 클릭으로 닫힘 */
     +'</div>'
@@ -3189,7 +3123,7 @@ function _symRefreshBmChip(recId){
   let _cnt=0;
   try{
     const bd=window._bmData||{};
-    const rec=(S.records||[]).find(function(r){return r&&r.id===recId;});
+    const rec=getDailyRecord(recId);
     const stuId=rec?rec.studentId:null;
     if(stuId!=null){
       (S.records||[]).forEach(function(r){if(r&&r.studentId===stuId&&bd[r.id]&&bd[r.id].length>0)_cnt++;});
@@ -3266,7 +3200,7 @@ function renderEcColSelectorCards(container){
 export function toggleEcColSelector(){
   const existing=document.getElementById('ecColSelectorOverlay');if(existing){closeModalWithAnim(existing);return;}
   const overlay=document.createElement('div');overlay.className='modal-overlay show';overlay.id='ecColSelectorOverlay';overlay.style.background='rgba(0,0,0,0.35)';overlay.style.backdropFilter='none';overlay.style.webkitBackdropFilter='none';
-  overlay.innerHTML='<div class="modal-content" style="width:98vw;max-width:1800px;padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><span style="font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">🔧 열 필드 설정 — 응급처치 기록</span></div><div style="padding:18px"><div style="font-size:12px;color:var(--t2);margin-bottom:6px;line-height:1.7">응급처치 기록표에 보이도록 할 필드를 선택할 수 있으며 클릭 &amp; 드래그를 통해 순서를 원하는대로 변경할 수 있습니다.</div><div style="font-size:11px;color:var(--t3);margin-bottom:12px">Ctrl + Z (Cmd + Z)로 이전으로 되돌리기 가능합니다.</div><div id="ecColSelectorChips" style="display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;width:100%"></div></div></div>';
+  overlay.innerHTML='<div class="modal-content" style="width:98vw;max-width:1800px;padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--glass-border);background:rgba(6,182,212,0.10)"><span style="font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">🔧 열 필드 설정 — 응급처치 기록</span></div><div style="padding:18px"><div style="font-size:12px;color:var(--t2);margin-bottom:6px;line-height:1.7">응급처치 기록표에 보이도록 할 필드를 선택할 수 있으며 클릭 &amp; 드래그를 통해 순서를 원하는대로 변경할 수 있습니다.</div><div style="font-size:11px;color:var(--t3);margin-bottom:12px">Ctrl + Z (Cmd + Z)로 이전으로 되돌리기 가능합니다.</div><div id="ecColSelectorChips" style="display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;width:100%"></div></div></div>';
   document.body.appendChild(overlay);_makeDraggable(overlay.querySelector('.modal-content'));
   overlay.addEventListener('click',function(e){if(e.target===overlay)closeModalWithAnim(overlay);});
   renderEcColSelectorCards(overlay.querySelector('#ecColSelectorChips'));
@@ -3351,7 +3285,7 @@ function renderInfColSelectorCards(container){
 export function toggleInfColSelector(){
   const existing=document.getElementById('infColSelectorOverlay');if(existing){closeModalWithAnim(existing);return;}
   const overlay=document.createElement('div');overlay.className='modal-overlay show';overlay.id='infColSelectorOverlay';overlay.style.background='rgba(0,0,0,0.35)';overlay.style.backdropFilter='none';overlay.style.webkitBackdropFilter='none';
-  overlay.innerHTML='<div class="modal-content" style="width:98vw;max-width:1800px;padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><span style="font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">🔧 열 필드 설정 — 감염병 관리</span></div><div style="padding:18px"><div style="font-size:12px;color:var(--t2);margin-bottom:6px;line-height:1.7">감염병 관리 기록표에 보이도록 할 필드를 선택할 수 있으며 클릭 &amp; 드래그를 통해 순서를 원하는대로 변경할 수 있습니다.</div><div style="font-size:11px;color:var(--t3);margin-bottom:12px">Ctrl + Z (Cmd + Z)로 이전으로 되돌리기 가능합니다.</div><div id="infColSelectorChips" style="display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;width:100%"></div></div></div>';
+  overlay.innerHTML='<div class="modal-content" style="width:98vw;max-width:1800px;padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--glass-border);background:rgba(6,182,212,0.10)"><span style="font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">🔧 열 필드 설정 — 감염병 관리</span></div><div style="padding:18px"><div style="font-size:12px;color:var(--t2);margin-bottom:6px;line-height:1.7">감염병 관리 기록표에 보이도록 할 필드를 선택할 수 있으며 클릭 &amp; 드래그를 통해 순서를 원하는대로 변경할 수 있습니다.</div><div style="font-size:11px;color:var(--t3);margin-bottom:12px">Ctrl + Z (Cmd + Z)로 이전으로 되돌리기 가능합니다.</div><div id="infColSelectorChips" style="display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;width:100%"></div></div></div>';
   document.body.appendChild(overlay);_makeDraggable(overlay.querySelector('.modal-content'));
   overlay.addEventListener('click',function(e){if(e.target===overlay)closeModalWithAnim(overlay);});
   renderInfColSelectorCards(overlay.querySelector('#infColSelectorChips'));
@@ -3601,16 +3535,16 @@ export function toggleColSelector(){
   const existing=document.getElementById('colSelectorOverlay');
   if(existing){closeModalWithAnim(existing);return;}
   const overlay=document.createElement('div');overlay.className='modal-overlay show';overlay.id='colSelectorOverlay';overlay.style.background='rgba(0,0,0,0.35)';overlay.style.backdropFilter='none';overlay.style.webkitBackdropFilter='none';
-  overlay.innerHTML='<div class="modal-content" style="width:98vw;max-width:1600px;padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));cursor:grab"><span style="font-size:clamp(12px,1.2vw,15px);font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">🔧 열 필드 설정</span></div><div style="padding:clamp(10px,1.5vw,18px)"><div style="font-size:clamp(10px,1vw,12px);color:var(--t2);margin-bottom:6px;line-height:1.7">보건일지 표에 보이도록 할 필드를 선택할 수 있으며 클릭 &amp; 드래그를 통해 순서를 원하는대로 변경할 수 있습니다.</div><div style="font-size:clamp(9px,0.9vw,11px);color:var(--t3);margin-bottom:8px">Ctrl + Z (Cmd + Z)로 이전으로 되돌리기 가능합니다.</div><div style="font-size:clamp(9px,0.85vw,10px);color:var(--t3);margin-bottom:12px;line-height:1.8;background:var(--bg2);padding:8px 10px;border-radius:6px;border:1px solid var(--bdr)">학과가 있는 고등학교의 경우 "학과"를 ON상태로 두면 편리합니다. 다양한 학교급이 포함된 학교 (예: 병설유치원이 있는 초등학교나 중학생까지 케어하는 초등학교, 특수학교)는 "학교급"을 ON상태로 두면 편리합니다. 오직 1~3학년만 있는 인문계 고등학교나 중학교, 1~6학년만 있는 초등학교는 "학교급", "학과"를 OFF상태로 두면 편리합니다. 보건교사가 두 명 이상 배치되지 않은 경우라면 처치자를 OFF로 두는 것을 권합니다.</div><div id="colSelectorChips" style="display:flex;flex-wrap:nowrap;gap:clamp(2px,0.3vw,4px);overflow:hidden;width:100%"></div></div></div>';
+  overlay.innerHTML='<div class="modal-content" style="width:98vw;max-width:1600px;padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--glass-border);background:rgba(6,182,212,0.10);cursor:grab"><span style="font-size:clamp(12px,1.2vw,15px);font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">🔧 열 필드 설정</span></div><div style="padding:clamp(10px,1.5vw,18px)"><div style="font-size:clamp(10px,1vw,12px);color:var(--t2);margin-bottom:6px;line-height:1.7">보건일지 표에 보이도록 할 필드를 선택할 수 있으며 클릭 &amp; 드래그를 통해 순서를 원하는대로 변경할 수 있습니다.</div><div style="font-size:clamp(9px,0.9vw,11px);color:var(--t3);margin-bottom:8px">Ctrl + Z (Cmd + Z)로 이전으로 되돌리기 가능합니다.</div><div style="font-size:clamp(9px,0.85vw,10px);color:var(--t3);margin-bottom:12px;line-height:1.8;background:var(--bg2);padding:8px 10px;border-radius:6px;border:1px solid var(--bdr)">학과가 있는 고등학교의 경우 "학과"를 ON상태로 두면 편리합니다. 다양한 학교급이 포함된 학교 (예: 병설유치원이 있는 초등학교나 중학생까지 케어하는 초등학교, 특수학교)는 "학교급"을 ON상태로 두면 편리합니다. 오직 1~3학년만 있는 인문계 고등학교나 중학교, 1~6학년만 있는 초등학교는 "학교급", "학과"를 OFF상태로 두면 편리합니다. 보건교사가 두 명 이상 배치되지 않은 경우라면 처치자를 OFF로 두는 것을 권합니다.</div><div id="colSelectorChips" style="display:flex;flex-wrap:nowrap;gap:clamp(2px,0.3vw,4px);overflow:hidden;width:100%"></div></div></div>';
   document.body.appendChild(overlay);
   _makeDraggable(overlay.querySelector('.modal-content'));
   overlay.addEventListener('click',function(e){if(e.target===overlay)closeModalWithAnim(overlay);});
   renderColSelectorCards(overlay.querySelector('#colSelectorChips'));
 }
-export function applyDailyColLayout(){
+export function applyDailyColLayout(targetTable){
   const saved=getDailyColVisibility();
   const order=getDailyColOrder();
-  const table=document.getElementById('recTable');
+  const table=targetTable&&targetTable.tagName==='TABLE'?targetTable:document.getElementById('recTable');
   if(!table) return;
 
   /* 특수학교는 학교급 컬럼(19)을 항상 표시 — 유·초·중·고가 한 학교에 공존하므로
@@ -3663,7 +3597,12 @@ export function applyDailyColLayout(){
   });
 
   /* ── 사용자 저장 열 너비만 적용 (나머지는 HTML 원본 유지) ── */
-  const _pxW={0:24,19:36,17:36,1:58,2:28,3:34,15:28,4:52,5:28,16:34,10:38,11:38,12:36,13:50,14:72};
+  /* Screen defaults follow the larger UI text. Saved user widths still win.
+   * Print/other detached tables keep their existing dimensions. */
+  const _screenLayout=document.body.classList.contains('school-interface')&&(!targetTable||!!targetTable.closest('#schoolMain'));
+  const _pxW=_screenLayout
+    ? {0:36,19:54,17:60,1:88,2:42,3:54,15:38,4:84,5:42,16:38,10:68,11:68,12:54,13:72,14:110}
+    : {0:24,19:36,17:36,1:58,2:28,3:34,15:28,4:52,5:28,16:34,10:38,11:38,12:36,13:50,14:72};
   const _cwKey=_userKey('ec_col_widths');
   /* 사용자 열 너비 로드 — 사용자 키 우선. 옛 측정 배열은 객체로 1회 이행(조정값 보존),
    * 글로벌 fallback 의 배열은 부팅 복사본(사용자 키가 원본)이라 이행 없이 제거 (2026-06-11) */
@@ -3698,7 +3637,7 @@ export function applyDailyColLayout(){
   const _treatPct=Math.max(10,19-_extraCols*2-(_visCount>=17?3:0));
   const _pctW={6:_symPct+'%',8:_treatPct+'%'};
   /* 보이는 열이 많으면 고정 열 너비 축소 */
-  const _shrink=(_visCount>=17)?0.78:(_visCount>14)?0.82:(_visCount>13)?0.85:(_visCount>11)?0.92:1;
+  const _shrink=_screenLayout?1:(_visCount>=17)?0.78:(_visCount>14)?0.82:(_visCount>13)?0.85:(_visCount>11)?0.92:1;
   /* 맨 오른쪽 보이는 열 찾기 — 항상 오른쪽 테두리에 밀착 */
   let _lastVisIdx=-1;
   order.forEach(function(ci){if(saved[ci]!==false)_lastVisIdx=ci;});
@@ -3753,11 +3692,11 @@ export function applyDailyColLayout(){
    * 표 확장(가로 스크롤)은 위의 동적 min-width 가 담당하므로 width 는 100% 로 둔다. */
   table.style.width='100%';
   /* 레이아웃 완료 후 테이블 표시 — 로그인 전이면 숨김 유지 (기본값→사용자값 깜빡임 방지) */
-  if(S._currentUser&&S._currentUser.id){
+  if(targetTable&&targetTable.tagName==='TABLE'||S._currentUser&&S._currentUser.id){
     table.style.visibility='visible';
   }
   /* 열 ON/OFF 후 리사이즈 핸들 재생성 */
-  setTimeout(crInsertHandles,50);
+  if(!targetTable||targetTable.tagName!=='TABLE')setTimeout(crInsertHandles,50);
 }
 function restoreDailyColVisibility(){
   applyDailyColLayout();
@@ -4164,7 +4103,7 @@ function _buildEcInfMiniPop(anchor,stuId,recId,btnLabel,openFn){
   /* ── 버튼 팝업 (오른쪽) ── */
   const pop=document.createElement('div');
   pop.className='ems-mini-popup';
-  pop.innerHTML='<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:linear-gradient(145deg,var(--bg2),color-mix(in srgb,var(--bg2) 85%,#6b7280 15%));border-radius:8px 8px 0 0">'+(isStaff?'👔':'👤')+' '+nameInfo+'</div>'
+  pop.innerHTML='<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:var(--bg2);border-radius:8px 8px 0 0">'+(isStaff?'👔':'👤')+' '+nameInfo+'</div>'
     +'<div class="ems-msg-link" data-action="openRecForm">📋 '+escHtml(btnLabel)+'</div>';
   const fnRef=openFn==='openEcForm'?openEcForm:openFn==='openInfForm'?openInfForm:null;
   pop.querySelector('[data-action="openRecForm"]').addEventListener('click',function(e){e.stopPropagation();_closeEcInfPop();if(fnRef)fnRef(recId);});

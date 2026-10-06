@@ -1157,7 +1157,7 @@ function renderFeedbackPage(){
   let h='<div style="padding:8px 0">';
   h+='<div style="display:flex;justify-content:center;margin-bottom:14px"><div class="tr-sub-tab-wrap">';
   [{id:'feature',label:'✨ 기능 제안'},{id:'improve',label:'🔧 개선 요청'},{id:'bug',label:'🐛 버그 신고'}].forEach(function(t){
-    h+='<button class="tr-sub-tab" id="fbTab_'+t.id+'" data-action="fbSwitchTab" data-arg="'+t.id+'" style="'+(_fbTab===t.id?'color:#fff;background:linear-gradient(135deg,#06b6d4,#0891b2);box-shadow:0 2px 10px rgba(6,182,212,0.3)':'')+'">'+t.label+'</button>';
+    h+='<button class="tr-sub-tab" id="fbTab_'+t.id+'" data-action="fbSwitchTab" data-arg="'+t.id+'" style="'+(_fbTab===t.id?'color:#fff;background:#0891b2;box-shadow:0 2px 10px rgba(6,182,212,0.3)':'')+'">'+t.label+'</button>';
   });
   h+='</div></div>';
   h+='<div style="display:flex;gap:16px;height:calc(100vh - 200px)">';
@@ -1169,7 +1169,7 @@ function renderFeedbackPage(){
     +'<input class="form-input" id="fbTitle" placeholder="간단히 요약해 주세요" style="font-size:12px;width:100%;border-radius:8px;padding:8px 12px"></div>'
     +'<div><label style="font-size:11px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">상세 내용</label>'
     +'<textarea id="fbDesc" placeholder="자세히 설명해 주시면 더 빠르게 반영할 수 있어요" style="width:100%;min-height:120px;border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;font-size:12px;font-family:var(--f);color:var(--t1);background:var(--bg);resize:vertical;line-height:1.7;outline:none;box-sizing:border-box" data-focus-border="var(--cyan)" data-blur-border="var(--bdr)"></textarea></div>'
-    +'<button data-action="fbSubmit" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);transition:all .2s" data-hover-in="transform:translateY(-1px)" data-hover-out="transform:none">보내기</button>'
+    +'<button data-action="fbSubmit" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:10px;background:#0891b2;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);transition:all .2s" data-hover-in="transform:translateY(-1px)" data-hover-out="transform:none">보내기</button>'
     +'</div>';
   h+='</div>';
   h+='<div style="flex:1;min-width:0;overflow-y:auto;scrollbar-width:thin;border-left:1px solid var(--bdr);padding-left:16px">';
@@ -1602,7 +1602,7 @@ function _renderZoomScaleTabInline(){
   html += '<div class="settings-panel-desc">화면 전체(헤더·메인·하단·팝업)를 100% ~ 160% 범위에서 동일 비율로 확대합니다. 확대 후 화면 밖 영역은 좌우·상하 스크롤로 이동합니다.</div>';
 
   /* ── 메인 카드 ── */
-  html += '<div id="zoomCard" class="cc" style="padding:24px;margin-bottom:14px;background:linear-gradient(135deg,#fafbff 0%,#fff 100%);border:1px solid #e8eaf6">';
+  html += '<div id="zoomCard" class="cc" style="padding:24px;margin-bottom:14px;background:#fafbff;border:1px solid #e8eaf6">';
 
   /* 헤더 + 토글 */
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">'
@@ -1612,7 +1612,7 @@ function _renderZoomScaleTabInline(){
     +   '</div>'
     +   '<label class="switch" style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0">'
     +     '<input type="checkbox" id="zoomEnableToggle" data-no-auto-save '+(on?'checked':'')+' style="opacity:0;width:0;height:0">'
-    +     '<span id="zoomEnableSlider" style="position:absolute;cursor:pointer;inset:0;background:'+(on?'linear-gradient(135deg,#a78bfa,#7c3aed)':'#d4d4dc')+';border-radius:24px;transition:.25s;box-shadow:'+(on?'0 2px 8px rgba(124,58,237,0.3)':'inset 0 1px 2px rgba(0,0,0,0.08)')+'">'
+    +     '<span id="zoomEnableSlider" style="position:absolute;cursor:pointer;inset:0;background:'+(on?'#7c3aed':'#d4d4dc')+';border-radius:24px;transition:.25s;box-shadow:'+(on?'0 2px 8px rgba(124,58,237,0.3)':'inset 0 1px 2px rgba(0,0,0,0.08)')+'">'
     +       '<span id="zoomEnableKnob" style="position:absolute;height:20px;width:20px;left:'+(on?'20':'2')+'px;top:2px;background:#fff;border-radius:50%;transition:.25s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 4px rgba(0,0,0,0.15)"></span>'
     +     '</span>'
     +   '</label>'
@@ -1626,8 +1626,8 @@ function _renderZoomScaleTabInline(){
     +   '<div style="position:relative;width:140px;height:140px">'
     +     '<svg viewBox="0 0 140 140" style="position:absolute;inset:0">'
     +       '<circle cx="70" cy="70" r="60" fill="none" stroke="#eef0f9" stroke-width="10"/>'
-    +       '<circle id="zoomGaugeArc" cx="70" cy="70" r="60" fill="none" stroke="url(#zoomGaugeGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+C.toFixed(2)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 70 70)" style="transition:stroke-dashoffset .25s ease"/>'
-    +       '<defs><linearGradient id="zoomGaugeGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs>'
+    +       '<circle id="zoomGaugeArc" cx="70" cy="70" r="60" fill="none" stroke="#7c3aed" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+C.toFixed(2)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 70 70)" style="transition:stroke-dashoffset .25s ease"/>'
+    +       '<defs></defs>'
     +     '</svg>'
     +     '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">'
     +       '<div id="zoomBigPct" style="font-size:32px;font-weight:800;color:#1a1a2e;font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1">'+pct+'</div>'
@@ -1641,7 +1641,7 @@ function _renderZoomScaleTabInline(){
     +   '<button class="zoom-stepper-btn" data-no-auto-save data-step="-1" aria-label="축소" style="width:36px;height:36px;border-radius:50%;border:1px solid #e8eaf6;background:#fff;color:#7c3aed;font-size:16px;font-weight:300;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:all .15s;display:flex;align-items:center;justify-content:center">−</button>';
   [100,120,140,160].forEach(function(p){
     const active = p===pct;
-    html += '<button class="zoom-preset-btn" data-no-auto-save data-pct="'+p+'"'+(active?' data-active="1"':'')+' style="padding:0 14px;height:36px;border-radius:18px;border:1px solid '+(active?'#7c3aed':'#e8eaf6')+';background:'+(active?'linear-gradient(135deg,#a78bfa,#7c3aed)':'#fff')+';color:'+(active?'#fff':'#1a1a2e')+';font-size:11px;font-weight:'+(active?'700':'600')+';cursor:pointer;'+(active?'box-shadow:0 2px 8px rgba(124,58,237,0.3);':'')+'transition:all .15s;font-variant-numeric:tabular-nums">'+p+'</button>';
+    html += '<button class="zoom-preset-btn" data-no-auto-save data-pct="'+p+'"'+(active?' data-active="1"':'')+' style="padding:0 14px;height:36px;border-radius:18px;border:1px solid '+(active?'#7c3aed':'#e8eaf6')+';background:'+(active?'#7c3aed':'#fff')+';color:'+(active?'#fff':'#1a1a2e')+';font-size:11px;font-weight:'+(active?'700':'600')+';cursor:pointer;'+(active?'box-shadow:0 2px 8px rgba(124,58,237,0.3);':'')+'transition:all .15s;font-variant-numeric:tabular-nums">'+p+'</button>';
   });
   html += '<button class="zoom-stepper-btn" data-no-auto-save data-step="1" aria-label="확대" style="width:36px;height:36px;border-radius:50%;border:1px solid #e8eaf6;background:#fff;color:#7c3aed;font-size:16px;font-weight:300;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:all .15s;display:flex;align-items:center;justify-content:center">+</button>';
   html += '</div>';
@@ -1678,7 +1678,7 @@ function _bindZoomScaleTab(){
   function _refreshDisabled(on){
     if(body){ body.style.opacity = on?'1':'0.42'; body.style.pointerEvents = on?'auto':'none'; body.style.filter = on?'none':'saturate(0.3)'; }
     if(slider){
-      slider.style.background = on?'linear-gradient(135deg,#a78bfa,#7c3aed)':'#d4d4dc';
+      slider.style.background = on?'#7c3aed':'#d4d4dc';
       slider.style.boxShadow  = on?'0 2px 8px rgba(124,58,237,0.3)':'inset 0 1px 2px rgba(0,0,0,0.08)';
     }
     if(knob){ knob.style.left = on?'20px':'2px'; }
@@ -1691,7 +1691,7 @@ function _bindZoomScaleTab(){
       if(active){ b.setAttribute('data-active','1'); }
       else      { b.removeAttribute('data-active'); }
       b.style.borderColor = active?'#7c3aed':'#e8eaf6';
-      b.style.background  = active?'linear-gradient(135deg,#a78bfa,#7c3aed)':'#fff';
+      b.style.background  = active?'#7c3aed':'#fff';
       b.style.color       = active?'#fff':'#1a1a2e';
       b.style.fontWeight  = active?'700':'600';
       b.style.boxShadow   = active?'0 2px 8px rgba(124,58,237,0.3)':'';
@@ -1811,7 +1811,7 @@ function _renderDatasyncTabInline(){
       +'<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-bottom:10px">학교 인터넷 정책에 따라 어떤 통로(포트)는 막혀있을 수 있어요. 어느 통로(포트)가 열려 있는지는 아래와 같습니다.</div>'
       +'<div id="collabPortScanArea" style="font-size:11px;color:var(--t3)">검사 결과를 불러오는 중...</div>'
       +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">'
-      +'<button id="collabPortScanBtn" class="btn btn-sm" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;padding:7px 14px;font-size:11px;font-weight:700;border-radius:6px">🔄 다시 검사하기</button>'
+      +'<button id="collabPortScanBtn" class="btn btn-sm" style="background:#0891b2;color:#fff;border:none;padding:7px 14px;font-size:11px;font-weight:700;border-radius:6px">🔄 다시 검사하기</button>'
       +'<span id="collabPortScanMeta" style="margin-left:auto;font-size:10px;color:var(--t3);font-family:var(--fm)"></span>'
       +'</div>'
       +'<div id="collabPortScanConclusion" style="margin-top:14px"></div>'
@@ -1870,7 +1870,7 @@ function _renderDatasyncTabInline(){
       const boxCls=isWebPeer&&!isHost?'collab-web-peer-card':'';
       let boxStyle;
       if(isHost){
-        boxStyle='padding:14px;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border:1px solid rgba(6,182,212,0.35);border-radius:12px;box-shadow:0 2px 12px rgba(6,182,212,0.12)';
+        boxStyle='padding:14px;background:rgba(6,182,212,0.18);border:1px solid rgba(6,182,212,0.35);border-radius:12px;box-shadow:0 2px 12px rgba(6,182,212,0.12)';
       } else if(isWebPeer){
         boxStyle='padding:14px;border-radius:12px;position:relative;overflow:hidden;box-shadow:0 2px 12px rgba(139,92,246,0.15)';
       } else {
@@ -2365,7 +2365,7 @@ function _loadCollabSessions(){
       var hasIdentity=!!(school||pos||name);
       var dotColor=hasIdentity?'#22c55e':'#94a3b8';
       var dotShadow=hasIdentity?'0 0 6px rgba(34,197,94,0.6)':'none';
-      var chipBg=hasIdentity?'linear-gradient(180deg,rgba(34,197,94,0.08),rgba(34,197,94,0.02))':'rgba(148,163,184,0.06)';
+      var chipBg=hasIdentity?'rgba(34,197,94,0.08)':'rgba(148,163,184,0.06)';
       var chipBdr=hasIdentity?'rgba(34,197,94,0.3)':'rgba(148,163,184,0.25)';
       h+='<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 10px;background:'+chipBg+';border:1px solid '+chipBdr+';border-radius:99px;font-size:11px;line-height:1.5">';
       h+='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotColor+';box-shadow:'+dotShadow+';flex-shrink:0"></span>';
@@ -2425,8 +2425,8 @@ function _renderBackgroundTabInline(section){
   const _panelBdr=_isLightTheme?'rgba(15,23,42,0.06)':'rgba(255,255,255,0.06)';
   const _iconBgIdle=_isLightTheme?'rgba(15,23,42,0.05)':'rgba(255,255,255,0.04)';
   const _activeWrapBg=_isLightTheme
-    ?'background:linear-gradient(180deg,rgba(6,182,212,0.10),rgba(6,182,212,0.02));'
-    :'background:linear-gradient(180deg,rgba(6,182,212,0.12),rgba(6,182,212,0.04));';
+    ?'background:rgba(6,182,212,0.10);'
+    :'background:rgba(6,182,212,0.12);';
   html+='<div class="cc" style="padding:14px;margin-bottom:12px"><div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">모드 선택</div>';
   html+='<div class="bg-mode-row" style="display:flex;gap:14px;padding:8px;background:'+_panelBg+';border-radius:16px;border:1px solid '+_panelBdr+'">';
   const _modes=[
@@ -2440,7 +2440,7 @@ function _renderBackgroundTabInline(section){
     const wrapBg=act?_activeWrapBg:'';
     const wrapBdr=act?'border-color:rgba(6,182,212,0.4);':'border-color:transparent;';
     const iconBg=act
-      ?'background:linear-gradient(135deg,#06B6D4,#0891B2);box-shadow:0 6px 16px -4px rgba(6,182,212,0.55);'
+      ?'background:#0891b2;box-shadow:0 6px 16px -4px rgba(6,182,212,0.55);'
       :'background:'+_iconBgIdle+';';
     const labelStyle=act?'color:var(--t1);font-weight:700;':'color:var(--t2);font-weight:600;';
     html+='<div class="bg-mode-cell'+(act?' active':'')+'" data-action="setBgMode" data-arg="'+m.key+'" style="flex:1;padding:14px 8px 10px;border-radius:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);text-align:center;border:1.5px solid;display:flex;flex-direction:column;align-items:center;gap:6px;'+wrapBg+wrapBdr+'">';
@@ -2509,17 +2509,17 @@ function _renderBackgroundTabInline(section){
   const _glassOptions=[
     {key:'none',name:'없음',preview:'transparent',blur:'0',desc:'효과 없음'},
     {key:'frost',name:'서리 크리스탈',preview:'rgba(255,255,255,0.55)',blur:'24px',desc:'맑은 서리 유리'},
-    {key:'sunset',name:'선셋 앰버',preview:'linear-gradient(135deg,rgba(251,146,60,0.15),rgba(239,68,68,0.08))',blur:'18px',desc:'따뜻한 석양빛'},
-    {key:'ocean',name:'오션 블루',preview:'linear-gradient(135deg,rgba(6,182,212,0.12),rgba(59,130,246,0.08))',blur:'20px',desc:'시원한 바다빛'},
-    {key:'aurora',name:'오로라 미스트',preview:'linear-gradient(135deg,rgba(168,85,247,0.12),rgba(56,189,248,0.12),rgba(52,211,153,0.10))',blur:'20px',desc:'은은한 오로라'},
+    {key:'sunset',name:'선셋 앰버',preview:'rgba(251,146,60,0.15)',blur:'18px',desc:'따뜻한 석양빛'},
+    {key:'ocean',name:'오션 블루',preview:'rgba(6,182,212,0.12)',blur:'20px',desc:'시원한 바다빛'},
+    {key:'aurora',name:'오로라 미스트',preview:'rgba(168,85,247,0.12)',blur:'20px',desc:'은은한 오로라'},
     {key:'smoke',name:'스모크 다크',preview:'rgba(15,20,30,0.65)',blur:'22px',desc:'깊은 다크 스모크'},
-    {key:'rose',name:'로즈 골드',preview:'linear-gradient(135deg,rgba(251,191,178,0.18),rgba(236,72,153,0.08))',blur:'20px',desc:'우아한 로즈골드'},
-    {key:'mint',name:'민트 브리즈',preview:'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(6,182,212,0.10))',blur:'20px',desc:'상쾌한 민트향'},
-    {key:'lavender',name:'라벤더',preview:'linear-gradient(135deg,rgba(196,181,253,0.2),rgba(219,234,254,0.15))',blur:'22px',desc:'차가운 보랏빛'},
-    {key:'amber',name:'샴페인 골드',preview:'linear-gradient(135deg,rgba(255,223,153,0.18),rgba(218,185,107,0.12))',blur:'18px',desc:'은은한 금빛'},
-    {key:'slate',name:'실버 스모크',preview:'linear-gradient(135deg,rgba(148,163,184,0.25),rgba(203,213,225,0.15))',blur:'22px',desc:'은빛 메탈릭'},
-    {key:'ruby',name:'루비 레드',preview:'linear-gradient(135deg,rgba(220,38,38,0.1),rgba(239,68,68,0.06))',blur:'18px',desc:'깊은 루비빛'},
-    {key:'emerald',name:'에메랄드',preview:'linear-gradient(135deg,rgba(16,185,129,0.12),rgba(52,211,153,0.08))',blur:'20px',desc:'청록빛 보석'}
+    {key:'rose',name:'로즈 골드',preview:'rgba(251,191,178,0.18)',blur:'20px',desc:'우아한 로즈골드'},
+    {key:'mint',name:'민트 브리즈',preview:'rgba(52,211,153,0.15)',blur:'20px',desc:'상쾌한 민트향'},
+    {key:'lavender',name:'라벤더',preview:'rgba(196,181,253,0.2)',blur:'22px',desc:'차가운 보랏빛'},
+    {key:'amber',name:'샴페인 골드',preview:'rgba(255,223,153,0.18)',blur:'18px',desc:'은은한 금빛'},
+    {key:'slate',name:'실버 스모크',preview:'rgba(148,163,184,0.25)',blur:'22px',desc:'은빛 메탈릭'},
+    {key:'ruby',name:'루비 레드',preview:'rgba(220,38,38,0.1)',blur:'18px',desc:'깊은 루비빛'},
+    {key:'emerald',name:'에메랄드',preview:'rgba(16,185,129,0.12)',blur:'20px',desc:'청록빛 보석'}
   ];
   const _curHeader=localStorage.getItem('ec_glass_header')||'frost';
   const _curFooter=localStorage.getItem('ec_glass_footer')||'sunset';
@@ -2569,17 +2569,17 @@ function _renderGlassSection(){
   const _glassOptions=[
     {key:'none',name:'없음',preview:'transparent',blur:'0',desc:'효과 없음'},
     {key:'frost',name:'서리 크리스탈',preview:'rgba(255,255,255,0.55)',blur:'24px',desc:'맑은 서리 유리'},
-    {key:'sunset',name:'선셋 앰버',preview:'linear-gradient(135deg,rgba(251,146,60,0.15),rgba(239,68,68,0.08))',blur:'18px',desc:'따뜻한 석양빛'},
-    {key:'ocean',name:'오션 블루',preview:'linear-gradient(135deg,rgba(6,182,212,0.12),rgba(59,130,246,0.08))',blur:'20px',desc:'시원한 바다빛'},
-    {key:'aurora',name:'오로라 미스트',preview:'linear-gradient(135deg,rgba(168,85,247,0.12),rgba(56,189,248,0.12),rgba(52,211,153,0.10))',blur:'20px',desc:'은은한 오로라'},
+    {key:'sunset',name:'선셋 앰버',preview:'rgba(251,146,60,0.15)',blur:'18px',desc:'따뜻한 석양빛'},
+    {key:'ocean',name:'오션 블루',preview:'rgba(6,182,212,0.12)',blur:'20px',desc:'시원한 바다빛'},
+    {key:'aurora',name:'오로라 미스트',preview:'rgba(168,85,247,0.12)',blur:'20px',desc:'은은한 오로라'},
     {key:'smoke',name:'스모크 다크',preview:'rgba(15,20,30,0.65)',blur:'22px',desc:'깊은 다크 스모크'},
-    {key:'rose',name:'로즈 골드',preview:'linear-gradient(135deg,rgba(251,191,178,0.18),rgba(236,72,153,0.08))',blur:'20px',desc:'우아한 로즈골드'},
-    {key:'mint',name:'민트 브리즈',preview:'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(6,182,212,0.10))',blur:'20px',desc:'상쾌한 민트향'},
-    {key:'lavender',name:'라벤더',preview:'linear-gradient(135deg,rgba(196,181,253,0.2),rgba(219,234,254,0.15))',blur:'22px',desc:'차가운 보랏빛'},
-    {key:'amber',name:'샴페인 골드',preview:'linear-gradient(135deg,rgba(255,223,153,0.18),rgba(218,185,107,0.12))',blur:'18px',desc:'은은한 금빛'},
-    {key:'slate',name:'실버 스모크',preview:'linear-gradient(135deg,rgba(148,163,184,0.25),rgba(203,213,225,0.15))',blur:'22px',desc:'은빛 메탈릭'},
-    {key:'ruby',name:'루비 레드',preview:'linear-gradient(135deg,rgba(220,38,38,0.1),rgba(239,68,68,0.06))',blur:'18px',desc:'깊은 루비빛'},
-    {key:'emerald',name:'에메랄드',preview:'linear-gradient(135deg,rgba(16,185,129,0.12),rgba(52,211,153,0.08))',blur:'20px',desc:'청록빛 보석'}
+    {key:'rose',name:'로즈 골드',preview:'rgba(251,191,178,0.18)',blur:'20px',desc:'우아한 로즈골드'},
+    {key:'mint',name:'민트 브리즈',preview:'rgba(52,211,153,0.15)',blur:'20px',desc:'상쾌한 민트향'},
+    {key:'lavender',name:'라벤더',preview:'rgba(196,181,253,0.2)',blur:'22px',desc:'차가운 보랏빛'},
+    {key:'amber',name:'샴페인 골드',preview:'rgba(255,223,153,0.18)',blur:'18px',desc:'은은한 금빛'},
+    {key:'slate',name:'실버 스모크',preview:'rgba(148,163,184,0.25)',blur:'22px',desc:'은빛 메탈릭'},
+    {key:'ruby',name:'루비 레드',preview:'rgba(220,38,38,0.1)',blur:'18px',desc:'깊은 루비빛'},
+    {key:'emerald',name:'에메랄드',preview:'rgba(16,185,129,0.12)',blur:'20px',desc:'청록빛 보석'}
   ];
   const _curHeader=localStorage.getItem('ec_glass_header')||'frost';
   const _curFooter=localStorage.getItem('ec_glass_footer')||'sunset';
@@ -2790,12 +2790,12 @@ function _showUpdateInstallConfirm(){
   ov.id='updInstallConfirmOv';
   ov.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:400px;max-width:92vw;box-shadow:0 24px 60px rgba(0,0,0,0.42);overflow:hidden">'
-    +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:10px">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:10px">'
     +'<span style="font-size:18px">↻</span><div style="font-size:14.5px;font-weight:800;color:var(--t1)">업데이트 설치</div></div>'
     +'<div style="padding:20px;font-size:13px;color:var(--t1);line-height:1.8;font-weight:500">지금 업데이트를 설치할까요?<br>설치가 끝나면 <b style="font-weight:800">새 버전으로 자동으로 다시 열립니다.</b><br><span style="color:var(--t2);font-size:12px">직접 켜지 마시고 잠시만 기다려 주세요.</span></div>'
     +'<div style="padding:0 20px 18px;display:flex;gap:8px;justify-content:flex-end">'
     +'<button id="updInstCancel" style="padding:9px 18px;border:1px solid var(--bdr);background:var(--bg2);color:var(--t2);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:var(--f)">취소</button>'
-    +'<button id="updInstGo" style="padding:9px 20px;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:var(--f)">지금 설치</button>'
+    +'<button id="updInstGo" style="padding:9px 20px;border:none;background:#0891b2;color:#fff;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:var(--f)">지금 설치</button>'
     +'</div></div>';
   document.body.appendChild(ov);
   const _close=function(){ const o=document.getElementById('updInstallConfirmOv'); if(o)o.remove(); };
@@ -2862,7 +2862,7 @@ function _renderFontsizeSection(){
 function _renderVersionTab(){
   const VERSIONS=[
     {ver:'1.0',name:'Roma'},
-    {ver:'1.1',name:'Firenze'},
+    {ver:'1.1',name:'Firenze',release:'1.1.0'},
     {ver:'1.2',name:'Bologna'},
     {ver:'1.3',name:'Venezia'},
     {ver:'1.4',name:'Ljubljana'},
@@ -2877,8 +2877,8 @@ function _renderVersionTab(){
     {ver:'2.3',name:'Akureyri'}
   ];
   /* 히어로 배너 — 버전·코드명·업데이트 상태 단일 표시 (배지 텍스트는 _bindVersionTab 에서 채움) */
-  let h='<div style="background:linear-gradient(135deg,#fef0f5,#fce4ec,#fef0f5);border-radius:16px;padding:32px 24px;text-align:center;margin-bottom:20px;position:relative;overflow:hidden">';
-  h+='<div style="position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,0.3),transparent 60%),radial-gradient(circle at 80% 80%,rgba(255,255,255,0.2),transparent 50%)"></div>';
+  let h='<div style="background:#fef0f5;border-radius:16px;padding:32px 24px;text-align:center;margin-bottom:20px;position:relative;overflow:hidden">';
+  h+='<div style="position:absolute;inset:0;background:transparent"></div>';
   h+='<div style="position:relative;z-index:1">';
   h+='<div style="margin-bottom:8px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.1))"><img src="assets/logo/logo_big.png" alt="로고" style="width:64px;height:64px;object-fit:contain"></div>';
   h+='<div style="font-size:22px;font-weight:900;color:#1a1a1a;letter-spacing:-0.5px">오렌지톡</div>';
@@ -2895,7 +2895,7 @@ function _renderVersionTab(){
   h+='<style>.rm-tile{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;font-weight:700;transition:transform .2s,box-shadow .2s,border-color .2s;cursor:default;border:1px solid var(--bdr)}'
     +'.rm-tile:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 6px 16px rgba(0,0,0,0.15);border-color:var(--cyan)}'
     +'.rm-released{background:rgba(6,182,212,0.08);color:var(--cyan);border-color:rgba(6,182,212,0.4)}'
-    +'.rm-cur{background:linear-gradient(135deg,#db2777,#ec4899);color:#fff;box-shadow:0 2px 10px rgba(219,39,119,0.35);border:2px solid rgba(255,255,255,0.3)}'
+    +'.rm-cur{background:#db2777;color:#fff;box-shadow:0 2px 10px rgba(219,39,119,0.35);border:2px solid rgba(255,255,255,0.3)}'
     +'.rm-cur:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 6px 20px rgba(219,39,119,0.5)}'
     +'.rm-planned{background:var(--bg2);color:var(--t3);opacity:0.7}'
     +'</style>';
@@ -2904,18 +2904,27 @@ function _renderVersionTab(){
   /* 범례 */
   h+='<div style="display:flex;gap:12px;margin-bottom:12px;font-size:10px;color:var(--t3)">'
     +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:rgba(6,182,212,0.4);vertical-align:-1px;margin-right:4px"></span>출시 완료</span>'
-    +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,#db2777,#ec4899);vertical-align:-1px;margin-right:4px"></span>사용 중</span>'
+    +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#db2777;vertical-align:-1px;margin-right:4px"></span>사용 중</span>'
     +'<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--bg2);border:1px solid var(--bdr);vertical-align:-1px;margin-right:4px"></span>계획</span>'
     +'</div>';
   h+='<div id="rmGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">';
   VERSIONS.forEach(function(v){
     /* 초기엔 모두 planned, _bindVersionTab 에서 실제 버전 받아 클래스 갱신 */
     h+='<div class="rm-tile rm-planned" data-rm-ver="'+v.ver+'">';
-    h+='<div style="font-size:12px;font-weight:800;line-height:1.2">'+v.ver+'</div>';
+    h+='<div style="font-size:12px;font-weight:800;line-height:1.2">'+(v.release||v.ver)+'</div>';
     h+='<div style="font-size:9px;margin-top:2px;opacity:0.85">'+v.name+'</div>';
     h+='</div>';
   });
-  h+='</div></div>';
+  h+='</div>';
+  h+='<section aria-labelledby="rmReleaseTitle" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">';
+  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.0 Firenze · 학교용 UI 리모델링</h3>';
+  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">학교용 오렌지톡의 분위기는 유지하면서 화면 구성과 사용 흐름을 새롭게 정리했습니다.</p>';
+  h+='<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9">';
+  h+='<li>헤더와 메뉴, 홈의 캘린더·오늘 할 일·메모 배치 개선</li>';
+  h+='<li>인증코드 등록, 사용자 선택·등록 화면 개편 및 설정한 배경화면 연동</li>';
+  h+='<li>메뉴별 글자 크기·탭·여백과 등록·수정·설정 팝업의 표현 통일</li>';
+  h+='<li>작은 창과 확대 화면에서 입력칸·버튼이 잘리는 배치 보완</li>';
+  h+='</ul></section></div>';
 
   /* ═══ 업데이트 카드 — 기존 _renderUpdateTabInline 통합 ═══ */
   h+='<div style="padding:0 4px;margin-bottom:28px">';
@@ -2924,15 +2933,15 @@ function _renderVersionTab(){
   h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">';
   h+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:2px">설치된 버전</div>';
   h+='<div id="updCurrentVersion" style="font-size:16px;font-weight:800;color:var(--t1)">—</div></div>';
-  h+='<button data-action="updaterCheck" id="updCheckBtn" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);transition:all .2s" data-hover-in="transform:translateY(-1px)" data-hover-out="transform:none">지금 확인</button>';
+  h+='<button data-action="updaterCheck" id="updCheckBtn" style="padding:10px 18px;border:none;border-radius:10px;background:#0891b2;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);transition:all .2s" data-hover-in="transform:translateY(-1px)" data-hover-out="transform:none">지금 확인</button>';
   h+='</div>';
   h+='<div id="updStatusBox" style="padding:12px 14px;background:var(--bg1);border:1px solid var(--bdr);border-radius:10px;font-size:11px;color:var(--t2);line-height:1.7">시작 시 자동으로 확인합니다.</div>';
   h+='<div id="updProgressWrap" style="display:none;margin-top:10px">';
-  h+='<div style="height:8px;background:var(--bg1);border-radius:4px;overflow:hidden"><div id="updProgressBar" style="width:0;height:100%;background:linear-gradient(90deg,#06b6d4,#0891b2);transition:width .3s"></div></div>';
+  h+='<div style="height:8px;background:var(--bg1);border-radius:4px;overflow:hidden"><div id="updProgressBar" style="width:0;height:100%;background:#0891b2;transition:width .3s"></div></div>';
   h+='<div id="updProgressText" style="font-size:10px;color:var(--t3);margin-top:4px;text-align:right">0%</div>';
   h+='</div>';
   h+='<div id="updInstallWrap" style="display:none;margin-top:12px">';
-  h+='<button data-action="updaterInstall" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#db2777,#ec4899);color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--f)">지금 설치</button>';
+  h+='<button data-action="updaterInstall" style="width:100%;padding:12px;border:none;border-radius:10px;background:#db2777;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--f)">지금 설치</button>';
   h+='<div style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center">지금 설치하지 않아도 앱을 종료할 때 자동으로 설치됩니다.</div>';
   h+='</div>';
   h+='</div>';
@@ -2967,8 +2976,8 @@ function _renderCdkeyTab(){
   let h='<div style="padding:0 4px;max-width:980px">';
 
   /* ── 헤더 (그라데이션 배경 + 자물쇠 아이콘) ── */
-  h+='<div style="position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(6,182,212,0.05) 0%,rgba(14,116,144,0.08) 50%,rgba(8,145,178,0.04) 100%);border:1px solid var(--bdr);border-radius:16px 16px 0 0;padding:28px 32px 26px;display:flex;align-items:center;gap:18px;border-bottom:none">';
-  h+='<div style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 8px 20px rgba(6,182,212,0.30),inset 0 1px 0 rgba(255,255,255,0.20);position:relative;z-index:1">🔐</div>';
+  h+='<div style="position:relative;overflow:hidden;background:rgba(6,182,212,0.05);border:1px solid var(--bdr);border-radius:16px 16px 0 0;padding:28px 32px 26px;display:flex;align-items:center;gap:18px;border-bottom:none">';
+  h+='<div style="width:58px;height:58px;border-radius:16px;background:#0891b2;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 8px 20px rgba(6,182,212,0.30),inset 0 1px 0 rgba(255,255,255,0.20);position:relative;z-index:1">🔐</div>';
   h+='<div style="flex:1;position:relative;z-index:1">';
   h+='<div style="margin:0;font-size:21px;font-weight:800;color:var(--t1);letter-spacing:-0.3px">오렌지톡 인증코드</div>';
   h+='<div style="margin:5px 0 0;font-size:12px;color:var(--t3);font-weight:600;line-height:1.6">이 PC 에서 단 1회만 인증하시면 됩니다. 한 PC 당 하나의 인증코드 (1 PC = 1 코드).</div>';
@@ -2978,7 +2987,7 @@ function _renderCdkeyTab(){
   h+='<div style="background:var(--card);border:1px solid var(--bdr);border-top:none;border-radius:0 0 16px 16px;padding:28px 32px 32px;display:grid;gap:22px">';
 
   /* 정책 웰컴 박스 */
-  h+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.04) 0%,rgba(34,197,94,0.04) 100%);border:1px solid rgba(6,182,212,0.18);border-radius:13px;padding:20px 24px;display:flex;gap:16px;align-items:flex-start">';
+  h+='<div style="background:rgba(6,182,212,0.04);border:1px solid rgba(6,182,212,0.18);border-radius:13px;padding:20px 24px;display:flex;gap:16px;align-items:flex-start">';
   h+='<div style="font-size:26px;flex-shrink:0;margin-top:1px;filter:drop-shadow(0 2px 4px rgba(6,182,212,0.20))">🤝</div>';
   h+='<div style="flex:1;font-size:12px;color:var(--t2);line-height:1.85;font-weight:600">';
   h+='<strong style="color:var(--t1);font-weight:800">오렌지팜 주식회사</strong>에서는 보건선생님들께 선의로 <strong style="color:var(--t1);font-weight:800">김재웅 선생님</strong>과 함께 구매 금액에 따른 일체의 차등 없이 <span style="color:var(--cyan);font-weight:800">무료로 사용</span>할 수 있도록 프로그램을 개발하였습니다. 다만, 다른 목적으로 누군가에 의한 <strong style="color:var(--t1);font-weight:800">코드 분해 또는 비정상적 사용</strong>을 철저히 막고자 부득이 <span style="color:var(--cyan);font-weight:800">1인 1PC 인증코드</span> 를 통한 유효성 검증을 실시하게 된 점을 양해 부탁드립니다.';
@@ -2988,8 +2997,8 @@ function _renderCdkeyTab(){
   if(_isVerified){
     const _dt=new Date(_licInfo.verifiedAt);
     const _dtStr=_dt.getFullYear()+'년 '+(_dt.getMonth()+1)+'월 '+_dt.getDate()+'일 ('+'일월화수목금토'[_dt.getDay()]+') '+String(_dt.getHours()).padStart(2,'0')+':'+String(_dt.getMinutes()).padStart(2,'0');
-    h+='<div style="border-radius:14px;padding:22px 26px;display:flex;align-items:center;gap:18px;border:1.5px solid rgba(34,197,94,0.40);background:linear-gradient(135deg,rgba(34,197,94,0.10) 0%,rgba(34,197,94,0.04) 100%)">';
-    h+='<div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0;color:#fff;background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 4px 12px rgba(0,0,0,0.10)">✓</div>';
+    h+='<div style="border-radius:14px;padding:22px 26px;display:flex;align-items:center;gap:18px;border:1.5px solid rgba(34,197,94,0.40);background:rgba(34,197,94,0.10)">';
+    h+='<div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0;color:#fff;background:#16a34a;box-shadow:0 4px 12px rgba(0,0,0,0.10)">✓</div>';
     h+='<div style="flex:1;min-width:0">';
     h+='<div style="font-size:10.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#16a34a">Verified</div>';
     h+='<div style="font-size:16px;font-weight:800;margin:5px 0 4px;color:var(--t1)">이 PC 는 인증되었습니다</div>';
@@ -2998,8 +3007,8 @@ function _renderCdkeyTab(){
     h+='<div style="font-family:var(--fm);font-size:15px;font-weight:800;padding:10px 16px;background:var(--card);border:1.5px solid #16a34a;border-radius:10px;letter-spacing:2px;color:var(--t1);flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.04)">'+escHtml(_licInfo.key)+'</div>';
     h+='</div>';
   } else {
-    h+='<div style="border-radius:14px;padding:22px 26px;display:flex;align-items:center;gap:18px;border:1.5px solid rgba(245,158,11,0.40);background:linear-gradient(135deg,rgba(245,158,11,0.10) 0%,rgba(251,191,36,0.04) 100%)">';
-    h+='<div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0;color:#fff;background:linear-gradient(135deg,#f59e0b,#b45309);box-shadow:0 4px 12px rgba(0,0,0,0.10)">!</div>';
+    h+='<div style="border-radius:14px;padding:22px 26px;display:flex;align-items:center;gap:18px;border:1.5px solid rgba(245,158,11,0.40);background:rgba(245,158,11,0.10)">';
+    h+='<div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0;color:#fff;background:#d97706;box-shadow:0 4px 12px rgba(0,0,0,0.10)">!</div>';
     h+='<div style="flex:1;min-width:0">';
     h+='<div style="font-size:10.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#d97706">Authentication Required</div>';
     h+='<div style="font-size:16px;font-weight:800;margin:5px 0 4px;color:var(--t1)">아직 인증되지 않았습니다</div>';
@@ -3030,8 +3039,8 @@ function _renderCdkeyTab(){
   h+='</div>';
 
   /* ── 고객센터 박스 ── */
-  h+='<div style="background:linear-gradient(135deg,rgba(245,158,11,0.05) 0%,rgba(217,119,6,0.04) 100%);border:1px solid rgba(245,158,11,0.22);border-radius:13px;padding:20px 26px;display:flex;gap:20px;align-items:center">';
-  h+='<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 12px rgba(245,158,11,0.30)">☎</div>';
+  h+='<div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.22);border-radius:13px;padding:20px 26px;display:flex;gap:20px;align-items:center">';
+  h+='<div style="width:48px;height:48px;border-radius:12px;background:#d97706;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 12px rgba(245,158,11,0.30)">☎</div>';
   h+='<div style="flex:1">';
   h+='<div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;text-transform:uppercase">오렌지팜 고객센터</div>';
   h+='<div style="font-family:var(--fm);font-size:22px;font-weight:800;color:var(--t1);letter-spacing:1.5px;margin:2px 0 4px">1588-3711</div>';
@@ -3165,8 +3174,8 @@ function _renderCopyrightTab(){
   h+='</div>';
   h+='<div style="font-size:11px;color:var(--t3)">문의는 오렌지팜을 통해 주시기 바랍니다.</div>';
   /* 고객센터 박스 — 인증코드 탭과 동일 (사용자 요청 2026-05-20) */
-  h+='<div style="background:linear-gradient(135deg,rgba(245,158,11,0.05) 0%,rgba(217,119,6,0.04) 100%);border:1px solid rgba(245,158,11,0.22);border-radius:13px;padding:20px 26px;display:flex;gap:20px;align-items:center;margin-top:14px">';
-  h+='<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 12px rgba(245,158,11,0.30)">☎</div>';
+  h+='<div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.22);border-radius:13px;padding:20px 26px;display:flex;gap:20px;align-items:center;margin-top:14px">';
+  h+='<div style="width:48px;height:48px;border-radius:12px;background:#d97706;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 12px rgba(245,158,11,0.30)">☎</div>';
   h+='<div style="flex:1">';
   h+='<div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;text-transform:uppercase">오렌지팜 고객센터</div>';
   h+='<div style="font-family:var(--fm);font-size:22px;font-weight:800;color:var(--t1);letter-spacing:1.5px;margin:2px 0 4px">1588-3711</div>';
@@ -3305,7 +3314,7 @@ function _renderApiKeysTab(){
   h+=_applyBtnHtml('ec_kakao_js_api_key');
   h+='</div>';
   /* 발급 안내 */
-  h+='<div style="margin-top:12px;padding:12px 14px;background:linear-gradient(135deg,rgba(250,204,21,0.08),rgba(250,204,21,0.04));border:1px solid rgba(250,204,21,0.3);border-radius:8px">';
+  h+='<div style="margin-top:12px;padding:12px 14px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.3);border-radius:8px">';
   h+='<div style="font-size:12px;font-weight:700;color:#ca8a04;margin-bottom:8px">🔑 카카오 API 키 발급 방법 (약 3분)</div>';
   h+='<div style="font-size:12px;color:var(--t2);line-height:1.7">';
   h+='<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px"><span style="flex-shrink:0;font-weight:700">①</span><span><b>카카오 계정으로 로그인</b> — <a style="color:var(--cyan);cursor:pointer;font-weight:700" data-action="openExternal" data-arg="https://developers.kakao.com">https://developers.kakao.com</a> 접속 후 로그인</span></div>';
@@ -3354,7 +3363,7 @@ function _renderApiKeysTab(){
       +'<div id="medfacBulkStatus" style="flex:1;min-width:160px;font-size:10px;color:var(--t3);font-family:var(--fm)"></div>'
     +'</div>'
     +'<div id="medfacBulkProgressWrap" style="display:none;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">'
-      +'<div id="medfacBulkProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),#22c55e);transition:width .3s ease"></div>'
+      +'<div id="medfacBulkProgressBar" style="height:100%;width:0%;background:var(--cyan);transition:width .3s ease"></div>'
     +'</div>'
     +'<div style="font-size:9.5px;color:var(--t3);margin-top:8px;line-height:1.6">'
       +'• 이 버튼은 <b>건강보험심사평가원·국립중앙의료원 API 키가 반영된 상태</b>에서만 동작합니다.<br>'

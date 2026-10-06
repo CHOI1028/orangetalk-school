@@ -1,6 +1,6 @@
 {
   "name": "my-health-diary",
-  "version": "1.0.23",
+  "version": "1.1.0",
   "description": "오렌지톡 - 보건교사를 위한 보건실 업무 도구",
   "main": "main.js",
   "scripts": {
@@ -98,7 +98,7 @@
       ]
     },
     "nsis": {
-      "artifactName": "${productName} Setup ${version} Roma.${ext}",
+      "artifactName": "${productName} Setup ${version} Firenze.${ext}",
       "oneClick": true,
       "runAfterFinish": true,
       "perMachine": false,
@@ -118,6 +118,7 @@
       "preload.js",
       "src/**/*",
       "web-server/**/*",
+      "!web-server/build-dist.js",
       "login.html",
       "splash.html",
       "health_diary.html",
@@ -125,6 +126,7 @@
       "med-facility-list.html",
       "assets/**/*",
       "templates/**/*",
+      "!templates/search-ui-mockup.html",
       "kiosk/**/*",
       "data/templates/**/*",
       "oauth-client.example.json",

@@ -136,7 +136,7 @@ async function _pmSheetsBrowse(){
     +'<div id="pmDriveFolderList" style="padding:12px 16px;max-height:300px;overflow-y:auto;min-height:60px"><div style="text-align:center;padding:20px;color:var(--t3);font-size:11px">불러오는 중...</div></div>'
     +'<div style="padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between">'
     +'<button data-pmdrv="new" style="padding:5px 12px;font-size:10px;font-weight:600;background:var(--bg);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer">+ 새 폴더</button>'
-    +'<button data-pmdrv="select" style="padding:5px 14px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:6px;cursor:pointer">이 폴더 선택</button>'
+    +'<button data-pmdrv="select" style="padding:5px 14px;font-size:10px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer">이 폴더 선택</button>'
     +'</div></div>';
   pk.addEventListener('click',function(e){
     if(e.target===pk){pk.remove();return;}
@@ -365,7 +365,7 @@ export function toggleAddPerson(){
 
   /* Left panel */
   let left='<div style="width:340px;min-width:340px;border-right:1px solid var(--glass-border);display:flex;flex-direction:column;background:var(--panel-grad);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur)">'
-    +'<div style="padding:16px 18px 12px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))">'
+    +'<div style="padding:16px 18px 12px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10)">'
     +'<div style="font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:6px">👥 인원 데이터 관리</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:4px">항목 위에 마우스를 올려보세요</div>'
     +'</div>'
@@ -632,7 +632,7 @@ function _apRenderPanel(id){
       +'<div style="display:flex;gap:8px;margin-bottom:12px">'
       +'<div style="flex:1;position:relative"><input class="form-input pm-oninput" data-input-handler="_apWtDoSearch" id="apWtSearch" placeholder="학생 이름 검색" style="font-size:11px;width:100%" autocomplete="off"><div id="apWtACList" style="position:absolute;top:100%;left:0;right:0;z-index:600;background:var(--card);border:1px solid var(--bdr);border-radius:6px;box-shadow:var(--sh);max-height:160px;overflow-y:auto;display:none"></div></div>'
       +'<button class="btn btn-sm" data-action="_apWtDetailSearch" style="font-size:10px;font-weight:600;white-space:nowrap">상세 검색</button>'
-      +'<button class="btn btn-sm" data-action="_apWtAllCharts" style="font-size:10px;font-weight:700;white-space:nowrap;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none">📊 전체 학생 차트 보기</button>'
+      +'<button class="btn btn-sm" data-action="_apWtAllCharts" style="font-size:10px;font-weight:700;white-space:nowrap;background:var(--cyan);color:#fff;border:none">📊 전체 학생 차트 보기</button>'
       +'</div>'
       +'<div id="apWtBody"></div></div>';
   } else if(id==='delete'){
@@ -663,14 +663,14 @@ function _apRenderNameDupAlert(panelId){
     mod.getNameDupGroupCount().then(function(count){
       if(!count || count <= 0){ alertEl.innerHTML = ''; return; }
       alertEl.innerHTML = ''
-        + '<div id="apNameDupAlertCard" style="margin-bottom:12px;padding:12px 14px;background:linear-gradient(180deg,#fff7ed,#ffedd5);border:1.5px solid rgba(234,88,12,0.30);border-radius:11px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .12s,box-shadow .12s">'
+        + '<div id="apNameDupAlertCard" style="margin-bottom:12px;padding:12px 14px;background:#fff7ed;border:1.5px solid rgba(234,88,12,0.30);border-radius:11px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .12s,box-shadow .12s">'
         +   '<span style="font-size:22px;line-height:1">⚠</span>'
         +   '<div style="flex:1">'
         +     '<div style="font-size:13px;font-weight:800;color:#9a3412">같은 학년 동명이인 매칭 필요 — <b>'+count+'건</b></div>'
         +     '<div style="font-size:11px;color:#b45309;margin-top:3px;line-height:1.6">학년이 같으면서 이름이 같은 학생/교직원이 있습니다. 작년 누가 누구인지 매칭하면 보건일지가 연결됩니다.</div>'
         +     '<div style="font-size:11px;color:#9a3412;margin-top:6px;font-weight:700;line-height:1.6">💡 매칭 작업은 추후에 할 수 있으나 가급적 빨리 완료하는 것을 권합니다.</div>'
         +   '</div>'
-        +   '<button id="apNameDupOpenBtn" style="padding:9px 16px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border:none;border-radius:9px;cursor:pointer;box-shadow:0 3px 9px rgba(234,88,12,0.30);white-space:nowrap">🔀 매칭 시작</button>'
+        +   '<button id="apNameDupOpenBtn" style="padding:9px 16px;font-size:12px;font-weight:800;background:#d97706;color:#fff;border:none;border-radius:9px;cursor:pointer;box-shadow:0 3px 9px rgba(234,88,12,0.30);white-space:nowrap">🔀 매칭 시작</button>'
         + '</div>';
       const card = document.getElementById('apNameDupAlertCard');
       const btn  = document.getElementById('apNameDupOpenBtn');
@@ -890,9 +890,9 @@ function _apConfirm(opts){
   const ov=document.createElement('div'); ov.id=id;
   ov.style.cssText='position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32);opacity:0;transition:opacity 0.15s ease';
   const danger=!!opts.danger;
-  const confirmBg=danger?'linear-gradient(135deg,#ef4444,#dc2626)':'var(--cyan)';
+  const confirmBg=danger?'#dc2626':'var(--cyan)';
   ov.innerHTML='<div id="_apConfirmBox" style="background:var(--card);border-radius:14px;width:420px;max-width:92vw;box-shadow:0 14px 40px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.18s ease,transform 0.18s ease">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));font-size:15px;font-weight:800;color:var(--t1)">'+escHtml(opts.title||'확인')+'</div>'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:15px;font-weight:800;color:var(--t1)">'+escHtml(opts.title||'확인')+'</div>'
     +'<div style="padding:18px 22px 14px"><div style="font-size:12.5px;color:var(--t2);line-height:1.7">'+(opts.message||'')+'</div>'
     +'<div style="height:1px;background:var(--bdr);margin:16px -22px 14px"></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end">'
@@ -1182,7 +1182,7 @@ function _pmShowDiagModal(title, msgHtml, diagText){
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;z-index:50001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
   ov.innerHTML = '<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:480px;max-width:94vw;max-height:88vh;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden;display:flex;flex-direction:column">'
-    + '<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(124,58,237,0.06));border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1);flex-shrink:0">' + title + '</div>'
+    + '<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1);flex-shrink:0">' + title + '</div>'
     + '<div style="padding:16px 18px 8px;font-size:12.5px;color:var(--t1);line-height:1.7;flex-shrink:0">' + msgHtml + '</div>'
     + '<div style="margin:0 18px 12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;font-family:var(--fm,monospace);font-size:10.5px;color:var(--t2);line-height:1.55;white-space:pre-wrap;word-break:break-all;overflow-y:auto;flex:1 1 auto;min-height:0">' + escHtml(diagText) + '</div>'
     + '<div style="display:flex;gap:6px;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--bdr);flex-shrink:0">'
@@ -2005,8 +2005,8 @@ function _apTbRenderListTable(){
   h+='<span id="apTbListCount" style="font-size:11px;font-weight:700;color:var(--t1)"></span>';
   h+='<button data-action="_apTbSort" data-arg="asc" id="apTbSortAsc" style="padding:3px 8px;font-size:9px;font-weight:600;border:1px solid var(--bdr);border-radius:4px;cursor:pointer;background:transparent;color:var(--t2);font-family:var(--f)">검사일 오름차순</button>';
   h+='<button data-action="_apTbSort" data-arg="desc" id="apTbSortDesc" style="padding:3px 8px;font-size:9px;font-weight:600;border:1px solid var(--bdr);border-radius:4px;cursor:pointer;background:transparent;color:var(--t2);font-family:var(--f)">검사일 내림차순</button>';
-  h+='<button data-action="_apTbExportExcel" style="margin-left:auto;padding:4px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none">📗 Excel 다운로드</button>';
-  h+='<button data-action="_apTbExportSheets" style="padding:4px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border:none">📊 Google Sheets로 보내기</button>';
+  h+='<button data-action="_apTbExportExcel" style="margin-left:auto;padding:4px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:#16a34a;color:#fff;border:none">📗 Excel 다운로드</button>';
+  h+='<button data-action="_apTbExportSheets" style="padding:4px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:#16a34a;color:#fff;border:none">📊 Google Sheets로 보내기</button>';
   h+='</div>';
   h+='<div style="border:1px solid var(--bdr);border-radius:8px;overflow:auto;background:var(--card);max-height:500px">';
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
@@ -2313,7 +2313,7 @@ function _apWtShowInline(id){
   const entries=rec.entries||[];
   let h='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">';
   h+='<span style="font-size:13px;font-weight:800;color:var(--t1)">'+s.grade+'학년 '+s.cls+'반 '+s.num+'번 '+escHtml(s.name)+'</span>';
-  if(entries.length) h+='<button data-action="_apWtOpenPopup" data-arg="'+id+'" style="padding:3px 10px;font-size:10px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">상세 보기</button>';
+  if(entries.length) h+='<button data-action="_apWtOpenPopup" data-arg="'+id+'" style="padding:3px 10px;font-size:10px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">상세 보기</button>';
   h+='<button data-action="_apWtRemoveStudent" data-arg="'+id+'" style="font-size:9px;padding:2px 6px;border:1px solid var(--bdr);border-radius:4px;background:transparent;color:var(--t3);cursor:pointer;font-family:var(--f)">관리 해제</button>';
   h+='</div>';
   /* 측정 기록 입력 */
@@ -2542,7 +2542,7 @@ function _apWtAllCharts(){
   h+='<div style="padding:14px 20px;background:var(--popup-head);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">';
   h+='<span style="font-size:15px;font-weight:800;color:var(--t1)">📊 전체 학생 BMI 추이 차트</span>';
   h+='<div style="display:flex;gap:6px;align-items:center">';
-  h+='<button data-action="_apWtDownloadAllCharts" style="padding:4px 12px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">📥 이미지 다운로드</button>';
+  h+='<button data-action="_apWtDownloadAllCharts" style="padding:4px 12px;font-size:10px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">📥 이미지 다운로드</button>';
   h+='<button data-action="closeWtAllOv" style="background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer">✕</button>';
   h+='</div></div>';
   h+='<div style="padding:20px;overflow-y:auto;flex:1" id="apWtAllBody">';
@@ -3063,7 +3063,7 @@ function _apCareExportSheets(){
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 내보내기</div></div>';
   html+='<div style="padding:18px">';
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
-    +'<div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#34a853,#1e8e3e);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>'
+    +'<div style="width:40px;height:40px;border-radius:8px;background:#1e8e3e;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>'
     +'<div><div style="font-size:13px;font-weight:700;color:var(--t1)">내 Google 드라이브에 저장</div>'
     +'<div style="font-size:10px;color:var(--t3)">새 스프레드시트가 자동으로 생성됩니다</div></div></div>';
   html+='<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:12px;font-size:11px;color:var(--t2)">';
@@ -3075,7 +3075,7 @@ function _apCareExportSheets(){
   html+=_pmSheetsFolderUiHtml();
   html+='</div>';
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
-  html+='<button id="careSheetsSendBtn2" style="padding:7px 22px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
+  html+='<button id="careSheetsSendBtn2" style="padding:7px 22px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
@@ -3137,8 +3137,8 @@ function _apCareExportSheets(){
             +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px">Google 계정 로그인이 필요합니다</div>'
             +'<div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">1단계: <b>로그인</b> → 새 창에서 Google 인증<br>2단계: <b>내보내기 재시도</b></div>'
             +'<div style="display:flex;gap:8px;justify-content:center">'
-            +'<a href="/auth/google/start?account=sheets" target="_blank" style="padding:10px 20px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);text-decoration:none">1️⃣ Google 로그인</a>'
-            +'<button id="careSheetsRetryBtn" style="padding:10px 20px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">2️⃣ 내보내기 재시도</button>'
+            +'<a href="/auth/google/start?account=sheets" target="_blank" style="padding:10px 20px;font-size:12px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);text-decoration:none">1️⃣ Google 로그인</a>'
+            +'<button id="careSheetsRetryBtn" style="padding:10px 20px;font-size:12px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">2️⃣ 내보내기 재시도</button>'
             +'</div></div>';
           setTimeout(function(){
             const rb=document.getElementById('careSheetsRetryBtn');
@@ -3269,7 +3269,7 @@ function _apCmBuildHtml(){
   const meta=_apCmItemMeta(cur);
   const careTxt=(st.metaFn?st.metaFn(cur):'')||'(내용 없음)';
   let h='<div class="modal-content" id="apCmBox" style="width:840px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:var(--card);border:1px solid rgba(0,0,0,0.08);box-shadow:0 24px 60px rgba(0,0,0,0.30);position:relative;padding:0">';
-  h+='<div class="acm-head" id="apCmDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#eef2f6,#e5e9ee);border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
+  h+='<div class="acm-head" id="apCmDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:#eef2f6;border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
     +'<span style="display:inline-flex;flex-direction:column;gap:2px;margin-right:2px;opacity:0.5"><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span></span>'
     +'<div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0">'
       +'<span style="font-size:13px;font-weight:700;color:var(--t1)">'+escHtml(st.title||'🔗 미매칭 수동 매칭')+'</span>'
@@ -3277,8 +3277,8 @@ function _apCmBuildHtml(){
     +'</div>'
     +'<span id="apCmCounter" style="font-size:10.5px;padding:3px 9px;background:rgba(6,182,212,0.10);color:var(--cyan);border-radius:10px;font-weight:700;flex-shrink:0">'+(st.idx+1)+' / '+total+'</span>'
     +'</div>';
-  h+='<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="apCmProgress" style="height:100%;background:linear-gradient(90deg,#06b6d4,#0891b2);width:'+pct+'%;transition:width .25s ease"></div></div>';
-  h+='<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:linear-gradient(180deg,rgba(6,182,212,0.04),transparent)">'
+  h+='<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="apCmProgress" style="height:100%;background:#0891b2;width:'+pct+'%;transition:width .25s ease"></div></div>';
+  h+='<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:rgba(6,182,212,0.04)">'
     +'<button class="acm-nav" data-acm-nav="prev" '+(st.idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid var(--bdr);background:var(--card);color:var(--t2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center'+(st.idx===0?';opacity:0.35;cursor:not-allowed':'')+'">◀</button>'
     +'<div style="flex:1;padding:8px 14px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:9px;display:flex;align-items:center;gap:10px">'
       +'<span style="font-size:16px">⚠</span>'
@@ -3357,7 +3357,7 @@ function _apCmDeptRowInner(){
 function _apCmClsHead(clsName,count,colorClass){
   const colorMap={c1:'#06b6d4,#0891b2',c2:'#8b5cf6,#6d28d9',c3:'#f59e0b,#d97706',c4:'#10b981,#047857',c5:'#ef4444,#b91c1c',c6:'#ec4899,#be185d'};
   const c=colorMap[colorClass]||colorMap.c1;
-  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:linear-gradient(135deg,'+c+')">'
+  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:'+c.split(',')[1]+'">'
     +'<span style="font-size:12px;font-weight:800">'+escHtml(clsName)+'반</span>'
     +'<span style="font-size:9px;font-weight:700;opacity:0.92;background:rgba(255,255,255,0.20);padding:1px 6px;border-radius:6px">'+count+'명</span>'
     +'</div>';
@@ -3912,7 +3912,7 @@ function _apCareOpenEditList(){
   const ov=document.createElement('div'); ov.id='apCareEditListOverlay';
   ov.style.cssText='position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.40);opacity:0;transition:opacity 0.18s ease';
   ov.innerHTML='<div id="apCareEditListBox" style="background:var(--card);border-radius:14px;width:720px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.18s ease,transform 0.18s ease">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;justify-content:space-between">'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;justify-content:space-between">'
       +'<span style="font-size:15px;font-weight:800;color:var(--t1)">🛡 요보호 & 미세먼지 기저질환 명단 <span id="apCareEditListCount" style="font-size:11px;color:var(--t3);font-weight:600"></span></span>'
       +'<span data-action="_apCareEditListClose" style="cursor:pointer;font-size:18px;color:var(--t3);padding:2px 6px">✕</span>'
     +'</div>'
@@ -4064,7 +4064,7 @@ function _apCareListPopup(){
   const ov=document.createElement('div');ov.id='apCareListPopup';
   ov.style.cssText='position:fixed;inset:0;z-index:10100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)';
   ov.innerHTML='<div style="background:var(--card);border-radius:14px;width:760px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.3);padding:0;position:relative">'
-    +'<div style="padding:16px 20px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;border-radius:14px 14px 0 0">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--glass-border);background:rgba(6,182,212,0.10);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;border-radius:14px 14px 0 0">'
     +'<span style="font-size:15px;font-weight:800;color:var(--t1)">🛡 '+(function(){const n=new Date();return(n.getMonth()>=2?n.getFullYear():n.getFullYear()-1);})()+'학년도 요보호 & 미세먼지 기저질환 학생 명단</span></div>'
     +'<div style="padding:16px 20px">'+_careListPanelHtml(careList,'')+'</div></div>';
   ov.addEventListener('click',function(e){if(e.target===ov)closeModalGracefully(ov);});
@@ -4103,8 +4103,8 @@ function _apSheetPopup(popupId,icon,titleText,sheetTitle,colHeaders,rows,copyId)
   h+='<div style="padding:12px 20px;flex-shrink:0">';
   h+='<div style="font-size:11px;color:var(--t3);margin-bottom:6px">총 '+rows.length+'명</div>';
   h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">';
-  h+='<button data-action="sheet-copy" style="'+_btnS+'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none">📋 클립보드 복사</button>';
-  h+='<button data-action="sheet-excel" style="'+_btnS+'background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none">📗 Excel 저장</button>';
+  h+='<button data-action="sheet-copy" style="'+_btnS+'background:#7c3aed;color:#fff;border:none">📋 클립보드 복사</button>';
+  h+='<button data-action="sheet-excel" style="'+_btnS+'background:#16a34a;color:#fff;border:none">📗 Excel 저장</button>';
   h+='<button class="btn-print" data-action="sheet-print">🖨 인쇄</button>';
   h+='</div></div>';
   h+='<div style="flex:1;overflow:auto;padding:0 20px 20px">';
@@ -4922,8 +4922,8 @@ function _apCareInlineRender(){
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">';
   h+='<div style="font-size:12px;font-weight:700;color:var(--t1)">📋 요보호 & 미세먼지 기저질환 명단 <span id="apCareInlineCount" style="font-size:10px;color:var(--t3);font-weight:600"></span></div>';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
-  h+='<button data-action="_apCareExportExcel" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none">📗 Excel 다운로드</button>';
-  h+='<button data-action="_apCareExportSheets" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border:none">📊 Google Sheets로 보내기</button>';
+  h+='<button data-action="_apCareExportExcel" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:#16a34a;color:#fff;border:none">📗 Excel 다운로드</button>';
+  h+='<button data-action="_apCareExportSheets" style="padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:#16a34a;color:#fff;border:none">📊 Google Sheets로 보내기</button>';
   h+='</div></div>';
   h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">';
   h+='<button class="btn-add" data-action="_apCareInlineFilter" data-arg="0" style="font-size:10px;height:26px;padding:0 10px;font-weight:700">전체</button>';
@@ -5205,7 +5205,7 @@ function _apStuListPopupRender(){
   const _spNow=new Date();const _spAy=_spNow.getMonth()>=2?_spNow.getFullYear():_spNow.getFullYear()-1;
   const _spLbl=(typeof isKinder==='function'&&isKinder())?'원아':'학생';
   let h='<div style="background:var(--card);border-radius:14px;width:900px;max-width:96vw;height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.3);overflow:hidden">';
-  h+='<div style="padding:16px 20px;border-bottom:1px solid var(--glass-border);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-radius:14px 14px 0 0"><span style="font-size:15px;font-weight:800;color:var(--t1)">🎒 '+_spAy+'학년도 '+_spLbl+' 명단</span></div>';
+  h+='<div style="padding:16px 20px;border-bottom:1px solid var(--glass-border);background:rgba(6,182,212,0.10);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-radius:14px 14px 0 0"><span style="font-size:15px;font-weight:800;color:var(--t1)">🎒 '+_spAy+'학년도 '+_spLbl+' 명단</span></div>';
   /* 컬럼 설정 영역 */
   h+='<div style="padding:10px 20px;border-bottom:1px solid var(--bdr);flex-shrink:0">';
   h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--t2)">🔧 열 필드 설정</span><span style="font-size:9px;color:var(--t3)">드래그로 순서 변경, 눈 아이콘으로 표시/숨김</span><button data-action="stu-undo-col" style="'+_btnS+'background:var(--bg2);color:var(--t2);border:1px solid var(--bdr);font-size:9px;padding:3px 8px" title="되돌리기 (Ctrl+Z)">↩ 되돌리기</button></div>';
@@ -5215,7 +5215,7 @@ function _apStuListPopupRender(){
   h+='<div style="padding:8px 20px;flex-shrink:0">';
   h+='<div class="pm-total-count" style="font-size:11px;color:var(--t3);margin-bottom:4px">총 0명</div>';
   h+='<div style="display:flex;gap:4px;flex-wrap:wrap">';
-  h+='<button data-action="stu-copy" style="'+_btnS+'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none">📋 클립보드 복사</button>';
+  h+='<button data-action="stu-copy" style="'+_btnS+'background:#7c3aed;color:#fff;border:none">📋 클립보드 복사</button>';
   h+='<button class="btn-print" data-action="stu-print">🖨 인쇄</button>';
   h+='</div></div>';
   /* 테이블 영역 */
@@ -5415,7 +5415,7 @@ function _apTbExportSheets(){
     html+='<div style="font-size:14px;font-weight:800;color:var(--t1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 내보내기</div></div>';
     html+='<div style="padding:18px">';
     html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
-      +'<div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#34a853,#1e8e3e);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>'
+      +'<div style="width:40px;height:40px;border-radius:8px;background:#1e8e3e;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>'
       +'<div><div style="font-size:13px;font-weight:700;color:var(--t1)">내 Google 드라이브에 저장</div>'
       +'<div style="font-size:10px;color:var(--t3)">새 스프레드시트가 자동으로 생성됩니다</div></div></div>';
     html+='<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:12px;font-size:11px;color:var(--t2)">';
@@ -5427,7 +5427,7 @@ function _apTbExportSheets(){
     html+=_pmSheetsFolderUiHtml();
     html+='</div>';
     html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
-    html+='<button id="tbSheetsSendBtn" style="padding:7px 22px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
+    html+='<button id="tbSheetsSendBtn" style="padding:7px 22px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
     html+='</div></div>';
     ov.innerHTML=html;
     ov.addEventListener('click',function(e){
@@ -5497,8 +5497,8 @@ function _apTbExportSheets(){
               +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px">Google 계정 로그인이 필요합니다</div>'
               +'<div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">1단계: 아래 <b>로그인</b> 버튼 클릭 → 새 창에서 Google 계정 인증<br>2단계: 인증 완료되면 <b>내보내기 재시도</b> 버튼 클릭</div>'
               +'<div style="display:flex;gap:8px;justify-content:center">'
-              +'<a href="/auth/google/start?account=sheets" target="_blank" style="padding:10px 20px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);text-decoration:none">1️⃣ Google 로그인</a>'
-              +'<button id="tbSheetsRetryBtn" style="padding:10px 20px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">2️⃣ 내보내기 재시도</button>'
+              +'<a href="/auth/google/start?account=sheets" target="_blank" style="padding:10px 20px;font-size:12px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);text-decoration:none">1️⃣ Google 로그인</a>'
+              +'<button id="tbSheetsRetryBtn" style="padding:10px 20px;font-size:12px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">2️⃣ 내보내기 재시도</button>'
               +'</div></div>';
             /* 재시도 버튼 바인딩 — 팝업 닫고 재실행 */
             setTimeout(function(){
@@ -5712,15 +5712,15 @@ function _ambBuildHtml(){
               +(cur.excelNum != null ? cur.excelNum+'번':'');
   let h = '<div class="modal-content amb-modal" id="ambModalBox" style="width:840px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:var(--card);border:1px solid rgba(0,0,0,0.08);box-shadow:0 24px 60px rgba(0,0,0,0.30);position:relative">';
   /* 헤더 (회색 + 드래그) */
-  h += '<div class="amb-head" id="ambDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#eef2f6,#e5e9ee);border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
+  h += '<div class="amb-head" id="ambDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:#eef2f6;border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
     + '<span style="display:inline-flex;flex-direction:column;gap:2px;margin-right:2px;opacity:0.5"><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span></span>'
     + '<span style="font-size:13px;font-weight:700;color:var(--t1);flex:1">🔗 신학기 명단 동명이인 매칭</span>'
     + '<span id="ambCounter" style="font-size:10.5px;padding:3px 9px;background:rgba(6,182,212,0.10);color:var(--cyan);border-radius:10px;font-weight:700">'+(st.idx+1)+' / '+total+'</span>'
     + '</div>';
   /* 진행 막대 */
-  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="ambProgress" style="height:100%;background:linear-gradient(90deg,#06b6d4,#0891b2);width:'+pct+'%;transition:width .25s ease"></div></div>';
+  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="ambProgress" style="height:100%;background:#0891b2;width:'+pct+'%;transition:width .25s ease"></div></div>';
   /* 좌우 네비 + 미매칭 정보 */
-  h += '<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:linear-gradient(180deg,rgba(6,182,212,0.04),transparent)">'
+  h += '<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:rgba(6,182,212,0.04)">'
     + '<button class="amb-nav" data-amb-nav="prev" '+(st.idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid var(--bdr);background:var(--card);color:var(--t2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center'+(st.idx===0?';opacity:0.35;cursor:not-allowed':'')+'">◀</button>'
     + '<div style="flex:1;padding:8px 14px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.20);border-radius:9px;display:flex;align-items:center;gap:10px">'
       + '<span style="font-size:16px">⚠</span>'
@@ -6029,7 +6029,7 @@ function _ambRenderClassGrid(){
     const cc = colorMap[cls];
     const cur_cls = (cur.excelClass != null && String(cur.excelClass) === String(c));
     h += '<div class="amb-cls-card" style="position:relative;border-radius:12px;padding:10px;display:flex;flex-direction:column;background:var(--card);border:1.5px solid var(--bdr);overflow:hidden;min-height:180px;max-height:240px'+(cur_cls?';box-shadow:0 0 0 2.5px rgba(6,182,212,0.30),0 4px 10px rgba(0,0,0,0.08)':'')+'">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:linear-gradient(135deg,'+cc+')">'
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:'+cc.split(',')[1]+'">'
        + '<span style="font-size:12px;font-weight:800">'+_ambEsc(c)+'반</span>'
        + '<span style="font-size:9px;font-weight:700;opacity:0.92;background:rgba(255,255,255,0.20);padding:1px 6px;border-radius:6px">'+stus.length+'명</span>'
        + '</div>';

@@ -1,6 +1,99 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 const { app, BrowserWindow, ipcMain, shell, screen, dialog, Menu } = require('electron');
 
+/* Main-window preferences are separate from school and user records. */
+function _createRememberedSchoolWindow(options) {
+  const windowFs = require('fs');
+  const windowPath = require('path');
+  const statePath = windowPath.join(app.getPath('userData'), 'school-window-state.json');
+  let saved = null;
+  try {
+    const candidate = JSON.parse(windowFs.readFileSync(statePath, 'utf8'));
+    const bounds = candidate && candidate.bounds;
+    if (bounds && ['x', 'y', 'width', 'height'].every(function (key) {
+      return Number.isFinite(bounds[key]);
+    }) && bounds.width > 0 && bounds.height > 0) saved = candidate;
+  } catch (_) { /* A missing or invalid preference uses the first-launch size. */ }
+
+  const primary = screen.getPrimaryDisplay();
+  const displays = screen.getAllDisplays();
+  let display = primary;
+  if (saved) {
+    const previousDisplay = displays.find(function (item) { return item.id === saved.displayId; });
+    if (previousDisplay) {
+      display = previousDisplay;
+    } else {
+      let largestOverlap = 0;
+      displays.forEach(function (item) {
+        const area = item.workArea;
+        const bounds = saved.bounds;
+        const overlap = Math.max(0, Math.min(bounds.x + bounds.width, area.x + area.width) - Math.max(bounds.x, area.x))
+          * Math.max(0, Math.min(bounds.y + bounds.height, area.y + area.height) - Math.max(bounds.y, area.y));
+        if (overlap > largestOverlap) { display = item; largestOverlap = overlap; }
+      });
+    }
+  }
+  const area = display.workArea;
+  const minWidth = Math.min(800, area.width);
+  const minHeight = Math.min(600, area.height);
+  // Migrate legacy default-sized windows once without overriding other saved sizes.
+  const legacyDefaultSize = saved && Number(saved.defaultSizeVersion || 1) < 2
+    && saved.bounds.width === Math.min(1200, area.width)
+    && saved.bounds.height === Math.min(800, area.height);
+  const useSavedSize = saved && !legacyDefaultSize;
+  const width = Math.min(area.width, Math.max(minWidth, Math.round(useSavedSize ? saved.bounds.width : 1800)));
+  const height = Math.min(area.height, Math.max(minHeight, Math.round(useSavedSize ? saved.bounds.height : 1200)));
+  const overlapsDisplay = useSavedSize && saved.bounds.x < area.x + area.width
+    && saved.bounds.x + saved.bounds.width > area.x && saved.bounds.y < area.y + area.height
+    && saved.bounds.y + saved.bounds.height > area.y;
+  let normalBounds = {
+    x: overlapsDisplay ? Math.max(area.x, Math.min(Math.round(saved.bounds.x), area.x + area.width - width)) : area.x + Math.round((area.width - width) / 2),
+    y: overlapsDisplay ? Math.max(area.y, Math.min(Math.round(saved.bounds.y), area.y + area.height - height)) : area.y + Math.round((area.height - height) / 2),
+    width: width,
+    height: height
+  };
+  let maximized = !!(saved && saved.maximized === true);
+  const win = new BrowserWindow(Object.assign({}, options, normalBounds, { minWidth: minWidth, minHeight: minHeight }));
+  let saveTimer = null;
+
+  function captureNormalBounds() {
+    if (win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
+    maximized = win.isMaximized();
+    if (!maximized) normalBounds = win.getBounds();
+  }
+  function saveWindowState() {
+    if (win.isDestroyed()) return;
+    captureNormalBounds();
+    try {
+      const state = {
+        defaultSizeVersion: 2,
+        bounds: normalBounds,
+        maximized: maximized,
+        displayId: screen.getDisplayMatching(normalBounds).id
+      };
+      windowFs.mkdirSync(windowPath.dirname(statePath), { recursive: true });
+      windowFs.writeFileSync(statePath + '.tmp', JSON.stringify(state, null, 2), 'utf8');
+      windowFs.renameSync(statePath + '.tmp', statePath);
+    } catch (error) {
+      console.warn('[window-state] Could not save window preferences:', error.message);
+    }
+  }
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveWindowState, 350);
+  }
+  win.on('move', scheduleSave);
+  win.on('resize', scheduleSave);
+  win.on('maximize', function () { maximized = true; scheduleSave(); });
+  win.on('unmaximize', function () { maximized = false; scheduleSave(); });
+  win.on('minimize', function () { clearTimeout(saveTimer); saveWindowState(); });
+  win.on('close', function () { clearTimeout(saveTimer); saveWindowState(); });
+  win.on('closed', function () { clearTimeout(saveTimer); });
+  if (maximized) win.maximize();
+  return win;
+}
+
+
 /* 사전공개 Beta 만료일 (표시용) — 배지/메시지에 "이 날짜까지" 로 노출되는 공식 만료일.
    배지의 "남은 일수: O일" 도 이 값을 단일 출처로 계산. */
 const BETA_EXPIRES_AT = '2026-05-31';
@@ -140,17 +233,13 @@ function createSplashWindow() {
 }
 
 function createMainWindow() {
-  /* 처음부터 화면 작업영역 크기로 생성(show:false 라 화면엔 안 보임) → 렌더러가 전체화면 기준으로 레이아웃하므로
-     이후 show+maximize 해도 '왼쪽으로 쏠렸다 정상화'되는 재배치가 없다. 최소 1680×900 보장. (2026-06-24) */
+  // Start within the display work area; the responsive renderer handles smaller windows.
   const { width: _sw, height: _sh } = screen.getPrimaryDisplay().workAreaSize;
-  const win = new BrowserWindow({
-    /* 가로 1680 — 전광판이 일반 일지 표 헤더의 "내림차순" 버튼을 절대 덮지 않는 마지노선.
-     * 2026-05-10 사용자 환경에서 직접 측정하여 확정 (Win32 GetWindowRect, 외곽 기준).
-     * 이 값보다 작게 줄이면 헤더 영역에서 버튼이 가려지므로 minWidth 로 강제 잠금. */
-    width: Math.max(1680, _sw),
-    height: Math.max(900, _sh),
-    minWidth: 1680,
-    minHeight: 900,
+  const win = _createRememberedSchoolWindow({
+    title: '오렌지톡 | 초.중.고등학교 v' + app.getVersion(),
+    minWidth: Math.min(800, _sw),
+    minHeight: Math.min(600, _sh),
+    resizable: true,
     show: false,
     backgroundColor: '#0a0e17',
     icon: path.join(__dirname, 'assets', 'logo', 'logo_big.png'),
@@ -162,6 +251,8 @@ function createMainWindow() {
     }
   });
 
+  // Preserve the product and app version in the native window title.
+  win.on('page-title-updated', (event) => event.preventDefault());
   win.loadFile('health_diary.html');
   _bindDevToolsShortcut(win);
 
@@ -354,7 +445,6 @@ app.whenReady().then(() => {
     if (_mainShown || !mainWindow || mainWindow.isDestroyed()) return;
     _mainShown = true;
     mainWindow.show();
-    mainWindow.maximize();
     mainWindow.focus();
     try { if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close(); } catch (_) {}
     splashWindow = null;

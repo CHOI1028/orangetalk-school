@@ -80,7 +80,7 @@ export function showOrangefarmNotice(){
     box.className = 'ofarmNoticeBox';
     box.style.cssText = 'flex:0 1 auto;width:' + boxMaxW + ';max-height:94vh;background:var(--card);border-radius:16px;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.40);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.22s ease,transform 0.22s ease';
     box.innerHTML =
-      '<div style="padding:16px 22px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:10px;flex-shrink:0">'
+      '<div style="padding:16px 22px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:10px;flex-shrink:0">'
       +   '<span style="font-size:20px">' + NOTICE.emoji + '</span>'
       +   '<div style="font-size:15px;font-weight:800;color:var(--t1);flex:1">' + _esc(NOTICE.title) + '</div>'
       + '</div>'

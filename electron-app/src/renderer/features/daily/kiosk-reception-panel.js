@@ -18,7 +18,7 @@
 import { escHtml, createEmptyState, getStu } from '../../core/helpers.js';
 import { openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
-import { S, DEFAULT_RELAY_URL, addRecord, saveKioskSettings } from '../../core/app-state.js';
+import { S, DEFAULT_RELAY_URL, addRecord, saveKioskSettings, refreshSharedKioskSettings } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
 import { rentalAddFromKiosk, rentalMarkReturnedFromKiosk } from './rental-ledger-view.js';
 import { deriveRosterKey, encryptJson } from '../../core/kiosk-roster-crypto.js';
@@ -103,6 +103,86 @@ let _callCounts = {};
 let _connected = false;
 let _kioskClientCount = 0; /* 현재 접속 중인 키오스크 HTML 수 — 서버 kiosk_count push (2026-06-11) */
 let _reconnectTimer = null;
+let _connectionKey='', _queueChannel='', _rejectedConnectionKey='';
+let _connectionGeneration=0, _queueRevision=0;
+let _queueRequest=null, _reconcileTimer=null;
+const _completingReceptions=new Set();
+
+function _cfgKey(cfg){return JSON.stringify([cfg.relayUrl,cfg.channelId,cfg.nurseToken]);}
+
+/* Support structured WS rows and the older flat HTTP queue format. */
+function _normalizeReception(row){
+  if(!row || (typeof row.id!=='string' && typeof row.id!=='number') || String(row.id)==='') return null;
+  const old=_receptions.find(function(r){return String(r.id)===String(row.id);});
+  const rec=Object.assign({},old||{},row,{id:String(row.id),_fromLan:false});
+  try{
+    let person=row.person;
+    if(typeof person==='string') person=JSON.parse(person);
+    if(!person || typeof person!=='object' || Array.isArray(person)){
+      person=(old && old.person) || {uid:row.uid||row.student_uid||'',name:row.student_name||row.name||'',
+        grade:row.grade||0,cls:row.class_num||0,num:row.student_num||0};
+    }
+    rec.person=person;
+    ['options','symptoms','treatments','bodymap'].forEach(function(key){
+      if(typeof rec[key]==='string') rec[key]=JSON.parse(rec[key]);
+      if(rec[key]==null) rec[key]=[];
+      if(!Array.isArray(rec[key])) throw new Error('Invalid reception');
+    });
+    return _enrichPersonByUid(rec);
+  }catch(_){return null;}
+}
+
+function _replaceRelayQueue(rows){
+  if(!Array.isArray(rows)) return false;
+  const next=new Map();
+  for(const row of rows){
+    const rec=_normalizeReception(row);
+    if(!rec) return false;
+    if(!_completingReceptions.has(rec.id)) next.set(rec.id,rec);
+  }
+  _receptions=_receptions.filter(function(r){return r._fromLan;}).concat(Array.from(next.values()));
+  const ids=new Set(_receptions.map(function(r){return String(r.id);}));
+  Object.keys(_callCounts).forEach(function(id){if(!ids.has(id)) delete _callCounts[id];});
+  _queueRevision++;
+  _syncToSidebar();_render();
+  return true;
+}
+
+/* Bounded, disposable queue reads recover missed socket messages. */
+async function _pollRelayQueue(){
+  if(_queueRequest || !S.kioskSettings.active || (window.__isWebBrowser && !S._kioskSharedLoaded)) return;
+  const cfg=_getCfg(), key=_cfgKey(cfg);
+  if(!cfg.relayUrl || !cfg.channelId || !cfg.nurseToken || key===_rejectedConnectionKey) return;
+  const generation=_connectionGeneration, revision=_queueRevision;
+  const controller=new AbortController();
+  _queueRequest=controller;
+  const timeout=setTimeout(function(){controller.abort();},8000);
+  try{
+    const response=window.__isWebBrowser
+      ? await fetch('/api/ipc/kiosk-get-receptions',{
+          method:'POST',headers:{'Content-Type':'application/json','X-Session-Id':sessionStorage.getItem('_webSessionId')||''},
+          body:JSON.stringify({relayUrl:cfg.relayUrl,channelId:cfg.channelId,nurseToken:cfg.nurseToken}),
+          signal:controller.signal,cache:'no-store'})
+      : await fetch(cfg.relayUrl+'/api/v1/nurse/receptions/'+encodeURIComponent(cfg.channelId),{
+          headers:{'Authorization':'Bearer '+cfg.nurseToken},signal:controller.signal,cache:'no-store'});
+    if(!response.ok) return;
+    const result=await response.json();
+    if(controller.signal.aborted || generation!==_connectionGeneration || revision!==_queueRevision ||
+       key!==_cfgKey(_getCfg()) || !S.kioskSettings.active) return;
+    if(result && result.success===true && Array.isArray(result.receptions)) _replaceRelayQueue(result.receptions);
+  }catch(_){ /* Keep the last known queue while offline. */ }
+  finally{
+    clearTimeout(timeout);
+    if(_queueRequest===controller) _queueRequest=null;
+  }
+}
+
+async function _reconcileKiosk(){
+  if(window.__isWebBrowser) await refreshSharedKioskSettings();
+  if(!S.kioskSettings.active){_disconnectQuiet();_render();return;}
+  _connect();
+  await _pollRelayQueue();
+}
 
 function _getCfg(){
   const ks = S.kioskSettings || {};
@@ -216,9 +296,8 @@ function _connStatusHtml(){
 function _render(){
   const panel = _ensurePanel();
   const collapsed = localStorage.getItem('ec_kiosk_panel_collapsed')==='1';
-  if(_receptions.length===0 || _kioskClientCount===0){
-    /* 대기자 없거나 키오스크가 한 대도 연결돼 있지 않으면 숨김 — 키오스크 삭제/종료 시 패널도 꺼짐 (사용자 결정 2026-06-11).
-     *  접수 데이터는 보존 — 키오스크가 다시 붙으면 그대로 다시 표시. */
+  if(!S.kioskSettings.active || _receptions.length===0){
+    /* Waiting visitors remain visible even when the kiosk disconnects. */
     panel.style.display = 'none';
     return;
   }
@@ -228,7 +307,7 @@ function _render(){
     ? '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;font-weight:800">'+_receptions.length+'</span>'
     : '';
 
-  let html = '<div data-action="toggleCollapse" style="padding:10px 12px;background:linear-gradient(135deg,rgba(6,182,212,0.08),var(--bg2));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;cursor:grab;user-select:none">';
+  let html = '<div data-action="toggleCollapse" style="padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;cursor:grab;user-select:none">';
   html += '<span style="font-size:14px">🏥</span>';
   html += '<span style="font-size:12px;font-weight:800;color:var(--t1)">키오스크 수신</span>';
   html += waitCountBadge;
@@ -681,135 +760,139 @@ function _ack(receptionId){
 }
 
 function _complete(receptionId){
-  const rec=_receptions.find(function(r){return r.id===receptionId;});
+  receptionId=String(receptionId);
+  const rec=_receptions.find(function(r){return String(r.id)===receptionId;});
   /* LAN 접수는 로컬만 제거 (릴레이 서버 호출 불필요) */
   if(!(rec&&rec._fromLan)){
     const cfg = _getCfg();
     if(cfg.relayUrl&&cfg.nurseToken&&cfg.channelId){
+      _completingReceptions.add(receptionId);
       fetch(cfg.relayUrl+'/api/v1/nurse/receptions/'+encodeURIComponent(cfg.channelId)+'/'+encodeURIComponent(receptionId)+'/complete',{
-        method:'POST',
+        method:'POST',signal:AbortSignal.timeout(8000),
         headers:{'Authorization':'Bearer '+cfg.nurseToken,'Content-Type':'application/json'}
-      }).catch(function(){});
+      }).then(function(response){if(!response.ok) throw new Error('Completion failed');})
+        .catch(function(){_toast('접수 완료를 전송하지 못했습니다. 연결이 복구되면 대기 목록을 다시 확인합니다.');})
+        .finally(function(){_completingReceptions.delete(receptionId);_queueRevision++;});
     }
   }
+  _queueRevision++;
   _receptions = _receptions.filter(function(r){return r.id!==receptionId;});
   delete _callCounts[receptionId];
   _syncToSidebar();
   _render();
 }
 
-/* ══ WebSocket 연결 ══ */
+/* Reconnect on channel/credential changes, ignoring callbacks from older sockets. */
 function _connect(){
-  const cfg = _getCfg();
-  console.log('[KIOSK-PANEL] _connect cfg:', JSON.stringify({channelId:cfg.channelId,nurseToken:cfg.nurseToken?cfg.nurseToken.substring(0,8)+'...':'(empty)',relayUrl:cfg.relayUrl}));
-  if(!cfg.relayUrl||!cfg.nurseToken||!cfg.channelId)return;
-  if(_ws && _ws.readyState!==WebSocket.CLOSED) return;
-  const wsUrl = cfg.relayUrl.replace(/^http/,'ws')+'/ws?role=nurse&token='+encodeURIComponent(cfg.nurseToken);
-  try {
-    _ws = new WebSocket(wsUrl);
-  } catch(e){
-    console.error('[KIOSK-PANEL] WebSocket 생성 실패:',e);
-    return;
+  if(!S.kioskSettings.active || (window.__isWebBrowser && !S._kioskSharedLoaded)) return;
+  const cfg=_getCfg(), key=_cfgKey(cfg);
+  if(!cfg.relayUrl || !cfg.nurseToken || !cfg.channelId){_disconnectQuiet();return;}
+  if(key===_rejectedConnectionKey) return;
+  if(_ws && _connectionKey===key && (_ws.readyState===WebSocket.CONNECTING || _ws.readyState===WebSocket.OPEN)) return;
+  _disconnectQuiet();
+  const channel=JSON.stringify([cfg.relayUrl,cfg.channelId]);
+  const channelChanged=!!_queueChannel && _queueChannel!==channel;
+  _queueChannel=channel;
+  _connectionKey=key;
+  if(channelChanged){
+    _receptions=_receptions.filter(function(r){return r._fromLan;});
+    _callCounts={};_queueRevision++;
   }
-  _ws.onopen = function(){
-    _connected = true;
-    /* 새 연결 — 키오스크 수를 0으로 초기화하고 릴레이의 권위값(접속 즉시 보내는 kiosk_count, server.js:295)을 기다린다.
-     *  이걸 안 하면 이전 세션의 stale 값(>0)이 남아 실제 키오스크가 없는데도 "(연결됨)"이 뜬다. (2026-06-11 버그수정) */
-    _kioskClientCount = 0;
-    window._kioskClientCnt = 0;
-    console.log('[KIOSK-PANEL] 릴레이 서버 연결됨');
-    bus.emit('kiosk:relay-status', true);
-    _render();
+  const wsUrl=cfg.relayUrl.replace(/^http/,'ws')+'/ws?role=nurse&token='+encodeURIComponent(cfg.nurseToken);
+  let socket;
+  try{socket=new WebSocket(wsUrl);_ws=socket;}
+  catch(_){_reconnectTimer=setTimeout(_connect,5000);return;}
+  if(channelChanged){_syncToSidebar();_render();}
+  socket.onopen=function(){
+    if(_ws!==socket) return;
+    _connected=true;
+    _kioskClientCount=0;window._kioskClientCnt=0;
+    bus.emit('kiosk:relay-status',true);
+    _render();_pollRelayQueue();
   };
-  _ws.onmessage = function(ev){
-    try {
-      const msg = JSON.parse(ev.data);
+  socket.onmessage=function(ev){
+    if(_ws!==socket) return;
+    try{
+      const msg=JSON.parse(ev.data);
       if(msg.type==='queue_snapshot'){
-        const arr = (msg.payload && msg.payload.receptions) || [];
-        _receptions = arr.map(_enrichPersonByUid);
-        _syncToSidebar();
+        _replaceRelayQueue(msg.payload && msg.payload.receptions);
+      }else if(msg.type==='reception_new'){
+        const rec=_normalizeReception(msg.payload);
+        if(!rec || _completingReceptions.has(rec.id)) return;
+        const index=_receptions.findIndex(function(r){return String(r.id)===rec.id;});
+        if(index<0) _receptions.push(rec); else _receptions[index]=rec;
+        _queueRevision++;_syncToSidebar();
+        if(index<0){
+          try{new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play();}catch(_){}
+          _toast('키오스크 접수: '+((rec.person && rec.person.name)||'방문자'));
+        }
         _render();
-      } else if(msg.type==='reception_new'){
-        /* 새 접수 추가 — 릴레이는 UID 만 보내므로 자기 DB 에서 인적사항 보강 */
-        if(msg.payload){
-          const rec = _enrichPersonByUid(msg.payload);
-          _receptions.push(rec);
-          _syncToSidebar();
-          /* 알림음 — 간단한 beep */
-          try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); } catch(e){}
-          {
-            const n = (rec.person && rec.person.name) || '방문자';
-            _toast('🏥 키오스크 접수: '+n);
-          }
-          _render();
-        }
-      } else if(msg.type==='reception_complete'){
-        if(msg.payload){
-          _receptions = _receptions.filter(function(r){return r.id!==msg.payload.id;});
-          delete _callCounts[msg.payload.id];
-          _syncToSidebar();
-          _render();
-        }
-      } else if(msg.type==='roster_request'){
-        /* 키오스크가 명단을 요청 — 요청분만 추려 (이름은) 암호화해 그 기기에만 회신 (2026-06-14) */
+      }else if(msg.type==='reception_complete' && msg.payload && msg.payload.id!=null){
+        const id=String(msg.payload.id);
+        _receptions=_receptions.filter(function(r){return String(r.id)!==id;});
+        delete _callCounts[id];_queueRevision++;
+        _syncToSidebar();_render();
+      }else if(msg.type==='roster_request'){
         _handleRosterRequest(msg.payload);
-      } else if(msg.type==='kiosk_count'){
-        /* 키오스크 클라이언트 접속 수 → 연결 표시·사이드바 갱신.
-         *  "연결됨"은 키오스크 HTML 이 실제로 붙어 있을 때만 (사용자 결정 2026-06-11). */
-        var cnt = (msg.payload && msg.payload.count) || 0;
-        _kioskClientCount = cnt;
-        window._kioskClientCnt = cnt; /* 설정 토글 라벨 애니메이션 타이머가 이 값을 읽음 (kiosk-cms-view, 2026-06-11) */
-        bus.emit('kiosk:client-count', cnt);
+      }else if(msg.type==='kiosk_count'){
+        _kioskClientCount=Math.max(0,Number(msg.payload && msg.payload.count)||0);
+        window._kioskClientCnt=_kioskClientCount;
+        bus.emit('kiosk:client-count',_kioskClientCount);
         _render();
-      } else if(msg.type==='nurse_call_sent'){
-        /* 호출 전송 확인 — 토스트는 _call에서 이미 표시 */
       }
-    } catch(e){ console.error('[KIOSK-PANEL] 메시지 파싱 실패',e); }
+    }catch(_){console.warn('[KIOSK-PANEL] Invalid relay message');}
   };
-  _ws.onclose = function(ev){
-    _connected = false;
-    _kioskClientCount = 0; /* 서버와 끊기면 키오스크 수도 알 수 없음 — 리셋. 라벨은 타이머가 "(연결 시도중...)"로 (2026-06-11) */
-    window._kioskClientCnt = 0;
-    _ws = null;
-    console.log('[KIOSK-PANEL] WebSocket 닫힘 code:'+ev.code+' reason:'+ev.reason);
-    bus.emit('kiosk:relay-status', false);
+  socket.onclose=function(ev){
+    if(_ws!==socket) return;
+    _ws=null;_connectionGeneration++;
+    _connected=false;_kioskClientCount=0;window._kioskClientCnt=0;
+    bus.emit('kiosk:relay-status',false);
     _render();
-    /* 서버가 토큰/채널 거부(4001) → 채널 정보 삭제 + 비활성화 */
     if(ev.code===4001){
-      console.log('[KIOSK-PANEL] 채널 무효 (4001) — 채널 삭제 + 비활성화');
+      _rejectedConnectionKey=key;
+      if(window.__isWebBrowser){
+        // A stale browser token must not disable the host's shared kiosk.
+        refreshSharedKioskSettings();
+        return;
+      }
       S.kioskSettings.channelId='';
       S.kioskSettings.authToken='';
+      S.kioskSettings.nurseToken='';
       S.kioskSettings.active=false;
       saveKioskSettings();
-      bus.emit('toast:show',{text:'⚠️ 릴레이 채널이 만료되었습니다. 키오스크를 다시 활성화해 주세요.'});
+      _toast('릴레이 채널이 만료되었습니다. 키오스크를 다시 활성화해 주세요.');
       bus.emit('kiosk:sidebar-refresh');
       return;
     }
-    /* 그 외: 5초 후 재연결 */
-    if(_reconnectTimer)clearTimeout(_reconnectTimer);
-    _reconnectTimer = setTimeout(_connect, 5000);
+    if(_reconnectTimer) clearTimeout(_reconnectTimer);
+    if(S.kioskSettings.active) _reconnectTimer=setTimeout(_connect,5000);
   };
-  _ws.onerror = function(e){
-    console.error('[KIOSK-PANEL] WebSocket 오류',e);
-  };
+  socket.onerror=function(){ /* onclose and periodic reconciliation recover. */ };
 }
 
 function _disconnectQuiet(){
   if(_reconnectTimer){clearTimeout(_reconnectTimer);_reconnectTimer=null;}
-  if(_ws){try{_ws.onclose=null;_ws.close();}catch(e){}_ws=null;}
-  _connected=false;
-  /* onclose 를 null 로 막고 닫으므로 onclose 의 리셋이 안 돈다 — 여기서 직접 키오스크 수 0 으로.
-   *  안 하면 비활성화 후 재활성화 시 stale 값으로 "(연결됨)" 오표시. (2026-06-11 버그수정) */
-  _kioskClientCount=0;
-  window._kioskClientCnt=0;
+  _connectionGeneration++;
+  if(_queueRequest){_queueRequest.abort();_queueRequest=null;}
+  if(_ws){
+    const socket=_ws;_ws=null;
+    socket.onopen=null;socket.onmessage=null;socket.onclose=null;socket.onerror=null;
+    try{socket.close();}catch(_){}
+  }
+  _connectionKey='';_connected=false;
+  _kioskClientCount=0;window._kioskClientCnt=0;
 }
 let _rosterChangedListenerSet=false;
 function _init(){
   /* 명단 변동 시 → 연결된 키오스크에 캐시 무효화 신호(이름 없음) 발사 (2026-06-14) */
   if(!_rosterChangedListenerSet){ _rosterChangedListenerSet=true; bus.on('kiosk:roster-changed', kioskBroadcastRosterChanged); }
   /* active일 때만 릴레이 연결 */
-  var _lsRaw=localStorage.getItem('ec_kiosk')||'(null)';
-  console.warn('[KIOSK-INIT] S.active='+S.kioskSettings.active+' S.channelId='+(S.kioskSettings.channelId||'NONE')+' ls='+_lsRaw.substring(0,120));
+  if(!_reconcileTimer){
+    _reconcileTimer=setInterval(_reconcileKiosk,15000);
+    window.addEventListener('online',_reconcileKiosk);
+    document.addEventListener('visibilitychange',function(){if(!document.hidden) _reconcileKiosk();});
+  }
+  _reconcileKiosk();
   if(S.kioskSettings.active){
     var cfg = _getCfg();
     if(cfg.relayUrl && cfg.channelId && cfg.nurseToken){
@@ -1011,7 +1094,7 @@ bus.on('kiosk:sidebar-refresh', function(){
     return;
   }
   var cfg = _getCfg();
-  if(cfg.relayUrl && cfg.channelId && cfg.nurseToken && !_connected){
+  if(cfg.relayUrl && cfg.channelId && cfg.nurseToken){
     _connect();
   }
   _render();

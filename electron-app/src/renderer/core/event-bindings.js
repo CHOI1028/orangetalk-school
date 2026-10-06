@@ -30,6 +30,7 @@ import { sidebarSearch, toggleSideCharts, goToPrevDay, goToNextDay, dailySortByT
 import { dailyAutoComplete, dailySearchKeydown, selectStudent } from '../features/daily/daily-autocomplete.js';
 import { openRentalLedger } from '../features/daily/rental-ledger-view.js';
 import { openDiaryPrint } from '../features/daily/diary-print-view.js';
+import { initDailyPeriodSearch } from '../features/daily/daily-period-view.js';
 
 /* ── stats ── */
 import { setStatsPeriod } from '../features/stats/stats-view.js';
@@ -136,7 +137,10 @@ document.addEventListener('DOMContentLoaded', function(){
         hasAnyPeople = (stuCnt + stfCnt) > 0;
       } catch(_){}
       if(hasAnyPeople){
-        const ok = await appConfirmModal('현재 데이터베이스와 학교급이 다릅니다.<br><br>계속하시겠습니까?','학교급 변경 확인', { okLabel:'계속', cancelLabel:'취소' });
+        const levelNames={kindergarten:'유치원',elementary:'초등학교',middle:'중학교',high:'고등학교',special:'특수학교'};
+        const storedName=levelNames[S._existingSchoolGroup] || '기존 학교급';
+        const selectedName=levelNames[level] || '다른 학교급';
+        const ok = await appConfirmModal('이 PC에는 <b>'+storedName+'</b> 기준으로 등록된 학생·교직원 자료가 있습니다.<br>지금 선택한 학교급은 <b>'+selectedName+'</b>입니다.<br><br>잘못 선택했다면 <b>다시 선택</b>을 눌러 주세요. 새 사용자를 이 학교급으로 등록하려면 <b>선택한 학교급으로 계속</b>을 눌러 주세요.<br><br>이 확인만으로 기존 명단을 삭제하거나 이관하지는 않습니다.','등록할 학교급을 확인해 주세요', { okLabel:'선택한 학교급으로 계속', cancelLabel:'다시 선택', vertical:true });
         if(!ok) return;
       }
     }
@@ -182,10 +186,14 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   on($id('advSearchSidebarBtn'), 'click', function(){
     /* 현재 활성 탭에 따라 콜백 분기: 응급→ecSelectStudent, 감염→infSelectStudent, 일반→selectStudent */
-    let _activeTab='';
-    try{const _at=document.querySelector('#view-daily .daily-cat-tab.active');if(_at)_activeTab=_at.textContent.trim();}catch(e){}
-    const _isEc=_activeTab.indexOf('응급')!==-1;
-    const _isInf=_activeTab.indexOf('감염')!==-1;
+    let _activeTab='general';
+    const _dailyView=document.getElementById('view-daily');
+    if(_dailyView && getComputedStyle(_dailyView).display!=='none'){
+      const _at=_dailyView.querySelector(':scope > .school-subnav > .magic-index-tab.active');
+      if(_at)_activeTab=_at.dataset.cat||'general';
+    }
+    const _isEc=_activeTab==='emergency';
+    const _isInf=_activeTab==='infection';
     openAdvancedSearch(function(id){
       if(_isEc) ecSelectStudent(id);
       else if(_isInf) infSelectStudent(id);
@@ -504,6 +512,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     e.preventDefault();
     /* 모달별 닫기 방법 — show 클래스 제거 또는 remove */
+    if(typeof top._onModalClose === 'function'){ top._onModalClose(); return; }
     if(top.classList.contains('show') && top.classList.contains('modal-overlay')){
       top.classList.remove('show');
     } else {
@@ -612,6 +621,7 @@ document.addEventListener('DOMContentLoaded', function(){
  * ═══════════════════════════════════════ */
 
 export function bindViewDailyEvents(){
+  initDailyPeriodSearch();
   function $id(id){ return document.getElementById(id); }
   function on(el, ev, fn){ if(el) el.addEventListener(ev, fn); }
 

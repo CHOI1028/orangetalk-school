@@ -362,7 +362,7 @@ function _gp2UpdateDateWidgets(){
     const dayPassed=now.getHours()*60+now.getMinutes();
     const dayPct=Math.round(dayPassed/1440*100);
     todayEl.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--cyan)">오늘</span><span style="font-size:9px;color:var(--t3)">'+dayPct+'%</span></div>'
-      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+dayPct+'%;height:100%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:2px"></div></div>';
+      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+dayPct+'%;height:100%;background:#d97706;border-radius:2px"></div></div>';
   }
   /* 이번 달 */
   const moStart=new Date(yr,mo,1);
@@ -373,7 +373,7 @@ function _gp2UpdateDateWidgets(){
   const moEl=document.getElementById('gp2DwMonth');
   if(moEl){
     moEl.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--t2)">이번 달</span><span style="font-size:9px;color:var(--t3)">'+moPct+'%</span></div>'
-      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+moPct+'%;height:100%;background:linear-gradient(90deg,#f472b6,#ec4899);border-radius:2px"></div></div>';
+      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+moPct+'%;height:100%;background:#f472b6;border-radius:2px"></div></div>';
   }
   /* 올해 */
   const yearStart=new Date(yr,0,1);
@@ -384,7 +384,7 @@ function _gp2UpdateDateWidgets(){
   const yearEl=document.getElementById('gp2DwYear');
   if(yearEl){
     yearEl.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--t2)">올해</span><span style="font-size:9px;color:var(--t3)">'+yearPct+'%</span></div>'
-      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+yearPct+'%;height:100%;background:linear-gradient(90deg,#06b6d4,#3b82f6);border-radius:2px"></div></div>';
+      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+yearPct+'%;height:100%;background:#0891b2;border-radius:2px"></div></div>';
   }
   /* 이번 학기 (3~8월:1학기, 9~2월:2학기) */
   let sem, semStart, semEnd;
@@ -397,7 +397,7 @@ function _gp2UpdateDateWidgets(){
   const semEl=document.getElementById('gp2DwSemester');
   if(semEl){
     semEl.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;font-weight:700;color:var(--t2)">이번 학기</span><span data-action="setSemesterEnd" style="cursor:pointer;opacity:0.4;transition:opacity 0.15s" title="방학식 날짜 설정"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span></div><span style="font-size:9px;color:var(--t3)">'+semPct+'%</span></div>'
-      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+semPct+'%;height:100%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:2px"></div></div>';
+      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+semPct+'%;height:100%;background:#16a34a;border-radius:2px"></div></div>';
     _gp2DelegateHoverOpacity(semEl);
     const _semBtn=semEl.querySelector('[data-action="setSemesterEnd"]');
     if(_semBtn)_semBtn.addEventListener('click',function(){_gp2SetSemesterEnd();});
@@ -412,7 +412,7 @@ function _gp2UpdateDateWidgets(){
   const syEl=document.getElementById('gp2DwSchoolYear');
   if(syEl){
     syEl.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;font-weight:700;color:var(--t2)">이번 학년도</span><span data-action="setSchoolYearEnd" style="cursor:pointer;opacity:0.4;transition:opacity 0.15s" title="종업식 날짜 설정"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span></div><span style="font-size:9px;color:var(--t3)">'+syPct+'%</span></div>'
-      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+syPct+'%;height:100%;background:linear-gradient(90deg,#facc15,#eab308);border-radius:2px"></div></div>';
+      +'<div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="width:'+syPct+'%;height:100%;background:#facc15;border-radius:2px"></div></div>';
     _gp2DelegateHoverOpacity(syEl);
     const _syBtn=syEl.querySelector('[data-action="setSchoolYearEnd"]');
     if(_syBtn)_syBtn.addEventListener('click',function(){_gp2SetSchoolYearEnd();});
@@ -653,7 +653,7 @@ function _gp2ShowDatePicker(title,initVal,callback){
   else{_gp2DpYear=now.getFullYear();_gp2DpMonth=now.getMonth();}
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2DpOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let h='<div class="modal-content" style="width:320px;max-width:94vw;padding:0">';
-  h+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:12px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
+  h+='<div style="background:rgba(6,182,212,0.10);padding:12px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
   h+='<div style="font-size:13px;font-weight:800;color:var(--t1)">📅 '+title+'</div>';
   if(!initVal)h+='<div style="font-size:10px;color:var(--t3);margin-top:3px">방학식 날을 넣어야 경과율이 표시됩니다</div>';
   h+='</div>';
@@ -1376,11 +1376,11 @@ function _gp2Prompt(title,placeholder,defaultVal,callback,opts){
   opts=opts||{};
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2PromptOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let h='<div style="width:380px;max-width:90vw;padding:0;background:var(--card);border:1px solid rgba(255,255,255,0.06);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.04) inset;animation:gp2PopIn 0.2s cubic-bezier(0.22,1,0.36,1) both;overflow:hidden">';
-  h+='<div style="background:linear-gradient(180deg,rgba(255,255,255,0.04),transparent);padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-0.2px">'+escHtml(title)+'</div></div>';
+  h+='<div style="background:transparent;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-0.2px">'+escHtml(title)+'</div></div>';
   h+='<div style="padding:16px 18px"><input class="form-input" id="gp2PromptInput" value="'+escHtml(defaultVal||'')+'" placeholder="'+(placeholder||'')+'" style="width:100%;font-size:12px;border-radius:8px;padding:10px 12px" autofocus></div>';
   h+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px 14px">';
   if(!opts.noCancel)h+='<button id="gp2PromptCancel" style="padding:7px 16px;font-size:11px;background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);transition:all 0.15s" data-hover-bg="var(--hover)" data-rest-bg="transparent">취소</button>';
-  h+='<button id="gp2PromptOk" style="padding:7px 20px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 8px rgba(6,182,212,0.3);transition:all 0.15s">확인</button>';
+  h+='<button id="gp2PromptOk" style="padding:7px 20px;font-size:11px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 8px rgba(6,182,212,0.3);transition:all 0.15s">확인</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   _gp2DelegateHoverBg(ov);
@@ -1400,7 +1400,7 @@ function _gp2PromptMulti(title,fields,callback,opts){
   opts=opts||{};
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2PromptOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let h='<div class="modal-content" style="width:400px;max-width:90vw;padding:0">';
-  h+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:10px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:13px;font-weight:700;color:var(--t1)">'+escHtml(title)+'</div></div>';
+  h+='<div style="background:rgba(6,182,212,0.10);padding:10px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:13px;font-weight:700;color:var(--t1)">'+escHtml(title)+'</div></div>';
   h+='<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">';
   fields.forEach(function(f,i){
     h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:2px">'+escHtml(f.label)+'</label><input class="form-input gp2-prompt-field" data-idx="'+i+'" value="'+escHtml(f.value||'')+'" placeholder="'+(f.placeholder||'')+'" style="width:100%;font-size:12px"></div>';
@@ -1408,7 +1408,7 @@ function _gp2PromptMulti(title,fields,callback,opts){
   h+='</div>';
   h+='<div style="display:flex;justify-content:flex-end;gap:6px;padding:8px 16px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
   if(!opts.noCancel)h+='<button id="gp2PromptCancel" style="padding:6px 14px;font-size:11px;background:var(--bg2);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button>';
-  h+='<button id="gp2PromptOk" style="padding:6px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">확인</button>';
+  h+='<button id="gp2PromptOk" style="padding:6px 14px;font-size:11px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">확인</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   document.body.appendChild(ov);
@@ -1428,7 +1428,7 @@ function _gp2Confirm(msg,callback){
   h+='<div style="padding:22px 20px 14px;font-size:13px;color:var(--t1);line-height:1.7;text-align:center;font-weight:500">'+escHtml(msg)+'</div>';
   h+='<div style="display:flex;justify-content:center;gap:10px;padding:10px 20px 16px">';
   h+='<button id="gp2ConfirmNo" style="padding:7px 18px;font-size:11px;background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f);transition:all 0.15s" data-hover-bg="var(--hover)" data-rest-bg="transparent">아니오</button>';
-  h+='<button id="gp2ConfirmYes" style="padding:7px 18px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:all 0.15s">예</button>';
+  h+='<button id="gp2ConfirmYes" style="padding:7px 18px;font-size:11px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:all 0.15s">예</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   _gp2DelegateHoverBg(ov);
@@ -1507,7 +1507,7 @@ function _gp2AddProgress(){
   _gp2ProgEndDate=_gp2Today();
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2ProgressOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   ov.innerHTML='<div class="modal-content" style="width:560px;max-width:94vw;padding:0">'
-    +'<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:10px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:13px;font-weight:700;color:var(--t1)">👍 업무 진척도 A형 — 업무 추가</div></div>'
+    +'<div style="background:rgba(6,182,212,0.10);padding:10px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:13px;font-weight:700;color:var(--t1)">👍 업무 진척도 A형 — 업무 추가</div></div>'
     +'<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">'
     +'<div><label style="font-size:10px;color:var(--t3)">업무명</label><input class="form-input" id="gp2ProgName" placeholder="예: 블로그 글 작성" style="width:100%;font-size:11px"></div>'
     +'<div style="display:flex;gap:8px"><div style="flex:1"><label style="font-size:10px;color:var(--t3)">시작일</label><input class="form-input" id="gp2ProgStart" value="'+_gp2ProgStartDate+'" readonly style="width:100%;font-size:11px;cursor:pointer"></div>'
@@ -1520,7 +1520,7 @@ function _gp2AddProgress(){
     +'<div style="padding:4px 8px;font-size:8px;color:var(--t3)">※ 목표 = 기간(일) × 일 목표 횟수 · 완료 숫자 클릭으로 수정</div></div>'
     +'</div>'
     +'<div style="display:flex;justify-content:flex-end;gap:6px;padding:8px 16px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">'
-    +'<button id="gp2ProgOk" style="padding:6px 18px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">추가</button>'
+    +'<button id="gp2ProgOk" style="padding:6px 18px;font-size:11px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">추가</button>'
     +'</div></div>';
   ov.addEventListener('click',function(e){if(e.target===ov)closeModalGracefully(ov);});
   document.body.appendChild(ov);
@@ -1612,7 +1612,7 @@ function _gp2InitScrap(){
     h+='<span data-action="foldScrap" data-arg="'+idx+'" style="cursor:pointer;font-size:11px;color:var(--t3);padding:2px" title="접기">📄</span>';
     h+='<span data-action="deleteScrap" data-arg="'+idx+'" style="cursor:pointer;font-size:11px;color:var(--t3);padding:2px;opacity:0.4" data-hover-opacity="1" data-rest-opacity="0.4" title="삭제">✕</span>';
     h+='</div></div></div>';
-    h+='<div style="height:3px;background:linear-gradient(90deg,var(--cyan),rgba(6,182,212,0.1))"></div>';
+    h+='<div style="height:3px;background:var(--cyan)"></div>';
     h+='</div>';
   });
   /* 접힌 북마크 (하단 가로 정렬) */
@@ -1727,11 +1727,11 @@ function _gp2AddBirthday(){
   /* To-Do List 팝업 스타일과 동일한 디자인 */
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2BirthdayOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let h='<div style="width:420px;max-width:90vw;padding:0;background:var(--card);border:1px solid rgba(255,255,255,0.06);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.04) inset;animation:gp2PopIn 0.2s cubic-bezier(0.22,1,0.36,1) both;overflow:hidden">';
-  h+='<div style="background:linear-gradient(180deg,rgba(255,255,255,0.04),transparent);padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-0.2px">🎂 생일 알림을 받을 학생 검색하기</div></div>';
+  h+='<div style="background:transparent;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-0.2px">🎂 생일 알림을 받을 학생 검색하기</div></div>';
   h+='<div style="padding:16px 18px"><input class="form-input" id="gp2BirthdaySearch" placeholder="학생 이름을 입력하세요" style="width:100%;font-size:12px;border-radius:8px;padding:10px 12px" autofocus></div>';
   h+='<div id="gp2BirthdaySearchResults" style="max-height:240px;overflow-y:auto;padding:0 18px 8px;scrollbar-width:thin"></div>';
   h+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px 14px">';
-  h+='<button id="gp2BirthdayClose" style="padding:7px 20px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 8px rgba(6,182,212,0.3);transition:all 0.15s">닫기</button>';
+  h+='<button id="gp2BirthdayClose" style="padding:7px 20px;font-size:11px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 8px rgba(6,182,212,0.3);transition:all 0.15s">닫기</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   document.body.appendChild(ov);
@@ -1780,7 +1780,7 @@ function _gp2EditQuotes(){
   const savedInterval=localStorage.getItem('gp2_quote_interval')||'00:10';
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2QuoteOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let h='<div class="modal-content" style="width:520px;max-width:94vw;padding:0">';
-  h+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:12px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">💬 명언/격언 설정</div></div>';
+  h+='<div style="background:rgba(6,182,212,0.10);padding:12px 16px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">💬 명언/격언 설정</div></div>';
   h+='<div style="padding:16px">';
   /* 구글 시트 연동 */
   h+='<div style="margin-bottom:14px">';
@@ -1802,7 +1802,7 @@ function _gp2EditQuotes(){
   h+='<div id="gp2QuotePreview" style="max-height:150px;overflow-y:auto;scrollbar-width:thin;border:1px solid var(--bdr);border-radius:6px;padding:8px;font-size:10px;color:var(--t2);line-height:1.8;background:var(--bg2)">불러오기를 클릭하세요</div>';
   h+='</div>';
   h+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
-  h+='<button id="gp2QuoteSaveBtn" style="padding:7px 20px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">확인</button>';
+  h+='<button id="gp2QuoteSaveBtn" style="padding:7px 20px;font-size:11px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">확인</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){if(e.target===ov)closeModalGracefully(ov);});
@@ -2273,13 +2273,13 @@ function _gp2ShowLoginGuide(){
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='gp2LoginOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let h='<div class="modal-content" style="width:460px;max-width:94vw;padding:0">';
   /* 헤더 */
-  h+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:16px 20px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
+  h+='<div style="background:rgba(6,182,212,0.10);padding:16px 20px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
   h+='<div style="font-size:15px;font-weight:800;color:var(--t1)">📆 Google Calendar 연결</div>';
   h+='</div>';
   /* 본문 */
   h+='<div style="padding:20px">';
   h+='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">';
-  h+='<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#4285f4,#34a853);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
+  h+='<div style="width:48px;height:48px;border-radius:12px;background:#4285f4;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
   h+='<div><div style="font-size:13px;font-weight:700;color:var(--t1)">Google 계정으로 로그인</div>';
   h+='<div style="font-size:11px;color:var(--t3);margin-top:2px">캘린더 일정을 불러오려면 Google 로그인이 필요합니다</div></div>';
   h+='</div>';
@@ -2298,7 +2298,7 @@ function _gp2ShowLoginGuide(){
   /* 하단 버튼 */
   h+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
   h+='<button data-action="closeLogin" style="padding:8px 18px;font-size:11px;font-weight:600;background:var(--bg2);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button>';
-  h+='<button id="gp2LoginBtn" data-action="doLogin" style="padding:8px 22px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#4285f4,#3367d6);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px">';
+  h+='<button id="gp2LoginBtn" data-action="doLogin" style="padding:8px 22px;font-size:12px;font-weight:700;background:#4285f4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px">';
   h+='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>';
   h+='Google 로그인</button>';
   h+='</div></div>';
@@ -2681,7 +2681,7 @@ function _gp2AddWidgetToArea(type){
   const widget=document.createElement('div');
   widget.id='gp2Widget_'+type;
   widget.setAttribute('data-widget',type);
-  widget.style.cssText='padding:10px;overflow:hidden;position:relative;border:0.5px solid rgba(150,150,150,0.15);transition:border-color 0.15s,box-shadow 0.15s;border-radius:10px;background:linear-gradient(145deg,color-mix(in srgb,var(--card) 95%,#9ca3af 5%),var(--card),color-mix(in srgb,var(--card) 92%,#6b7280 8%));grid-column:span 2;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.04)';
+  widget.style.cssText='padding:10px;overflow:hidden;position:relative;border:0.5px solid rgba(150,150,150,0.15);transition:border-color 0.15s,box-shadow 0.15s;border-radius:10px;background:var(--card);grid-column:span 2;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.04)';
   widget.addEventListener('mouseenter',function(){const c=this.querySelector('.gp2-widget-close');if(c)c.style.opacity='1';});
   widget.addEventListener('mouseleave',function(){const c=this.querySelector('.gp2-widget-close');if(c)c.style.opacity='0';});
   /* 헤더: ⠿드래그핸들 + 제목 + ✕ */

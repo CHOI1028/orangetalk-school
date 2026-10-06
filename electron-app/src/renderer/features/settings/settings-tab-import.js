@@ -76,7 +76,7 @@ export function _renderImportTab(){
   html+='</div>';
   html+='</details>';
   /* 최적화 양식 다운로드 버튼 — 업로드 영역 바로 위 */
-  html+='<div style="margin-bottom:8px"><button class="btn btn-sm" id="importDownloadTemplateBtn" style="background:linear-gradient(135deg,#06b6d4,#0e7490);color:#fff;border:none;font-weight:700">📥 최적화 양식 다운로드</button><span style="margin-left:10px;font-size:11px;color:var(--t3)">변환된 파일 또는 직접 작성한 양식 파일을 아래에 업로드</span></div>';
+  html+='<div style="margin-bottom:8px"><button class="btn btn-sm" id="importDownloadTemplateBtn" style="background:#0891b2;color:#fff;border:none;font-weight:700">📥 최적화 양식 다운로드</button><span style="margin-left:10px;font-size:11px;color:var(--t3)">변환된 파일 또는 직접 작성한 양식 파일을 아래에 업로드</span></div>';
   const _pastFname='past_health_records.xlsx';
   html+='<div class="upload-area" id="pastHistoryUploadArea" style="min-height:70px">📁 작성한 '+escHtml(_pastFname)+' 파일을 드래그하거나 클릭하여 업로드</div>';
   html+='<input type="file" id="pastHistoryFileInput" accept=".xlsx,.xls" style="display:none">';
@@ -490,7 +490,7 @@ async function _importShowMatchStats(){
         applyBtn.style.cursor='pointer';
         applyBtn.style.opacity='';
         applyBtn.style.filter='';
-        applyBtn.style.background='linear-gradient(135deg,#16a34a,#059669)';
+        applyBtn.style.background='#16a34a';
         applyBtn.style.color='#fff';
         applyBtn.style.border='none';
         applyBtn.style.boxShadow='0 2px 8px rgba(22,163,74,0.3)';
@@ -965,7 +965,7 @@ export async function _loadAmbiguousStandalone(){
      * 카드 리스트는 클릭 누락·중복 매칭 위험이 있어 한 건씩 모달에서 처리하도록 일원화. */
     el.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:6px 0">'
       +'<div style="flex:1;font-size:12px;color:var(--t2);line-height:1.6">⚠ 동명이인 미해결 <b style="color:#ca8a04">'+n+'건</b> — 한 건씩 어느 인원의 기록인지 확인이 필요합니다.</div>'
-      +'<button id="amOpenModalBtn" class="btn btn-sm" style="padding:9px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:7px;cursor:pointer;box-shadow:0 2px 6px rgba(245,158,11,0.25)">🔗 동명이인 매칭 ('+n+'건)</button>'
+      +'<button id="amOpenModalBtn" class="btn btn-sm" style="padding:9px 16px;font-size:12px;font-weight:700;background:#d97706;color:#fff;border:none;border-radius:7px;cursor:pointer;box-shadow:0 2px 6px rgba(245,158,11,0.25)">🔗 동명이인 매칭 ('+n+'건)</button>'
       +'</div>';
     const btn=document.getElementById('amOpenModalBtn');
     if(btn) btn.addEventListener('click', _amOpenModal);
@@ -1049,15 +1049,15 @@ function _amBuildHtml(){
   const symPrev = cur.symptoms ? (String(cur.symptoms).length>60 ? String(cur.symptoms).slice(0,60)+'…' : String(cur.symptoms)) : '';
   let h = '<div class="modal-content am-modal" id="amModalBox" style="width:840px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:var(--card);border:1px solid rgba(0,0,0,0.08);box-shadow:0 24px 60px rgba(0,0,0,0.30);position:relative">';
   /* 헤더 (회색 + 드래그) */
-  h += '<div class="am-head" id="amDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#eef2f6,#e5e9ee);border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
+  h += '<div class="am-head" id="amDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:#eef2f6;border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
     + '<span style="display:inline-flex;flex-direction:column;gap:2px;margin-right:2px;opacity:0.5"><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span></span>'
     + '<span style="font-size:13px;font-weight:700;color:var(--t1);flex:1">🔗 외부 데이터 동명이인 매칭 — 이 보건기록이 누구 것인지 확인</span>'
     + '<span id="amCounter" style="font-size:10.5px;padding:3px 9px;background:rgba(245,158,11,0.12);color:#ca8a04;border-radius:10px;font-weight:700">'+(st.idx+1)+' / '+total+'</span>'
     + '</div>';
   /* 진행 막대 */
-  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="amProgress" style="height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);width:'+pct+'%;transition:width .25s ease"></div></div>';
+  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="amProgress" style="height:100%;background:#d97706;width:'+pct+'%;transition:width .25s ease"></div></div>';
   /* 레코드 정보 + ◀▶ */
-  h += '<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:linear-gradient(180deg,rgba(245,158,11,0.05),transparent)">'
+  h += '<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:rgba(245,158,11,0.05)">'
     + '<button class="am-nav" data-am-nav="prev" '+(st.idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid var(--bdr);background:var(--card);color:var(--t2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center'+(st.idx===0?';opacity:0.35;cursor:not-allowed':'')+'">◀</button>'
     + '<div style="flex:1;padding:8px 14px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.22);border-radius:9px;display:flex;align-items:center;gap:10px">'
       + '<span style="font-size:16px">📌</span>'
@@ -1237,7 +1237,7 @@ function _amRenderClassGrid(){
     /* 외부 staging 의 과거 반과 일치하는 카드는 강조(외곽 글로우). */
     const cur_cls = (cur.class_num!=null && String(cur.class_num)===String(c));
     h += '<div class="am-cls-card '+cls+(cur_cls?' active':'')+'" style="position:relative;border-radius:12px;padding:10px;display:flex;flex-direction:column;background:var(--card);border:1.5px solid var(--bdr);overflow:hidden;min-height:180px;max-height:240px'+(cur_cls?';box-shadow:0 0 0 2.5px rgba(6,182,212,0.30),0 4px 10px rgba(0,0,0,0.08)':'')+'">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:linear-gradient(135deg,'+cc+')">'
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:'+cc.split(',')[1]+'">'
       + '<span style="font-size:12px;font-weight:800">'+_amEsc(c)+'반</span>'
       + '<span style="font-size:9px;font-weight:700;opacity:0.92;background:rgba(255,255,255,0.20);padding:1px 6px;border-radius:6px">'+stus.length+'명</span>'
       + '</div>';
@@ -1563,7 +1563,7 @@ function _umBuildHtml(){
   /* padding:0 으로 .modal-content 기본 padding:24px 를 override — 회색 헤더가 모서리까지 꽉 차도록 */
   let h = '<div class="modal-content um-modal" id="umModalBox" style="width:840px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:var(--card);border:1px solid rgba(0,0,0,0.08);box-shadow:0 24px 60px rgba(0,0,0,0.30);position:relative;padding:0">';
   /* 헤더 (회색 + 드래그) + 부가 설명 — 양 옆·위 풀 폭으로 표시 */
-  h += '<div class="um-head" id="umDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#eef2f6,#e5e9ee);border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
+  h += '<div class="um-head" id="umDragHandle" style="padding:12px 16px;display:flex;gap:10px;align-items:center;background:#eef2f6;border-bottom:1px solid var(--bdr);cursor:grab;user-select:none">'
     + '<span style="display:inline-flex;flex-direction:column;gap:2px;margin-right:2px;opacity:0.5"><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span><span style="width:14px;height:2px;background:var(--t3);border-radius:1px"></span></span>'
     + '<div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0">'
       + '<span style="font-size:13px;font-weight:700;color:var(--t1)">🔗 미매칭 수동 매칭</span>'
@@ -1573,9 +1573,9 @@ function _umBuildHtml(){
     + '<span id="umCounter" style="font-size:10.5px;padding:3px 9px;background:rgba(6,182,212,0.10);color:var(--cyan);border-radius:10px;font-weight:700;flex-shrink:0">'+(st.idx+1)+' / '+total+'</span>'
     + '</div>';
   /* 진행 막대 */
-  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="umProgress" style="height:100%;background:linear-gradient(90deg,#06b6d4,#0891b2);width:'+pct+'%;transition:width .25s ease"></div></div>';
+  h += '<div style="height:3px;background:var(--bdrl);position:relative;overflow:hidden"><div id="umProgress" style="height:100%;background:#0891b2;width:'+pct+'%;transition:width .25s ease"></div></div>';
   /* 좌우 네비 + 미매칭 정보 */
-  h += '<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:linear-gradient(180deg,rgba(6,182,212,0.04),transparent)">'
+  h += '<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bdrl);background:rgba(6,182,212,0.04)">'
     + '<button class="um-nav" data-um-nav="prev" '+(st.idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid var(--bdr);background:var(--card);color:var(--t2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center'+(st.idx===0?';opacity:0.35;cursor:not-allowed':'')+'">◀</button>'
     + '<div style="flex:1;padding:8px 14px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.20);border-radius:9px;display:flex;align-items:center;gap:10px">'
       + '<span style="font-size:16px">⚠</span>'
@@ -1800,7 +1800,7 @@ function _umRenderClassGrid(){
 function _umClsHead(clsName, count, colorClass){
   const colorMap={c1:'#06b6d4,#0891b2',c2:'#8b5cf6,#6d28d9',c3:'#f59e0b,#d97706',c4:'#10b981,#047857',c5:'#ef4444,#b91c1c',c6:'#ec4899,#be185d'};
   const c=colorMap[colorClass]||colorMap.c1;
-  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:linear-gradient(135deg,'+c+')">'
+  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:8px;color:#fff;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:'+c.split(',')[1]+'">'
     + '<span style="font-size:12px;font-weight:800">'+escHtml(clsName)+'반</span>'
     + '<span style="font-size:9px;font-weight:700;opacity:0.92;background:rgba(255,255,255,0.20);padding:1px 6px;border-radius:6px">'+count+'명</span>'
     + '</div>';
@@ -2034,7 +2034,7 @@ function _umBindDrag(ov){
     + '#umModal .um-cls-card.c4{border-color:#10b981}'
     + '#umModal .um-cls-card.c5{border-color:#ef4444}'
     + '#umModal .um-cls-card.c6{border-color:#ec4899}'
-    + '#umModal .um-head:active{cursor:grabbing;background:linear-gradient(180deg,#e5e9ee,#dde2e8) !important}'
+    + '#umModal .um-head:active{cursor:grabbing;background:#e5e9ee !important}'
     + '#umModal .um-stus::-webkit-scrollbar{width:3px}'
     + '#umModal .um-stus::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.10);border-radius:2px}'
     /* 학년 칩 · 반 카드(반·인원수) · 학생 행(번호·이름) 글씨체 맑은고딕 통일 (인라인 font-family:var(--fm) 도 override) */

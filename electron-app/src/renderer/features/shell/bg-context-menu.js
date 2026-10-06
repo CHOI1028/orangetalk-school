@@ -71,7 +71,7 @@ function _showSubmenu(items, x, y, title){
   const pop = document.createElement('div');
   pop.className = 'ems-mini-popup';
   pop.id = 'bgCtxSubMenu';
-  let html = '<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:linear-gradient(145deg,var(--bg2),color-mix(in srgb,var(--bg2) 85%,#6b7280 15%));border-radius:8px 8px 0 0">'+(title||'선택')+'</div>';
+  let html = '<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:var(--bg2);border-radius:8px 8px 0 0">'+(title||'선택')+'</div>';
   items.forEach(function(it, i){ html += '<div class="ems-msg-link" data-bgs="'+i+'">'+it.icon+' '+it.label+'</div>'; });
   pop.innerHTML = html;
   pop.addEventListener('click', function(e){
@@ -103,7 +103,7 @@ function _showMenu(x, y){
   const pop = document.createElement('div');
   pop.className = 'ems-mini-popup';   /* 이름 클릭 미니 메뉴와 동일 GUI 재사용 */
   pop.id = 'bgCtxMenu';
-  let html = '<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:linear-gradient(145deg,var(--bg2),color-mix(in srgb,var(--bg2) 85%,#6b7280 15%));border-radius:8px 8px 0 0">⚡ 빠른 작업</div>';
+  let html = '<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:var(--bg2);border-radius:8px 8px 0 0">⚡ 빠른 작업</div>';
   const NEIS_TIP = '설정 - API Key 관리 - 나이스(NEIS) Open API에서 API 키를 넣어주세요.';
   const _isDisabled = function(it){ return !!(it && it.needNeis && !neisKey()); };
   _ITEMS.forEach(function(it, i){

@@ -15,6 +15,7 @@ import { appConfirmModal } from '../../core/ui-utils.js';
 import { S, ensureHolidayYear } from '../../core/app-state.js';
 import { _statMedicationStr, _statHasBed } from '../../core/record-utils.js';
 import { getGreeting } from './home-greetings.js';
+import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { dailyColEyeIcon, showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
 import { isHoliday } from '../../core/format-utils.js';
 import { bus } from '../../core/event-bus.js';
@@ -71,7 +72,7 @@ const WIDGETS = [
   {id:'quicklinks',   icon:'🔗', title:'자주 가는 사이트',      desc:'북마크 링크 모음'},
   {id:'phonebook',    icon:'📱', title:'업무 연락처',           desc:'자주 거는 전화번호'},
   {id:'notepad',      icon:'📓', title:'자유 메모장',           desc:'간단한 메모 (플래너 동기)'},
-  {id:'todolist',     icon:'☑', title:'오늘의 TO-DO List',    desc:'매일 자정에 자동 초기화'},
+  {id:'todolist',     icon:'☑', title:'오늘 할 일',    desc:'캘린더와 함께 관리하는 오늘의 일정·할 일'},
   {id:'routine',      icon:'⟳', title:'루틴 트래커',           desc:'매일 반복할 체크 항목'},
   {id:'shopping',     icon:'🛒', title:'구매 목록',             desc:'구매할 물건 체크리스트'},
   /* 보건 운영 보강 위젯 */
@@ -120,10 +121,57 @@ function _weatherShortLine(){
  *  보관함의 순서·열배정(_widgetsInCol)을 단일 출처로 렌더하기 위해 위젯 카드 HTML 을 id 로 생성.
  *  기존 하드코딩 카드의 외형·data-action 을 그대로 보존(회귀 0). 가시성은 렌더 후 vis IIFE 에 위임. */
 function _hwHeader(icon,title,btn,info){
-  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-    +'<span style="font-size:18px">'+icon+'</span><span style="font-size:12px;font-weight:700;color:var(--t1)">'+title+'</span>'+(info||'')
-    +'<span style="flex:1"></span>'+(btn||'')+'</div>';
+  return '<div class="school-widget-heading">'
+    +'<span class="school-widget-icon" aria-hidden="true">'+icon+'</span>'
+    +'<span class="school-widget-title">'+escHtml(title)+'</span>'
+    +(info||'')+(btn||'')+'</div>';
 }
+function _schoolEmpty(icon,title,hint){
+  return '<div class="school-empty">'
+    +'<span class="school-empty-art" aria-hidden="true">'+icon+'<i></i></span>'
+    +'<div class="school-empty-copy"><strong>'+escHtml(title)+'</strong>'
+    +(hint?'<p>'+escHtml(hint)+'</p>':'')+'</div></div>';
+}
+function _schoolWidgetIcon(kind){
+  const paths={
+    api:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>',
+    calendar:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/>',
+    loading:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    error:'<path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v1"/>',
+    school:'<path d="m3 9 9-6 9 6v12H3V9Zm6 12v-6h6v6M7 10h1m8 0h1M11 8h2"/>',
+    weather:'<path d="M6 18a4 4 0 0 1-1-7.9A6 6 0 0 1 17 10a4 4 0 1 1 1 8H6Z"/>',
+    list:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8m-8 4h5"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+(paths[kind]||paths.list)+'</svg>';
+}
+function _schoolWidgetButton(action,label,secondary){
+  return '<button type="button" class="school-widget-action'+(secondary?' is-secondary':'')+'" data-action="'+escHtml(action)+'">'+escHtml(label)+'</button>';
+}
+function _schoolWidgetState(kind,title,hint,actions,service){
+  const labels={api:'연동 필요',empty:'아직 자료가 없어요',ready:'사용 준비 완료',loading:'불러오는 중',error:'확인이 필요해요'};
+  const icon=kind==='api'?'api':kind==='loading'?'loading':kind==='error'?'error':'calendar';
+  return '<div class="school-widget-state" data-state="'+escHtml(kind)+'"'+(service?' data-service="'+escHtml(service)+'"':'')+(kind==='loading'?' role="status"':'')+'>'
+    +'<div class="school-widget-state-top"><span class="school-widget-state-icon">'+_schoolWidgetIcon(icon)+'</span><span class="school-widget-status">'+escHtml(labels[kind]||labels.empty)+'</span></div>'
+    +'<div class="school-widget-state-copy"><strong>'+escHtml(title)+'</strong><p>'+escHtml(hint||'')+'</p></div>'
+    +(actions?'<div class="school-widget-actions">'+actions+'</div>':'')+'</div>';
+}
+function _schoolWidgetApiState(service,description){
+  const name=service==='neis'?'나이스(NEIS)':'공공데이터포털';
+  return _schoolWidgetState('api',name+' API 키를 등록해 주세요',description,
+    _schoolWidgetButton('open-widget-api-settings','API 키 등록하기'),service);
+}
+function _schoolWidgetDate(){
+  return new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});
+}
+function _schoolScheduleList(items,action,label){
+  let h='<div class="school-schedule"><div class="school-widget-dateline"><span>'+escHtml(_schoolWidgetDate())+'</span><span class="school-widget-status">'+items.length+'개 수업</span></div><ol class="school-schedule-list">';
+  items.forEach(function(item){
+    h+='<li><span class="school-schedule-period"><b>'+escHtml(String(item.period))+'</b><small>교시</small></span><div class="school-schedule-copy"><strong>'+escHtml(item.subject)+'</strong>'
+      +(item.time?'<span class="school-schedule-time">'+escHtml(item.time)+'</span>':'')+'</div></li>';
+  });
+  return h+'</ol><div class="school-widget-actions">'+_schoolWidgetButton(action,label,true)+'</div></div>';
+}
+
 function _hwAddBtn(action,title){
   return '<button data-action="'+action+'" title="'+title+'" style="border:1px solid var(--bdr);background:var(--bg2);color:var(--t2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">+</button>';
 }
@@ -137,7 +185,7 @@ const _HW_DESC = {
   phonebook:   '자주 거는 업무 전화번호를 저장해 둡니다.',
   procurement: '품의(구매)할 물건 목록을 적어 둡니다.',
   routine:     '매일 반복하는 업무를 체크리스트로 관리합니다.',
-  todolist:    '오늘 할 일 목록입니다.<br>매일 자정에 자동으로 초기화됩니다.<br>위 캘린더와 연동됩니다.',
+  todolist:    '캘린더와 같은 오늘의 일정·할 일을 보여줍니다.<br>지난 날짜의 기록은 캘린더에 남습니다.<br>Google 일정의 완료 체크는 오렌지톡 안에서만 표시됩니다.',
   timetable:   '주간 수업 시간표입니다.<br>위젯에는 오늘 요일의 수업만 표시됩니다.',
   lessonmemo:  '수업 차시(주차)별 간단 메모를 적습니다.',
   memos:       '포스트잇처럼 자유롭게 메모를 붙여 둡니다.',
@@ -159,23 +207,24 @@ function _hwInfoIcon(wid){
 }
 const _HOME_WIDGET_RENDERERS = {
   progress:    { header:function(){return _hwHeader('📊','시기별 진행률','<button data-action="prog-gear" title="표시할 항목 켜고 끄기" style="border:1px solid var(--bdr);background:var(--bg2);color:var(--t3);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center">⚙</button>',_hwInfoIcon('progress'));}, body:function(){return _wProgressContent();} },
-  quicklinks:  { header:function(){return _hwHeader('🔗','업무 관련 사이트',_hwAddBtn('add-quicklink','추가'),_hwInfoIcon('quicklinks'));}, body:function(){return _homeCapEl('quicklinks')+_hwListBody(_wQuicklinksEditable());} },
-  phonebook:   { header:function(){return _hwHeader('📱','업무 관련 전화번호',_hwAddBtn('add-phone','추가'),_hwInfoIcon('phonebook'));}, body:function(){return _homeCapEl('phonebook')+_hwListBody(_wPhonebookEditable());} },
-  procurement: { header:function(){return _hwHeader('🛒','품의 물건 리스트',_hwAddBtn('add-procurement','추가'),_hwInfoIcon('procurement'));}, body:function(){return _homeCapEl('procurement')+_hwListBody(_wProcurementEditable());} },
+  quicklinks:  { header:function(){return _hwHeader('🔗','업무 사이트',_hwAddBtn('add-quicklink','추가'),_hwInfoIcon('quicklinks'));}, body:function(){return _homeCapEl('quicklinks')+_hwListBody(_wQuicklinksEditable());} },
+  phonebook:   { header:function(){return _hwHeader('📱','업무 연락처',_hwAddBtn('add-phone','추가'),_hwInfoIcon('phonebook'));}, body:function(){return _homeCapEl('phonebook')+_hwListBody(_wPhonebookEditable());} },
+  procurement: { header:function(){return _hwHeader('🛒','구매·품의 목록',_hwAddBtn('add-procurement','추가'),_hwInfoIcon('procurement'));}, body:function(){return _homeCapEl('procurement')+_hwListBody(_wProcurementEditable());} },
   routine:     { header:function(){return _hwHeader('⟳','루틴 트래커',_hwAddBtn('add-routine','추가'),_hwInfoIcon('routine'));}, body:function(){return _homeCapEl('routine')+_hwListBody(_wRoutineEditable());} },
-  todolist:    { header:function(){return _hwHeader('☑','오늘의 TO-DO List',_hwAddBtn('add-todo','추가'),_hwInfoIcon('todolist'));}, body:function(){return _homeCapEl('todolist')+_hwListBody(_wTodoEditable());} },
+  todolist:    { header:function(){return _hwHeader('☑','오늘 할 일',_hwAddBtn('add-todo','추가'),_hwInfoIcon('todolist'));}, body:function(){return _homeCapEl('todolist')+_hwListBody(_wTodoEditable());} },
   timetable:   { header:function(){return _hwHeader('📅','수업 시간표',_hwAddBtn('open-timetable-editor','시간표 입력·편집'),_hwInfoIcon('timetable'));}, body:function(){return _wTimetableContent();} },
   myTimetable: { header:function(){return _hwHeader('🗓️','나의 시간표 보기','<button data-action="open-classpopup-picker" data-tooltip="나이스에서 불러온 학교 시간표 상 나의 수업 시간을 선택하여 내 시간표를 만듭니다. 또한 팝업 알람까지 설정할 수 있습니다." data-tooltip-instant="1" style="border:1px solid var(--bdr);background:var(--bg2);color:var(--t3);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center">⚙</button>',_hwInfoIcon('myTimetable'));}, body:function(){return _wMyTimetable();} },
-  lessonmemo:  { header:function(){return _hwHeader('📝','수업 간단 메모','<button data-action="lesson-sem-config" title="1·2학기 시작/끝 날짜 설정" style="border:1px solid var(--bdr);background:var(--bg2);color:var(--t3);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center">⚙</button>',_hwInfoIcon('lessonmemo'));}, body:function(){return _wLessonMemoContent();} },
+  lessonmemo:  { header:function(){return _hwHeader('📝','수업 메모','<button data-action="lesson-sem-config" title="1·2학기 시작/끝 날짜 설정" style="border:1px solid var(--bdr);background:var(--bg2);color:var(--t3);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center">⚙</button>',_hwInfoIcon('lessonmemo'));}, body:function(){return _wLessonMemoContent();} },
   memos:       { header:function(){return _hwHeader('📝','포스트잇 메모',_hwAddBtn('add-memo','새 메모 추가'),_hwInfoIcon('memos'));}, body:function(){return '<div id="homeMemoList" style="display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 280px);overflow-y:auto;scrollbar-width:thin">'+_renderHomeMemos()+'</div>';} },
 };
 /* 위젯 id 로 카드 1장 HTML 생성. 고정 위젯(_HOME_WIDGET_RENDERERS) vs 보건 위젯(WIDGETS+_renderWidget) 분기.
  *  어느 열에 있든 id 기준으로 동일 카드 → 열간 이동해도 일관 렌더. */
 function _renderHomeWidgetCard(wid, ctx){
   const R=_HOME_WIDGET_RENDERERS[wid];
+  const groupKey=escHtml(_effectiveColOf(wid)||'col1');
   if(R){
-    return '<div class="cc home-widget-card home-fixed-pin" data-widget-id="'+wid+'" style="padding:16px;display:flex;flex-direction:column">'
-      +R.header()+R.body(ctx)+'</div>';
+    return '<div class="cc home-widget-card home-fixed-pin" data-widget-id="'+wid+'" data-widget-group="'+groupKey+'" style="padding:16px;display:flex;flex-direction:column">'
+      +R.header()+'<div class="school-widget-body">'+R.body(ctx)+'</div>'+'</div>';
   }
   /* WIDGETS(구 목록)에 없어도 _HOME_WIDGET_DEFS 메타로 카드 렌더 — meal·wxalert·infectTrend 등이 보관함에서
    *  눈알 ON 인데도 화면에 안 뜨던 버그 수정 (둘 다 아닌 id 만 '' 반환). (사용자 보고 2026-06-17) */
@@ -183,11 +232,37 @@ function _renderHomeWidgetCard(wid, ctx){
   if(!def){ try{ Object.keys(_HOME_WIDGET_DEFS).forEach(function(ck){ (_HOME_WIDGET_DEFS[ck].items||[]).forEach(function(it){ if(it.id===wid)def=it; }); }); }catch(_){} }
   if(!def) return '';
   const content=_renderWidget(wid, ctx.todayRecs, ctx.ay, ctx.today);
-  const _wIcon=def.icon||'📋', _wTitle=def.title||def.name||'';
-  return '<div class="cc home-widget-card" data-widget-id="'+wid+'" style="padding:16px;min-height:120px;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:18px">'+_wIcon+'</span><span style="font-size:12px;font-weight:700;color:var(--t1)">'+escHtml(_wTitle)+'</span>'+_hwInfoIcon(wid)+'</div>'
-    +'<div style="flex:1;font-size:11px;color:var(--t2);line-height:1.7">'+content+'</div>'
+  const conciseTitles={todayTreat:'오늘 처치',gradeVisit:'학년별 방문',timetableSearch:'학교 시간표',schoolStats:'학교 현황',birthday:'이번 주 생일',caution:'요보호 학생',frequent:'반복 방문',wxalert:'기상·보건 알림',infectTrend:'감염병 유행'};
+  const _wIcon=def.icon||'📋', _wTitle=conciseTitles[wid]||def.title||def.name||'';
+  return '<div class="cc home-widget-card" data-widget-id="'+wid+'" data-widget-group="'+groupKey+'" style="padding:16px;min-height:120px;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s">'
+    +_hwHeader(_wIcon,_wTitle,'',_hwInfoIcon(wid))
+    +'<div class="school-widget-body">'+content+'</div>'
     +'</div>';
+}
+
+/* Existing storage keys stay intact; groups now feed a spacious, row-first board. */
+const _SCHOOL_HOME_GROUP_ORDER=['col4','col2','col3','col5','col1'];
+function _schoolHomeWidgetPlan(){
+  const vis=_getHomeWidgetVis();
+  const groups=_SCHOOL_HOME_GROUP_ORDER.map(function(key){
+    const def=_HOME_WIDGET_DEFS[key];
+    return {
+      key:key,
+      name:def.name.replace(/^\d+열\s*·\s*/,''),
+      widgets:_widgetsInCol(key).filter(function(w){return vis[w.id]!==false;})
+    };
+  });
+  const widgets=[];
+  groups.forEach(function(group){group.widgets.forEach(function(w){widgets.push(w);});});
+  return {
+    calendar:vis.calendar!==false,
+    todo:widgets.find(function(w){return w.id==='todolist';}) || null,
+    memo:widgets.find(function(w){return w.id==='memos';}) || null,
+    widgets:widgets.filter(function(w){return w.id!=='todolist' && w.id!=='memos';}),
+    groups:groups.map(function(group){
+      return {key:group.key,name:group.name,widgets:group.widgets.filter(function(w){return w.id!=='memos';})};
+    }).filter(function(group){return group.widgets.length>0;})
+  };
 }
 
 /* ── 메인 렌더 ── */
@@ -212,43 +287,44 @@ export function renderHomeDashboard(){
   const line1=(userName?escHtml(userName)+' 선생님, ':'')+'안녕하세요!';
   const line2=escHtml(greeting);
 
-  /* Hero Greeting (컴팩트 — 인사 + 오늘 방문 요약 + 위젯 버튼) */
-  const _stuVisits=todayRecs.filter(function(r){const s=getStu(r.studentId);return s&&s.type==='student';}).length;
-  const _staffVisits=todayRecs.length-_stuVisits;
-  let h='<div class="home-hero" style="background:linear-gradient(135deg,rgba(6,182,212,0.12) 0%,rgba(139,92,246,0.08) 25%,rgba(6,182,212,0.05) 50%,rgba(139,92,246,0.08) 75%,rgba(6,182,212,0.12) 100%);background-size:300% 100%;animation:heroGradientShift 15s ease infinite;border:1px solid var(--bdr);border-radius:10px;padding:10px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">';
-  h+='<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0;flex:1">';
-  h+='<h1 style="font-size:15px;font-weight:800;color:var(--t1);margin:0;white-space:nowrap">🏠 '+line1+'</h1>';
-  h+='<span style="font-size:13px;font-weight:600;color:var(--t2)">'+line2+'</span>';
-  h+='<span style="font-size:11px;color:var(--t3);margin-left:auto;display:flex;align-items:center;gap:6px">'
-    +'<span>📊 오늘 방문</span>'
-    +'<span style="font-weight:800;color:var(--cyan);font-size:14px;font-family:var(--fm)">'+todayRecs.length+'</span><span>명</span>'
-    +'<span style="color:var(--bdr)">·</span>'
-    +'<span>학생 <b style="color:var(--t1);font-family:var(--fm)">'+_stuVisits+'</b></span>'
-    +'<span>교직원 <b style="color:var(--t1);font-family:var(--fm)">'+_staffVisits+'</b></span>'
-    +'</span>';
-  h+='</div>';
-  /* 위젯 보관함 버튼 — hero 영역 오른편. 클릭 시 5열 위젯 토글 모달. */
-  h+='<button data-action="open-widget-box" style="border:1px solid var(--bdr);background:var(--card);color:var(--t2);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;font-family:var(--f);flex-shrink:0" data-tooltip="홈 위젯 켜고 끄기, 위치 상하 또는 열간 이동을 설정합니다." data-tooltip-html="1" data-tooltip-instant="1">📦 위젯 보관함</button>';
-  h+='</div>';
+  /* Keep the greeting and existing widget controls without extra summary cards. */
+  let h='<section class="home-hero school-home-hero" aria-label="오늘의 보건실">';
+  h+='<div class="school-home-greeting"><span class="school-home-eyebrow">오늘의 보건실</span>';
+  h+='<h1>'+line1+'</h1><p>'+line2+'</p></div>';
+  h+='<div class="school-home-actions"><button type="button" class="btn-add school-context-toggle" data-school-action="toggle-context" aria-controls="schoolSidebar" aria-expanded="false">날짜·방문 이력</button>';
+  h+='<button data-action="open-widget-box" class="school-widget-store-button" style="border:1px solid var(--bdr);background:var(--card);color:var(--t2);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;font-family:var(--f);flex-shrink:0" data-tooltip="홈 위젯 표시 여부와 그룹별 순서를 설정합니다." data-tooltip-html="1" data-tooltip-instant="1">📦 위젯 보관함</button>';
+  h+='</div></section>';
 
-  /* 📅 고정 캘린더 (진행률 바는 캘린더 헤더 안에 통합). data-widget-id="calendar" 부착으로 위젯 보관함 토글 대상. */
-  h+='<div data-widget-id="calendar" style="margin-bottom:14px">'+_buildMiniCalendar()+'</div>';
-
-  /* 📌 5열 데이터 주도 레이아웃 — 보관함의 순서·열배정(_widgetsInCol)을 단일 출처로 렌더.
-   *  col1·col2(업무·일정) / col3·col4(보건 통계·알림) / col5(메모). 카드 셸은 _renderHomeWidgetCard 일원화.
-   *  → 보관함에서 정렬/열간 이동 시 재렌더만으로 그대로 반영됨 (사용자 요청 2026-05-30). */
   const _ctx={todayRecs:todayRecs, ay:ay, today:today};
-  h+='<div style="display:grid;grid-template-columns:280px 280px minmax(0,1fr) minmax(0,1fr) 320px;gap:18px;align-items:start">';
-  [['col1','border-right:1px solid var(--bdr);padding-right:18px'],
-   ['col2','border-right:1px solid var(--bdr);padding-right:18px'],
-   ['col3',''],
-   ['col4',''],
-   ['col5','border-left:1px solid var(--bdr);padding-left:18px']].forEach(function(c){
-    h+='<div data-home-col="'+c[0]+'" style="display:flex;flex-direction:column;gap:14px;'+c[1]+'">';
-    _widgetsInCol(c[0]).forEach(function(w){ h+=_renderHomeWidgetCard(w.id, _ctx); });
+  const _layout=_schoolHomeWidgetPlan();
+  // Build even when hidden so calendar-backed tasks and reminders keep working.
+  const _calendarHtml=_buildMiniCalendar();
+  const _hasHomeSide=!!_layout.memo;
+  if(_layout.calendar || _hasHomeSide){
+    h+='<div class="school-home-start school-home-memo-first'+(_layout.calendar && _hasHomeSide?' has-calendar-and-side':'')+'">';
+    if(_layout.calendar){
+      h+='<section class="school-home-calendar" data-widget-id="calendar" data-widget-group="col2" aria-label="일정 캘린더">'+_calendarHtml+'</section>';
+    }
+    if(_hasHomeSide){
+      h+='<div class="school-home-side school-home-memo-column">';
+      h+=_renderHomeWidgetCard('memos',_ctx);
+      h+='</div>';
+    }
     h+='</div>';
+  }
+  _layout.groups.forEach(function(group){
+    const headingId='school-home-group-'+group.key;
+    const columns=Math.min(group.widgets.length,group.key==='col2'?2:3);
+    h+='<section class="school-widget-group" data-widget-group="'+group.key+'" aria-labelledby="'+headingId+'">';
+    h+='<div class="school-widget-group-heading"><h2 id="'+headingId+'">'+escHtml(group.name)+'</h2>';
+    h+='<span class="school-widget-group-count">'+group.widgets.length+'개</span></div>';
+    h+='<div class="school-widget-group-grid" style="--school-group-columns:'+columns+'">';
+    group.widgets.forEach(function(w){h+=_renderHomeWidgetCard(w.id,_ctx);});
+    h+='</div></section>';
   });
-  h+='</div>'; /* close outer grid */
+  if(!_layout.groups.length && !_layout.calendar && !_hasHomeSide){
+    h+=_schoolEmpty('📦','필요한 위젯을 꺼내보세요','위젯 보관함에서 홈에 표시할 항목을 선택할 수 있어요.');
+  }
 
   /* 수업메모 스크롤 — 새 hlmList 가 그려지기 직전 현재 위치를 숫자로 기억(복원용).
    *  단, '현재 주차에 자리잡기 전'(시작 churn)·학기변경 때는 기억하지 않아야 현재 주차로 갈 수 있다. */
@@ -291,7 +367,6 @@ export function renderHomeDashboard(){
     pickerBtnEl.addEventListener('mouseleave',function(){this.style.borderColor='var(--bdr)';this.style.background='var(--card)';});
   }
   _bindHomeSyncListeners();
-  _bindHomeCalResize();
   _bindHomeCalRangeDrag();
 }
 
@@ -461,6 +536,8 @@ function _onHomeAreaClick(e){
     }
     if(act==='academic-color'){ e.preventDefault(); e.stopPropagation(); _openAcademicColorPicker(el, el.getAttribute('data-arg')||''); return; }
     if(act==='range-edit'){ e.preventDefault(); e.stopPropagation(); const rid=el.getAttribute('data-arg'); const r=_localRanges.find(function(x){return x.id===rid;}); if(r)_openRangeEditor(r,r.start,r.end); return; }
+    if(act==='open-widget-api-settings'){ e.preventDefault(); import('../settings/settings-view.js').then(function(m){ m.openSettings(); const entry=document.querySelector('#settingsSidebar [data-cat="apikeys"]'); if(entry)entry.click(); }); return; }
+    if(act==='retry-widget-meal'){ e.preventDefault(); _mealWidgetCache=null; renderHomeDashboard(); return; }
     if(act==='open-timetable-search'){ e.preventDefault(); import('../../core/timetable.js').then(function(m){ try{ m.showTimetableModal(); }catch(_){} }); return; }
     if(act==='open-classpopup-picker'){ e.preventDefault(); import('../../core/timetable.js').then(function(m){ try{ m.showTimetableModal({pick:true}); }catch(_){} }); return; }
     if(act==='open-my-week'){ e.preventDefault(); _openMyWeekModal(); return; }
@@ -521,9 +598,10 @@ function _onHomeAreaClick(e){
     if(act==='add-routine'){e.preventDefault();_homeAddRoutine();return;}
     if(act==='add-todo'){e.preventDefault();_homeAddTodo();return;}
     if(act==='del-routine'){e.preventDefault();_homeDelRoutine(parseInt(el.dataset.idx,10));return;}
-    if(act==='del-todo'){e.preventDefault();_homeDelTodo(parseInt(el.dataset.idx,10));return;}
+    if(act==='del-todo'){e.preventDefault();_homeDelTodo(el.dataset.key,el.dataset.date);return;}
+    if(act==='retry-todo'){e.preventDefault();_requireHomeCalendar().then(function(){renderHomeDashboard();});return;}
     if(act==='toggle-routine'){_homeToggleRoutine(parseInt(el.dataset.idx,10));return;}
-    if(act==='toggle-todo'){_homeToggleTodo(parseInt(el.dataset.idx,10));return;}
+    if(act==='toggle-todo'){_homeToggleTodo(el.dataset.key,el.dataset.date);return;}
     if(act==='toggle-calevent'){_homeToggleCalEvent(el.dataset.key);return;}
     if(act==='add-procurement'){e.preventDefault();_homeAddProcurement();return;}
     if(act==='del-procurement'){e.preventDefault();_homeDelProcurement(parseInt(el.dataset.idx,10));return;}
@@ -545,7 +623,7 @@ function _onHomeAreaClick(e){
     if(act==='edit-phone'){e.preventDefault();_homeEditPhone(parseInt(el.dataset.idx,10));return;}
     if(act==='edit-procurement'){e.preventDefault();_homeEditProcurement(parseInt(el.dataset.idx,10));return;}
     if(act==='edit-routine'){e.preventDefault();_homeEditRoutine(parseInt(el.dataset.idx,10));return;}
-    if(act==='edit-todo'){e.preventDefault();_homeEditTodo(parseInt(el.dataset.idx,10));return;}
+    if(act==='edit-todo'){e.preventDefault();_homeEditTodo(el.dataset.key,el.dataset.date);return;}
   }
 }
 /* ── 수정 다이얼로그 (펜 아이콘) — 증상/처치 펜 동일한 ✏️ 사용 ── */
@@ -629,24 +707,12 @@ async function _homeEditRoutine(idx){
   });
   renderHomeDashboard();
 }
-async function _homeEditTodo(idx){
-  const items=_tdGet();if(isNaN(idx)||idx<0||idx>=items.length)return;
-  const cur=items[idx]||{};
-  await _homePromptMulti('☑ 할 일 수정',[
-    {label:'할 일 내용',value:cur.text||cur.title||'',placeholder:'예: 약품 발주 확인'}
-  ],{
-    onSave:function(vals){
-      const ls=_tdGet();if(!ls[idx])return;
-      ls[idx]=Object.assign({},ls[idx],{text:vals[0]||''});
-      _tdSet(ls).then(function(){renderHomeDashboard();});
-    },
-    onDelete:function(){
-      const ls=_tdGet();ls.splice(idx,1);
-      _tdSet(ls).then(function(){renderHomeDashboard();});
-    },
-    showDelete:true
-  });
-  renderHomeDashboard();
+async function _homeEditTodo(key,ds){
+  if(!await _requireHomeCalendar())return;
+  ds=ds||_todayStr();
+  const ev=_homeFindTodo(key,ds);if(!ev)return;
+  if(ev._local)return _homeEditLocalEvent(ds,_homeLocalTodoIndex(ds,ev),null);
+  return _homeEditGcalEvent(ds,ev.id,null);
 }
 
 /* Google Calendar 로그인/연결 (매직스테이션과 동일 IPC) */
@@ -668,59 +734,6 @@ async function _homeCalConnect(){
 }
 
 /* 캘린더 셀 높이 리사이즈 — 매직스테이션 스타일 드래그 */
-function _bindHomeCalResize(){
-  const bar=document.getElementById('homeCalResizeBar');
-  if(!bar||bar._rsBound)return;
-  bar._rsBound=true;
-  bar.addEventListener('mouseenter',function(){bar.style.background='rgba(6,182,212,0.1)';});
-  bar.addEventListener('mouseleave',function(){bar.style.background='';});
-  bar.addEventListener('mousedown',function(e){
-    e.preventDefault();
-    const startY=e.clientY;
-    const startH=parseInt(localStorage.getItem('ec_home_cal_cellH')||'100',10);
-    bar.style.cursor='grabbing';
-    const overlay=document.createElement('div');
-    overlay.style.cssText='position:fixed;inset:0;z-index:99999;cursor:ns-resize';
-    document.body.appendChild(overlay);
-    /* 막대 DOM 모음 — 리사이즈 중 위치 재계산/숨김 대상 */
-    const _bars=Array.prototype.slice.call(document.querySelectorAll('#homeCalWrap .acad-bar'));
-    const _compactThresh=48;   /* 렌더의 _calCompact 임계(48px)와 동일 — 미만이면 막대 숨김(숫자 모드) */
-    function onMove(ev){
-      const dy=ev.clientY-startY;
-      let newH=Math.max(24,Math.min(300,Math.round(startH+dy)));
-      /* 실시간 적용: 그리드 안의 모든 셀(빈칸 포함) 높이 갱신 */
-      document.querySelectorAll('#homeCalWrap [style*="min-height"]').forEach(function(el){
-        const par=el.parentElement;
-        if(par&&par.style.display==='grid'){
-          el.style.minHeight=newH+'px';
-          el.style.maxHeight=newH+'px';
-        }
-      });
-      /* ★ 학사일정 막대(절대배치 오버레이) — 셀에 안 들어가면 숨기고(겹침 방지), 들어가면 새 cellH 로 top 재계산.
-       *   숨김 상태로 끝나면 onUp 의 정식 재렌더가 '날짜 옆 개수' compact 모드로 전환. (2026-06-22) */
-      const compact=(_compactThresh>0 && newH<_compactThresh);
-      _bars.forEach(function(b){
-        if(compact){ b.style.display='none'; return; }
-        b.style.display='';
-        const row=parseInt(b.getAttribute('data-acad-row'),10);
-        const lane=parseInt(b.getAttribute('data-acad-lane'),10);
-        if(!isNaN(row)&&!isNaN(lane)) b.style.top=(row*(newH+1)+18+lane*20)+'px';
-      });
-      localStorage.setItem('ec_home_cal_cellH',String(newH));
-    }
-    function onUp(){
-      document.removeEventListener('mousemove',onMove);
-      document.removeEventListener('mouseup',onUp);
-      if(overlay.parentNode)overlay.remove();
-      bar.style.cursor='grab';
-      /* 드래그 종료 후 정식 재렌더 1회 — 막대·칸 spacer 까지 새 cellH 로 완전히 정합(부동소수·경계오차 제거). */
-      try{ renderHomeDashboard(); }catch(_){}
-    }
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
-  });
-}
-
 /* ── 캘린더 날짜 드래그 → 기간 선택 (시작일~종료일). 단순 클릭은 기존 당일 팝업 유지. (2026-06-22) ── */
 function _bindHomeCalRangeDrag(){
   const grid=document.getElementById('homeCalGrid');
@@ -830,7 +843,7 @@ function _renderWidget(id,todayRecs,ay,today){
     case 'tbStatus': return _wTbStatus();
     case 'rentalDue': return _wRentalDue();
     case 'schoolStats': return _wSchoolStats();
-    default: return '<span style="color:var(--t3)">데이터 없음</span>';
+    default: return _schoolEmpty("📋","아직 표시할 내용이 없어요","기록을 추가하면 이곳에 표시돼요.");
   }
 }
 
@@ -865,7 +878,7 @@ function _wBed(){
   if(Array.isArray(S.records)){
     todayUsed=S.records.filter(function(r){ return r.date===today && _statHasBed(r); }).length;
   }
-  if(!total&&!todayUsed)return '<span style="color:var(--t3)">침상 데이터 없음</span>';
+  if(!total&&!todayUsed)return _schoolEmpty("🛏","침상 사용 기록이 없어요","침상 설정과 사용 현황을 확인해 주세요.");
   let h='<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">';
   h+='<div><span style="font-size:11px;color:var(--t3);margin-right:4px">현재 사용</span><span style="font-size:20px;font-weight:800;color:'+(inUse>0?'#f59e0b':'var(--t1)')+'">'+inUse+'</span><span style="font-size:11px;color:var(--t3)"> / '+total+'</span></div>';
   h+='<div><span style="font-size:11px;color:var(--t3);margin-right:4px">오늘 총 사용</span><span style="font-size:20px;font-weight:800;color:var(--cyan)">'+todayUsed+'</span><span style="font-size:11px;color:var(--t3)">건</span></div>';
@@ -887,7 +900,7 @@ function _wRental(){
         +'</div>';
     }
   }catch(e){}
-  return '<span style="color:var(--t3)">대여 기록 없음</span>';
+  return _schoolEmpty("📦","대여 기록이 없어요","물품을 대여하면 이곳에서 현황을 볼 수 있어요.");
 }
 
 function _wWeather(){
@@ -936,7 +949,7 @@ function _wTopMeds(recs){
     if(Array.isArray(meds))meds.forEach(function(m){const b=_baseOfMed(m);if(b)counts[b]=(counts[b]||0)+1;});
   });
   const sorted=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];}).slice(0,5);
-  if(!sorted.length)return '<span style="color:var(--t3)">오늘 투약 기록 없음</span>';
+  if(!sorted.length)return _schoolEmpty("💊","오늘 투약 기록이 없어요","보건일지의 투약 기록을 모아 보여드려요.");
   return sorted.map(function(m,i){
     return '<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span>'+(i+1)+'. '+escHtml(m)+'</span><b>'+counts[m]+'건</b></div>';
   }).join('');
@@ -957,7 +970,7 @@ function _wFrequent(ay){
     counts[r.studentId]=(counts[r.studentId]||0)+1;
   });
   const freq=Object.keys(counts).filter(function(id){return counts[id]>=3;}).sort(function(a,b){return counts[b]-counts[a];}).slice(0,5);
-  if(!freq.length)return '<span style="color:var(--t3)">이번 주 3회 이상 방문 학생 없음</span>';
+  if(!freq.length)return _schoolEmpty("🔄","반복 방문 학생이 없어요","이번 주 3회 이상 방문한 학생을 표시해요.");
   return freq.map(function(id){
     const s=typeof getStu==='function'?getStu(id):{name:'?'};
     const grade=typeof getStuGradeCol==='function'?getStuGradeCol(s,{short:true}):'';
@@ -973,7 +986,7 @@ function _wPeakHour(recs){
     if(!isNaN(h)&&h>=0&&h<24)hours[h]++;
   });
   const maxH=Math.max.apply(null,hours);
-  if(maxH===0)return '<span style="color:var(--t3)">오늘 방문 기록 없음</span>';
+  if(maxH===0)return _schoolEmpty("🕐","오늘 방문 기록이 없어요","방문 기록이 쌓이면 시간대별 현황을 볼 수 있어요.");
   /* 8~17시만 표시 */
   let bars='';
   for(let i=8;i<=17;i++){
@@ -1040,7 +1053,7 @@ function _wTodayTreat(recs){
       return '<div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:3px"><span style="word-break:break-all">'+escHtml(left)+'</span><b style="white-space:nowrap">'+counts[t]+'건</b></div>';
     }).join('');
   } else {
-    h+='<span style="color:var(--t3)">오늘 처치 기록 없음</span>';
+    h+=_schoolEmpty("📋","오늘 처치 기록이 없어요","보건일지에 남긴 처치 내용을 모아 보여드려요.");
   }
   /* 투약이 상위 5에 못 들었지만 당일 약품 사용이 있으면 투약[약품] 라인 보강 */
   if(medNames.length&&sorted.indexOf('투약')===-1){
@@ -1058,7 +1071,7 @@ function _wGradeVisit(recs){
     grades[g]=(grades[g]||0)+1;
   });
   const keys=Object.keys(grades).sort(function(a,b){return(parseInt(a)||99)-(parseInt(b)||99);});
-  if(!keys.length)return '<span style="color:var(--t3)">오늘 학생 방문 없음</span>';
+  if(!keys.length)return _schoolEmpty("🏫","오늘 학생 방문이 없어요","보건일지를 작성하면 학년별 현황이 표시돼요.");
   const maxV=Math.max.apply(null,keys.map(function(k){return grades[k];}));
   return keys.map(function(g){
     const pct=maxV>0?Math.round(grades[g]/maxV*100):0;
@@ -1068,7 +1081,7 @@ function _wGradeVisit(recs){
 
 function _wInfection(){
   /* 감염병 기록 중 현재 진행 중인 것 */
-  if(typeof S.infRecords==='undefined'||!Array.isArray(S.infRecords))return '<span style="color:var(--t3)">감염병 데이터 없음</span>';
+  if(typeof S.infRecords==='undefined'||!Array.isArray(S.infRecords))return _schoolEmpty("🩺","표시할 감염병 기록이 없어요","등록된 감염병 기록을 기준으로 현황을 보여드려요.");
   const active=S.infRecords.filter(function(r){return r.progress==='진행'||r.progress==='격리';});
   if(!active.length)return '<span style="color:#22c55e;font-weight:700">현재 진행 중인 감염 없음 ✅</span>';
   return active.slice(0,5).map(function(r){
@@ -1081,32 +1094,35 @@ function _wInfection(){
 let _mealWidgetCache=null;   /* {ymd, meals:[...], error} */
 let _mealWidgetLoading=false;
 function _wMeal(){
-  const ymd=_todayStr().replace(/-/g,'');   /* 'YYYYMMDD' */
-  if(_mealWidgetCache && _mealWidgetCache.ymd===ymd){
+  const ymd=_todayStr().replace(/-/g,'');
+  if(!neisKey()) return _schoolWidgetApiState('neis','학교 급식과 학사일정을 연결할 수 있어요. 환경설정의 API Key 관리에서 등록해 주세요.');
+  if(_mealWidgetCache&&_mealWidgetCache.error==='no-key') _mealWidgetCache=null;
+  if(_mealWidgetCache&&_mealWidgetCache.ymd===ymd){
     const c=_mealWidgetCache;
-    if(c.error==='no-key') return '<span style="color:var(--t3)">설정 → API 관리 →<br>🍽️ 나이스(NEIS) — 급식·학사일정 키 등록</span>';
-    if(c.error==='no-school') return '<span style="color:var(--t3)">학교를 찾지 못했습니다</span>';
-    if(!c.meals||!c.meals.length) return '<span style="color:var(--t3)">오늘 등록된 급식이 없습니다</span>';
-    return c.meals.map(function(m){
-      const menu=(m.menu||[]).join(', ');
-      return '<div style="margin-bottom:7px;line-height:1.5">'
-        +'<b style="color:#0e7490">'+escHtml(m.type||'')+'</b>'
-        +'<div style="color:var(--t1);font-size:11px;margin-top:2px">'+escHtml(menu)+'</div></div>';   /* 조식/중식/석식 라벨 아래 줄에 내용 (사용자 요청 2026-06-17) */
-    }).join('');
+    if(c.error==='no-school') return _schoolWidgetState('error','학교 정보를 확인해 주세요','등록한 학교명·교육청과 나이스 연동 정보를 확인해 주세요.',_schoolWidgetButton('open-widget-api-settings','연동 설정 확인',true));
+    if(c.error) return _schoolWidgetState('error','급식 정보를 불러오지 못했어요','연결 상태를 확인한 후 다시 조회해 주세요.',_schoolWidgetButton('retry-widget-meal','다시 조회',true));
+    if(!c.meals||!c.meals.length) return _schoolWidgetState('empty','오늘 등록된 급식이 없어요','주말·공휴일·방학에는 급식 정보가 없을 수 있어요.');
+    let h='<div class="school-meal"><div class="school-widget-dateline"><span>'+escHtml(_schoolWidgetDate())+'</span><span class="school-widget-status">NEIS 연동</span></div>';
+    c.meals.forEach(function(m){
+      h+='<section class="school-meal-service"><div class="school-meal-heading"><strong>'+escHtml(m.type||'급식')+'</strong>'+(m.cal?'<span>'+escHtml(m.cal)+'</span>':'')+'</div><ul class="school-meal-menu">';
+      (m.menu||[]).forEach(function(item){h+='<li>'+escHtml(item)+'</li>';});
+      h+='</ul></section>';
+    });
+    return h+'</div>';
   }
   if(!_mealWidgetLoading){
     _mealWidgetLoading=true;
     getMealsForDate(ymd).then(function(r){
-      _mealWidgetCache={ymd:ymd, meals:(r&&r.meals)||[], error:(r&&r.error)||null};
+      _mealWidgetCache={ymd:ymd,meals:(r&&r.meals)||[],error:(r&&r.error)||null};
       _mealWidgetLoading=false;
-      try{ renderHomeDashboard(); }catch(_){}
+      try{renderHomeDashboard();}catch(_){}
     }).catch(function(){
-      _mealWidgetCache={ymd:ymd, meals:[], error:null};
+      _mealWidgetCache={ymd:ymd,meals:[],error:'fetch'};
       _mealWidgetLoading=false;
-      try{ renderHomeDashboard(); }catch(_){}
+      try{renderHomeDashboard();}catch(_){}
     });
   }
-  return '<span style="color:var(--t3)">급식 정보 로딩 중...</span>';
+  return _schoolWidgetState('loading','오늘의 식단을 가져오고 있어요','나이스에서 학교 급식 정보를 확인하고 있어요.');
 }
 
 /* 감염병 유행 현황 위젯 — 질병관리청 전수신고 감염병(설정 지역 시도) 상위 발생. 클릭 시 상세 모달. */
@@ -1151,27 +1167,30 @@ function _retryInfectTrend(){
 }
 function _wInfectTrend(){ return _wInfectTrendBody(); }
 function _wInfectTrendBody(){
-  const btn='<button data-action="open-infect-detail" style="margin-top:8px;font-size:11px;padding:5px 12px;border:1px solid #ef4444;border-radius:6px;background:rgba(239,68,68,0.07);color:#ef4444;cursor:pointer;font-family:var(--f)">🦠 자세히 보기</button>';
-  const retry='<button type="button" data-action="retry-infect-trend" style="margin:8px 0 0 6px;font-size:11px;padding:5px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--card);color:var(--t2);cursor:pointer;font-family:var(--f)">다시 조회</button>';
-  const year=new Date().getFullYear(), sido=userSidoCd();
-  const key=getInfectiousRequestKey(year, sido);
+  if(!getPublicDataApiKey('kdca')) return _schoolWidgetApiState('kdca','우리 지역의 감염병 발생 현황을 확인할 수 있어요. 공공데이터 인증키와 서비스 활용승인이 필요해요.');
+  const detail=_schoolWidgetButton('open-infect-detail','지역·기간별 자세히 보기',true);
+  const retry=_schoolWidgetButton('retry-infect-trend','다시 조회',true);
+  const year=new Date().getFullYear(),sido=userSidoCd(),key=getInfectiousRequestKey(year,sido);
   if(_infectCache&&(_infectCache.key!==key||Date.now()-_infectCache.fetchedAt>=INFECTIOUS_CACHE_TTL_MS)) _infectCache=null;
   if(_infectCache){
     const c=_infectCache.result;
-    if(c.error) return '<span style="color:var(--t3)">'+escHtml(getInfectiousErrorMessage(c))+'</span><div>'+btn+retry+'</div>';
-    if(!c.rows||!c.rows.length) return '<span style="color:var(--t3)">'+escHtml(String(c.year))+'년 '+escHtml(c.sidoNm||'')+' 발생 데이터 없음</span><div>'+btn+retry+'</div>';
-    let h='<div style="font-size:10px;color:var(--t3);margin-bottom:5px">'+escHtml(c.sidoNm||'전국')+' · '+escHtml(String(c.year))+'년 발생 상위</div>';
-    c.rows.forEach(function(x,i){ h+='<div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:2px"><span style="color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(i+1)+'. '+escHtml(x.icdNm)+'</span><b style="color:#ef4444;flex-shrink:0">'+x.val.toLocaleString()+'</b></div>'; });
-    return h+btn;
+    if(c.error==='no-key') return _schoolWidgetApiState('kdca','우리 지역 감염병 현황을 조회하려면 공공데이터 인증키를 등록해 주세요.');
+    if(c.error) return _schoolWidgetState('error','감염병 현황을 확인하지 못했어요',getInfectiousErrorMessage(c),retry+detail);
+    if(!c.rows||!c.rows.length) return _schoolWidgetState('empty','조회된 발생 자료가 없어요',String(c.year)+'년 '+(c.sidoNm||'설정 지역')+' 조회 결과예요. 자료가 없다는 것이 발생이 없다는 뜻은 아니에요.',retry+detail);
+    let h='<div class="school-infect"><div class="school-widget-dateline"><span>'+escHtml(c.sidoNm||'전국')+' · '+escHtml(String(c.year))+'년</span><span class="school-widget-status">발생 상위</span></div><ol class="school-infect-list">';
+    c.rows.forEach(function(x,i){
+      h+='<li><span class="school-infect-rank">'+(i+1)+'</span><span class="school-infect-name">'+escHtml(x.icdNm)+'</span><strong>'+escHtml(Number(x.val).toLocaleString('ko-KR'))+'<small>건</small></strong></li>';
+    });
+    return h+'</ol><p class="school-widget-note">지역 전체 발생 자료로, 우리 학교의 감염병 기록과는 달라요.</p><div class="school-widget-actions">'+detail+'</div></div>';
   }
-  if(!_infectLoading||_infectLoading.key!==key) _loadInfectTrend(year, sido, key, false);
-  return '<span style="color:var(--t3)">감염병 현황 로딩 중...</span>';
+  if(!_infectLoading||_infectLoading.key!==key) _loadInfectTrend(year,sido,key,false);
+  return _schoolWidgetState('loading','지역 감염병 현황을 가져오고 있어요','조회가 끝나면 해당 연도의 발생 상위 항목을 보여드려요.');
 }
 
 /* 시간표 검색 위젯 — 클릭 시 나이스 시간표 조회 모달 (초·중·고·특수 학교급 자동) */
 function _wTimetableSearch(){
-  return '<div style="font-size:11.5px;color:var(--t2);line-height:1.7">학년도·학교·계열·학과·학기·학년·강의실·<b>교시별 시간표 수업내용</b>을 확인할 수 있는 위젯입니다.<br><span style="font-size:10px;color:var(--t3)">초·중·고·특수 학교급에 맞춰 자동 조회 (같은 나이스 키)</span></div>'
-    +'<button data-action="open-timetable-search" style="margin-top:9px;font-size:11px;padding:6px 14px;border:1px solid var(--cyan);border-radius:6px;background:rgba(6,182,212,0.08);color:var(--cyan);cursor:pointer;font-family:var(--f)">🔍 시간표 팝업 열기</button>';
+  if(!neisKey()) return _schoolWidgetApiState('neis','학교 전체 시간표를 조회할 수 있어요. 급식·학사일정과 같은 나이스 키를 사용해요.');
+  return _schoolWidgetState('ready','학교 시간표를 한곳에서','학교급에 맞는 학년·반·교시별 수업을 조회하고, 내 수업도 선택할 수 있어요.',_schoolWidgetButton('open-timetable-search','학교 시간표 열기'));
 }
 
 /* 🗓️ 나의 시간표 보기 위젯 — 설정 '팝업 대상 시간 선택하기'(class-popup)와 연동.
@@ -1179,19 +1198,16 @@ function _wTimetableSearch(){
 function _myClassPopups(){ try{ const a=JSON.parse(localStorage.getItem('ec_class_popups')||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
 function _wMyTimetable(){
   const list=_myClassPopups();
-  if(!list.length) return '<div style="font-size:12px;color:var(--t3);line-height:1.7">아직 선택한 수업이 없습니다.<br>우측 상단 <b>⚙</b> 를 눌러 나이스 시간표에서 내 수업을 고르세요.</div>';
-  const jsDow=new Date().getDay();
-  if(jsDow<1||jsDow>5) return '<div style="font-size:12px;color:var(--t3);line-height:1.7">오늘은 주말입니다.</div><div style="margin-top:11px"><span data-action="open-my-week" data-tooltip="클릭하여 나의 1주일 시간표를 봅니다." data-tooltip-instant="1" style="color:var(--cyan);cursor:pointer;font-weight:700">📅 나의 주간 시간표 보기</span></div>';
-  const dow=jsDow-1;
-  const today=list.filter(function(x){return String(x.dow)===String(dow);}).sort(function(a,b){return (parseInt(a.perio)||99)-(parseInt(b.perio)||99);});
-  if(!today.length) return '<div style="font-size:12px;color:var(--t3);line-height:1.7">오늘은 선택한 수업이 없습니다.</div><div style="margin-top:11px"><span data-action="open-my-week" data-tooltip="클릭하여 나의 1주일 시간표를 봅니다." data-tooltip-instant="1" style="color:var(--cyan);cursor:pointer;font-weight:700">📅 나의 주간 시간표 보기</span></div>';
-  let h='<div style="display:flex;flex-direction:column;gap:6px">';
-  today.forEach(function(x){
-    const t=x.time?(' <span style="font-size:9px;color:#db2777;font-weight:700">⏰'+escHtml(x.time)+'</span>'):'';
-    h+='<div data-action="open-my-week" data-tooltip="클릭하여 나의 1주일 시간표를 봅니다." data-tooltip-instant="1" style="font-size:13px;color:var(--t1);cursor:pointer;padding:6px 10px;border:1px solid var(--bdr);border-radius:7px;background:var(--bg2);font-weight:700"><span style="color:var(--cyan)">'+escHtml(String(x.perio))+'교시</span> '+escHtml(x.content||'수업')+t+'</div>';
-  });
-  h+='</div>';
-  return h;
+  if(!list.length){
+    if(!neisKey()) return _schoolWidgetApiState('neis','학교 시간표를 불러온 뒤 내 수업을 선택할 수 있어요. 급식과 같은 나이스 키를 사용해요.');
+    return _schoolWidgetState('empty','내 수업을 선택해 주세요','학교 시간표에서 맡은 수업을 고르면 오늘의 교시와 수업을 이곳에 모아드려요.',_schoolWidgetButton('open-classpopup-picker','내 수업 선택하기'));
+  }
+  const dow=new Date().getDay();
+  const weekButton=_schoolWidgetButton('open-my-week','나의 주간 시간표 보기',true);
+  if(dow<1||dow>5) return _schoolWidgetState('empty','오늘은 주말이에요','선택한 수업은 주간 시간표에서 확인할 수 있어요.',weekButton);
+  const today=list.filter(function(x){return String(x.dow)===String(dow-1);}).sort(function(a,b){return (parseInt(a.perio)||99)-(parseInt(b.perio)||99);});
+  if(!today.length) return _schoolWidgetState('empty','오늘 선택한 수업이 없어요','다른 요일의 수업은 주간 시간표에서 확인해 주세요.',weekButton);
+  return _schoolScheduleList(today.map(function(x){return {period:x.perio,subject:x.content||'수업',time:x.time||''};}),'open-my-week','나의 주간 시간표 보기');
 }
 /* 나의 1주일 시간표 모달 — X:월~금, Y:1~7교시(초과 시 확장), 선택 수업 칸에 과목명 */
 function _openMyWeekModal(){
@@ -1219,7 +1235,7 @@ function _openMyWeekModal(){
   const ov=document.createElement('div'); ov.id='myWeekOv';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13050;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="myWeekBox" style="background:var(--card);border-radius:14px;width:max-content;min-width:380px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">🗓️</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">나의 1주일 시간표</div><div style="font-size:10.5px;color:var(--t3)">월~금 · 내가 선택한 수업 (⏰=팝업 알림)</div></div>'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">🗓️</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">나의 1주일 시간표</div><div style="font-size:10.5px;color:var(--t3)">월~금 · 내가 선택한 수업 (⏰=팝업 알림)</div></div>'
       +'<button id="myWeekEdit" data-tooltip="수업 선택·알림 시간을 편집합니다." data-tooltip-instant="1" style="padding:6px 12px;border:1px solid var(--cyan);border-radius:7px;background:rgba(6,182,212,0.08);color:var(--cyan);font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f)">⚙ 편집</button></div>'
     +'<div style="padding:14px 20px;overflow:auto">'+(empty?'<div style="color:var(--t3);text-align:center;padding:16px 0">아직 선택한 수업이 없습니다. 우측 상단 ⚙ 편집으로 골라보세요.</div>':tbl)+'</div></div>';
   document.body.appendChild(ov);
@@ -1231,20 +1247,27 @@ function _openMyWeekModal(){
 
 /* 폭염·한파·자외선 위젯 — 헤더(header-widget.js)가 채워 둔 localStorage 캐시를 읽어 표시. */
 function _wWxAlert(){
-  const heat=localStorage.getItem('ec_heatAlert')||'';
-  const cold=localStorage.getItem('ec_coldAlert')||'';
-  const uv=localStorage.getItem('ec_uvIndex')||'';
-  const uvG=localStorage.getItem('ec_uvGrade')||'';
-  const hasUv=(uv!==''&&!isNaN(parseFloat(uv)));
-  if(!heat&&!cold&&!hasUv) return '<span style="color:var(--t3)">날씨 특보 정보 로딩 중...</span>';
-  /* 색은 미세먼지(대기) 등급 색 체계 차용 — 좋음 파랑 / 보통 초록 / 나쁨 주황 / 매우나쁨 빨강 (사용자 요청 2026-06-17) */
-  const _uvPm=function(v){ const n=parseFloat(v); if(!isFinite(n))return '#6b7280'; if(n<=2)return '#1c6fd6'; if(n<=5)return '#1ea675'; if(n<=7)return '#f59e0b'; return '#dc2626'; };
-  let h='';
-  if(heat) h+='<div style="margin-bottom:4px;color:#dc2626;font-weight:700">🔥 '+escHtml(heat)+'</div>';
-  if(cold) h+='<div style="margin-bottom:4px;color:#2563eb;font-weight:700">🥶 '+escHtml(cold)+'</div>';
-  if(!heat&&!cold) h+='<div style="margin-bottom:4px;color:#22c55e;font-weight:700">✅ 폭염·한파 특보 없음</div>';
-  if(hasUv) h+='<div style="color:var(--t1)">🌞 우리 지역 현재 자외선 지수: <b style="color:'+_uvPm(uv)+';font-size:14px">'+escHtml(String(uv))+'</b> <span style="font-size:9.5px;color:var(--t3)">('+escHtml(uvG||'--')+')</span></div>';
-  return h;
+  const heat=localStorage.getItem('ec_heatAlert')||'', cold=localStorage.getItem('ec_coldAlert')||'';
+  const uv=localStorage.getItem('ec_uvIndex')||'', uvGrade=localStorage.getItem('ec_uvGrade')||'';
+  const n=Number(uv),hasUv=uv.trim()!==''&&Number.isFinite(n);
+  const readTemperature=function(key){const value=localStorage.getItem(key);return value!==null&&value.trim()!==''&&Number.isFinite(Number(value))?Number(value):null;};
+  const hi=readTemperature('ec_tempHi'),lo=readTemperature('ec_tempLo');
+  const hasTemperature=hi!==null||lo!==null;
+  if(!heat&&!cold&&!hasUv&&!hasTemperature) return '<div class="school-weather-brief" role="status"><p class="school-weather-brief-loading">지역 기상 정보를 기다리고 있어요.</p></div>';
+  const region=localStorage.getItem('ec_user_region')||localStorage.getItem('ec_weatherRegion')||'설정 지역';
+  const temperature=function(value){return value===null?'확인 중':escHtml(String(value))+'°C';};
+  let h='<div class="school-weather-brief"><div class="school-weather-brief-region">'+escHtml(region)+'</div>'
+    +'<dl class="school-weather-brief-temperatures"><div><dt>최고</dt><dd>'+temperature(hi)+'</dd></div><div><dt>최저</dt><dd>'+temperature(lo)+'</dd></div></dl>'
+    +'<dl class="school-weather-brief-details">';
+  const notice=function(label,message,tone){return '<div data-tone="'+tone+'"><dt>'+escHtml(label)+'</dt><dd>'+escHtml(message)+'</dd></div>';};
+  if(heat) h+=notice('폭염 참고',heat.indexOf('경보')!==-1?'경보 기준':heat.indexOf('주의보')!==-1?'주의 기준':heat,'warm');
+  if(cold) h+=notice('한파 참고',cold.indexOf('경보')!==-1?'경보 기준':cold.indexOf('주의보')!==-1?'주의 기준':cold,'cool');
+  if(!heat&&!cold) h+=notice('기온 참고',hasTemperature?'폭염·한파 알림 없음':'기온 정보 확인 중','neutral');
+  if(hasUv){
+    const tone=n<=2?'cool':n<=5?'normal':n<=7?'warm':'high';
+    h+='<div data-tone="'+tone+'"><dt>자외선</dt><dd><b>'+escHtml(uv)+'</b><span class="school-weather-brief-grade">'+escHtml(uvGrade||'등급 확인 중')+'</span></dd></div>';
+  }else h+='<div><dt>자외선</dt><dd>정보 확인 중</dd></div>';
+  return h+'</dl><p class="school-widget-note">기온 기준 참고 알림이며, 공식 기상특보는 아니에요.</p></div>';
 }
 
 function _wTimetable(){
@@ -1274,7 +1297,7 @@ function _wCaution(recs){
     if(s.type==='student'&&(s.status==='caution'||s.status==='watch'))cautionIds[s.uid||s.id]=s;
   });
   const visited=recs.filter(function(r){return cautionIds[r.studentId];});
-  if(!visited.length)return '<span style="color:var(--t3)">오늘 요보호 학생 방문 없음</span>';
+  if(!visited.length)return _schoolEmpty("🌿","오늘 요보호 학생 방문이 없어요","요보호 학생의 방문 기록을 이곳에 모아드려요.");
   return visited.slice(0,5).map(function(r){
     const s=cautionIds[r.studentId];
     return '<div style="margin-bottom:3px;color:#f59e0b"><b>'+escHtml(s.name||'?')+'</b> ('+escHtml(s.careReason||s.status||'')+')</div>';
@@ -1295,7 +1318,7 @@ function _wBirthday(){
     else return false;
     return bm===mon&&bday>=startDay&&bday<=endDay;
   });
-  if(!bdays.length)return '<span style="color:var(--t3)">이번 주 생일 학생 없음</span>';
+  if(!bdays.length)return _schoolEmpty("🎂","표시할 생일 학생이 없어요","등록된 학생의 생년월일을 기준으로 표시해요.");
   return bdays.slice(0,5).map(function(s){
     const grade=typeof getStuGradeCol==='function'?getStuGradeCol(s,{short:true}):'';
     return '<div style="margin-bottom:3px">🎂 '+escHtml(grade)+' <b>'+escHtml(s.name||'?')+'</b> ('+escHtml((s.birthdate||'').slice(5))+')</div>';
@@ -1344,6 +1367,14 @@ function _setGcalEnabled(b){
 let _localEvents={};      /* {YYYY-MM-DD:[{id,title,time,color,memo}]} */
 let _localRanges=[];      /* [{id,title,start,end,color}] — 사용자 기간 일정(기말고사 등). 칸 배경색으로 표시 (2026-06-22) */
 let _localEventsLoaded=false;
+let _localEventsLoading=null;
+let _localEventsSaveQueue=Promise.resolve();
+let _localEventsStamp=0;
+let _localEventsReadFailed=false;
+let _todoCalendarReady=false;
+let _todoCalendarError="";
+let _localTodoImports={};
+let _localTodoLegacyDate="";
 /* ── 저장 포맷 v2 (2026-08-12) ─────────────────────────────────────────────
  * 단일 일정 {__ts:<epoch ms>, ev:{날짜:[...]}} / 기간 일정 {__ts, rv:[...]} —
  * 갱신 시각을 페이로드와 한 덩어리(원자적)로 묶어 DB본·localStorage 캐시본 중 최신본을 판별.
@@ -1351,8 +1382,10 @@ let _localEventsLoaded=false;
  * 따라 캘린더 메모가 사라졌다/되돌아왔다 반복 + 낡은 본 위에서 편집하면 최신 메모 영구 유실.
  * 옛 형식(순수 {날짜:[...]} / [...])도 그대로 인식(ts=0 취급, 자연스럽게 v2 로 이행). */
 function _evUnwrap(v){
-  if(v&&typeof v==='object'&&!Array.isArray(v)&&v.ev&&typeof v.ev==='object')return {ts:(+v.__ts||0),data:v.ev};
-  if(v&&typeof v==='object'&&!Array.isArray(v))return {ts:0,data:v};   /* 옛 형식 */
+  if(v&&typeof v==='object'&&!Array.isArray(v)&&v.ev&&typeof v.ev==='object'){
+    return {ts:(+v.__ts||0),data:v.ev,schema:+v.schema||0,todoImports:v.todoImports&&typeof v.todoImports==='object'&&!Array.isArray(v.todoImports)?v.todoImports:{},todoLegacyDate:v.todoLegacyDate||''};
+  }
+  if(v&&typeof v==='object'&&!Array.isArray(v))return {ts:0,data:v,schema:0,todoImports:{},todoLegacyDate:''};
   return null;
 }
 function _rvUnwrap(v){
@@ -1367,14 +1400,40 @@ function _pickFresh(dbW,lsW,sizeFn){
   return dn?dbW:(ln?lsW:null);
 }
 async function _loadLocalEvents(){
+  if(_localEventsLoading)return _localEventsLoading;
+  if(_localEventsLoaded&&_todoCalendarReady)return _localEvents;
+  _localEventsLoading=(async function(){
+    try{
+      await _readLocalEvents();
+      if(_localEventsReadFailed)throw new Error('일정 저장소를 읽지 못했습니다.');
+      await _migrateLegacyHomeTodos();
+      _todoCalendarReady=true;
+      _todoCalendarError='';
+    }catch(e){
+      _todoCalendarError='일정과 할 일을 불러오지 못했습니다. 기존 자료는 그대로 보관되어 있습니다.';
+      console.error('[home-todo] load failed',e);
+    }
+    return _localEvents;
+  })();
+  try{return await _localEventsLoading;}finally{_localEventsLoading=null;}
+}
+async function _requireHomeCalendar(){
+  if(_localEventsReadFailed){_localEventsLoaded=false;_localEventsReadFailed=false;}
+  await _loadLocalEvents();
+  if(_todoCalendarReady)return true;
+  await appConfirmModal(_todoCalendarError||'일정을 다시 불러온 뒤 시도해 주세요.','일정 불러오기',{okOnly:true});
+  return false;
+}
+async function _readLocalEvents(){
   if(_localEventsLoaded)return _localEvents;
   try{
     let dbEv=null,dbRv=null,lsEv=null,lsRv=null;
     if(window.electronAPI&&window.electronAPI.dbGet){
       try{
         const res=await window.electronAPI.dbGet('common','home_local_events');
+        if(!res||!res.success)_localEventsReadFailed=true;
         dbEv=_evUnwrap((res&&res.success)?(res.data!=null?res.data:res.value):null);
-      }catch(e){console.error('[home-cal] DB 이벤트 로드 실패',e);}
+      }catch(e){_localEventsReadFailed=true;console.error('[home-cal] DB 이벤트 로드 실패',e);}
       try{
         const rr=await window.electronAPI.dbGet('common','home_local_ranges');
         dbRv=_rvUnwrap((rr&&rr.success)?(rr.data!=null?rr.data:rr.value):null);
@@ -1382,17 +1441,21 @@ async function _loadLocalEvents(){
     }
     try{const raw=localStorage.getItem('ec_home_local_events');if(raw)lsEv=_evUnwrap(JSON.parse(raw));}catch(e){}
     try{const rawR=localStorage.getItem('ec_home_local_ranges');if(rawR)lsRv=_rvUnwrap(JSON.parse(rawR));}catch(e){}
-    const wEv=_pickFresh(dbEv,lsEv,function(d){return Object.keys(d).length;});
+    // A linked calendar may legitimately be empty after its last item is deleted.
+    const candidates=[dbEv,lsEv].filter(Boolean);
+    const wEv=candidates.some(function(v){return v.schema>=3;})
+      ?candidates.reduce(function(a,b){return !a||b.ts>a.ts?b:a;},null)
+      :_pickFresh(dbEv,lsEv,function(d){return Object.keys(d).length;});
     const wRv=_pickFresh(dbRv,lsRv,function(d){return d.length;});
-    if(wEv)_localEvents=wEv.data;
+    if(wEv){_localEventsStamp=wEv.ts;_localEvents=wEv.data;_localTodoImports=Object.assign({},wEv.todoImports);_localTodoLegacyDate=wEv.todoLegacyDate||"";}
     if(wRv)_localRanges=wRv.data;
     /* 치유 — 두 본이 어긋나 있으면 승자로 양쪽 통일. 이후 120초 주기 미러(localStorage→DB)가
      * 낡은 캐시로 좋은 DB본을 되덮거나, 낡은 본 위에서 편집해 최신 메모를 잃는 사고를 차단. */
     try{
-      if(wEv){
-        const wrapped={__ts:(wEv.ts||Date.now()),ev:wEv.data};
-        if(!lsEv||!lsEv.ts||JSON.stringify(lsEv.data)!==JSON.stringify(wEv.data))localStorage.setItem('ec_home_local_events',JSON.stringify(wrapped));
-        if(window.electronAPI&&window.electronAPI.dbSet&&(!dbEv||!dbEv.ts||JSON.stringify(dbEv.data)!==JSON.stringify(wEv.data)))await window.electronAPI.dbSet('common','home_local_events',wrapped);
+      if(wEv&&!_localEventsReadFailed){
+        const wrapped={__ts:(wEv.ts||Date.now()),ev:wEv.data,schema:wEv.schema,todoImports:wEv.todoImports,todoLegacyDate:wEv.todoLegacyDate};
+        if(!lsEv||!lsEv.ts||JSON.stringify(lsEv.data)!==JSON.stringify(wEv.data)||JSON.stringify(lsEv.todoImports)!==JSON.stringify(wEv.todoImports)||lsEv.todoLegacyDate!==wEv.todoLegacyDate||lsEv.schema!==wEv.schema)localStorage.setItem('ec_home_local_events',JSON.stringify(wrapped));
+        if(window.electronAPI&&window.electronAPI.dbSet&&(!dbEv||!dbEv.ts||JSON.stringify(dbEv.data)!==JSON.stringify(wEv.data)||JSON.stringify(dbEv.todoImports)!==JSON.stringify(wEv.todoImports)||dbEv.todoLegacyDate!==wEv.todoLegacyDate||dbEv.schema!==wEv.schema))await window.electronAPI.dbSet('common','home_local_events',wrapped);
       }
       if(wRv){
         const wrappedR={__ts:(wRv.ts||Date.now()),rv:wRv.data};
@@ -1405,20 +1468,65 @@ async function _loadLocalEvents(){
   return _localEvents;
 }
 async function _saveLocalEvents(){
-  /* 로드 완료 전 저장 차단(2026-08-12) — 빈 초기 메모리({})가 DB·캐시의 실데이터를 덮는 사고 방지.
-   *  모든 편집 경로는 저장 전에 await _loadLocalEvents() 를 이미 거치므로 정상 흐름은 막히지 않음. */
-  if(!_localEventsLoaded){console.warn('[home-cal] 로드 전 저장 시도 차단');return;}
-  const payload={__ts:Date.now(),ev:_localEvents};
-  /* DB 저장과 localStorage 캐시를 각각 독립 try 로 분리 — DB 쓰기(dbSet)가 예외를 던져도
-   *  캐시는 반드시 남겨 종료 시 유실을 막는다(과거: 한 try 라 dbSet 예외 시 캐시 저장까지 건너뜀). (2026-07-15) */
-  try{
-    if(window.electronAPI&&window.electronAPI.dbSet){
-      await window.electronAPI.dbSet('common','home_local_events',payload);
-    }
-  }catch(e){console.error('[home-cal] save(DB) failed',e);}
-  try{
-    localStorage.setItem('ec_home_local_events',JSON.stringify(payload));
-  }catch(e){console.error('[home-cal] save(cache) failed',e);}
+  if(!_localEventsLoaded||_localEventsReadFailed)return false;
+  _localEventsStamp=Math.max(Date.now(),_localEventsStamp+1);
+  const payload=JSON.parse(JSON.stringify({__ts:_localEventsStamp,schema:3,ev:_localEvents,todoImports:_localTodoImports,todoLegacyDate:_localTodoLegacyDate}));
+  // Keep rapid edits in order and keep each queued snapshot independent.
+  _localEventsSaveQueue=_localEventsSaveQueue.catch(function(){return false;}).then(async function(){
+    let saved=false;
+    try{
+      if(window.electronAPI&&window.electronAPI.dbSet){
+        const res=await window.electronAPI.dbSet('common','home_local_events',payload);
+        if(res&&res.success)saved=true;
+      }
+    }catch(e){console.error('[home-cal] save(DB) failed',e);}
+    try{localStorage.setItem('ec_home_local_events',JSON.stringify(payload));saved=true;}
+    catch(e){console.error('[home-cal] save(cache) failed',e);}
+    return saved;
+  });
+  return _localEventsSaveQueue;
+}
+function _validHomeTodoDate(value){
+  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return '';
+  const d=new Date(value+'T12:00:00');
+  return Number.isFinite(d.getTime())&&d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')===value?value:'';
+}
+async function _migrateLegacyHomeTodos(){
+  // Preserve the original list. Import markers and events are saved in one payload,
+  // so edits or deletions never cause an old task to be imported again.
+  let rows=_getLSList('ec_home_todolist');
+  if(window.electronAPI&&window.electronAPI.dbGet){
+    const res=await window.electronAPI.dbGet('common','ec_home_todolist');
+    if(!res||!res.success)throw new Error('기존 할 일 저장소를 읽지 못했습니다.');
+    if(Array.isArray(res.data)&&res.data.length>rows.length)rows=res.data;
+  }
+  if(!rows.length)rows=_getLSList('gp2_todolist');
+  if(!rows.length)rows=_getLSList('ec_todolist');
+  if(!rows.length)return;
+  const ds=_validHomeTodoDate(localStorage.getItem('ec_home_todolist_lastDate'))||_validHomeTodoDate(_localTodoLegacyDate)||_todayStr();
+  const nextEvents=Object.assign({},_localEvents);
+  const nextImports=Object.assign({},_localTodoImports);
+  const list=(nextEvents[ds]||[]).slice();
+  let changed=false;
+  rows.forEach(function(item,index){
+    if(!item||typeof item!=='object')return;
+    const title=String(item.text||item.title||'').trim();
+    if(!title)return;
+    const key=ds+'|'+index+'|'+JSON.stringify([item.id||'',title]);
+    if(Object.prototype.hasOwnProperty.call(nextImports,key))return;
+    const id='todo-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+    list.push({id:id,title:title,time:String(item.time||''),memo:String(item.memo||''),color:'#22c55e',done:!!item.done});
+    nextImports[key]=id;
+    changed=true;
+  });
+  if(!changed)return;
+  nextEvents[ds]=list;
+  const previous={events:_localEvents,imports:_localTodoImports,date:_localTodoLegacyDate};
+  _localEvents=nextEvents;_localTodoImports=nextImports;_localTodoLegacyDate=ds;
+  if(!await _saveLocalEvents()){
+    _localEvents=previous.events;_localTodoImports=previous.imports;_localTodoLegacyDate=previous.date;
+    throw new Error('기존 할 일의 일정 저장에 실패했습니다.');
+  }
 }
 async function _saveLocalRanges(){
   if(!_localEventsLoaded){console.warn('[home-cal] 로드 전 기간일정 저장 시도 차단');return;}
@@ -1432,12 +1540,7 @@ async function _saveLocalRanges(){
     localStorage.setItem('ec_home_local_ranges',JSON.stringify(payload));
   }catch(e){console.error('[home-cal] save ranges(cache) failed',e);}
 }
-/* 'YYYY-MM-DD' day 가 어느 기간 일정에 속하나 — 칸 배경색·라벨용. 가장 마지막(위에 그릴) 1건 반환. */
-function _rangeForDay(ds){
-  let hit=null;
-  for(let i=0;i<_localRanges.length;i++){ const r=_localRanges[i]; if(r&&r.start&&r.end&&ds>=r.start&&ds<=r.end) hit=r; }
-  return hit;
-}
+
 
 /* ── 홈 위젯 보관함 — 5열 위젯 가시성 토글 ────────────────────────────
  * 저장: ec_home_widget_vis = JSON {widgetId: boolean}. 기본값 = 모두 ON.
@@ -1446,17 +1549,17 @@ const _HOME_WIDGET_DEFS = {
   col1: { name: '1열 · 업무 도구', items: [
     {id:'progress',   icon:'📊', name:'시기별 진행률'},
     {id:'schoolStats',icon:'🏫', name:'학교 현황 위젯'},   /* 시기별 진행률 바로 아래, 디폴트 ON (사용자 요청 2026-06-17) */
-    {id:'quicklinks', icon:'🔗', name:'업무 관련 사이트'},
-    {id:'phonebook',  icon:'📱', name:'업무 관련 전화번호'},
-    {id:'procurement',icon:'🛒', name:'품의 물건 리스트'},
+    {id:'quicklinks', icon:'🔗', name:'업무 사이트'},
+    {id:'phonebook',  icon:'📱', name:'업무 연락처'},
+    {id:'procurement',icon:'🛒', name:'구매·품의 목록'},
   ]},
   col2: { name: '2열 · 일정·수업', items: [
     {id:'routine',    icon:'⟳',  name:'루틴 트래커'},
-    {id:'todolist',   icon:'☑',  name:'오늘의 TO-DO'},
+    {id:'todolist',   icon:'☑',  name:'오늘 할 일'},
     {id:'timetableSearch', icon:'🔍', name:'나이스 전체 시간표 보기'},   /* TO-DO 아래·수업시간표 위 (사용자 요청 2026-06-17) */
     {id:'myTimetable', icon:'🗓️', name:'나의 시간표 보기'},   /* 나이스 전체 시간표 보기 바로 아래 (사용자 요청 2026-06-17) */
     {id:'timetable',  icon:'📅', name:'수업 시간표'},
-    {id:'lessonmemo', icon:'📝', name:'수업 간단 메모'},
+    {id:'lessonmemo', icon:'📝', name:'수업 메모'},
     {id:'meal',       icon:'🍽️', name:'오늘 급식'},
   ]},
   /* 사용자 요청 2026-05-28 — 3·4열 통합 해제, 각각 별도 컬럼으로 분리. */
@@ -1468,9 +1571,9 @@ const _HOME_WIDGET_DEFS = {
     {id:'rentalDue',  icon:'📦', name:'대여 반납 예정'},
   ]},
   col4: { name: '4열 · 보건 알림', items: [
-    {id:'birthday',   icon:'🎂', name:'오늘의 생일'},
-    {id:'bed',        icon:'🛏', name:'침상 현황'},
     {id:'caution',    icon:'⚠',  name:'주의 학생'},
+    {id:'bed',        icon:'🛏', name:'침상 현황'},
+    {id:'birthday',   icon:'🎂', name:'오늘의 생일'},
     {id:'frequent',   icon:'🔁', name:'빈번 방문'},
     {id:'wxalert',    icon:'🌡️', name:'폭염·한파·자외선 정보'},
     {id:'infectTrend',icon:'🦠', name:'감염병 유행 현황'},
@@ -1611,7 +1714,7 @@ function _hwbStartDrag(cardEl, e){
     const modal = document.getElementById('homeWidgetBoxModal');
     if(modal){
       const cols = Array.from(modal.querySelectorAll('[data-colkey]'));
-      for(let i=0;i<cols.length;i++){ const r=cols[i].getBoundingClientRect(); if(ev.clientX>=r.left && ev.clientX<=r.right){ targetCol=cols[i]; break; } }
+      for(let i=0;i<cols.length;i++){ const r=cols[i].getBoundingClientRect(); if(ev.clientX>=r.left && ev.clientX<=r.right && ev.clientY>=r.top && ev.clientY<=r.bottom){ targetCol=cols[i]; break; } }
     }
     const liveCards = Array.from(targetCol.querySelectorAll(':scope > [data-wid]'));
     let closest = null, closestDist = Infinity;
@@ -1674,34 +1777,36 @@ function _hwbStartDrag(cardEl, e){
 /* _buildBodyHtml 은 _openWidgetBoxModal 안 closure — 드래그 종료 후 재렌더 시 호출하기 위해 외부에서도 같은 결과 반환하는 헬퍼 별도 제공. */
 function _buildHwbBodyHtmlExternal(){
   const vis = _getHomeWidgetVis();
-  let g = '';
-  /* 사용자 요청 2026-05-28 — 최상단에 "캘린더" 고정 카드 (5단 전체 차지, 드래그 X, 토글만 가능).
-   *  드래그 핸들(⠿) 자리에 📌 핀 아이콘 → 고정 시각화. 위젯 가시성 시스템 (vis['calendar']) 그대로 사용. */
-  {
-    const onCal = vis['calendar'] !== false;
-    g += '<div data-action="hwb-toggle" data-wid="calendar" style="grid-column:1 / -1;display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid '+(onCal?'var(--bdr)':'rgba(220,38,38,0.25)')+';border-radius:7px;background:'+(onCal?'var(--card)':'rgba(220,38,38,0.04)')+';cursor:pointer;opacity:'+(onCal?'1':'0.55')+';transition:all .12s" title="'+(onCal?'클릭하여 숨기기':'클릭하여 표시')+'">';
-    g += '<span class="hwb-pin" style="display:inline-flex;align-items:center;cursor:default;font-size:11px;color:var(--t3);flex-shrink:0;opacity:0.45;padding:0 2px" title="이동 불가 (고정)">📌</span>';
-    g += '<span style="font-size:14px;flex-shrink:0">📅</span>';
-    g += '<span style="font-size:11.5px;font-weight:600;color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">캘린더</span>';
-    g += '<span style="color:'+(onCal?'var(--cyan)':'#dc2626')+';flex-shrink:0;display:inline-flex">'+dailyColEyeIcon(onCal)+'</span>';
-    g += '</div>';
+  const displayNames = {
+    caution:'요보호 학생', birthday:'이번 주 생일', frequent:'반복 방문',
+    wxalert:'기상·보건 알림', infectTrend:'감염병 유행'
+  };
+  function cardHtml(w, colKey, fixed){
+    const on = vis[w.id] !== false;
+    const label = displayNames[w.id] || w.name;
+    let card = '<button type="button" class="school-hwb-widget '+(on?'is-visible':'is-hidden')+(w.id==='calendar'?' school-hwb-calendar':'')+'" data-action="hwb-toggle" data-wid="'+escHtml(w.id)+'" data-widget-group="'+escHtml(colKey)+'" aria-pressed="'+(on?'true':'false')+'" aria-label="'+escHtml(label)+' · '+(on?'홈에 표시 중, 누르면 숨김':'홈에서 숨김, 누르면 표시')+'" title="'+(on?'클릭하여 숨기기':'클릭하여 표시')+'">';
+    if(!fixed){
+      card += '<span data-action="hwb-drag" class="hwb-grip" title="드래그하여 그룹과 순서 변경" aria-hidden="true">⠿</span>';
+    }
+    card += '<span class="school-hwb-widget-icon" aria-hidden="true">'+escHtml(w.icon||'')+'</span>';
+    card += '<span class="school-hwb-widget-copy"><span class="school-hwb-widget-name">'+escHtml(label)+'</span>';
+    if(fixed) card += '<span class="school-hwb-fixed">홈 상단 고정</span>';
+    card += '</span>';
+    card += '<span class="school-hwb-state" aria-hidden="true">'+dailyColEyeIcon(on)+'<span>'+(on?'표시':'숨김')+'</span></span>';
+    return card+'</button>';
   }
-  Object.keys(_HOME_WIDGET_DEFS).forEach(function(colKey){
+  let g = cardHtml({id:'calendar',icon:'📅',name:'캘린더'}, 'col2', true);
+  _SCHOOL_HOME_GROUP_ORDER.forEach(function(colKey){
     const col = _HOME_WIDGET_DEFS[colKey];
-    const _colLabel = String(col.name||'').split('·')[0].trim();   /* "1열 · 업무 도구" → "1열" (열 번호만 표시) */
-    g += '<div>';
-    g += '<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdr);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(_colLabel)+'</div>';
-    g += '<div data-colkey="'+colKey+'" style="display:flex;flex-direction:column;gap:6px">';
-    _widgetsInCol(colKey).forEach(function(w){
-      const on = vis[w.id] !== false;
-      g += '<div data-action="hwb-toggle" data-wid="'+w.id+'" style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid '+(on?'var(--bdr)':'rgba(220,38,38,0.25)')+';border-radius:7px;background:'+(on?'var(--card)':'rgba(220,38,38,0.04)')+';cursor:pointer;opacity:'+(on?'1':'0.55')+';transition:all .12s" title="'+(on?'클릭하여 숨기기':'클릭하여 표시')+'">';
-      g += '<span data-action="hwb-drag" class="hwb-grip" style="display:inline-flex;align-items:center;cursor:grab;font-size:13px;color:var(--t3);flex-shrink:0;opacity:0.5;padding:0 2px" title="드래그하여 위/아래 정렬">⠿</span>';
-      g += '<span style="font-size:14px;flex-shrink:0">'+w.icon+'</span>';
-      g += '<span style="font-size:11.5px;font-weight:600;color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(w.name)+'</span>';
-      g += '<span style="color:'+(on?'var(--cyan)':'#dc2626')+';flex-shrink:0;display:inline-flex">'+dailyColEyeIcon(on)+'</span>';
-      g += '</div>';
-    });
-    g += '</div></div>';
+    const label = String(col.name||'').replace(/^\d열\s*·\s*/,'');
+    const items = _widgetsInCol(colKey);
+    const visible = items.filter(function(w){return vis[w.id]!==false;}).length;
+    g += '<section class="school-hwb-group" data-widget-group="'+escHtml(colKey)+'">';
+    g += '<div class="school-hwb-group-heading"><h3>'+escHtml(label)+'</h3><span class="school-hwb-count">표시 '+visible+'/'+items.length+'</span></div>';
+    g += '<div class="school-hwb-list" data-colkey="'+escHtml(colKey)+'">';
+    items.forEach(function(w){g += cardHtml(w, colKey, w.id==='memos');});
+    if(!items.length) g += '<p class="school-hwb-empty">이곳으로 위젯을 옮길 수 있어요.</p>';
+    g += '</div></section>';
   });
   return g;
 }
@@ -1714,10 +1819,10 @@ function _openWidgetBoxModal(){
   /* 그리드 본문 빌더 — 외부 _buildHwbBodyHtmlExternal() 일원화 (드래그 종료 후 재렌더 함수도 동일). */
   /* 사용자 요청 2026-05-28 — 모달 너비 760→920 (5단 그리드 수용). 헤더 X 버튼 제거 (하단 "확인"·ESC·배경 클릭으로 닫음). */
   let h = '<div id="hwbCard" style="background:var(--card);border-radius:14px;width:1160px;max-width:96vw;max-height:84vh;box-shadow:0 24px 60px rgba(0,0,0,0.45);overflow:hidden;display:flex;flex-direction:column;opacity:0;transform:scale(0.96);transition:opacity .18s ease,transform .18s ease">';
-  h += '<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">';
+  h += '<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">';
   h += '<span style="font-size:22px">📦</span>';
   h += '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">홈 위젯 보관함</div>';
-  h += '<div style="font-size:11px;color:var(--t3);margin-top:2px">눈알로 켜고 끄고, ⠿ 손잡이를 끌어 순서·열을 바꿀 수 있습니다. 변경은 즉시 반영됩니다.</div></div>';
+  h += '<div style="font-size:11px;color:var(--t3);margin-top:2px">홈과 같은 색상으로 위젯을 구분했어요. 카드를 눌러 표시 여부를 바꾸고, 손잡이를 끌어 그룹과 순서를 정하세요. 캘린더·포스트잇 메모는 홈 상단, 오늘 할 일은 일정·수업에 표시됩니다.</div></div>';
   h += '</div>';
   /* 5단 균등 그리드 (사용자 요청 2026-05-28) — col1·col2·col3·col4·col5 각각 1fr. */
   h += '<div id="hwbBody" style="padding:14px 18px;overflow-y:auto;overflow-x:hidden;flex:1;display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:14px;align-content:start">';
@@ -1725,8 +1830,8 @@ function _openWidgetBoxModal(){
   h += '</div>';
   /* footer — 순서·열 배치 초기화(가시성 제외) + 되돌리기(Ctrl+Z). */
   h += '<div style="padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;gap:8px">';
-  h += '<button data-action="hwb-reset" style="border:1px solid rgba(220,38,38,0.35);background:rgba(220,38,38,0.06);color:#dc2626;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f)">⟲ 순서·배치 초기화</button>';
-  h += '<button data-action="hwb-undo" title="단축키: Ctrl+Z" style="border:0;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f);box-shadow:0 4px 12px rgba(6,182,212,0.25)">↶ 되돌리기</button>';
+  h += '<button data-action="hwb-reset" style="border:1px solid rgba(220,38,38,0.35);background:rgba(220,38,38,0.06);color:#dc2626;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f)">⟲ 순서·그룹 초기화</button>';
+  h += '<button data-action="hwb-undo" title="단축키: Ctrl+Z" style="border:0;background:#0891b2;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f);box-shadow:0 4px 12px rgba(6,182,212,0.25)">↶ 되돌리기</button>';
   h += '</div>';
   h += '</div>';
   ov.innerHTML = h;
@@ -1761,7 +1866,7 @@ function _openWidgetBoxModal(){
     if(a === 'hwb-close'){ _close(); return; }
     if(a === 'hwb-undo'){ _hwbUndo(); return; }   /* _hwbUndo 가 #hwbBody 재렌더 + 대시보드 갱신 수행 */
     if(a === 'hwb-reset'){
-      if(window.confirm('위젯 순서와 열 배치를 처음 상태로 되돌릴까요? (켜기/끄기 설정은 유지됩니다)')){
+      if(window.confirm('위젯 순서와 그룹을 처음 상태로 되돌릴까요? (켜기/끄기 설정은 유지됩니다)')){
         _hwbSnapshot();   /* 초기화 직전 상태 저장 — Ctrl+Z 로 되돌릴 수 있게 */
         try{ localStorage.removeItem('ec_home_widget_order'); }catch(_){}
         try{ localStorage.removeItem('ec_home_widget_col'); }catch(_){}
@@ -1817,28 +1922,21 @@ function _getTimetable(){
 }
 function _saveTimetable(o){ try{ localStorage.setItem('ec_home_timetable', JSON.stringify(o)); }catch(_){} }
 function _wTimetableContent(){
-  const tt=_getTimetable();
-  const dow=new Date().getDay();                       /* 0=일 1=월 … 5=금 6=토 */
+  const tt=_getTimetable(), dow=new Date().getDay();
   const dayKey=['','mon','tue','wed','thu','fri',''][dow]||'';
+  const action=_schoolWidgetButton('open-timetable-editor','시간표 입력·편집');
+  let body;
   if(!dayKey){
-    return '<div class="tt-body" style="padding:18px 14px;text-align:center;color:var(--t3);font-size:11px;line-height:1.7;cursor:pointer" title="더블클릭하여 시간표 편집">🌿 오늘은 수업이 없습니다 <span style="font-size:9px">(주말)</span><br><span style="font-size:9px;color:var(--t3)">＋ 또는 더블클릭하여 시간표 입력</span></div>';
+    body=_schoolWidgetState('empty','오늘은 주말이에요','직접 입력한 시간표를 편집하거나 다음 주 수업을 준비해 보세요.',action);
+  }else{
+    const row=tt.grid[dayKey]||[],items=[];
+    for(let i=0;i<_TT_PERIODS;i++){
+      const subject=String(row[i]||'').trim();
+      if(subject) items.push({period:i+1,subject:subject,time:(tt.periods[i]&&tt.periods[i].time)||''});
+    }
+    body=items.length?_schoolScheduleList(items,'open-timetable-editor','시간표 편집'):_schoolWidgetState('empty','오늘 등록된 수업이 없어요','담당 수업과 시간을 등록해 보세요.',action);
   }
-  const row=tt.grid[dayKey]||[];
-  let items='';
-  for(let i=0;i<_TT_PERIODS;i++){
-    const subj=String(row[i]||'').trim();
-    if(!subj) continue;
-    const time=(tt.periods[i]&&tt.periods[i].time)||'';
-    items+='<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg2);border-radius:6px;margin-bottom:4px">'
-      +'<span style="font-size:10px;font-weight:700;color:var(--cyan);min-width:34px">'+(i+1)+'교시</span>'
-      +'<span style="flex:1;font-size:11.5px;font-weight:600;color:var(--t1)">'+escHtml(subj)+'</span>'
-      +(time?'<span style="font-size:9.5px;color:var(--t3);white-space:nowrap">'+escHtml(time)+'</span>':'')
-      +'</div>';
-  }
-  if(!items){
-    return '<div class="tt-body" style="padding:18px 14px;text-align:center;color:var(--t3);font-size:11px;line-height:1.7;cursor:pointer" title="더블클릭하여 시간표 편집">📅 오늘 등록된 수업이 없습니다<br><span style="font-size:9px;color:var(--t3)">＋ 또는 더블클릭하여 시간표 입력</span></div>';
-  }
-  return '<div class="tt-body" style="cursor:pointer" title="더블클릭하여 시간표 편집">'+items+'</div>';
+  return '<div class="tt-body" title="더블클릭하여 시간표 편집">'+body+'</div>';
 }
 /* 시간표 편집 팝업 — 행=1~8교시, 열=[교시·시간] 월 화 수 목 금. 입력 즉시 저장. */
 function _openTimetableEditor(){
@@ -1848,7 +1946,7 @@ function _openTimetableEditor(){
   ov.style.cssText='position:fixed;inset:0;z-index:13000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
   let h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:780px;max-width:96vw;max-height:92vh;box-shadow:0 18px 50px rgba(0,0,0,0.45);display:flex;flex-direction:column;overflow:hidden;font-family:var(--f)">';
   /* 헤더 — 위젯 보관함과 동일 그라데이션(시안0.10+보라0.06,135deg). ✕ 버튼 제거(ESC·배경클릭으로 닫힘, 입력 즉시 저장이라 닫아도 보존). */
-  h+='<div style="padding:14px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px"><span style="font-size:22px">📅</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">주간 시간표 입력</div><div style="font-size:11px;color:var(--t3);margin-top:2px">각 칸에 과목명을 입력하면 즉시 저장됩니다. (ESC 또는 바깥 클릭으로 닫기)</div></div></div>';
+  h+='<div style="padding:14px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px"><span style="font-size:22px">📅</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">주간 시간표 입력</div><div style="font-size:11px;color:var(--t3);margin-top:2px">각 칸에 과목명을 입력하면 즉시 저장됩니다. (ESC 또는 바깥 클릭으로 닫기)</div></div></div>';
   h+='<div style="padding:14px 16px;overflow:auto;flex:1">';
   h+='<div style="font-size:10px;color:var(--t3);margin-bottom:10px;line-height:1.6">맨 왼쪽 칸은 위=교시, 아래=시간(예: 09:00~09:50). 각 칸에 과목명을 입력하세요. 빈 칸은 공강입니다.</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>';
@@ -1871,7 +1969,7 @@ function _openTimetableEditor(){
   /* 하단 버튼 줄 — 전체 초기화(좌, 위험) / 바로 앞으로 되돌리기(우, Ctrl+Z) */
   h+='<div style="padding:12px 18px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;gap:8px">';
   h+='<button data-tt-reset style="border:1px solid rgba(220,38,38,0.35);background:rgba(220,38,38,0.06);color:#dc2626;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f)">⟲ 전체 초기화</button>';
-  h+='<button data-tt-undo style="border:0;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f);box-shadow:0 4px 12px rgba(6,182,212,0.25)" title="단축키: Ctrl+Z">↶ 바로 앞으로 되돌리기</button>';
+  h+='<button data-tt-undo style="border:0;background:#0891b2;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--f);box-shadow:0 4px 12px rgba(6,182,212,0.25)" title="단축키: Ctrl+Z">↶ 바로 앞으로 되돌리기</button>';
   h+='</div>';
   h+='</div>';
   ov.innerHTML=h;
@@ -2188,7 +2286,7 @@ function _openLessonSemConfig(){
     return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:800;color:var(--t1);margin-bottom:5px;text-align:right">'+label+' <span id="lsclbl-'+key+'" style="color:var(--cyan);font-weight:700;margin-left:4px">'+_semDateLabel(cfg[key])+'</span></div><div id="lscal-'+key+'" style="width:100%"></div></div>';
   };
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:980px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.4);overflow:hidden">'
-    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-size:16px">⚙</span><div style="font-size:14px;font-weight:800;color:var(--t1)">학기·학년도 기간 설정</div></div>'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-size:16px">⚙</span><div style="font-size:14px;font-weight:800;color:var(--t1)">학기·학년도 기간 설정</div></div>'
     +'<div style="padding:14px 18px;overflow:auto">'
     +'<div style="font-size:10.5px;color:var(--t3);margin-bottom:12px;line-height:1.5">올해 각 학기의 시작일과 종료일을 설정하며 아래 <b style="color:var(--t2)">학년도</b>에 자동 적용됩니다. 날짜를 누르면 <b style="color:var(--t2)">바로 저장</b>됩니다. 비우면 기본값(1학기 3/2, 2학기 9/1). 입력한 메모는 영향받지 않습니다.</div>'
     +'<div style="display:flex;gap:20px;margin-bottom:14px">'
@@ -2313,7 +2411,7 @@ function _showEventAlarm(ev){
   ov.id = 'eventAlarmModal';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:11500;display:flex;align-items:center;justify-content:center';
   let h = '<div style="background:var(--card);border-radius:14px;width:380px;max-width:92vw;box-shadow:0 24px 60px rgba(0,0,0,0.5);overflow:hidden;border:2px solid '+(ev.color || '#22c55e')+'">';
-  h += '<div style="padding:14px 20px;background:linear-gradient(135deg,'+(ev.color||'#22c55e')+',rgba(34,197,94,0.6));color:#fff;display:flex;align-items:center;gap:10px">';
+  h += '<div style="padding:14px 20px;background:'+(ev.color||'#22c55e')+';color:#fff;display:flex;align-items:center;gap:10px">';
   h += '<span style="font-size:28px">⏰</span>';
   h += '<div style="flex:1"><div style="font-size:11px;font-weight:700;opacity:0.85;letter-spacing:0.5px">일정 알람</div>';
   h += '<div style="font-size:16px;font-weight:800;margin-top:2px">'+escHtml(ev.time||'')+'</div></div>';
@@ -2323,7 +2421,7 @@ function _showEventAlarm(ev){
   if(ev.memo) h += '<div style="font-size:12px;color:var(--t2);line-height:1.6">'+escHtml(ev.memo)+'</div>';
   h += '</div>';
   h += '<div style="padding:10px 20px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;background:var(--bg2)">';
-  h += '<button id="ea-close-btn" style="padding:9px 22px;background:linear-gradient(135deg,'+(ev.color||'#22c55e')+',#0891b2);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:var(--f)">확인</button>';
+  h += '<button id="ea-close-btn" style="padding:9px 22px;background:'+(ev.color||'#22c55e')+';color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:var(--f)">확인</button>';
   h += '</div></div>';
   ov.innerHTML = h;
   const _close = function(){ if(ov && ov.parentNode) ov.remove(); };
@@ -2343,7 +2441,7 @@ function _showTodayEventsAlert(events, today){
   ov.id = 'todayEventsAlert';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:11000;display:flex;align-items:center;justify-content:center';
   let h = '<div style="background:var(--card);border-radius:14px;width:440px;max-width:92vw;max-height:80vh;box-shadow:0 24px 60px rgba(0,0,0,0.45);overflow:hidden;display:flex;flex-direction:column">';
-  h += '<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(34,197,94,0.08));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">';
+  h += '<div style="padding:14px 20px;background:rgba(6,182,212,0.12);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">';
   h += '<span style="font-size:24px">📅</span>';
   h += '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">오늘의 일정 안내</div>';
   h += '<div style="font-size:11px;color:var(--t3);margin-top:2px">'+escHtml(todayKr)+' · '+events.length+'건</div></div>';
@@ -2358,7 +2456,7 @@ function _showTodayEventsAlert(events, today){
   });
   h += '</div>';
   h += '<div style="padding:12px 20px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;background:var(--bg2)">';
-  h += '<button id="tea-close-btn" style="padding:9px 22px;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:var(--f);box-shadow:0 4px 12px rgba(6,182,212,0.30)">확인</button>';
+  h += '<button id="tea-close-btn" style="padding:9px 22px;background:var(--cyan);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:var(--f);box-shadow:0 4px 12px rgba(6,182,212,0.30)">확인</button>';
   h += '</div>';
   h += '</div>';
   ov.innerHTML = h;
@@ -2473,44 +2571,21 @@ function _buildMiniCalendar(){
   if(gcalOn)setTimeout(_homeCalLoadAsync,50);
   else { _homeCalEvents={}; _homeCalLoaded=false; _homeCalCount={calendars:0,total:0}; }
   /* 로컬 이벤트 첫 로드 (호스트 DB) */
-  if(!_localEventsLoaded){_loadLocalEvents().then(function(){renderHomeDashboard();_checkTodayEventsAlert();_startTodayEventAlarmsWatcher();});}
-  /* 표시용 이벤트: 로컬 + Google 병합 (날짜별) */
-  const events={};
-  Object.keys(_localEvents).forEach(function(d){
-    events[d]=(_localEvents[d]||[]).map(function(ev){return Object.assign({_local:true,_calColor:ev.color||'#22c55e'},ev);});
-  });
-  Object.keys(_homeCalEvents).forEach(function(d){
-    if(!events[d])events[d]=[];
-    (_homeCalEvents[d]||[]).forEach(function(gev){
-      /* 앱에서 만들어 구글에 올린 일정(gid/gcalMap 매칭)은 로컬 항목으로 이미 표시되므로 중복 제외 (2026-07-02) */
-      const dup=(_localEvents[d]||[]).some(function(lev){return (lev.gid&&lev.gid===gev.id) || (lev.gcalMap && Object.keys(lev.gcalMap).some(function(k){return lev.gcalMap[k]===gev.id;}));});
-      if(!dup) events[d].push(gev);
-    });
-  });
+  if(!_todoCalendarReady&&!_todoCalendarError){_loadLocalEvents().then(function(){renderHomeDashboard();if(_todoCalendarReady){_checkTodayEventsAlert();_startTodayEventAlarmsWatcher();}});}
   /* 학사일정(나이스 SchoolSchedule) — 보이는 달만 lazy 로드. 실제 fetch 완료 시에만 1회 재렌더(무한루프 가드).
      셀 렌더에서 연속 바(span)로 표시 — 여름방학 등 다일 이벤트는 이어진 막대로. */
   if(!academicMonthBusy(yr,mo)) loadAcademicMonth(yr,mo,function(){ renderHomeDashboard(); });
   const _acadSpans=getAcademicSpans();
+  _refreshHomeCalendarDayPopup();
 
-  const todayEvents=events[todayStr]||[];
-  /* 이벤트 객체의 필드 안정화: Google Calendar는 {summary, start, end, colorId, calendarId}, 플래너는 {title, time} */
-  function _evTime(ev){
-    if(ev.time)return ev.time;
-    if(ev.start){
-      if(typeof ev.start==='string')return ev.start.length>=16?ev.start.slice(11,16):'';
-      if(ev.start.dateTime)return ev.start.dateTime.slice(11,16);
-    }
-    return '';
-  }
-  function _evTitle(ev){return ev.summary||ev.title||ev.text||'(제목 없음)';}
+  // Keep the date grid at the requested height for four-, five- and six-week months.
+  const gridHeight = 280;
+  const weekRows=Math.ceil((dow+dim)/7);
 
-  /* 저장된 셀 높이 복원 (리사이즈 바로 조절된 값) — 매직스테이션과 동일 24~300 */
-  let cellH=parseInt(localStorage.getItem('ec_home_cal_cellH')||'80',10);
-  if(cellH<24)cellH=24;if(cellH>300)cellH=300;
 
   let h='<div class="cc" id="homeCalWrap" style="padding:10px 14px;margin-bottom:0;overflow:visible;background:var(--card);border:1px solid var(--bdr);border-radius:12px">';
   /* 헤더 — 매직스테이션과 동일 구조 + Google 연동 토글 */
-  h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">';
+  h+='<div class="school-calendar-toolbar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">';
   h+='<span style="font-size:13px;font-weight:700;color:var(--t1)">📆 캘린더</span>';
   let gcalLabel;
   if(!gcalOn){
@@ -2534,7 +2609,6 @@ function _buildMiniCalendar(){
   }
   h+='<div style="flex:1"></div>';
   /* 진행률 4종은 1열 최상단 위젯(progress)으로 이동 (사용자 요청 2026-05-28) — 캘린더 헤더에는 '오늘' 버튼만 유지. */
-  h+='<button class="btn btn-primary btn-sm" data-action="home-cal-today" style="font-size:10px;padding:3px 10px">오늘</button>';
   h+='</div>';
   /* 월 이동 — 사이드/통계 달력과 동일한 연·월 호버 팝업 추가 (mcal-* 클래스 재사용).
      ※ 이 미니 캘린더는 기존엔 mcal-* 가 아니라 자체 그리드라, mcal-title/year/month 클래스만
@@ -2546,10 +2620,11 @@ function _buildMiniCalendar(){
   let _mPopHC='<div class="mcal-popup" style="min-width:140px;flex-wrap:wrap;gap:2px;max-height:none;overflow:visible">';
   for(let m=0;m<12;m++) _mPopHC+='<div class="mcal-popup-item'+(m===mo?' active':'')+'" data-action="home-cal-set-month" data-arg="'+m+'" style="width:45px">'+MONTH_NAMES[m]+'</div>';
   _mPopHC+='</div>';
-  h+='<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-bottom:10px">';
+  h+='<div class="school-calendar-month" style="display:flex;justify-content:center;align-items:center;gap:16px;margin-bottom:10px">';
   h+='<button data-action="home-cal-prev" style="border:1px solid var(--bdr);background:var(--bg2);cursor:pointer;font-size:14px;color:var(--t2);padding:4px 10px;border-radius:6px">◀</button>';
   h+='<div class="mcal-title" style="font-size:16px;font-weight:800;color:var(--t1);min-width:120px;justify-content:center;gap:6px"><span class="mcal-year">'+yr+'년'+_yPopHC+'</span><span class="mcal-month">'+(mo+1)+'월'+_mPopHC+'</span></div>';
   h+='<button data-action="home-cal-next" style="border:1px solid var(--bdr);background:var(--bg2);cursor:pointer;font-size:14px;color:var(--t2);padding:4px 10px;border-radius:6px">▶</button>';
+  h+='<button class="school-calendar-today btn btn-primary btn-sm" data-action="home-cal-today" style="font-size:10px;padding:3px 10px">오늘</button>';
   h+='</div>';
   /* === 매직스테이션 _gp2UpdateCalendar 그대로 === */
   /* 한국 공휴일 — 표시 연도가 캐시에 없으면 lazy fetch (가드 내장) */
@@ -2559,182 +2634,36 @@ function _buildMiniCalendar(){
     Object.keys(S.koreanHolidays).forEach(function(k){if(k.startsWith(String(yr)))holidays[k]=S.koreanHolidays[k];});
   }
   /* 요일 헤더 */
-  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;font-weight:700;color:var(--t3);margin-bottom:2px">';
+  h+='<div class="school-calendar-weekdays" style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;font-weight:700;color:var(--t3);margin-bottom:2px">';
   ['일','월','화','수','목','금','토'].forEach(function(dn,i){
     h+='<span style="padding:3px;color:'+(i===0?'var(--rs,#dc2626)':i===6?'#3b82f6':'var(--t3)')+'">'+dn+'</span>';
   });
   h+='</div>';
-  /* 학사일정 다일 이벤트 — 셀 위 절대배치 오버레이로 '쭈욱 이어진' 막대 (칸 사이 패딩·여백 무시).
-     주(weekRow)별 연속 컬럼 세그먼트 + 레인 배치. 날짜별 레인 수는 칸 안 칩을 그만큼 아래로 밀어 겹침 방지. */
-  /* 학사일정 색상 — 막대 배경/글씨(전역+일정별) + 방학 칸 색(여름/겨울). 색상 변경 팝업에서 통합 관리. (사용자 요청 2026-06-17) */
-  const _acLs=function(k,d){ try{ const v=localStorage.getItem(k); return (v==null||v==='')?d:v; }catch(_){ return d; } };
-  const _acLsObj=function(k){ try{ const m=JSON.parse(localStorage.getItem(k)||'{}'); return (m&&typeof m==='object'&&!Array.isArray(m))?m:{}; }catch(_){ return {}; } };
-  const _acadBgGlobal=_acLs('ec_academic_color','#a855f7'), _acadFgGlobal=_acLs('ec_academic_text_color','#ffffff');
-  const _acadBgMap=_acLsObj('ec_academic_colors'), _acadFgMap=_acLsObj('ec_academic_text_colors');
-  const _acadBgOf=function(t){ return _acadBgMap[t]||_acadBgGlobal; };
-  const _acadFgOf=function(t){ return _acadFgMap[t]||_acadFgGlobal; };
-  /* 방학 = 라인 대신 그 기간 모든 칸 배경색. 여름=분홍·겨울=연하늘 기본, 변경 가능. '방학' 포함이면 모두 해당(띄어쓰기 무관). */
-  const _isVacation=function(t){ return String(t||'').replace(/\s/g,'').indexOf('방학')>=0; };
-  const _vacSeason=function(t){ const s=String(t||''); if(/겨울|동계/.test(s))return 'winter'; return 'summer'; };
-  const _vacColors=Object.assign({summer:'#ec4899',winter:'#38bdf8'}, _acLsObj('ec_vacation_colors'));
-  const _vacTextColors=Object.assign({summer:'#db2777',winter:'#0284c7'}, _acLsObj('ec_vacation_text_colors'));
-  const _hex2rgba=function(hex,a){ const m=String(hex).replace('#','').match(/^([0-9a-fA-F]{6})$/); if(!m)return hex; const n=parseInt(m[1],16); return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'; };
-  const _vacCellBg=function(t){ return _hex2rgba(_vacColors[_vacSeason(t)]||'#ec4899',0.13); };
-  const _vacTextOf=function(t){ return _vacTextColors[_vacSeason(t)]||'#db2777'; };
-  const _vacationDays={};
-  /* 사용자 기간 일정(기말고사 등) — 날짜→{title,color} 맵. 방학과 동일하게 칸 배경색으로 표시 (2026-06-22) */
-  const _rangeDays={};
-  _localRanges.forEach(function(r){
-    if(!r||!r.start||!r.end)return;
-    let dv=r.start;
-    for(let g=0; g<400 && dv<=r.end; g++){
-      const dt=new Date(dv+'T00:00:00');
-      if(dt.getFullYear()===yr&&dt.getMonth()===mo){ _rangeDays[yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')]={title:r.title||'', color:r.color||'#f59e0b', id:r.id}; }
-      const nd=new Date(dt.getTime()+86400000);
-      dv=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0')+'-'+String(nd.getDate()).padStart(2,'0');
-    }
-  });
-  let _acadOverlay=''; const _acadLaneCnt={}; const _acadCntByDay={};
-  let _calCompact=false;   /* 셀이 작아 막대가 셀을 넘으면 true → 막대 대신 날짜 옆 개수만 */
-  {
-    const _colPct=100/7, _rowPitch=cellH+1, _barTop=18, _laneH=20;
-    const _occ={};
-    const _alloc=function(row,c0,c1){
-      _occ[row]=_occ[row]||[]; let ln=0;
-      while(ln<=3){ const clash=_occ[row].some(function(s){return s.lane===ln&&!(c1<s.c0||c0>s.c1);}); if(!clash){_occ[row].push({c0:c0,c1:c1,lane:ln});return ln;} ln++; }
-      return 3;
-    };
-    /* 1패스: 세그먼트+lane 배치, 날짜별 개수, maxLane 수집 (HTML 은 compact 판단 후 2패스에서) */
-    const _segItems=[]; let _maxLane=-1;
-    _acadSpans.forEach(function(sp){
-      /* 방학 — 막대 없이 그 기간 칸을 분홍으로 표시 */
-      if(_isVacation(sp.title)){
-        let dv=sp.start;
-        for(let g=0; g<400 && dv<=sp.end; g++){
-          const dt=new Date(dv+'T00:00:00');
-          if(dt.getFullYear()===yr&&dt.getMonth()===mo){ _vacationDays[yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')]=sp.title; }
-          const nd=new Date(dt.getTime()+86400000);
-          dv=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0')+'-'+String(nd.getDate()).padStart(2,'0');
-        }
-        return;
+
+  /* Each week owns one uninterrupted rule; blanks and dates share its columns. */
+  h+='<div id="homeCalGrid" class="school-calendar-count-grid" style="position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat('+weekRows+',minmax(0,1fr));height:'+gridHeight+'px;box-sizing:border-box;gap:0;border:1px solid var(--bdr);border-radius:6px;overflow:hidden">';
+  for(let week=0;week<weekRows;week++){
+    h+='<div class="school-calendar-week">';
+    for(let column=0;column<7;column++){
+      const dd=week*7+column-dow+1;
+      if(dd<1||dd>dim){
+        h+='<div class="school-calendar-empty" aria-hidden="true"></div>';
+        continue;
       }
-      /* 선거일(대선·지방선거·총선·보궐 등)은 특일정보(공휴일)로 이미 표기되므로 학사일정 막대에서는 제외 (사용자 요청 2026-06-17) */
-      if(/선거|투표일/.test(String(sp.title)))return;
-      /* 공휴일(특일정보 빨간날)과 같은 단일 항목은 중복이므로 제외 — 예: 한글날 */
-      if(sp.start===sp.end){ const hn=holidays[sp.start]; if(hn){ const a=String(hn).replace(/\s/g,''),b=String(sp.title).replace(/\s/g,''); if(a&&b&&(a===b||a.indexOf(b)!==-1||b.indexOf(a)!==-1||_holiNorm(a)===_holiNorm(b)))return; } }
-      /* 가시 달 안에서 주별 연속 컬럼 세그먼트로 분할 */
-      const segs=[]; let d=sp.start;
-      for(let g=0; g<400 && d<=sp.end; g++){
-        const dt=new Date(d+'T00:00:00');
-        if(dt.getFullYear()===yr&&dt.getMonth()===mo){
-          const _dd=dt.getDate(), gi=dow+_dd-1, row=Math.floor(gi/7), col=gi%7;
-          const last=segs[segs.length-1];
-          if(last&&last.row===row&&col===last.c1+1)last.c1=col; else segs.push({row:row,c0:col,c1:col});
-        }
-        const nd=new Date(dt.getTime()+86400000);
-        d=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0')+'-'+String(nd.getDate()).padStart(2,'0');
-      }
-      const _bc=_acadBgOf(sp.title), _fc=_acadFgOf(sp.title);
-      segs.forEach(function(sg){
-        const lane=_alloc(sg.row,sg.c0,sg.c1);
-        if(lane>_maxLane)_maxLane=lane;
-        _segItems.push({sg:sg,lane:lane,title:sp.title,bc:_bc,fc:_fc});
-        /* 날짜별 나이스 일정 개수 (compact 모드 숫자 표시용) */
-        for(let c=sg.c0;c<=sg.c1;c++){ const gi=sg.row*7+c, _dd2=gi-dow+1; if(_dd2>=1&&_dd2<=dim){ const ds2=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(_dd2).padStart(2,'0'); _acadCntByDay[ds2]=(_acadCntByDay[ds2]||0)+1; } }
-      });
-    });
-    /* compact 판단: '최소화'(셀을 아주 작게 줄였을 때)만 숫자 모드. 그 외 평상·큰 크기는 항상 막대.
-     *  고정 임계 48px 미만일 때만 compact (막대 1줄도 거의 안 들어가는 크기). 일정 겹수(maxLane) 와 무관. (사용자 요청 2026-06-22) */
-    if(cellH < 48){ _calCompact=true; }
-    /* 2패스: compact 아니면 막대 HTML + lane spacer 생성 */
-    if(!_calCompact){
-      _segItems.forEach(function(it){
-        const sg=it.sg, lane=it.lane;
-        const left=sg.c0*_colPct, width=(sg.c1-sg.c0+1)*_colPct, top=sg.row*_rowPitch+_barTop+lane*_laneH;
-        /* data-acad-row/lane: 리사이즈 시 cellH 가 바뀌면 top 을 실시간 재계산하기 위한 좌표(픽셀 고정 버그 방지, 2026-06-22) */
-        _acadOverlay+='<div class="acad-bar" data-acad-row="'+sg.row+'" data-acad-lane="'+lane+'" data-action="academic-color" data-arg="'+escHtml(it.title)+'" title="'+escHtml(it.title)+' · 클릭하면 색상 변경" style="position:absolute;left:calc('+left+'% + 2px);width:calc('+width+'% - 4px);top:'+top+'px;height:18px;line-height:18px;background:'+it.bc+';color:'+it.fc+';font-size:11px;font-weight:700;padding:0 7px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box;cursor:pointer;z-index:3">'+escHtml(it.title)+'</div>';
-        for(let c=sg.c0;c<=sg.c1;c++){ const gi=sg.row*7+c, _dd2=gi-dow+1; if(_dd2>=1&&_dd2<=dim){ const ds2=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(_dd2).padStart(2,'0'); _acadLaneCnt[ds2]=Math.max(_acadLaneCnt[ds2]||0, lane+1); } }
-      });
-    }
-  }
-  /* 날짜 그리드 — 구글 캘린더 스타일, 셀 안에 일정 제목 표시 (매직스테이션 동일) */
-  h+='<div id="homeCalGrid" style="position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;border:1px solid var(--bdr);border-radius:6px;overflow:hidden">';
-  /* 첫 주 빈칸 */
-  for(let ee=0;ee<dow;ee++) h+='<div style="min-height:'+cellH+'px;max-height:'+cellH+'px;overflow:hidden;background:var(--bg2);opacity:0.3"></div>';
-  for(let dd=1;dd<=dim;dd++){
-    const ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
-    const isT=(ds===todayStr);
-    const ddow=(dow+dd-1)%7;
-    const isH=!!holidays[ds];
-    const dayEvents=events[ds]||[];
-    const col=(ddow===0||isH)?'var(--rs,#dc2626)':ddow===6?'#3b82f6':'var(--t2)';
-    /* 칸 배경: 방학 우선, 없으면 사용자 기간 일정(기말고사 등) 색 (2026-06-22) */
-    const _rng=_rangeDays[ds];
-    const cellBg=_vacationDays[ds]?_vacCellBg(_vacationDays[ds]):(_rng?_hex2rgba(_rng.color,0.16):'var(--card)');
-    h+='<div data-action="home-cal-day" data-arg="'+ds+'" style="min-height:'+cellH+'px;max-height:'+cellH+'px;overflow:hidden;padding:3px;cursor:pointer;background:'+cellBg+';border-left:3px solid transparent;transition:all 0.1s">';
-    /* 날짜 숫자 */
-    h+='<div style="font-size:11px;font-weight:'+(isT||isH?'800':'600')+';color:'+col+';margin-bottom:2px;display:flex;align-items:center;gap:3px">';
-    if(isT)h+='<span style="background:var(--cyan);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px">'+dd+'</span>';
-    else h+=dd;
-    if(isH)h+='<span style="font-size:8px;color:var(--rs,#dc2626)">'+escHtml(holidays[ds])+'</span>';
-    /* 최소화(compact) 모드 — 막대·텍스트 대신 날짜 옆에 표기: 방학명(여름방학) + 나이스 개수(보라) + 직접입력 개수(녹색).
-     *  예: 방학 기간 + 그날 학사일정 1건 → "(여름방학) (1)". 클릭하면 당일 팝업. (사용자 요청 2026-06-22) */
-    if(_calCompact){
-      const _vac=_vacationDays[ds];            /* 방학 제목(있으면) */
-      const _na=_acadCntByDay[ds]||0;          /* 나이스 학사일정 개수(방학 제외) */
-      const _mine=(_localEvents[ds]||[]).length; /* 내가 직접 입력한 일정 개수 */
-      if(_vac)    h+='<span title="'+escHtml(_vac)+'" style="font-size:9px;font-weight:800;color:'+_vacTextOf(_vac)+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60px">('+escHtml(_vac)+')</span>';
-      if(_rng&&_rng.title) h+='<span title="'+escHtml(_rng.title)+'" style="font-size:9px;font-weight:800;color:'+escHtml(_rng.color)+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60px">('+escHtml(_rng.title)+')</span>';
-      if(_na>0)   h+='<span title="나이스 학사일정 '+_na+'건" style="font-size:9px;font-weight:800;color:'+escHtml(_acadBgGlobal)+'">('+_na+')</span>';
-      if(_mine>0) h+='<span title="직접 입력한 일정 '+_mine+'건" style="font-size:9px;font-weight:800;color:#16a34a">('+_mine+')</span>';
-    } else {
-      /* 비compact(평상~최대) — 날짜 옆 우측에 그 날 일정 총 개수(구글+로컬 + 나이스 학사일정). 최대로 키워 일정이 많을 때 한눈에 (사용자 요청 2026-06-30) */
-      const _evCnt=(events[ds]||[]).length + (_acadCntByDay[ds]||0);
-      if(_evCnt>0) h+='<span title="이 날 일정 '+_evCnt+'건" style="margin-left:auto;font-size:9px;font-weight:800;color:var(--cyan);background:rgba(6,182,212,0.12);border-radius:8px;padding:0 6px;line-height:16px">'+_evCnt+'</span>';
-    }
-    h+='</div>';
-    /* 방학 이름 — 방학 시작일 또는 주 시작(일)에만 1회 표기(반복 방지). 클릭하면 색상 변경 팝업. (사용자 요청 2026-06-17)
-     *  compact(최소화) 모드에서는 칸 안 텍스트를 모두 생략(겹침 방지) — 배경색만 유지. */
-    if(!_calCompact && _vacationDays[ds]){
-      let _showVL=(ddow===0);
-      if(!_showVL){ const _pd=new Date(yr,mo,dd-1); const _pds=_pd.getFullYear()+'-'+String(_pd.getMonth()+1).padStart(2,'0')+'-'+String(_pd.getDate()).padStart(2,'0'); if(!_vacationDays[_pds])_showVL=true; }
-      if(_showVL){ const _vt=_vacationDays[ds];
-        h+='<div data-action="academic-color" data-arg="'+escHtml(_vt)+'" title="'+escHtml(_vt)+' · 클릭하면 색상 변경" style="font-size:9px;font-weight:800;color:'+_vacTextOf(_vt)+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;cursor:pointer">'+escHtml(_vt)+'</div>'; }
-    }
-    /* 사용자 기간 일정 라벨 — 방학과 동일: 시작일 또는 주 첫날(일)에만 1회. 클릭하면 기간 일정 편집. (2026-06-22)
-     *  compact 모드에서는 라벨 생략(배경색만 유지). */
-    if(!_calCompact && _rng && _rng.title){
-      let _showRL=(ddow===0);
-      if(!_showRL){ const _pd2=new Date(yr,mo,dd-1); const _pds2=_pd2.getFullYear()+'-'+String(_pd2.getMonth()+1).padStart(2,'0')+'-'+String(_pd2.getDate()).padStart(2,'0'); if(!_rangeDays[_pds2]||_rangeDays[_pds2].id!==_rng.id)_showRL=true; }
-      if(_showRL){
-        h+='<div data-action="range-edit" data-arg="'+escHtml(_rng.id||'')+'" title="'+escHtml(_rng.title)+' · 클릭하면 편집" style="font-size:9px;font-weight:800;color:'+escHtml(_rng.color)+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;cursor:pointer">'+escHtml(_rng.title)+'</div>';
-      }
-    }
-    /* compact(최소화) 모드에서는 칸 안 막대 spacer·일정 텍스트를 모두 생략 → 날짜 옆 개수만 표시(겹침 방지) */
-    if(!_calCompact){
-      /* 학사일정 다일 막대는 위 오버레이로 그림 → 여기선 그 막대 높이만큼 칸 안 칩을 아래로 밀어 겹침 방지 */
-      const _lc=_acadLaneCnt[ds]||0;
-      if(_lc>0) h+='<div style="height:'+(_lc*20)+'px"></div>';
-      /* 일정 표시 — 매직스테이션과 동일: 시간 + 제목, 캘린더 색상 */
-      dayEvents.forEach(function(ev,idx){
-        if(idx>=3)return;
-        const time=ev.start&&ev.start.dateTime?new Date(ev.start.dateTime).toLocaleTimeString('ko',{hour:'2-digit',minute:'2-digit'}):(ev.time||'');
-        const evColor=ev._calColor||ev.backgroundColor||ev.color||'#3b82f6';
-        h+='<div style="font-size:9px;padding:1px 3px;margin-bottom:1px;border-radius:3px;background:'+evColor+'22;color:'+evColor+';border-left:2px solid '+evColor+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(time?escHtml(time)+' ':'')+escHtml(ev.summary||ev.title||'')+'</div>';
-      });
-      if(dayEvents.length>3)h+='<div style="font-size:8px;color:var(--t3)">+'+(dayEvents.length-3)+'건 더</div>';
+      const ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+      const isT=ds===todayStr, isH=!!holidays[ds];
+      const count=_homeCalendarDayItems(ds,_acadSpans).length;
+      const label=ds+(isH?' \u00b7 '+holidays[ds]:'')+' \u00b7 \uc77c\uc815 '+count+'\uac74';
+      h+='<button type="button" class="school-calendar-day'+(isT?' is-today':'')+(column===0?' is-sunday':column===6?' is-saturday':'')+(isH?' is-holiday':'')+'" data-action="home-cal-day" data-arg="'+ds+'" aria-haspopup="dialog" aria-label="'+escHtml(label)+'" title="'+escHtml(label)+'"'+(isT?' aria-current="date"':'')+' style="overflow:hidden;background:var(--school-calendar-day-bg,var(--card))">';
+      h+='<span class="school-calendar-date" style="display:flex;align-items:center;gap:4px;min-width:0;max-width:100%">'
+        +(isT?'<span class="school-calendar-today-number" style="flex-shrink:0">'+dd+'</span>':'<span style="flex-shrink:0">'+dd+'</span>')
+        +(isH?'<span class="school-calendar-holiday-name" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;font-weight:700;line-height:1.4;color:var(--rs,#dc2626)">'+escHtml(holidays[ds])+'</span>':'')+'</span>';
+      if(count) h+='<span class="school-calendar-count">'+count+'<span>\uac74</span></span>';
+      h+='</button>';
     }
     h+='</div>';
   }
-  /* 마지막 주 빈칸 */
-  const totalCells=dow+dim;const remaining=totalCells%7?7-totalCells%7:0;
-  for(let r=0;r<remaining;r++) h+='<div style="min-height:'+cellH+'px;max-height:'+cellH+'px;overflow:hidden;background:var(--bg2);opacity:0.3"></div>';
-  h+=_acadOverlay;   /* 학사일정 연속 막대 오버레이 (그리드 내부 절대배치) */
-  h+='</div>';
-  h+='</div>'; /* close #homeCalWrap */
-  /* 리사이즈 바 — 매직스테이션 스타일 동일 */
-  h+='<div id="homeCalResizeBar" style="height:15px;cursor:grab;margin:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:4px;transition:background 0.15s"><div style="width:50px;height:4px;background:var(--bdr);border-radius:2px"></div></div>';
-  h+='<div style="font-size:9px;color:var(--t3);text-align:center;margin-bottom:6px">위젯 위치/크기 조절은 위 바를 드래그</div>';
+  h+='</div><p class="school-calendar-count-hint">\ub0a0\uc9dc\ub97c \uc120\ud0dd\ud558\uba74 \uc804\uccb4 \uc77c\uc815\uc744 \ubcf4\uace0 \ucd94\uac00\ud560 \uc218 \uc788\uc5b4\uc694.</p></div>';
   return h;
 }
 
@@ -2796,7 +2725,7 @@ function _openRangeEditor(existing, lo, hi){
   if(isEdit)h+='<button id="hrDelete" style="padding:8px 14px;font-size:12px;font-weight:700;border:1px solid #ef4444;border-radius:7px;background:rgba(239,68,68,0.06);color:#ef4444;cursor:pointer;font-family:var(--f)">삭제</button>';
   h+='<div style="flex:1"></div>';
   h+='<button id="hrCancel" style="padding:8px 14px;font-size:12px;border:1px solid var(--bdr);border-radius:7px;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:var(--f)">취소</button>';
-  h+='<button id="hrSave" style="padding:8px 18px;font-size:12px;font-weight:700;border:none;border-radius:7px;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#fff;cursor:pointer;font-family:var(--f)">저장</button>';
+  h+='<button id="hrSave" style="padding:8px 18px;font-size:12px;font-weight:700;border:none;border-radius:7px;background:var(--cyan);color:#fff;cursor:pointer;font-family:var(--f)">저장</button>';
   h+='</div></div></div>';
   ov.innerHTML=h;
   document.body.appendChild(ov);
@@ -2826,99 +2755,123 @@ function _openRangeEditor(existing, lo, hi){
 
 /* ── 날짜 클릭 → 일정 추가/편집 팝업 (호스트 DB 공유) ── */
 /* 날짜 팝업의 일정 목록(오렌지톡 + Google) HTML — 입력 즉시 부분 갱신용 (2026-07-02) */
-function _hcdListHtml(ds){
-  const events=_localEvents[ds]||[];
-  const gcalEvents=(_homeCalEvents[ds]||[]).filter(function(gev){ return !(_localEvents[ds]||[]).some(function(lev){ return (lev.gid&&lev.gid===gev.id) || (lev.gcalMap && Object.keys(lev.gcalMap).some(function(k){return lev.gcalMap[k]===gev.id;})); }); });
-  let h='';
-  /* 입력 안내 — 일정 유무와 관계없이 항상 표시 (사용자 요청 2026-07-02) */
-  h+='<div style="font-size:10px;color:var(--t3);text-align:center;padding:8px 8px 2px">위 입력란에 입력 즉시 오렌지톡 일정으로 자동 저장됩니다.</div>';
-  h+='<div style="font-size:9px;color:var(--t3);text-align:center;padding:0 8px 10px;opacity:0.8">(구글 캘린더 연동 시 자동 동기화 됨)</div>';
-  if(events.length){
-    const _gsync=_gcalEnabled();
-    h+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">오렌지톡 일정 ('+events.length+'건) <span style="font-size:9px;color:'+(_gsync?'#22a06b':'var(--t3)')+';font-weight:400">— '+(_gsync?'구글 캘린더와 동기화 됨':'구글 캘린더 동기화 모드 OFF')+'</span></div>';
-    events.forEach(function(ev,i){
-      const _c = ev.color || '#22c55e';
-      h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:'+_c+'18;border-left:3px solid '+_c+';border-radius:4px;margin-bottom:4px">';
-      if(ev.time)h+='<span style="font-size:10px;font-family:var(--fm);font-weight:700;color:'+_c+';min-width:40px">'+escHtml(ev.time)+'</span>';
-      else h+='<span style="font-size:9px;color:var(--t3);min-width:40px">종일</span>';
-      h+='<span style="font-size:11px;color:var(--t1);flex:1">'+escHtml(ev.title||'')+(ev.memo?' <span style="font-size:9px;color:var(--t3)">· '+escHtml(ev.memo)+'</span>':'')+'</span>';
-      h+='<span data-action="hcd-edit" data-arg="'+escHtml(ds)+'" data-idx="'+i+'" title="수정" style="cursor:pointer;font-size:11px;padding:2px 4px">✏️</span>';
-      h+='<span data-action="hcd-del" data-arg="'+escHtml(ds)+'" data-idx="'+i+'" title="삭제" style="cursor:pointer;color:var(--t3);font-size:11px;padding:2px 4px;opacity:0.5">✕</span>';
-      h+='</div>';
-    });
+function _homeCalendarDayItems(ds, academicSpans){
+  const items=[], local=_localEvents[ds]||[];
+  function add(kind,ev,index){
+    const timed=kind==='local'||kind==='google';
+    const event=timed?Object.assign({},ev,{_local:kind==='local'}):ev;
+    items.push({kind:kind,event:event,index:index,order:items.length,
+      title:timed?_homeEvTitle(event):(ev.title||'(제목 없음)'),
+      time:kind==='local'?(ev.time||''):kind==='google'?_evTimeStatic(ev):''});
   }
-  if(gcalEvents.length){
-    h+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-top:14px;margin-bottom:6px">Google Calendar ('+gcalEvents.length+'건) <span style="font-size:9px;color:var(--t3);font-weight:400">— 수정·삭제 시 구글에 반영</span></div>';
-    gcalEvents.forEach(function(ev){
-      const t=_evTimeStatic(ev);
-      h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(59,130,246,0.06);border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:4px">';
-      if(t)h+='<span style="font-size:10px;font-family:var(--fm);font-weight:700;color:#3b82f6;min-width:40px">'+escHtml(t)+'</span>';
-      else h+='<span style="font-size:9px;color:var(--t3);min-width:40px">종일</span>';
-      h+='<span style="font-size:11px;color:var(--t1);flex:1">'+escHtml(ev.summary||ev.title||'')+'</span>';
-      h+='<span data-action="hcd-gedit" data-arg="'+escHtml(ds)+'" data-gid="'+escHtml(ev.id||'')+'" title="수정" style="cursor:pointer;font-size:11px;padding:2px 4px">✏️</span>';
-      h+='<span data-action="hcd-gdel" data-arg="'+escHtml(ds)+'" data-gid="'+escHtml(ev.id||'')+'" title="삭제" style="cursor:pointer;color:var(--t3);font-size:11px;padding:2px 4px;opacity:0.5">✕</span>';
-      h+='</div>';
-    });
-  }
-  return h;
+  local.forEach(function(ev,i){if(ev)add('local',ev,i);});
+  if(_gcalEnabled()) (_homeCalEvents[ds]||[]).forEach(function(ev){
+    if(!ev)return;
+    const duplicate=local.some(function(own){return own&&((own.gid&&own.gid===ev.id)||(own.gcalMap&&Object.keys(own.gcalMap).some(function(key){return own.gcalMap[key]===ev.id;})));});
+    if(!duplicate)add('google',ev);
+  });
+  (academicSpans||getAcademicSpans()).forEach(function(ev){
+    if(!ev||!ev.start||!ev.end||ds<ev.start||ds>ev.end)return;
+    if(/선거|투표일/.test(String(ev.title||'')))return;
+    if(ev.start===ev.end){
+      const holiday=S.koreanHolidays&&S.koreanHolidays[ev.start];
+      const a=String(holiday||'').replace(/\s/g,''),b=String(ev.title||'').replace(/\s/g,'');
+      if(a&&b&&(a===b||a.indexOf(b)!==-1||b.indexOf(a)!==-1||_holiNorm(a)===_holiNorm(b)))return;
+    }
+    add('academic',ev);
+  });
+  _localRanges.forEach(function(ev){if(ev&&ev.start&&ev.end&&ds>=ev.start&&ds<=ev.end)add('range',ev);});
+  return items.sort(function(a,b){
+    const at=String(a.time||'').padStart(5,'0'),bt=String(b.time||'').padStart(5,'0');
+    return at.localeCompare(bt)||a.order-b.order;
+  });
 }
-async function _homeOpenDayPopup(ds){
+function _refreshHomeCalendarDayPopup(){
+  const popup=document.getElementById('homeCalDayPopup');
+  if(!popup||!popup.dataset.date)return;
+  const list=popup.querySelector('#hcdListWrap');
+  if(list)list.innerHTML=_hcdListHtml(popup.dataset.date);
+}
+function _hcdListHtml(ds){
+  const items=_homeCalendarDayItems(ds);
+  const names={local:'오렌지톡',google:'Google',academic:'학사 일정',range:'기간 일정'};
+  const defaults={local:'#22c55e',google:'#3b82f6',academic:'#a855f7',range:'#f59e0b'};
+  let h='<div class="school-hcd-list-heading"><h3>전체 일정</h3><span>'+items.length+'건</span></div>';
+  if(_gcalEnabled()&&!_homeCalLoaded)h+='<p class="school-hcd-loading" role="status">Google 일정을 불러오는 중이에요.</p>';
+  if(!items.length)return h+'<div class="school-hcd-empty"><strong>등록된 일정이 없어요</strong><p>입력란에서 이 날짜의 일정이나 할 일을 추가해 보세요.</p></div>';
+  h+='<ul class="school-hcd-events">';
+  items.forEach(function(item){
+    const ev=item.event, timed=item.kind==='local'||item.kind==='google';
+    const done=timed&&_homeEventDone(ds,ev);
+    const rawColor=ev._calColor||ev.backgroundColor||ev.color||defaults[item.kind];
+    const color=/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(rawColor)?rawColor:defaults[item.kind];
+    h+='<li class="school-hcd-event'+(done?' is-complete':'')+'" data-kind="'+item.kind+'" style="--hcd-event-accent:'+color+'">';
+    h+='<div class="school-hcd-event-top"><span class="school-hcd-time">'+escHtml(item.time||'종일')+'</span><span class="school-hcd-source">'+names[item.kind]+'</span>'+(done?'<span class="school-hcd-done-label">완료</span>':'')+'</div>';
+    h+='<div class="school-hcd-event-main">';
+    if(timed)h+=_homeCalendarDoneControl(ds,ev);
+    h+='<div class="school-hcd-event-copy"><div class="school-hcd-event-title">'+escHtml(item.title)+'</div>';
+    if(ev.memo)h+='<p class="school-hcd-event-memo">'+escHtml(ev.memo)+'</p>';
+    if(!timed)h+='<p class="school-hcd-event-period">'+escHtml(ev.start)+' ~ '+escHtml(ev.end)+'</p>';
+    h+='</div></div>';
+    if(timed){
+      const google=item.kind==='google';
+      const attrs=' data-arg="'+escHtml(ds)+'"'+(google?' data-gid="'+escHtml(ev.id||'')+'"':' data-idx="'+item.index+'"');
+      h+='<div class="school-hcd-event-actions"><button type="button" data-action="'+(google?'hcd-gedit':'hcd-edit')+'"'+attrs+' aria-label="'+escHtml(item.title)+' 수정">수정</button><button type="button" class="is-delete" data-action="'+(google?'hcd-gdel':'hcd-del')+'"'+attrs+' aria-label="'+escHtml(item.title)+' 삭제">삭제</button></div>';
+    }else if(item.kind==='range'&&ev.id){
+      h+='<div class="school-hcd-event-actions"><button type="button" data-action="hcd-range-edit" data-range-id="'+escHtml(ev.id)+'">기간 일정 수정</button></div>';
+    }
+    h+='</li>';
+  });
+  return h+'</ul>';
+}
+let _homeDayPopupRequest=0;
+async function _homeOpenDayPopup(ds,focusNew=false){
+  const request=++_homeDayPopupRequest;
   const ex=document.getElementById('homeCalDayPopup');
-  if(ex)ex.remove();
+  if(ex && ex._homeCloseDraft && !await ex._homeCloseDraft())return;
+  if(request!==_homeDayPopupRequest)return;
   /* 로컬 일정 로드가 끝나기 전에 팝업에서 저장하면, 빈 _localEvents 를 DB 에 통째로 덮어써
    *  이전 날짜 일정이 유실될 수 있다 → 팝업을 열기(편집 가능해지기) 전에 로드를 보장한다. (2026-07-15) */
-  if(!_localEventsLoaded){ await _loadLocalEvents(); }
+  if(!await _requireHomeCalendar() || request!==_homeDayPopupRequest)return;
   const events=_localEvents[ds]||[];
   /* 오렌지톡 일정이 구글에 올린 이벤트는 'Google Calendar' 섹션에서 제외 → '오렌지톡 일정' 섹션에만 표시 (중복 방지, 2026-07-02) */
   const gcalEvents=(_homeCalEvents[ds]||[]).filter(function(gev){ return !(_localEvents[ds]||[]).some(function(lev){ return (lev.gid&&lev.gid===gev.id) || (lev.gcalMap && Object.keys(lev.gcalMap).some(function(k){return lev.gcalMap[k]===gev.id;})); }); });
   const ov=document.createElement('div');
   ov.id='homeCalDayPopup';
+  ov.dataset.date=ds;
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9700;display:flex;align-items:center;justify-content:center';
-  let h='<div style="background:var(--card);border-radius:12px;width:420px;max-width:92vw;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4)">';
-  h+='<div style="background:var(--popup-head);padding:12px 18px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">';
-  h+='<span style="font-size:14px;font-weight:800;color:var(--t1)">📅 '+escHtml(ds)+'</span>';
-  h+='<span style="font-size:10px;color:var(--t3)">입력 즉시 자동 저장</span>';   /* X 닫기 버튼 제거 — 바깥 클릭으로 닫음 (사용자 지시 2026-06-15) */
-  h+='</div>';
-  h+='<div style="padding:14px 18px;overflow-y:auto;flex:1">';
-  /* 새 일정 입력 폼 */
-  h+='<div style="background:var(--bg2);padding:10px 12px;border-radius:8px;margin-bottom:12px">';
-  h+='<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:6px">+ 새 일정 추가</div>';
-  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
-  h+='<input id="hcdTime" type="text" placeholder="HH:MM (선택)" maxlength="5" style="width:120px;flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--bdr);border-radius:5px;background:var(--bg);color:var(--t1);font-family:var(--fm);cursor:text">';
-  h+='<input id="hcdTitle" type="text" placeholder="일정 제목 (필수)" style="flex:1;min-width:0;font-size:11px;padding:5px 8px;border:1px solid var(--bdr);border-radius:5px;background:var(--bg);color:var(--t1);cursor:text">';
-  h+='</div>';
-  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
-  h+='<textarea id="hcdMemo" placeholder="메모 (선택)" rows="2" style="flex:1;min-width:0;font-size:11px;padding:5px 8px;border:1px solid var(--bdr);border-radius:5px;background:var(--bg);color:var(--t1);cursor:text;resize:vertical;font-family:var(--f);line-height:1.5"></textarea>';
-  h+='</div>';   /* 추가 버튼 제거 — 제목을 적으면 즉시 자동 저장+달력 표시 (사용자 지시 2026-06-15) */
-  /* 색상 선택 — 구글 캘린더식 동그란 색칩. 기본 = 녹색(#22c55e). */
-  h+='<div id="hcdColorRow" style="display:flex;gap:5px;align-items:center;margin-top:4px"><span style="font-size:10px;color:var(--t3);margin-right:2px">색상:</span>';
-  const _palette = [
-    {c:'#22c55e', n:'녹색'}, {c:'#0891b2', n:'사이안'}, {c:'#3b82f6', n:'파랑'},
-    {c:'#7c3aed', n:'보라'}, {c:'#ec4899', n:'분홍'}, {c:'#dc2626', n:'빨강'},
-    {c:'#f97316', n:'주황'}, {c:'#ca8a04', n:'노랑'}
-  ];
-  _palette.forEach(function(p,i){
-    const sel = i===0;
-    h+='<span class="hcd-color-chip'+(sel?' selected':'')+'" data-color="'+p.c+'" title="'+p.n+'" style="width:18px;height:18px;border-radius:50%;background:'+p.c+';cursor:pointer;border:'+(sel?'2px solid var(--t1)':'2px solid transparent')+';box-shadow:0 1px 3px rgba(0,0,0,0.15);transition:transform .12s,border-color .12s" data-action="hcd-color-pick"></span>';
-  });
-  h+='</div>';
-  h+='</div>';
-  /* 일정 목록(오렌지톡 + Google) — 입력 즉시 부분 갱신 가능하도록 컨테이너로 분리 */
-  h+='<div id="hcdListWrap">'+_hcdListHtml(ds)+'</div>';
-  h+='</div></div>';
+  const dateLabel=new Date(ds+'T12:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  const holiday=S.koreanHolidays&&S.koreanHolidays[ds];
+  let h='<div class="school-calendar-day-dialog" role="dialog" aria-modal="true" aria-labelledby="hcdDialogTitle" tabindex="-1">';
+  h+='<header class="school-calendar-day-header"><div><p>선택한 날짜</p><h2 id="hcdDialogTitle">'+escHtml(dateLabel)+'</h2>'+(holiday?'<span class="school-hcd-holiday">'+escHtml(holiday)+'</span>':'')+'</div><button type="button" class="school-hcd-input-link" data-action="hcd-focus-new">일정 입력</button></header>';
+  h+='<div class="school-calendar-day-body"><section class="school-calendar-day-list" aria-label="선택한 날짜의 일정 목록"><div id="hcdListWrap">'+_hcdListHtml(ds)+'</div></section>';
+  h+='<section class="school-calendar-day-form" aria-labelledby="hcdAddHeading"><div class="school-hcd-form-heading"><h3 id="hcdAddHeading">새 일정·할 일</h3><span>자동 저장</span></div>';
+  h+='<p class="school-hcd-form-note">제목을 입력하면 자동 저장됩니다. Enter를 누르면 다음 일정을 입력할 수 있어요.</p>';
+  h+='<label for="hcdTitle">일정 제목 <span>필수</span></label><input id="hcdTitle" type="text" placeholder="어떤 일정이 있나요?" autocomplete="off">';
+  h+='<label for="hcdTime">시간 <span>선택</span></label><input id="hcdTime" type="text" placeholder="HH:MM · 비워 두면 종일" maxlength="5" autocomplete="off">';
+  h+='<label for="hcdMemo">메모 <span>선택</span></label><textarea id="hcdMemo" placeholder="장소나 준비할 내용을 적어 주세요." rows="3"></textarea>';
+  h+='<div class="school-hcd-color-label">일정 색상</div><div id="hcdColorRow" role="group" aria-label="일정 색상">';
+  const _palette=[{c:'#22c55e',n:'녹색'},{c:'#0891b2',n:'사이안'},{c:'#3b82f6',n:'파랑'},{c:'#7c3aed',n:'보라'},{c:'#ec4899',n:'분홍'},{c:'#dc2626',n:'빨강'},{c:'#f97316',n:'주황'},{c:'#ca8a04',n:'노랑'}];
+  _palette.forEach(function(p,i){h+='<button type="button" class="hcd-color-chip'+(i===0?' selected':'')+'" data-color="'+p.c+'" title="'+p.n+'" aria-label="'+p.n+'" aria-pressed="'+(i===0?'true':'false')+'" style="background:'+p.c+'" data-action="hcd-color-pick"></button>';});
+  h+='</div><p class="school-hcd-sync-note">'+(_gcalEnabled()?'오렌지톡 일정은 Google 캘린더에도 동기화됩니다.':'Google 연동을 켜면 오렌지톡 일정을 함께 동기화할 수 있어요.')+'</p></section></div>';
+  h+='<footer class="school-calendar-day-footer"><span>학사·기간 일정도 이 날짜에 해당하는 항목을 모두 보여드려요.</span><button type="button" data-action="hcd-close">닫기</button></footer></div>';
   ov.innerHTML=h;
-  ov.addEventListener('mousedown',function(e){if(e.target===ov)ov.remove();});
+  ov.addEventListener('mousedown',function(e){if(e.target===ov)ov._homeCloseDraft();});
   ov.addEventListener('click',function(e){
     const t=e.target.closest('[data-action]');if(!t)return;
     const a=t.dataset.action;
-    if(a==='hcd-close'){ov.remove();return;}
+    if(a==='hcd-close'){ov._homeCloseDraft();return;}
+    if(a==='hcd-focus-new'){const input=ov.querySelector('#hcdTitle');if(input)input.focus();return;}
+    if(a==='hcd-range-edit'){const range=_localRanges.find(function(item){return item&&String(item.id)===t.dataset.rangeId;});if(range)_openRangeEditor(range,range.start,range.end);return;}
+    if(a==='hcd-done'){_homeToggleCalEvent(t.dataset.key,t.dataset.arg);return;}
     if(a==='hcd-edit'){_homeEditLocalEvent(t.dataset.arg,parseInt(t.dataset.idx,10),ov);return;}
     if(a==='hcd-del'){_homeDelLocalEvent(t.dataset.arg,parseInt(t.dataset.idx,10),ov);return;}
     if(a==='hcd-gedit'){_homeEditGcalEvent(t.dataset.arg,t.dataset.gid,ov);return;}
     if(a==='hcd-gdel'){_homeDelGcalEvent(t.dataset.arg,t.dataset.gid,ov);return;}
     if(a==='hcd-color-pick'){
-      ov.querySelectorAll('.hcd-color-chip').forEach(function(c){c.classList.remove('selected');c.style.border='2px solid transparent';});
+      ov.querySelectorAll('.hcd-color-chip').forEach(function(c){c.classList.remove('selected');c.setAttribute('aria-pressed','false');c.style.border='2px solid transparent';});
       t.classList.add('selected');
+      t.setAttribute('aria-pressed','true');
       t.style.border='2px solid var(--t1)';
       _homeDayDraftSave(ds,ov);   /* 색상 선택 즉시 반영·저장 */
       return;
@@ -2928,14 +2881,35 @@ async function _homeOpenDayPopup(ds){
   /* 자동 저장 — 제목/시간/메모 타이핑 시 디바운스로 그날 일정 1건을 생성·갱신(추가 버튼 없이 즉시 달력 표시+저장). 닫았다 다시 열면 새 일정. (사용자 지시 2026-06-15) */
   ov._homeDraftId=null;
   let _dayDraftTimer=null;
+  ov._homeFlushDraft=function(){
+    clearTimeout(_dayDraftTimer);_dayDraftTimer=null;
+    return _homeDayDraftSave(ds,ov);
+  };
+  ov._homeCloseDraft=function(){
+    if(ov._homeClosing)return ov._homeClosing;
+    const controls=Array.from(ov.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled)'));
+    controls.forEach(function(el){el.disabled=true;});
+    ov.setAttribute('aria-busy','true');
+    ov._homeClosing=(async function(){
+      try{
+        if(!await ov._homeFlushDraft())return false;
+        ov.remove();return true;
+      }finally{
+        controls.forEach(function(el){el.disabled=false;});
+        ov.removeAttribute('aria-busy');ov._homeClosing=null;
+      }
+    })();
+    return ov._homeClosing;
+  };
+  ov._onModalClose=ov._homeCloseDraft;
   ['hcdTitle','hcdTime','hcdMemo'].forEach(function(id){
-    const el=document.getElementById(id);if(!el)return;
+    const el=ov.querySelector('#'+id);if(!el)return;
     el.addEventListener('input',function(){ if(_dayDraftTimer)clearTimeout(_dayDraftTimer); _dayDraftTimer=setTimeout(function(){_homeDayDraftSave(ds,ov);},400); });
     /* Enter → 즉시 저장하고 팝업 닫기 (사용자 요청 2026-07-02) */
-    el.addEventListener('keydown',function(e){ if(e.key==='Enter' && id!=='hcdMemo'){ e.preventDefault(); if(_dayDraftTimer)clearTimeout(_dayDraftTimer); Promise.resolve(_homeDayDraftSave(ds,ov)).then(function(){ _homeOpenDayPopup(ds); }); } });
+    el.addEventListener('keydown',function(e){ if(e.key==='Enter' && id!=='hcdMemo'){ e.preventDefault(); _homeOpenDayPopup(ds,true); } });
   });
-  _bindTimeInput(document.getElementById('hcdTime'));
-  setTimeout(function(){const tEl=document.getElementById('hcdTitle');if(tEl)tEl.focus();},50);
+  _bindTimeInput(ov.querySelector('#hcdTime'));
+  setTimeout(function(){if(!ov.isConnected)return;const target=ov.querySelector(focusNew?'#hcdTitle':'.school-calendar-day-dialog');if(target)target.focus({preventScroll:!focusNew});},50);
 }
 /* 구글 일정 description 의 HTML(<br>·<a> 등)을 사람이 읽는 플레인 텍스트로 변환 — 구글은 렌더링하지만 앱 입력란엔 태그가 그대로 보이므로. (사용자 요청 2026-07-02) */
 function _gcalHtmlToText(html){
@@ -2967,7 +2941,7 @@ function _homePromptText(title, placeholder){
     ov.innerHTML='<div style="background:var(--card);border-radius:12px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden">'
       +'<div style="background:var(--popup-head);padding:12px 18px;border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">'+escHtml(title||'')+'</div>'
       +'<div style="padding:14px 18px"><input id="_hptInput" type="text" placeholder="'+escHtml(placeholder||'')+'" style="width:100%;box-sizing:border-box;font-size:12px;padding:7px 9px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--t1);cursor:text"></div>'
-      +'<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--bdr);background:var(--bg2)"><button id="_hptCancel" style="padding:7px 16px;font-size:12px;font-weight:600;background:var(--card);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button><button id="_hptOk" style="padding:7px 18px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">확인</button></div>'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--bdr);background:var(--bg2)"><button id="_hptCancel" style="padding:7px 16px;font-size:12px;font-weight:600;background:var(--card);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button><button id="_hptOk" style="padding:7px 18px;font-size:12px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">확인</button></div>'
       +'</div>';
     document.body.appendChild(ov);
     const inp=document.getElementById('_hptInput');
@@ -2994,24 +2968,7 @@ function _homeEvToGcalBody(ds, ev){
   }
   return body;
 }
-async function _homeSyncEventToGcal(ds, ev, action){
-  try{
-    if(!_gcalEnabled()) return;
-    const api = window.electronAPI;
-    if(!(api && api.calendarCreate)) return;
-    if(action === 'delete'){
-      if(ev && ev.gid) await api.calendarDelete('primary', ev.gid);
-      return;
-    }
-    const body = _homeEvToGcalBody(ds, ev);
-    if(ev.gid){
-      await api.calendarUpdate('primary', ev.gid, body);
-    } else {
-      const res = await api.calendarCreate('primary', body);
-      if(res && res.success && res.data && res.data.id){ ev.gid = res.data.id; await _saveLocalEvents(); }
-    }
-  }catch(e){ /* 구글 반영 실패 → 로컬만 유지 */ }
-}
+
 /* 앱 일정을 체크된 '여러 구글 캘린더'에 동기화 — 없으면 생성, 해제된 캘린더에선 삭제. ev.gcalMap={calId:eventId}. (사용자 요청 2026-07-02) */
 async function _homeSyncEventToCals(ds, ev, calIds){
   try{
@@ -3062,36 +3019,62 @@ async function _homeBackfillLocalToGcal(){
   }catch(e){}
 }
 /* 달력 일별 팝업 자동 저장 — 제목이 있으면 이번 세션의 일정 1건을 생성·갱신(드래프트 id). 제목 비우면 그 초안 제거. (사용자 지시 2026-06-15) */
-async function _homeDayDraftSave(ds,ov){
-  const titleEl=document.getElementById('hcdTitle');
-  if(!titleEl||!ov)return;
-  /* 로드 미완 상태에서 저장 시 빈 _localEvents 로 DB 덮어쓰기 방지 — 저장 전 로드 보장. (2026-07-15) */
-  if(!_localEventsLoaded){ await _loadLocalEvents(); }
-  const title=(titleEl.value||'').trim();
-  const timeEl=document.getElementById('hcdTime');
-  const memoEl=document.getElementById('hcdMemo');
-  const time=(timeEl&&timeEl.value||'').trim();
-  const memo=(memoEl&&memoEl.value||'').trim();
-  const selChip=ov.querySelector('.hcd-color-chip.selected');
-  const color=(selChip&&selChip.dataset.color)||'#22c55e';
-  if(!_localEvents[ds])_localEvents[ds]=[];
-  let ev=ov._homeDraftId?_localEvents[ds].find(function(x){return x.id===ov._homeDraftId;}):null;
-  if(!title){
-    if(ev){ await _homeSyncEventToCals(ds, ev, []); _localEvents[ds]=_localEvents[ds].filter(function(x){return x.id!==ov._homeDraftId;}); if(!_localEvents[ds].length)delete _localEvents[ds]; ov._homeDraftId=null; await _saveLocalEvents(); _homeSaveToast(); try{renderHomeDashboard();}catch(_){} }
-    return;
-  }
-  if(!ev){
-    const id=String(Date.now())+Math.random().toString(36).slice(2,6);
-    ev={id:id,title:title,time:time,memo:memo,color:color};
-    _localEvents[ds].push(ev);
-    ov._homeDraftId=id;
-  } else { ev.title=title; ev.time=time; ev.memo=memo; ev.color=color; }
-  await _saveLocalEvents();
-  /* 신규 입력은 로컬(오렌지톡)에만 저장 — 구글에 넣는 건 수정 모달에서 캘린더 체크 시에만 (사용자 요청 2026-07-02) */
-  _homeSaveToast();
-  try{renderHomeDashboard();}catch(_){}
-  /* 입력 즉시 오렌지톡 일정 섹션에 반영 — 목록 컨테이너만 갱신해 입력 폼 포커스는 유지 */
-  const _lw=document.getElementById('hcdListWrap'); if(_lw)_lw.innerHTML=_hcdListHtml(ds);
+function _homeDayDraftSave(ds,ov){
+  const titleEl=ov&&ov.querySelector('#hcdTitle');
+  if(!titleEl)return Promise.resolve(false);
+  const chip=ov.querySelector('.hcd-color-chip.selected');
+  const draft={
+    title:(titleEl.value||'').trim(),
+    time:(ov.querySelector('#hcdTime').value||'').trim(),
+    memo:(ov.querySelector('#hcdMemo').value||'').trim(),
+    color:chip&&chip.dataset.color||'#22c55e'
+  };
+  const signature=JSON.stringify(draft);
+  const save=async function(){
+    let undo=null;
+    try{
+      if(!await _requireHomeCalendar())throw Error("calendar_not_loaded");
+      if(ov._homeSavedDraft===signature)return true;
+      const list=_localEvents[ds]||[];
+      const index=list.findIndex(function(ev){return ev.id===ov._homeDraftId;});
+      const previous=index>=0?list[index]:null;
+      const previousId=ov._homeDraftId;
+      if(!draft.title&&!previous){ov._homeSavedDraft=signature;return true;}
+      const next=draft.title?Object.assign({},previous||{id:String(Date.now())+Math.random().toString(36).slice(2,8)},draft):null;
+      if(next){
+        if(index>=0)list[index]=next;else list.push(next);
+        _localEvents[ds]=list;ov._homeDraftId=next.id;
+      }else{
+        list.splice(index,1);if(!list.length)delete _localEvents[ds];ov._homeDraftId=null;
+      }
+      undo=function(){
+        const current=_localEvents[ds]||[];
+        if(next){
+          const at=current.indexOf(next);
+          if(at>=0){if(previous)current[at]=previous;else current.splice(at,1);}
+        }else if(previous&&!current.some(function(ev){return ev.id===previous.id;})){current.splice(Math.min(index,current.length),0,previous);}
+        if(current.length)_localEvents[ds]=current;else delete _localEvents[ds];
+        ov._homeDraftId=previousId;
+      };
+      if(!await _saveLocalEvents())throw Error("calendar_save_failed");
+      undo=null;ov._homeSavedDraft=signature;
+      if(!next&&previous)await _homeSyncEventToCals(ds,previous,[]);
+      const error=ov.querySelector('[data-home-save-error]');if(error)error.remove();
+      _homeSaveToast();
+      try{renderHomeDashboard();}catch(_){}
+      const wrap=ov.querySelector('#hcdListWrap');if(wrap)wrap.innerHTML=_hcdListHtml(ds);
+      return true;
+    }catch(error){
+      if(undo)undo();
+      let note=ov.querySelector('[data-home-save-error]');
+      if(!note){note=document.createElement('p');note.dataset.homeSaveError='';note.setAttribute('role','alert');ov.querySelector('.school-calendar-day-form').appendChild(note);}
+      note.textContent='일정을 저장하지 못했습니다. 입력 내용은 그대로 두었으니 연결과 저장 공간을 확인한 뒤 다시 시도해 주세요.';
+      console.warn('[home-cal] draft save failed',error);
+      return false;
+    }
+  };
+  ov._homeDraftQueue=Promise.resolve(ov._homeDraftQueue).catch(function(){}).then(save);
+  return ov._homeDraftQueue;
 }
 function _evTimeStatic(ev){
   if(ev.time)return ev.time;
@@ -3101,32 +3084,11 @@ function _evTimeStatic(ev){
   }
   return '';
 }
-async function _homeAddLocalEvent(ds,ov){
-  /* 로드 미완 상태에서 저장 시 빈 _localEvents 로 DB 덮어쓰기 방지 — 저장 전 로드 보장. (2026-07-15) */
-  if(!_localEventsLoaded){ await _loadLocalEvents(); }
-  const titleEl=document.getElementById('hcdTitle');
-  const timeEl=document.getElementById('hcdTime');
-  const memoEl=document.getElementById('hcdMemo');
-  const title=(titleEl&&titleEl.value||'').trim();
-  if(!title){alert('제목을 입력해 주세요');return;}
-  const time=(timeEl&&timeEl.value||'').trim();
-  const memo=(memoEl&&memoEl.value||'').trim();
-  /* 선택된 색칩 (.hcd-color-chip.selected) 의 색. 없으면 기본 녹색. */
-  const _selChip = ov.querySelector('.hcd-color-chip.selected');
-  const color = (_selChip && _selChip.dataset.color) || '#22c55e';
-  if(!_localEvents[ds])_localEvents[ds]=[];
-  const _newEv={id:String(Date.now())+Math.random().toString(36).slice(2,6),title:title,time:time,memo:memo,color:color};
-  _localEvents[ds].push(_newEv);
-  await _saveLocalEvents();
-  ov.remove();
-  renderHomeDashboard();
-  /* 다시 열기 (편의) */
-  setTimeout(function(){_homeOpenDayPopup(ds);},50);
-}
+
 /* 오렌지톡(로컬) 일정 수정 — 제목·시간·메모·색상. gid 있으면 구글에도 반영. (사용자 요청 2026-07-02) */
 async function _homeEditLocalEvent(ds, idx, dayOv){
   /* 로드 미완 상태에서 편집·저장 시 빈 _localEvents 로 DB 덮어쓰기 방지 — 로드 보장. (2026-07-15) */
-  if(!_localEventsLoaded){ await _loadLocalEvents(); }
+  if(!await _requireHomeCalendar())return;
   const list=_localEvents[ds]||[];
   const ev=list[idx];
   if(!ev)return;
@@ -3219,6 +3181,7 @@ async function _homeEditLocalEvent(ds, idx, dayOv){
   });
 }
 async function _homeDelLocalEvent(ds,idx,ov){
+  if(!await _requireHomeCalendar())return;
   const list=_localEvents[ds];
   if(!list||isNaN(idx)||idx<0||idx>=list.length)return;
   const ok=await appConfirmModal('"'+escHtml(list[idx].title||'')+'" 일정을 삭제할까요?','일정 삭제',{okLabel:'삭제',cancelLabel:'취소'});
@@ -3232,7 +3195,7 @@ async function _homeDelLocalEvent(ds,idx,ov){
   renderHomeDashboard();
   /* 남은 일정이 있으면 팝업을 갱신해 유지(닫지 않음), 마지막까지 지우면 닫기 (사용자 요청 2026-07-02) */
   const _remain=(_localEvents[ds]||[]).length + (_homeCalEvents[ds]||[]).length;
-  if(_remain>0){ _homeOpenDayPopup(ds); }
+  if(ov&&_remain>0){ _homeOpenDayPopup(ds); }
   else if(ov){ ov.remove(); }
 }
 /* 구글 캘린더에서 만든 일정을 앱에서 삭제 → 구글에 반영. (2026-07-02) */
@@ -3252,7 +3215,7 @@ async function _homeDelGcalEvent(ds, gid, dayOv){
   renderHomeDashboard();
   /* 남은 일정이 있으면 팝업을 갱신해 유지(닫지 않음), 마지막까지 지우면 닫기 (사용자 요청 2026-07-02) */
   const _remain=(_localEvents[ds]||[]).length + (_homeCalEvents[ds]||[]).length;
-  if(_remain>0){ _homeOpenDayPopup(ds); }
+  if(dayOv&&_remain>0){ _homeOpenDayPopup(ds); }
   else if(dayOv){ dayOv.remove(); }
 }
 /* 구글 캘린더에서 만든 일정을 앱에서 수정 → 구글에 반영. (2026-07-02) */
@@ -3378,7 +3341,7 @@ async function _gcalShareRefresh(calId){
     +'<div style="display:flex;gap:6px">'
     +'<input id="gcalShareEmail" type="email" placeholder="상대방 gmail 주소" style="flex:1;min-width:0;font-size:12px;padding:6px 9px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--t1);cursor:text">'
     +'<select id="gcalShareRole" style="font-size:12px;padding:6px 9px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--t1);cursor:pointer;flex-shrink:0"><option value="reader">보기 가능</option><option value="writer">편집 가능</option></select>'
-    +'<button id="gcalShareAdd" style="padding:6px 14px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:6px;cursor:pointer;flex-shrink:0">공유</button>'
+    +'<button id="gcalShareAdd" style="padding:6px 14px;font-size:12px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;flex-shrink:0">공유</button>'
     +'</div>'
     +'<div style="font-size:10px;color:var(--t3);margin-top:6px">선택한 캘린더를 상대방 구글 계정과 공유합니다.</div>'
     +'</div>';
@@ -3419,11 +3382,11 @@ function _wProgressContent(){
   }
   const _vis=_getProgVis();
   let _out='';
-  if(_vis.day!==false)      _out+=bar('🕐 오늘',_prog.day,'linear-gradient(90deg,#06b6d4,#0891b2)');
-  if(_vis.month!==false)    _out+=bar('📅 이달',_prog.month,'linear-gradient(90deg,#22c55e,#16a34a)');
-  if(_vis.year!==false)     _out+=bar('🗓 올해',_prog.year,'linear-gradient(90deg,#6366f1,#4f46e5)');
-  if(_vis.semester!==false) _out+=bar('📚 학기',_prog.semester,'linear-gradient(90deg,#8b5cf6,#7c3aed)');
-  if(_vis.ay!==false)       _out+=bar('🎓 학년도',_prog.ay,'linear-gradient(90deg,#f59e0b,#d97706)');
+  if(_vis.day!==false)      _out+=bar('🕐 오늘',_prog.day,'#0891b2');
+  if(_vis.month!==false)    _out+=bar('📅 이달',_prog.month,'#16a34a');
+  if(_vis.year!==false)     _out+=bar('🗓 올해',_prog.year,'#4f46e5');
+  if(_vis.semester!==false) _out+=bar('📚 학기',_prog.semester,'#7c3aed');
+  if(_vis.ay!==false)       _out+=bar('🎓 학년도',_prog.ay,'#d97706');
   if(!_out) _out='<div style="font-size:10.5px;color:var(--t3);text-align:center;padding:6px 0">표시할 항목이 없습니다 (⚙ 에서 켜기)</div>';
   return _out;
 }
@@ -3488,7 +3451,7 @@ function _openProgGearModal(){
     return g;
   }
   let h='<div style="background:var(--card);border-radius:14px;width:300px;max-width:92vw;box-shadow:0 24px 60px rgba(0,0,0,0.45);overflow:hidden;display:flex;flex-direction:column">';
-  h+='<div style="padding:13px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px">';
+  h+='<div style="padding:13px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px">';
   h+='<span style="font-size:19px">📊</span>';
   h+='<div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--t1)">시기별 진행률 표시 설정</div>';
   h+='<div style="font-size:10.5px;color:var(--t3);margin-top:2px">눈알 아이콘으로 켜고 끕니다. 즉시 반영됩니다.</div></div></div>';
@@ -3587,7 +3550,7 @@ function _openProgPeriodPopup(pkey){
       +'<div style="font-size:10px;color:var(--t3);text-align:center;margin-top:7px">날짜를 선택하면 자동 저장됩니다</div>';
   }
   let h='<div style="background:var(--card);border-radius:14px;width:280px;max-width:92vw;box-shadow:0 24px 60px rgba(0,0,0,0.5);overflow:hidden">';
-  h+='<div style="padding:12px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px">';
+  h+='<div style="padding:12px 16px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px">';
   h+='<span style="font-size:16px">⚙</span><div style="font-size:13px;font-weight:800;color:var(--t1)">'+escHtml(label)+' 기간 설정</div></div>';
   h+='<div id="ppBody" style="padding:14px 16px">'+body()+'</div></div>';
   ov.innerHTML=h;
@@ -3703,7 +3666,7 @@ function _getLSList(key){
   try{const raw=localStorage.getItem(key);if(raw){const arr=JSON.parse(raw);if(Array.isArray(arr))return arr;}}catch(e){}
   return [];
 }
-function _emptyMsg(text){return '<span style="color:var(--t3)">'+escHtml(text)+'</span>';}
+function _emptyMsg(text){return _schoolEmpty('📋',text,'');}
 
 /* (질병관리청 위젯 제거됨 — KDCA RSS 관련 코드 삭제) */
 
@@ -3844,7 +3807,8 @@ async function _homeCapEnsureAsync(){
 }
 function _homeCapGet(key){
   if(!_homeCapCache){_homeCapEnsureAsync();return _homeCapDefaults[key]||'';}
-  return (_homeCapCache[key]!=null?_homeCapCache[key]:_homeCapDefaults[key])||'';
+  const value=(_homeCapCache[key]!=null?_homeCapCache[key]:_homeCapDefaults[key])||'';
+  return key==='todolist'&&value==='캘린더와 같은 오늘의 일정이에요. 추가·수정·삭제가 함께 반영됩니다.'?_homeCapDefaults.todolist:value;
 }
 async function _homeCapSet(key,val){
   if(!_homeCapCache)_homeCapCache=Object.assign({},_homeCapDefaults);
@@ -4074,7 +4038,7 @@ export async function _homeDelPhone(idx){
 function _wQuicklinksEditable(){
   const items=_qlGet();
   if(!items.length){
-    return '<div style="color:var(--t3);font-size:11px;text-align:center;padding:8px 0">＋ 버튼으로 사이트를 추가하세요</div>';
+    return _schoolEmpty("🔗","자주 가는 사이트를 모아보세요","위의 + 버튼으로 업무 사이트를 추가할 수 있어요.");
   }
   return items.map(function(l,i){
     const url=l.url||l.href||'';
@@ -4090,7 +4054,7 @@ function _wQuicklinksEditable(){
 function _wPhonebookEditable(){
   const items=_phGet();
   if(!items.length){
-    return '<div style="color:var(--t3);font-size:11px;text-align:center;padding:8px 0">＋ 버튼으로 전화번호를 추가하세요</div>';
+    return _schoolEmpty("📱","연락처를 모아보세요","위의 + 버튼으로 자주 쓰는 전화번호를 추가하세요.");
   }
   return items.map(function(p,i){
     const label=p.label||p.name||'';
@@ -4208,7 +4172,7 @@ export async function _homeToggleProcurement(idx){
 }
 function _wProcurementEditable(){
   const items=_prGet();
-  if(!items.length)return '<div style="color:var(--t3);font-size:11px;text-align:center;padding:8px 0">＋ 버튼으로 품의 품목을 추가하세요</div>';
+  if(!items.length)return _schoolEmpty("🛒","구매할 물품을 적어보세요","위의 + 버튼으로 품의할 품목을 추가하세요.");
   return items.map(function(t,i){
     const done=!!t.done;
     const urls=_prUrls(t);
@@ -4270,79 +4234,45 @@ export async function _homeToggleRoutine(idx){
   items[idx].checks[today]=!items[idx].checks[today];
   await _rtSet(items);renderHomeDashboard();
 }
+function _schoolTaskIcon(kind){
+  const paths={check:'<path d="m5 12 4 4L19 6"/>',edit:'<path d="m16 3 5 5-12 12H4v-5L16 3Z"/><path d="m13 6 5 5"/>',delete:'<path d="M3 6h18M9 6V4h6v2M5 6l1 15h12l1-15M10 10v7M14 10v7"/>'};
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[kind]+'</svg>';
+}
 function _wRoutineEditable(){
   const items=_rtGet();
-  if(!items.length)return '<div style="color:var(--t3);font-size:11px;text-align:center;padding:8px 0">＋ 버튼으로 루틴을 추가하세요</div>';
+  if(!items.length)return _schoolEmpty("☑","반복 업무를 정리해 보세요","위의 + 버튼으로 매일 확인할 일을 추가하세요.");
   const today=_todayStr();
   return items.map(function(r,i){
     const done=r.checks&&r.checks[today]===true;
-    return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bdr)">'
-      +'<span style="font-size:9px;color:var(--t3);font-weight:700;font-family:var(--fm);min-width:18px;text-align:right">'+(i+1)+'.</span>'
-      +'<span data-action="toggle-routine" data-idx="'+i+'" style="cursor:pointer;font-size:14px;color:'+(done?'#22c55e':'var(--t3)')+';flex-shrink:0">'+(done?'☑':'☐')+'</span>'
-      +'<span data-action="toggle-routine" data-idx="'+i+'" style="cursor:pointer;font-size:11px;color:var(--t1);flex:1;'+(done?'text-decoration:line-through;color:var(--t3)':'')+'">'+escHtml(r.text||r.title||'')+'</span>'
-      +'<span data-action="edit-routine" data-idx="'+i+'" title="수정" style="cursor:pointer;color:var(--t3);font-size:11px;padding:2px 4px;flex-shrink:0;opacity:0.5">✏️</span>'
-      +'<span data-action="del-routine" data-idx="'+i+'" title="삭제" style="cursor:pointer;color:var(--t3);font-size:11px;padding:2px 4px;flex-shrink:0;opacity:0.5">✕</span>'
-      +'</div>';
+    const text=r.text||r.title||'',title=escHtml(text||'내용을 입력해 주세요'),label=escHtml(text||'루틴 항목');
+    const attrs=' data-idx="'+i+'"';
+    return '<div class="school-task-row school-routine-row'+(done?' is-complete':'')+'">'
+      +'<button type="button" class="school-task-check" data-action="toggle-routine"'+attrs+' aria-pressed="'+!!done+'" aria-label="'+label+' 완료 표시">'+_schoolTaskIcon('check')+'</button>'
+      +'<button type="button" class="school-task-text-toggle school-task-label" data-action="toggle-routine"'+attrs+' aria-pressed="'+!!done+'"><span class="school-task-title'+(text?'':' is-placeholder')+'">'+title+'</span></button>'
+      +'<span class="school-task-actions">'
+      +'<button type="button" class="school-task-action" data-action="edit-routine"'+attrs+' aria-label="'+label+' 수정" title="수정"><span class="school-task-emoji" aria-hidden="true">✏️</span></button>'
+      +'<button type="button" class="school-task-action school-task-delete" data-action="del-routine"'+attrs+' aria-label="'+label+' 삭제" title="삭제"><span class="school-task-emoji" aria-hidden="true">🗑️</span></button>'
+      +'</span></div>';
   }).join('');
 }
-/* To-Do (매일 초기화) */
-function _tdGet(){
-  if(_hostListCache.ec_home_todolist===null){
-    _ensureHostListLoaded('ec_home_todolist',['gp2_todolist','ec_todolist']).then(_tdEnsureDailyReset);
-    return _getLSList('ec_home_todolist');
-  }
-  /* 첫 호출 후에도 매번 일자 변경 체크 */
-  _tdEnsureDailyReset();
-  return _hostListCache.ec_home_todolist||[];
-}
-async function _tdEnsureDailyReset(){
-  const today=_todayStr();
-  const last=localStorage.getItem('ec_home_todolist_lastDate');
-  if(last===today)return; /* 같은 날 → 유지 */
-  /* 다른 날 → 초기화 */
-  if(_hostListCache.ec_home_todolist&&_hostListCache.ec_home_todolist.length){
-    _hostListCache.ec_home_todolist=[];
-    await _hostDbSet('ec_home_todolist',[]);
-  }
-  localStorage.setItem('ec_home_todolist_lastDate',today);
-}
-async function _tdSet(items){
-  _hostListCache.ec_home_todolist=items;
-  /* 변경한 날짜 기록 (다음 날 초기화 기준) */
-  localStorage.setItem('ec_home_todolist_lastDate',_todayStr());
-  await _hostDbSet('ec_home_todolist',items);
-}
+/* Today's task list is a view of the same dated calendar records. */
 export async function _homeAddTodo(){
-  let newIdx=-1;
-  await _homePromptMulti('☑ 새 할 일',[
-    {label:'할 일 내용',placeholder:'예: 약품 발주 확인'}
-  ],{
-    onSave:function(vals){
-      const items=_tdGet();
-      if(newIdx===-1){items.push({text:vals[0]||'',done:false});newIdx=items.length-1;}
-      else {items[newIdx].text=vals[0]||'';}
-      _tdSet(items).then(function(){renderHomeDashboard();});
-    },
-    onDelete:function(){
-      if(newIdx<0)return;
-      const items=_tdGet();items.splice(newIdx,1);
-      _tdSet(items).then(function(){renderHomeDashboard();});
-    },
-    showDelete:true
-  });
-  renderHomeDashboard();
+  if(!await _requireHomeCalendar())return;
+  return _homeOpenDayPopup(_todayStr());
 }
-export async function _homeDelTodo(idx){
-  const items=_tdGet();if(isNaN(idx)||idx<0||idx>=items.length)return;
-  items.splice(idx,1);await _tdSet(items);renderHomeDashboard();
+export async function _homeDelTodo(key,ds){
+  if(!await _requireHomeCalendar())return;
+  ds=ds||_todayStr();
+  const ev=_homeFindTodo(key,ds);if(!ev)return;
+  if(ev._local)return _homeDelLocalEvent(ds,_homeLocalTodoIndex(ds,ev),null);
+  return _homeDelGcalEvent(ds,ev.id,null);
 }
-export async function _homeToggleTodo(idx){
-  const items=_tdGet();if(isNaN(idx)||idx<0||idx>=items.length)return;
-  items[idx].done=!items[idx].done;await _tdSet(items);renderHomeDashboard();
+export async function _homeToggleTodo(key,ds){
+  ds=ds||_todayStr();
+  if(!await _requireHomeCalendar())return;
+  const ev=_homeFindTodo(key,ds);if(!ev)return;
+  return _homeToggleCalEvent(_homeCalEventKey(ev),ds);
 }
-/* 오늘의 캘린더 일정(로컬 _localEvents + Google _homeCalEvents)을 To-Do 상단에 표시.
- *  캘린더가 원본(불변), To-Do 는 그날 표시·체크만 — 체크 상태는 날짜별 localStorage(ec_home_calevent_done_<날짜>)에 보관.
- *  Google 캘린더 연동이 켜지면 _homeCalEvents 에 그날 일정이 채워져 함께 표시됨. (사용자 요청 2026-05-29) */
 function _homeEvTime(ev){
   if(ev.time)return ev.time;
   if(ev.start){
@@ -4352,60 +4282,81 @@ function _homeEvTime(ev){
   return '';
 }
 function _homeEvTitle(ev){return ev.summary||ev.title||ev.text||'(제목 없음)';}
-function _homeTodayCalEvents(){
-  const today=_todayStr();
-  const out=[];
-  (_localEvents[today]||[]).forEach(function(ev){out.push(ev);});
-  (_homeCalEvents[today]||[]).forEach(function(ev){out.push(ev);});
+function _homeEventsForDate(ds){
+  const local=_localEvents[ds]||[];
+  const out=local.map(function(ev){return Object.assign({},ev,{_local:true});});
+  (_homeCalEvents[ds]||[]).forEach(function(ev){
+    const duplicate=local.some(function(item){return item.gid===ev.id||(item.gcalMap&&Object.keys(item.gcalMap).some(function(id){return item.gcalMap[id]===ev.id;}));});
+    if(!duplicate)out.push(Object.assign({},ev,{_local:false}));
+  });
   return out;
 }
-function _homeCalEventKey(ev){return String(ev.id||ev.eventId||(_homeEvTime(ev)+'|'+_homeEvTitle(ev)));}
-function _homeCalDoneMap(){
-  try{return JSON.parse(localStorage.getItem('ec_home_calevent_done_'+_todayStr())||'{}')||{};}catch(_){return {};}
+function _homeTodayCalEvents(){return _homeEventsForDate(_todayStr());}
+function _homeCalEventKey(ev){
+  const source=ev._local===false?'google:'+(ev._calId||ev.calendarId||'primary')+':':'local:';
+  return source+String(ev.id||ev.eventId||(_homeEvTime(ev)+'|'+_homeEvTitle(ev)));
 }
-function _homeToggleCalEvent(key){
-  const d=_homeCalDoneMap();
-  d[key]=!(d[key]===true);
-  try{localStorage.setItem('ec_home_calevent_done_'+_todayStr(),JSON.stringify(d));}catch(_){}
+function _homeLocalTodoIndex(ds,ev){
+  return (_localEvents[ds]||[]).findIndex(function(item){return _homeCalEventKey(item)===_homeCalEventKey(ev);});
+}
+function _homeFindTodo(key,ds){
+  const items=_homeEventsForDate(ds);
+  if(typeof key==='number')return items[key];
+  return items.find(function(ev){return _homeCalEventKey(ev)===key;});
+}
+function _homeCalDoneMap(ds){
+  try{return JSON.parse(localStorage.getItem('ec_home_calevent_done_'+(ds||_todayStr()))||'{}')||{};}catch(_){return {};}
+}
+function _homeEventDone(ds,ev){
+  if(ev._local!==false&&typeof ev.done==='boolean')return ev.done;
+  const map=_homeCalDoneMap(ds),key=_homeCalEventKey(ev);
+  if(Object.prototype.hasOwnProperty.call(map,key))return map[key]===true;
+  return map[String(ev.id||ev.eventId||(_homeEvTime(ev)+'|'+_homeEvTitle(ev)))]===true;
+}
+async function _homeToggleCalEvent(key,ds){
+  ds=ds||_todayStr();
+  if(!await _requireHomeCalendar())return;
+  const ev=_homeFindTodo(key,ds);if(!ev)return;
+  const done=!_homeEventDone(ds,ev);
+  if(ev._local){
+    const item=(_localEvents[ds]||[])[_homeLocalTodoIndex(ds,ev)];if(!item)return;
+    const previous=item.done;item.done=done;
+    if(!await _saveLocalEvents()){
+      if(previous===undefined)delete item.done;else item.done=previous;
+      await appConfirmModal('완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.','일정 저장',{okOnly:true});
+      return;
+    }
+  }else{
+    const map=_homeCalDoneMap(ds);map[key]=done;
+    try{localStorage.setItem('ec_home_calevent_done_'+ds,JSON.stringify(map));}
+    catch(e){await appConfirmModal('완료 상태를 저장하지 못했습니다.','일정 저장',{okOnly:true});return;}
+  }
   renderHomeDashboard();
+  const popup=document.getElementById('homeCalDayPopup');
+  if(popup&&popup.dataset.date===ds){const list=popup.querySelector('#hcdListWrap');if(list)list.innerHTML=_hcdListHtml(ds);}
+}
+function _homeCalendarDoneControl(ds,ev){
+  const done=_homeEventDone(ds,ev);
+  return '<button type="button" class="school-todo-check" data-action="hcd-done" data-arg="'+escHtml(ds)+'" data-key="'+escHtml(_homeCalEventKey(ev))+'" aria-pressed="'+done+'" aria-label="'+escHtml(_homeEvTitle(ev))+' 완료 표시">'+(done?'☑':'☐')+'</button>';
 }
 function _wCalEventTodos(){
-  const evts=_homeTodayCalEvents();
-  if(!evts.length)return '';
-  const doneMap=_homeCalDoneMap();
-  return evts.map(function(ev){
-    const key=_homeCalEventKey(ev);
-    const isDone=doneMap[key]===true;
-    const t=_homeEvTime(ev), title=_homeEvTitle(ev);
-    const kAttr=escHtml(key).replace(/"/g,'&quot;');
-    const label=(t?'<b style="font-family:var(--fm);color:var(--cyan)">'+escHtml(t)+'</b> ':'')+escHtml(title);
-    return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bdr)">'
-      +'<span title="오늘 캘린더 일정" style="font-size:11px;flex-shrink:0">📅</span>'
-      +'<span data-action="toggle-calevent" data-key="'+kAttr+'" style="cursor:pointer;font-size:14px;color:'+(isDone?'#22c55e':'var(--t3)')+';flex-shrink:0">'+(isDone?'☑':'☐')+'</span>'
-      +'<span data-action="toggle-calevent" data-key="'+kAttr+'" style="cursor:pointer;font-size:11px;flex:1;'+(isDone?'text-decoration:line-through;color:var(--t3)':'color:var(--t1)')+'">'+label+'</span>'
-      +'</div>';
+  const ds=_todayStr(),events=_homeTodayCalEvents();
+  return events.map(function(ev){
+    const key=escHtml(_homeCalEventKey(ev)),done=_homeEventDone(ds,ev),title=escHtml(_homeEvTitle(ev)),time=_homeEvTime(ev);
+    const attrs=' data-key="'+key+'" data-date="'+ds+'"';
+    return '<div class="school-todo-row school-task-row'+(done?' is-complete':'')+'">'
+      +'<button type="button" class="school-todo-check school-task-check" data-action="toggle-todo"'+attrs+' aria-pressed="'+done+'" aria-label="'+title+' 완료 표시">'+_schoolTaskIcon('check')+'</button>'
+      +'<span class="school-todo-label school-task-label">'+(time?'<span class="school-todo-time school-task-time">'+escHtml(time)+'</span> ':'')+'<span class="school-todo-title school-task-title">'+title+'</span>'+(ev._local?'':'<small class="school-todo-source">Google</small>')+'</span>'
+      +'<span class="school-task-actions">'
+      +'<button type="button" class="school-task-action" data-action="edit-todo"'+attrs+' aria-label="'+title+' 수정" title="수정"><span class="school-task-emoji" aria-hidden="true">✏️</span></button>'
+      +'<button type="button" class="school-task-action school-task-delete" data-action="del-todo"'+attrs+' aria-label="'+title+' 삭제" title="삭제"><span class="school-task-emoji" aria-hidden="true">🗑️</span></button>'
+      +'</span></div>';
   }).join('');
 }
 function _wTodoEditable(){
-  const calHtml=_wCalEventTodos();
-  const items=_tdGet();
-  let manualHtml='';
-  if(items.length){
-    manualHtml=items.map(function(t,i){
-      const done=!!t.done;
-      return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bdr)">'
-        +'<span style="font-size:9px;color:var(--t3);font-weight:700;font-family:var(--fm);min-width:18px;text-align:right">'+(i+1)+'.</span>'
-        +'<span data-action="toggle-todo" data-idx="'+i+'" style="cursor:pointer;font-size:14px;color:'+(done?'#22c55e':'var(--t3)')+';flex-shrink:0">'+(done?'☑':'☐')+'</span>'
-        +'<span data-action="toggle-todo" data-idx="'+i+'" style="cursor:pointer;font-size:11px;color:var(--t1);flex:1;'+(done?'text-decoration:line-through;color:var(--t3)':'')+'">'+escHtml(t.text||t.title||'')+'</span>'
-        +'<span data-action="edit-todo" data-idx="'+i+'" title="수정" style="cursor:pointer;color:var(--t3);font-size:11px;padding:2px 4px;flex-shrink:0;opacity:0.5">✏️</span>'
-        +'<span data-action="del-todo" data-idx="'+i+'" title="삭제" style="cursor:pointer;color:var(--t3);font-size:11px;padding:2px 4px;flex-shrink:0;opacity:0.5">✕</span>'
-        +'</div>';
-    }).join('');
-  }
-  if(!calHtml && !manualHtml){
-    return '<div style="color:var(--t3);font-size:11px;text-align:center;padding:8px 0">＋ 버튼으로 할 일을 추가하세요</div>';
-  }
-  return calHtml + manualHtml;
+  if(_todoCalendarError)return '<div role="status" class="school-todo-loading">'+escHtml(_todoCalendarError)+'<button type="button" class="btn btn-sm" data-action="retry-todo">다시 불러오기</button></div>';
+  if(!_todoCalendarReady)return '<div role="status" class="school-todo-loading">일정과 할 일을 불러오고 있어요.</div>';
+  return _wCalEventTodos()||_schoolEmpty('📌','오늘 일정과 할 일이 없어요','위의 + 버튼이나 캘린더에서 추가하면 함께 표시돼요.');
 }
 
 function _wQuicklinks(){
@@ -4445,25 +4396,7 @@ function _wNotepad(){
   return '<div style="white-space:pre-wrap;font-size:11px;color:var(--t1);line-height:1.6;background:rgba(240,253,244,0.4);padding:8px 10px;border-radius:6px">'+escHtml(text)+'</div>';
 }
 
-function _wTodolist(){
-  let items=_getLSList('gp2_todolist');
-  if(!items.length)items=_getLSList('ec_todolist');
-  if(!items.length){
-    return _emptyMsg('플래너의 To-Do 위젯에서 할 일을 추가하세요.');
-  }
-  const open=items.filter(function(t){return !t.done;});
-  const done=items.filter(function(t){return t.done;});
-  let h='';
-  if(open.length){
-    h+=open.slice(0,5).map(function(t){
-      return '<div style="margin-bottom:3px;font-size:11px">☐ '+escHtml(t.text||t.title||'')+'</div>';
-    }).join('');
-  }
-  if(done.length){
-    h+='<div style="margin-top:4px;font-size:9px;color:var(--t3)">완료 '+done.length+'건</div>';
-  }
-  return h||_emptyMsg('할 일이 없습니다.');
-}
+function _wTodolist(){return _wTodoEditable();}
 
 function _wRoutine(){
   let items=_getLSList('gp2_routine');
@@ -4571,7 +4504,7 @@ function _wTbStatus(){
   if(!total)return _emptyMsg('잠복결핵 검사 대상이 없습니다.');
   const pct=Math.round(tested/total*100);
   return '<div style="font-size:11px;color:var(--t1)">검사 완료 <b style="color:var(--cyan);font-size:14px">'+tested+'</b> / '+total+'명</div>'
-    +'<div style="margin-top:6px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--cyan),#0891b2)"></div></div>'
+    +'<div style="margin-top:6px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:var(--cyan)"></div></div>'
     +'<div style="font-size:9px;color:var(--t3);margin-top:4px">진행률 '+pct+'%</div>';
 }
 
@@ -4647,8 +4580,18 @@ function _rentalLedgerBtn(){
 
 /* 🏫 학교 현황 위젯 — 버튼 클릭 시 팝업: 학교 정보(NEIS: 주소·전화·홈페이지·개교기념일) + 인원 통계 표(DB). (사용자 요청 2026-06-17) */
 function _wSchoolStats(){
-  return '<div style="font-size:11px;color:var(--t3);line-height:1.6">학교 주소·전화·홈페이지·개교기념일과<br>학년/학과/반별 남녀 인원 현황을 봅니다.</div>'
-    +'<div style="margin-top:9px;text-align:center"><button data-action="open-school-stats" data-tooltip="학교 정보(주소·전화·홈페이지·개교기념일)와 학년/학과/반별 인원 통계를 표로 봅니다." data-tooltip-instant="1" style="font-size:11px;font-weight:700;padding:6px 14px;border:1px solid var(--cyan);border-radius:6px;background:rgba(6,182,212,0.08);color:var(--cyan);cursor:pointer;font-family:var(--f)">🏫 학교 현황 보기</button></div>';
+  const people=Array.isArray(S.people)?S.people:[];
+  const students=people.filter(function(p){return p&&p.type!=='staff'&&p.grade!=null&&String(p.grade).trim()!=='';});
+  const staff=people.filter(function(p){return p&&p.type==='staff';});
+  const classes=new Set();
+  students.forEach(function(p){const cls=String(p.cls!=null?p.cls:p.class_num||'').trim();if(cls)classes.add(JSON.stringify([p.school_level||'',String(p.grade).trim(),p.department||'',cls]));});
+  const user=S._currentUser||{},settings=S.settings||{};
+  const school=String(user.school_name||settings.schoolName||'우리 학교');
+  let h='<div class="school-profile"><div class="school-profile-heading"><span class="school-profile-icon">'+_schoolWidgetIcon('school')+'</span><div><span>학교 현황</span><strong>'+escHtml(school)+'</strong></div></div><dl class="school-profile-metrics">';
+  [['학생',students.length,'명'],['교직원',staff.length,'명'],['학급',classes.size,'개']].forEach(function(item){h+='<div><dt>'+item[0]+'</dt><dd>'+item[1].toLocaleString('ko-KR')+'<small>'+item[2]+'</small></dd></div>';});
+  h+='</dl><p class="school-widget-note">현재 프로그램에 등록된 인원 기준이에요.</p><div class="school-widget-actions">'+_schoolWidgetButton('open-school-stats','학교 현황 자세히 보기',true)+'</div>';
+  if(!neisKey()) h+='<div class="school-widget-connect-note"><span>'+_schoolWidgetIcon('api')+'학교 주소·연락처는 NEIS 연동이 필요해요.</span>'+_schoolWidgetButton('open-widget-api-settings','API 키 등록하기',true)+'</div>';
+  return h+'</div>';
 }
 function _openSchoolStatsModal(){
   const old=document.getElementById('schoolStatsOv'); if(old)old.remove();
@@ -4702,7 +4645,7 @@ function _openSchoolStatsModal(){
   ov.id='schoolStatsOv';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13050;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="schoolStatsBox" style="background:var(--card);border-radius:14px;width:max-content;min-width:420px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">🏫</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">학교 현황</div><div style="font-size:10.5px;color:var(--t3)">재학생 '+total.sub+'명</div></div></div>'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">🏫</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">학교 현황</div><div style="font-size:10.5px;color:var(--t3)">재학생 '+total.sub+'명</div></div></div>'
     +'<div id="schoolStatsInfo" style="padding:12px 20px;border-bottom:1px solid var(--bdr);font-size:11.5px;color:var(--t2);line-height:1.8">학교 정보 불러오는 중…</div>'
     +'<div style="padding:6px 20px 16px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)">'
       +'<div style="font-size:11px;font-weight:800;color:var(--t1);margin:8px 0 6px">👥 학년·학과·반별 인원 (DB 재학생 기준)</div>'
@@ -4755,7 +4698,7 @@ function _openWidgetPicker(){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0);z-index:9700;display:flex;align-items:center;justify-content:center;transition:background .18s ease';
   let h='<div id="widgetPickerCard" style="background:var(--card);border-radius:14px;width:92vw;max-width:960px;max-height:85vh;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;display:flex;flex-direction:column;opacity:0;transform:scale(0.96);transition:opacity .18s ease,transform .18s ease">';
   /* 헤더 */
-  h+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:14px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">';
+  h+='<div style="background:rgba(6,182,212,0.10);padding:14px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">';
   h+='<div><span style="font-size:15px;font-weight:800;color:var(--t1)">📦 위젯 보관함</span>';
   h+='<span style="font-size:10px;color:var(--t3);margin-left:10px">카드를 클릭하면 대시보드에 추가됩니다. 이미 배치된 것은 다시 클릭하여 제거할 수 있습니다.</span></div>';
   h+='<button data-action="picker-close" style="background:transparent;border:none;font-size:16px;color:var(--t3);cursor:pointer;padding:4px 8px">✕</button>';
@@ -4781,7 +4724,7 @@ function _openWidgetPicker(){
   h+='<div style="font-size:10px;color:var(--t3)">배치된 위젯: <b id="wpickCount" style="color:var(--cyan)">'+selected.length+'</b> / '+WIDGETS.length+'</div>';
   h+='<div style="display:flex;gap:6px">';
   h+='<button data-action="reset-widgets" style="padding:6px 14px;font-size:10px;font-weight:600;background:var(--card);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">기본값으로 초기화</button>';
-  h+='<button data-action="picker-done" style="padding:6px 18px;font-size:10px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">완료</button>';
+  h+='<button data-action="picker-done" style="padding:6px 18px;font-size:10px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">완료</button>';
   h+='</div></div>';
   h+='</div>';
   ov.innerHTML=h;
@@ -4918,7 +4861,7 @@ _hmRestoreFromDb();
 function _renderHomeMemos(){
   const items=_hmGet();
   if(!items.length){
-    return '<div style="color:var(--t3);font-size:11px;text-align:center;padding:14px 0;line-height:1.7">＋ 버튼으로 새 메모를 추가하세요<br><span style="font-size:9px">자유롭게 적어두는 공간입니다</span></div>';
+    return _schoolEmpty('📝','기억할 내용을 적어두세요','위의 + 버튼으로 새 메모를 붙일 수 있어요.');
   }
   return items.map(function(m,i){
     const col=m.color||_HOME_MEMO_COLORS[i%_HOME_MEMO_COLORS.length];

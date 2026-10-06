@@ -11,6 +11,10 @@ const source = fs.readFileSync(path.join(root, 'src/renderer/core/infectious-dis
   .replace(/^export /gm, '');
 const settingsSource = fs.readFileSync(path.join(root, 'src/renderer/core/public-data-settings.js'), 'utf8')
   .replace(/^export /gm, '');
+const feedbackSource = fs.readFileSync(path.join(root, 'src/renderer/core/ui-feedback.js'), 'utf8')
+  .replace(/^import .*;\r?\n/gm, '')
+  .replace(/^export /gm, '');
+const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const rawKey = 'SYNTHETIC+KEY/ONLY=';
 const row = (overrides = {}) => ({
   icdGroupNm: '2급', icdNm: 'TEST', resultVal: '12', year: '2026년',
@@ -29,6 +33,7 @@ function harness(handler = () => ok(), key = rawKey) {
   class Clock extends Date { static now() { return time; } }
   const context = vm.createContext({
     Date: Clock,
+    escHtml: escapeHtml,
     localStorage: { getItem: name => values.has(name) ? values.get(name) : null },
     document: { getElementById: id => nodes[id] || null },
     window: { electronAPI: { externalFetchJson: async url => {
@@ -36,6 +41,7 @@ function harness(handler = () => ok(), key = rawKey) {
       return handler(new URL(url), requests.length);
     } } }
   });
+  vm.runInContext(feedbackSource, context);
   context.getPublicDataApiKey = vm.runInContext('(function(){' + settingsSource + '\nreturn getPublicDataApiKey;})()', context);
   vm.runInContext(source + '\nthis.api={normalizeInfectiousApiKey,getInfectiousErrorMessage,'
     + 'getInfectiousRequestKey,clearInfectiousCache,fetchRegion,fetchPeriod,fetchAge,'
@@ -284,7 +290,10 @@ test('clearing cache also invalidates an in-flight result', async () => {
 });
 
 function modal(h) {
-  h.nodes.infectBody = { innerHTML: '' };
+  h.nodes.infectBody = { innerHTML: '', attributes: {},
+    setAttribute(name, value) { this.attributes[name] = value; },
+    querySelector() { return null; }
+  };
   h.nodes.ifYear = { value: '2026' };
   h.nodes.ifSido = { value: '01' };
   return h.nodes.infectBody;

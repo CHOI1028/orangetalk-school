@@ -318,7 +318,7 @@ function nlMergeUpdateUI(){
     +'<div style="font-size:10px;font-weight:600;color:var(--t2);margin-bottom:6px">필드를 클릭하면 선택한 텍스트에 삽입됩니다:</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:4px">';
   _nlMergeFields.forEach(function(f){
-    h+='<button data-action="mergeInsertField" data-field="'+escHtml(f)+'" style="padding:3px 8px;font-size:10px;font-weight:600;border-radius:6px;cursor:pointer;font-family:var(--f);background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;border:none;white-space:nowrap">{{'+escHtml(f)+'}}</button>';
+    h+='<button data-action="mergeInsertField" data-field="'+escHtml(f)+'" style="padding:3px 8px;font-size:10px;font-weight:600;border-radius:6px;cursor:pointer;font-family:var(--f);background:#fbbf24;color:#fff;border:none;white-space:nowrap">{{'+escHtml(f)+'}}</button>';
   });
   h+='</div>'
     +'<div style="margin-top:8px;display:flex;gap:4px">'
@@ -1394,7 +1394,7 @@ function _bgStretchOpen(srcDataUrl,onApply,pageW,pageH,bgScale,bgOffsetX,bgOffse
     _bgStretchState._prevH=prevH;
 
     ov.innerHTML='<div class="modal-content" style="width:'+Math.max(520,Math.max(prevW,resPrevW)*2+80)+'px;padding:0;max-height:90vh;overflow-y:auto">'
-      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">📐 배경 세로로 늘리거나 줄이기</div></div>'
+      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">📐 배경 세로로 늘리거나 줄이기</div></div>'
       +'<div style="padding:20px">'
       +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.6">빨간 선을 드래그하여 영역을 지정하고, 슬라이더로 늘리기/줄이기 양을 조절하세요.</div>'
       +'<div style="display:flex;gap:12px;margin-bottom:12px">'
@@ -1417,7 +1417,7 @@ function _bgStretchOpen(srcDataUrl,onApply,pageW,pageH,bgScale,bgOffsetX,bgOffse
       +'<input id="bgStrAmountSlider" type="range" min="-500" max="500" value="'+_bgStretchCumulative+'" style="flex:1;accent-color:var(--cyan)">'
       +'<span style="font-size:9px;color:var(--t3)">늘리기</span>'
       +'<span id="bgStrAmountLabel" style="font-size:13px;font-weight:700;color:'+(_bgStretchCumulative<0?'#ef4444':'var(--cyan)')+';min-width:50px;text-align:center;cursor:pointer" data-action="bgStrEditValue" title="클릭하여 직접 입력">'+(_bgStretchCumulative>0?'+'+_bgStretchCumulative+'px':_bgStretchCumulative===0?'0px':_bgStretchCumulative+'px')+'</span></div>'
-      +'<div style="text-align:center;padding-top:8px"><button data-action="bgStretchApply" style="padding:8px 28px;font-size:12px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">적용</button></div>'
+      +'<div style="text-align:center;padding-top:8px"><button data-action="bgStretchApply" style="padding:8px 28px;font-size:12px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">적용</button></div>'
       +'</div></div>';
     document.body.appendChild(ov);
     /* attach event listeners */
@@ -1710,7 +1710,7 @@ export function _bgRmOpen(srcDataUrl,onApply){
     ov2.addEventListener('click',function(e){if(e.target===ov2){closeModalGracefully(ov2);_bgRmState.origImg=null;}});
     const checkerBg='background:repeating-conic-gradient(#d0d0d0 0% 25%,#fff 0% 50%) 50%/14px 14px';
     ov2.innerHTML='<div class="modal-content" style="width:620px;padding:0;max-height:85vh;overflow-y:auto">'
-      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">🪄 이미지 배경 제거</div>'
+      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">🪄 이미지 배경 제거</div>'
       +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.6">밝은 배경(흰색·회색 계열)을 투명하게 변환합니다. 슬라이더로 결과를 확인한 뒤 <b>빈 슬롯에 넣기</b> 버튼을 눌러 저장합니다.</div></div>'
       +'<div style="padding:16px 20px">'
       +'<div style="display:flex;gap:10px;margin-bottom:12px">'
@@ -1726,7 +1726,7 @@ export function _bgRmOpen(srcDataUrl,onApply){
       +'</div>'
       +'<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 12px 12px">'
       +'<button id="bgRmCancelBtn" style="padding:8px 18px;font-size:12px;font-weight:600;background:var(--card);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button>'
-      +'<button id="bgRmConfirmBtn" style="padding:8px 22px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">📥 빈 슬롯에 넣기</button>'
+      +'<button id="bgRmConfirmBtn" style="padding:8px 22px;font-size:12px;font-weight:700;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">📥 빈 슬롯에 넣기</button>'
       +'</div>'
       +'</div>';
     document.body.appendChild(ov2);
@@ -1846,7 +1846,7 @@ function _cropOpen(srcDataUrl,onApply){
     const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='cropOverlay';ov.style.zIndex='10001';
     ov.addEventListener('click',function(e){if(e.target===ov){closeModalGracefully(ov);_cropState.origImg=null;}});
     ov.innerHTML='<div class="modal-content" style="width:'+Math.max(480,_cropState._prevW+80)+'px;padding:0;max-height:90vh;overflow-y:auto">'
-      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">✂ 이미지 자르기</div></div>'
+      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0"><div style="font-size:14px;font-weight:800;color:var(--t1)">✂ 이미지 자르기</div></div>'
       +'<div style="padding:20px">'
       +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.6">빨간 핸들을 드래그하여 잘라낼 영역을 조절하세요.</div>'
       +'<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
@@ -2562,7 +2562,7 @@ function _qmInlineClockRender(wrapId,hiddenId){
     nums+='<circle cx="'+nx+'" cy="'+ny+'" r="10" fill="'+(act?'#0891b2':'transparent')+'"/>';nums+='<text x="'+nx+'" y="'+(ny+3.5)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'+(act?'#fff':'#475569')+'" style="user-select:none;pointer-events:none">'+i+'</text>';
   }
   let html='<div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden;background:#fff;box-shadow:var(--sh);width:248px">';
-  html+='<div style="background:linear-gradient(135deg,#0e7490,#06b6d4);padding:8px 14px">';
+  html+='<div style="background:#0e7490;padding:8px 14px">';
   html+='<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,0.6);margin-bottom:4px">시간 선택</div>';
   html+='<div style="display:flex;align-items:center;justify-content:space-between">';
   html+='<div style="display:flex;align-items:center;gap:0">';
