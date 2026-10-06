@@ -270,7 +270,7 @@ function _kcBuildPasteBodyHtml(phrases, foreigns, pageIdx){
   let html = '';
   pagePhrases.forEach(function(sec){
     html += '<div style="margin-bottom:18px">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 12px;background:linear-gradient(90deg,rgba(6,182,212,0.08),transparent);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 12px;background:rgba(6,182,212,0.08);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0">'
       +   '<span style="font-size:12px;font-weight:800;color:var(--cyan);letter-spacing:0.3px">▸ ' + escHtml(sec.section) + '</span>'
       +   '<span style="font-size:10px;color:var(--t3);margin-left:auto">' + sec.items.length + '개 문장 × ' + foreigns.length + '개 언어</span>'
       + '</div>';
@@ -390,7 +390,7 @@ export function kioskOpenPasteTranslation(getFlowFn, getRulesFn){
     +       '<span style="color:var(--t1);font-weight:700;min-width:120px">전체 입력 완료</span>'
     +       '<span style="display:inline-block;min-width:92px;text-align:center"><span id="_kcPasteFilled">' + progAll.filled + '</span> / <span id="_kcPasteTotal">' + progAll.total + '</span></span>'
     +       '<div style="width:140px;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden">'
-    +         '<div id="_kcPasteBar" style="height:100%;background:linear-gradient(90deg,var(--cyan),#22c55e);border-radius:3px;width:' + (progAll.total?Math.round(progAll.filled/progAll.total*100):0) + '%;transition:width .25s"></div>'
+    +         '<div id="_kcPasteBar" style="height:100%;background:var(--cyan);border-radius:3px;width:' + (progAll.total?Math.round(progAll.filled/progAll.total*100):0) + '%;transition:width .25s"></div>'
     +       '</div>'
     +     '</div>'
     +   '</div>'

@@ -215,7 +215,7 @@ function _bedShowAlarm(usage){
   ov.style.zIndex='10100';
   ov.style.background='rgba(0,0,0,0.5)';
   ov.innerHTML='<div class="modal-content" style="width:380px;max-width:90vw;padding:0;text-align:center;overflow:hidden">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0;font-weight:800;font-size:15px;color:var(--t1)">⏰ 침상 이용 시간 종료</div>'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0;font-weight:800;font-size:15px;color:var(--t1)">⏰ 침상 이용 시간 종료</div>'
     +'<div style="padding:24px 20px">'
     +'<div style="font-size:40px;margin-bottom:12px">🔔</div>'
     +'<div data-bed-alarm-list style="max-height:40vh;overflow-y:auto;margin-bottom:12px"></div>'
@@ -352,7 +352,7 @@ function openBedManager(stuId){
   ov.style.alignItems='flex-start';
   ov.style.paddingTop='13vh';
   ov.innerHTML='<div class="modal-content" style="width:'+modalW+';max-width:94vw;max-height:92vh;padding:0;overflow-y:auto;scrollbar-width:thin">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0;position:sticky;top:0;z-index:1">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0;position:sticky;top:0;z-index:1">'
     +'<span style="font-size:15px;font-weight:800;color:var(--t1)">🛏 침상 이용 등록</span>'
     +'<span style="font-size:12px;color:var(--t3)">'+stuDesc+'</span>'
     +'</div>'
@@ -1683,7 +1683,7 @@ function openBedConfig(){
   /* 오버레이 배경 투명 — 뒤 침상 이용 등록 팝업이 보이도록 */
   ov.style.background='transparent';ov.style.pointerEvents='none';
   ov.innerHTML='<div class="modal-content bed-config-modal" style="width:400px;max-width:92vw;padding:0;overflow:hidden;pointer-events:auto;transition:opacity 0.22s ease, transform 0.22s cubic-bezier(0.4,0,0.2,1)">'
-    +'<div class="bed-config-header" style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-radius:12px 12px 0 0;font-size:15px;font-weight:800;color:var(--t1);cursor:grab;user-select:none">⚙ 침상 구성</div>'
+    +'<div class="bed-config-header" style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);border-radius:12px 12px 0 0;font-size:15px;font-weight:800;color:var(--t1);cursor:grab;user-select:none">⚙ 침상 구성</div>'
     +'<div id="bedConfigBody" style="padding:20px"></div>'
     +'</div>';
   ov.addEventListener('click',function(e){ if(e.target===ov) _bedCloseConfig(); });
@@ -1874,7 +1874,7 @@ function _bedShowReleaseToast(stu){
   ov.style.zIndex='12500';
   ov.style.background='rgba(0,0,0,0.35)';
   ov.innerHTML='<div class="modal-content" style="width:380px;max-width:92vw;padding:0;transform:scale(0.9);opacity:0;transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease">'
-    +'<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);border-radius:12px 12px 0 0"><span style="font-size:14px;font-weight:800;color:var(--t1)">🛏 퇴실 처리</span></div>'
+    +'<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);border-radius:12px 12px 0 0"><span style="font-size:14px;font-weight:800;color:var(--t1)">🛏 퇴실 처리</span></div>'
     +'<div style="padding:22px 24px;text-align:center">'
     +'<div style="font-size:32px;margin-bottom:10px">✅</div>'
     +'<div style="font-size:13px;color:var(--t1);line-height:1.7">'+(gradeClass?'<b style="color:var(--cyan)">'+escHtml(gradeClass)+'</b> ':'')+'<b style="color:var(--cyan)">'+escHtml(stu.name||'')+'</b>'+(stu.type==='staff'?'':' 학생')+'의<br>퇴실 처리가 완료되었습니다.</div>'
@@ -1929,7 +1929,7 @@ function _openBedTeacherMsg(stuId,durationMin){
   ov.id='bedTeacherMsgOverlay';
   ov.style.zIndex='11500';
   ov.innerHTML='<div class="modal-content" style="width:520px;max-width:94vw;padding:0">'
-    +'<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
+    +'<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
     +'<span style="font-size:14px;font-weight:800;color:var(--t1)">📋 담임/교과 교사 전송 메시지</span>'
     +'<span style="cursor:pointer;font-size:18px;color:var(--t3);padding:0 6px" data-action="closeTeacherMsg">✕</span>'
     +'</div>'

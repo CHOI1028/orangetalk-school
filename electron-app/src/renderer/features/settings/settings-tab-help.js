@@ -155,7 +155,7 @@ export function _renderHelpTab(){
   let html = '<div class="settings-panel-title">⌨ 단축키 · 주요 기능 안내</div>';
 
   /* 안내 배너 */
-  html += '<div style="padding:14px 18px;margin-bottom:20px;background:linear-gradient(135deg,color-mix(in srgb, var(--cyan) 6%, var(--card)),var(--card));border:1px solid color-mix(in srgb, var(--cyan) 25%, var(--bdr));border-radius:10px;display:flex;align-items:center;gap:14px">'
+  html += '<div style="padding:14px 18px;margin-bottom:20px;background:var(--card);border:1px solid color-mix(in srgb, var(--cyan) 25%, var(--bdr));border-radius:10px;display:flex;align-items:center;gap:14px">'
     + '<div style="font-size:32px">💡</div>'
     + '<div style="flex:1">'
     + '<div style="font-size:13px;font-weight:800;color:var(--t1);margin-bottom:4px">필수 단축키 2개만 기억하세요</div>'
@@ -201,7 +201,7 @@ export function _renderHelpTab(){
   html += '</div>';
 
   /* 팁 섹션 */
-  html += '<div style="background:linear-gradient(135deg, rgba(34,197,94,0.04), var(--card));border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:16px 20px;margin-bottom:20px">'
+  html += '<div style="background:var(--card);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:16px 20px;margin-bottom:20px">'
     + '<div style="font-size:12px;font-weight:800;color:#16a34a;margin-bottom:10px">💡 생산성 팁</div>'
     + '<ul style="font-size:11px;color:var(--t2);line-height:1.9;padding-left:20px">'
     + '<li><b>명령 팔레트(<kbd>'+_modKey+'</kbd><kbd>K</kbd>)</b>는 "어디에 무슨 메뉴가 있더라" 고민할 때 가장 빠릅니다. 기능 이름을 대충 입력해도 퍼지 검색이 찾아줍니다.</li>'

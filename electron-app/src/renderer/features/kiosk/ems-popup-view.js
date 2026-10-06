@@ -57,7 +57,7 @@ bus.on('ems:refresh',function(recId){
     pop.id='emsMiniPopup';
     const _curRec=S.records.find(function(r){return r.studentId===stuId&&r.date===S.selectedDate;});
     let hasSurvey=false;try{const svHist=_svGetHistory();hasSurvey=svHist.some(function(s){return s.studentId===stuId;});}catch(e){}
-    pop.innerHTML='<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:linear-gradient(145deg,var(--bg2),color-mix(in srgb,var(--bg2) 85%,#6b7280 15%));border-radius:8px 8px 0 0">'+(isStaff?'👔':'👤')+' '+escHtml(infoText)+'</div>'
+    pop.innerHTML='<div style="padding:8px 14px;font-size:11px;font-weight:700;color:var(--t1);border-bottom:1px solid var(--bdr);background:var(--bg2);border-radius:8px 8px 0 0">'+(isStaff?'👔':'👤')+' '+escHtml(infoText)+'</div>'
       +'<div class="ems-msg-link" data-action="visit-pass">🖨 커스텀 양식 출력</div>'
       +'<div class="ems-msg-link" data-action="bed-manager">🛏 침상 이용 등록</div>'
       +'<div class="ems-msg-link" data-action="symptom">💊 증상 선택 및 처치 열기</div>'
@@ -163,9 +163,9 @@ bus.on('ems:refresh',function(recId){
     const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='bedTeacherMsgOverlay';
     ov.style.background='rgba(0,0,0,0.5)';ov.style.zIndex='12000';
     ov.innerHTML='<div class="modal-content" style="width:460px;max-width:94vw;padding:0">'
-      +'<div style="padding:14px 18px;background:linear-gradient(145deg,var(--bg2),color-mix(in srgb,var(--bg2) 85%,#6b7280 15%));border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:13px;font-weight:800;color:var(--t1)">📋 담임/교과 교사 전송 메시지</div></div>'
+      +'<div style="padding:14px 18px;background:var(--bg2);border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0"><div style="font-size:13px;font-weight:800;color:var(--t1)">📋 담임/교과 교사 전송 메시지</div></div>'
       +'<div style="padding:16px"><textarea id="bedTeacherMsgArea" style="width:100%;height:120px;resize:vertical;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--t1);font-size:12px;font-family:var(--f);line-height:1.7;outline:none;box-sizing:border-box">'+defaultMsg+'</textarea>'
-      +'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="bedTeacherMsgCopyBtn" style="padding:8px 18px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f)">📋 클립보드에 복사</button></div></div></div>';
+      +'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="bedTeacherMsgCopyBtn" style="padding:8px 18px;font-size:12px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f)">📋 클립보드에 복사</button></div></div></div>';
     /* 이 textarea 는 클립보드 복사 전용(저장 안 함) — 입력 시 "저장 중" 거짓 토스트 제거 (사용자 지시 2026-06-15) */
     const _btCopyBtn=ov.querySelector('#bedTeacherMsgCopyBtn');
     if(_btCopyBtn)_btCopyBtn.addEventListener('click',function(){

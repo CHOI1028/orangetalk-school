@@ -852,7 +852,7 @@ export function openSymptomCategoryPopup(recId, opts){
       if(/^\d{8}$/.test(_bd))_birth=_bd.slice(0,4)+'. '+parseInt(_bd.slice(4,6),10)+'. '+parseInt(_bd.slice(6,8),10)+'.';
     }
   }
-  h+='<div style="padding:8px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));flex-shrink:0">';
+  h+='<div style="padding:8px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);flex-shrink:0">';
   const _isCare=stu&&((stu.status==='caution'||stu.status==='watch')||stu.is_care===1||stu.is_care==='1')&&!!(stu.condition||stu.care_reason||(stu.careMemo&&stu.careMemo.trim&&stu.careMemo.trim())||(stu.care_memo&&stu.care_memo.trim&&stu.care_memo.trim()));
   const _isMedN=stu&&(stu.med_consent==='N'||stu.medConsent==='N');
   /* 칩 데이터 수집 */
@@ -2935,7 +2935,7 @@ function _symRenderCounselBlock(recId, counselLabels){
     +'<button type="button" data-cl-act="hist" data-tooltip="이 사람의 과거 상담 내역(누적)을 봅니다." data-tooltip-instant="1" style="padding:2px 9px;font-size:10px;font-weight:800;border-radius:999px;border:1px solid rgba(168,85,247,0.35);background:rgba(168,85,247,0.10);color:#a855f7;cursor:pointer;font-family:var(--f)">'+round+'회기</button>'
     +'<span style="flex:1"></span>'
     +'<button type="button" class="btn-pdf" data-cl-act="pdf">📄 PDF 저장</button>'
-    +'<button type="button" data-cl-act="excel" style="padding:7px 13px;font-size:11.5px;font-weight:700;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">📊 Excel 저장</button>'
+    +'<button type="button" data-cl-act="excel" style="padding:7px 13px;font-size:11.5px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">📊 Excel 저장</button>'
     +'</div>';   /* 🖨 인쇄 버튼 제거 — 사용자 요청 2026-06-25 */
   /* 의뢰 경로 — 기입란 (사용자 결정 2026-06-12: 칩 → 자유 기입) */
   h+='<div style="font-size:10.5px;font-weight:700;color:var(--t2);margin:10px 0 4px">의뢰 경로</div>'
@@ -3022,7 +3022,7 @@ async function _symOpenCounselHistModal(stuId, recId){
   let selHtml='<option value="">전체 ('+all.length+')</option>';
   topics.forEach(function(t){ selHtml+='<option value="'+escHtml(t)+'">'+escHtml(t)+' ('+cntOf(t)+')</option>'; });
   ov.innerHTML='<div class="modal-content" style="width:580px;max-width:92vw;height:520px;max-height:82vh;display:flex;flex-direction:column;padding:0;border-radius:12px;overflow:hidden">'
-    +'<div style="padding:12px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px;cursor:grab">'
+    +'<div style="padding:12px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px;cursor:grab">'
     +'<span style="font-size:13.5px;font-weight:800;color:var(--t1)">💬 상담 이력 — '+escHtml(_symFullStuLabel(stu))+'</span>'
     +'<span style="flex:1"></span></div>'   /* ✕ 닫기 버튼 제거 — 배경 클릭으로 닫음 (사용자 요청 2026-06-24) */
     +'<div style="padding:12px 18px 16px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1;overflow:hidden">'
@@ -3291,7 +3291,7 @@ function _symOpenCounselTreatModal(recId){
   ov.id='clTreatModal';
   ov.style.cssText='position:fixed;inset:0;z-index:13000;background:rgba(15,23,42,0.45);display:flex;align-items:center;justify-content:center';
   ov.innerHTML='<div class="modal-content" style="width:460px;max-width:92vw;padding:0;border-radius:12px;overflow:hidden">'
-    +'<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">보건일지표 처치란에 기입할 문구</div>'
+    +'<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">보건일지표 처치란에 기입할 문구</div>'
     +'<div style="padding:16px 18px">'
     +'<textarea id="clTreatTa" rows="3" placeholder="예: 보건교육 실시, 학부모 연락, Wee클래스 연계 안내 …" style="'+_CL_TA_CSS+'">'+escHtml(cur)+'</textarea>'
     +'<div style="font-size:10.5px;color:var(--t3);margin-top:8px;line-height:1.55">이 문구는 보건일지표의 <b style="color:var(--t2)">처치</b> 칸에 그대로 표시되며, 처치 통계에도 1건으로 집계됩니다.<br>입력하면 자동 저장되며, 팝업 바깥을 클릭하면 닫힙니다.</div>'
@@ -4362,7 +4362,7 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
    *      ② 약품 숨기거나 보이게 하기  → 같은 아코디언의 2단 grid 좌측 (setMedSubHide)
    *  · 메뉴 항목 사이는 회색 구분선. 외부 클릭 시 메뉴 닫힘.
    *  · 약품이 없을 때 처치 팝업을 닫고 설정으로 가는 번거로움 제거. 클릭해도 증상/투약 팝업은 유지. */
-  let h='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px">';
+  let h='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px">';
   h+='<span style="flex:1;font-size:13px;font-weight:700;color:var(--t1)">'+titles[type]+'</span>';
   h+='<div style="position:relative;display:inline-flex">';
   h+='<button class="sym-hdr-chip" data-action="toggleMedAddMenu" data-tooltip="약품 추가·수정 / 숨기기 메뉴 열기" data-tooltip-instant="1" style="width:26px;height:26px;padding:0;font-size:16px;font-weight:800;border-radius:6px;border:1px solid rgba(34,197,94,0.35);background:rgba(34,197,94,0.10);color:#16a34a;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;font-family:var(--f)">+</button>';
@@ -5517,7 +5517,7 @@ function _showDrugInfo(drugName){
   const apiKey=getPublicDataApiKey('drug');
   const pop=document.createElement('div');pop.id='drugInfoPopup';
   pop.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.92);opacity:0;background:var(--card);border:1px solid var(--cyan);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.35);width:420px;max-height:520px;z-index:9700;display:flex;flex-direction:column;overflow:hidden;transition:opacity .18s ease,transform .18s ease';
-  const hdr='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px">'
+  const hdr='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px">'
     +'<span style="font-size:13px;font-weight:700;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">💊 '+escHtml(drugName)+'</span>'
     +'<button data-action="drugInfoBack" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bdr);background:var(--card);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:background .15s" data-tooltip="돌아가기" data-tooltip-instant="1">✕</button>'
     +'</div>';
@@ -5674,7 +5674,7 @@ export function openDrugSearchPopup(){
   const pop=document.createElement('div');pop.id='drugSearchPopup';
   pop.style.cssText='opacity:0;transform:scale(0.98);transform-origin:top left;background:var(--card);border:1px solid var(--cyan);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.35);width:480px;max-height:600px;display:flex;flex-direction:column;overflow:hidden;transition:opacity .1s ease,transform .1s ease;pointer-events:auto';
   pop.innerHTML=
-    '<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px">'
+    '<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px">'
     +'<span style="font-size:13px;font-weight:700;color:var(--t1);flex:1">💊 약품 검색 (e약은요)</span>'
     +'</div>'
     +'<div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">'
@@ -6145,7 +6145,7 @@ export function _symOpenDrugDoseMiniPicker(onPick, symKey, preselected, onBack){
   pop.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.20);z-index:12200';
   /* 높이 고정 — 검색 결과 수에 따라 박스가 작아졌다 커졌다 하지 않도록 (사용자 요청 2026-06-04). 리스트(flex:1)가 스크롤로 흡수. */
   let h='<div id="symMiniDrugBox" style="background:var(--card);border:1px solid var(--cyan);border-radius:12px;width:360px;height:540px;max-height:90vh;box-shadow:0 12px 40px rgba(0,0,0,0.30);display:flex;flex-direction:column;overflow:hidden;font-family:var(--f)">'
-    +'<div style="padding:11px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));font-size:12.5px;font-weight:800;color:var(--t1)">하나의 칩에 약품(1개 이상)을 추가</div>'
+    +'<div style="padding:11px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:12.5px;font-weight:800;color:var(--t1)">하나의 칩에 약품(1개 이상)을 추가</div>'
     +'<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--t2);letter-spacing:0.2px">미리보기</div>'
     +'<div id="symMiniPreview" style="margin:0 14px 8px;padding:8px 11px;background:var(--bg2);border:1px solid var(--bdrl);border-left:3px solid var(--cyan);border-radius:6px;min-height:40px;box-sizing:border-box;display:flex;align-items:center"></div>'
     +'<div style="padding:8px 14px;border-bottom:1px solid var(--bdr);border-top:1px solid var(--bdr)"><input id="symMiniDrugSrch" placeholder="약품명 검색…" style="width:100%;font-size:11px;padding:5px 8px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f);background:var(--card);color:var(--t1)" autofocus></div>'
@@ -6558,7 +6558,7 @@ function _symOpenAddTreatSingleDialog(recId, symKey){
   const ov=document.createElement('div');ov.id='symAddTreatSingleOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0);z-index:12100;transition:background 0.15s ease';
   let inner='<div id="symAddTreatSingleBox" style="background:var(--card);border-radius:12px;width:380px;max-width:96vw;box-shadow:0 16px 40px rgba(0,0,0,0.18);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.15s,transform 0.15s;display:flex;flex-direction:column">'
-    +'<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 하나의 칩에 약품 제외 처치 1개를 추가</div>'
+    +'<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 하나의 칩에 약품 제외 처치 1개를 추가</div>'
     +'<div style="padding:14px 18px">'
     +'<div style="font-size:10.5px;font-weight:700;color:var(--t2);margin-bottom:5px">처치명</div>'
     +'<input id="symAddTreatInput" type="text" placeholder="예: 아이스팩 적용" style="width:100%;padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12.5px;background:var(--card);color:var(--t1);outline:none;box-sizing:border-box;font-family:var(--f);margin-bottom:11px" autofocus>'
@@ -6651,7 +6651,7 @@ function _symOpenAddMixedDialog(recId, symKey){
     return '<button data-trig="'+kind+'" style="padding:10px 12px;font-size:11.5px;font-weight:700;border-radius:8px;cursor:pointer;font-family:var(--f);border:1px dashed '+color+';background:var(--card);color:'+color+';text-align:center;transition:all .15s">＋ '+escHtml(label)+'</button>';
   };
   let inner='<div id="symAddMixedBox" style="background:var(--card);border-radius:12px;width:420px;max-width:96vw;max-height:90vh;box-shadow:0 16px 40px rgba(0,0,0,0.18);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.15s,transform 0.15s;display:flex;flex-direction:column">'
-    +'<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 하나의 칩에 약품(1개 이상)과 다른 여러 처치들을 추가</div>'
+    +'<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 하나의 칩에 약품(1개 이상)과 다른 여러 처치들을 추가</div>'
     +'<div style="padding:14px 18px;overflow-y:auto">'
     +'<div style="font-size:10.5px;font-weight:700;color:var(--t2);margin-bottom:5px">항목 추가</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:11px">'
@@ -6733,7 +6733,7 @@ function _symOpenAddMixedDialog(recId, symKey){
     const pop=document.createElement('div');pop.id='symMixTxtMini';
     pop.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.20);z-index:12200';
     let h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;width:260px;box-shadow:0 10px 28px rgba(0,0,0,0.20);overflow:hidden;font-family:var(--f)">'
-      +'<div style="padding:9px 14px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12px;font-weight:800;color:var(--t1)">텍스트 항목 추가</div>'
+      +'<div style="padding:9px 14px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:12px;font-weight:800;color:var(--t1)">텍스트 항목 추가</div>'
       +'<div style="padding:12px 14px"><input id="symMixTxtInp" type="text" placeholder="예: 온찜질" style="width:100%;padding:7px 10px;font-size:12.5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f);background:var(--card);color:var(--t1);outline:none;box-sizing:border-box" autofocus></div>'
       +'<div style="padding:7px 14px 10px;font-size:9.5px;color:var(--t3);border-top:1px dashed var(--bdrl);line-height:1.5">⏎ 엔터 또는 외부 클릭 시 추가</div>'
       +'</div>';
@@ -6841,7 +6841,7 @@ function _symOpenAddNoMedDialog(recId, symKey){
     return '<button data-trig="'+kind+'" style="padding:9px 12px;font-size:11.5px;font-weight:700;border-radius:8px;cursor:pointer;font-family:var(--f);border:1px dashed '+color+';background:var(--card);color:'+color+';text-align:center">＋ '+escHtml(label)+'</button>';
   };
   let inner='<div id="symAddNoMedBox" style="background:var(--card);border-radius:12px;width:420px;max-width:96vw;max-height:90vh;box-shadow:0 16px 40px rgba(0,0,0,0.18);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.15s,transform 0.15s;display:flex;flex-direction:column">'
-    +'<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 하나의 칩에 약품 외 다른 여러 처치를 추가</div>'
+    +'<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 하나의 칩에 약품 외 다른 여러 처치를 추가</div>'
     +'<div style="padding:14px 18px;overflow-y:auto">'
     +'<div style="font-size:10.5px;font-weight:700;color:var(--t2);margin-bottom:3px">항목 추가</div>'
     +'<div style="font-size:10.5px;color:var(--t3);font-weight:600;margin-bottom:7px;line-height:1.5">건건이 추가하여 입력하시면 하나의 칩 안에 들어갑니다.</div>'
@@ -6932,7 +6932,7 @@ function _symOpenAddNoMedDialog(recId, symKey){
     const pop=document.createElement('div');pop.id='symNoMedTxtMini';
     pop.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.20);z-index:12200';
     let h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;width:260px;box-shadow:0 10px 28px rgba(0,0,0,0.20);overflow:hidden;font-family:var(--f)">'
-      +'<div style="padding:9px 14px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12px;font-weight:800;color:var(--t1)">텍스트 항목 추가</div>'
+      +'<div style="padding:9px 14px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:12px;font-weight:800;color:var(--t1)">텍스트 항목 추가</div>'
       +'<div style="padding:12px 14px"><input id="symNoMedTxtInp" type="text" placeholder="예: 학부모 연락" style="width:100%;padding:7px 10px;font-size:12.5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f);background:var(--card);color:var(--t1);outline:none;box-sizing:border-box" autofocus></div>'
       +'<div style="padding:7px 14px 10px;font-size:9.5px;color:var(--t3);border-top:1px dashed var(--bdrl);line-height:1.5">⏎ 엔터 또는 외부 클릭 시 추가</div>'
       +'</div>';
@@ -7032,7 +7032,7 @@ function _symOpenAddComplexDialog(recId, symKey){
   const ov=document.createElement('div');ov.id='symAddCpxOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0);z-index:12100;transition:background 0.15s ease';
   let inner='<div id="symAddCpxBox" style="background:var(--card);border-radius:12px;width:440px;max-width:96vw;max-height:90vh;box-shadow:0 16px 40px rgba(0,0,0,0.18);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.15s,transform 0.15s;display:flex;flex-direction:column">'
-    +'<div style="padding:12px 18px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 처치 한 건에 약품(1개 이상)과 다른 여러 처치를 패키지로 묶기</div>'
+    +'<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">"'+escHtml(symKey)+'" — 처치 한 건에 약품(1개 이상)과 다른 여러 처치를 패키지로 묶기</div>'
     +'<div style="padding:14px 18px;overflow-y:auto">'
     +'<div style="font-size:10.5px;font-weight:700;color:var(--t2);margin-bottom:5px">먼저 괄호 앞에 표시될 문구(처치명)를 적어주세요. <span style="color:#dc2626;font-weight:800">(필수, 비우면 저장되지 않습니다)</span></div>'
     +'<input id="symCpxAction" type="text" placeholder="예: 소독 드레싱, 상처 처치" style="width:100%;padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12.5px;background:var(--card);color:var(--t1);outline:none;box-sizing:border-box;font-family:var(--f);margin-bottom:11px" autofocus>'
@@ -7156,7 +7156,7 @@ function _symOpenAddComplexDialog(recId, symKey){
     const pop=document.createElement('div');pop.id='symCpxDrugMini';
     pop.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.20);z-index:12200';
     let h='<div style="background:var(--card);border:1px solid var(--cyan);border-radius:12px;width:320px;max-height:440px;box-shadow:0 12px 40px rgba(0,0,0,0.30);display:flex;flex-direction:column;overflow:hidden;font-family:var(--f)">'
-      +'<div style="padding:11px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));font-size:12.5px;font-weight:800;color:var(--t1)">💊 약품 선택 (괄호 안에 추가)</div>'
+      +'<div style="padding:11px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:12.5px;font-weight:800;color:var(--t1)">💊 약품 선택 (괄호 안에 추가)</div>'
       +'<div style="padding:8px 14px;border-bottom:1px solid var(--bdr)"><input id="symCpxDrugSearch" placeholder="검색…" style="width:100%;font-size:11px;padding:5px 8px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f);background:var(--card);color:var(--t1)" autofocus></div>'
       +'<div id="symCpxDrugList" style="flex:1;overflow-y:auto;padding:8px 14px"></div>'
       +'<div style="padding:7px 14px;border-top:1px solid var(--bdr);font-size:9.5px;color:var(--t3);text-align:right">외부 클릭 시 닫힘</div>'
@@ -7196,7 +7196,7 @@ function _symOpenAddComplexDialog(recId, symKey){
     const pop=document.createElement('div');pop.id='symCpxTxtMini';
     pop.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.20);z-index:12200';
     let h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;width:260px;box-shadow:0 10px 28px rgba(0,0,0,0.20);overflow:hidden;font-family:var(--f)">'
-      +'<div style="padding:9px 14px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12px;font-weight:800;color:var(--t1)">괄호 안에 추가할 내용</div>'
+      +'<div style="padding:9px 14px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:12px;font-weight:800;color:var(--t1)">괄호 안에 추가할 내용</div>'
       +'<div style="padding:12px 14px"><input id="symCpxTxtInp" type="text" placeholder="예: 밴드 적용" style="width:100%;padding:7px 10px;font-size:12.5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f);background:var(--card);color:var(--t1);outline:none;box-sizing:border-box" autofocus></div>'
       +'<div style="padding:7px 14px 10px;font-size:9.5px;color:var(--t3);border-top:1px dashed var(--bdrl);line-height:1.5">⏎ 엔터 또는 외부 클릭 시 추가</div>'
       +'</div>';
@@ -7331,7 +7331,7 @@ function _symPromptAddUserTreat(recId){
   const ov=document.createElement('div');ov.id='symPromptOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0);z-index:12000;transition:background 0.15s ease';
   let inner='<div id="symPromptBox" style="background:var(--card);border-radius:10px;width:360px;box-shadow:0 8px 24px rgba(0,0,0,0.3);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.15s ease,transform 0.15s ease">'
-    +'<div style="font-size:13px;font-weight:700;color:var(--t1);padding:10px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr)">어느 증상에 추가할까요?</div>'
+    +'<div style="font-size:13px;font-weight:700;color:var(--t1);padding:10px 16px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr)">어느 증상에 추가할까요?</div>'
     +'<div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px">';
   /* 사용자 요청 — "[대분류 이모티콘] 카테고리명 > 증상명" 형태로 표시 (예: "🤢 소화기 증상 > 구역질"). data-pick 은 증상명만. */
   const _catFor=function(base){
@@ -8419,7 +8419,7 @@ function _symAskBedFullChoice(recId, symKey){
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32);z-index:11000;opacity:0;transition:opacity 0.15s ease';
   /* 프로그램 표준 모달 패턴 — 헤더(회색) + 본문(카드색). 사용자 요청 2026-05-20. */
   ov.innerHTML='<div id="symBedAskBox" style="background:var(--card);border-radius:14px;width:420px;max-width:92vw;box-shadow:0 14px 40px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.18s ease,transform 0.18s ease">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));font-size:15px;font-weight:800;color:var(--t1)">🛏 침상 안정 등록</div>'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:15px;font-weight:800;color:var(--t1)">🛏 침상 안정 등록</div>'
     +'<div style="padding:18px 22px 14px">'
     +'<div style="font-size:12px;color:var(--t2);line-height:1.7">침상 선택, 시간, 알람 설정까지 하시겠습니까?<br><span style="font-size:10.5px;color:var(--t3)">\'아니오\'를 클릭하면 처치에 \'침상 안정\'만 기입되고, 좌측 하단 카운트다운 팝업도 뜨지 않으며, 퇴실 시간이 입실 시간 +'+(function(){var v=parseInt(localStorage.getItem('ec_daily_bedrest_minutes')||'30',10);if(isNaN(v)||v<1)v=30;else if(v>120)v=120;return v;})()+'분으로 자동 설정됩니다. (설정 가능)</span></div>'
     +'<div style="height:1px;background:var(--bdr);margin:16px -22px 14px"></div>'
@@ -8619,7 +8619,7 @@ function _symShowVsTimeline(stuId){
   const box=document.createElement('div');box.id='symVsTimelineBox';
   box.style.cssText='width:840px;max-width:96vw;max-height:88vh;background:var(--card);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.30);border:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden;animation:vsBoxIn .22s cubic-bezier(0.4,0,0.2,1) both';
   /* 헤더 (종료 버튼 없음 — 바깥 클릭 / ESC 로 닫음) */
-  let h='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,rgba(59,130,246,0.07),transparent)">'
+  let h='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;background:rgba(59,130,246,0.07)">'
     +'<span style="font-size:18px">📈</span>'
     +'<div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--t1)">V/S 시계열 — '+escHtml(stuInfo)+'</div>'
     +'<div style="font-size:10.5px;color:var(--t3);margin-top:1px">총 '+visits.length+'건 · '+escHtml(dates[0]||'')+' ~ '+escHtml(dates[dates.length-1]||'')+' · 왼쪽 옛날 → 오른쪽 최근  ·  바깥 클릭/ESC 로 닫기</div></div>'
@@ -8777,7 +8777,7 @@ function _symOpenBmHistory(stuId,curRecId){
   /* translateY 제거 — 아래에서 위로 튀는 깜빡임 차단. opacity + 약한 scale 만 사용 */
   pop.style.cssText='width:680px;max-width:92vw;max-height:70vh;background:var(--card);border:1.5px solid rgba(168,85,247,0.5);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.4);display:flex;flex-direction:column;overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity .18s ease, transform .18s ease';
 
-  let h='<div class="bm-hist-header" style="padding:10px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;cursor:grab;user-select:none">'
+  let h='<div class="bm-hist-header" style="padding:10px 16px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;cursor:grab;user-select:none">'
     +'<div><div style="font-size:13px;font-weight:800;color:var(--t1)">📚 바디맵 입력 이력 ('+recs.length+'건)</div>'
     +'<div style="font-size:10.5px;color:var(--t3);margin-top:2px">신규 입력은 중분류 증상 칩의 🧍 아이콘에서. 여기는 조회 전용.</div></div>'
     +'</div>';
@@ -8871,7 +8871,7 @@ export function _symShowHistory(stuId,curRecId){
 
   const pop=document.createElement('div');pop.id='symHistoryPop';
   pop.style.cssText='width:460px;max-width:90vw;max-height:60vh;background:var(--card);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;opacity:0;transform:scale(0.92) translateY(10px);transition:opacity .25s ease, transform .25s ease';
-  let h='<div class="sym-hist-header" style="padding:10px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;cursor:grab;user-select:none">'
+  let h='<div class="sym-hist-header" style="padding:10px 16px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;cursor:grab;user-select:none">'
     +'<span style="font-size:13px;font-weight:800;color:var(--t1)">📅 과거 방문 이력 ('+uniqueDateCnt+'건)</span>'
     +'</div>';
   h+='<div style="flex:1;overflow-y:auto;padding:8px">';

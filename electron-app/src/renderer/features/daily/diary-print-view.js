@@ -979,12 +979,12 @@ const _DPX_CSS=''
   +'.dpx-sh{font-size:12.5px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin:22px 0 7px;display:flex;align-items:center;gap:6px}'
   +'.dpx-sh.dpx-sh-d{margin:26px 0 7px}'
   +'.dpx-sh .dpx-ico{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;color:#fff;font-size:11px}'
-  +'.dpx-ico-memo{background:linear-gradient(135deg,#84cc16,#65a30d)}'
-  +'.dpx-ico-stat{background:linear-gradient(135deg,#06b6d4,#0891b2)}'
-  +'.dpx-ico-detail{background:linear-gradient(135deg,#6366f1,#8b5cf6)}'
+  +'.dpx-ico-memo{background:#84cc16}'
+  +'.dpx-ico-stat{background:#0891b2}'
+  +'.dpx-ico-detail{background:#4f46e5}'
   /* 매일 한 페이지 — 일간 방문 통계 표 (옛 cellStyle/headStyle) */
   +'.dpx-st{font-size:11px;font-weight:700;color:#0e7490;margin:8px 0 4px;display:flex;align-items:center;gap:5px}'
-  +'.dpx-st span{display:inline-block;width:3px;height:12px;background:linear-gradient(180deg,#06b6d4,#0891b2);border-radius:2px}'
+  +'.dpx-st span{display:inline-block;width:3px;height:12px;background:#0891b2;border-radius:2px}'
   +'.dpx-box{border:1px solid #cbd5e1;border-radius:6px}'
   +'.dpx-tbl{width:100%;border-collapse:collapse}'
   +'.dpx-sc{border:1px solid #cbd5e1;padding:4px 6px;font-size:11pt;text-align:center;color:#1e293b}'
@@ -1272,7 +1272,7 @@ function _dpShowExcelGuide(){
     ov.id='dpExcelGuideOverlay';
     ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32);z-index:13000;opacity:0;transition:opacity 0.15s ease';
     ov.innerHTML='<div id="dpExcelGuideBox" style="background:var(--card);border-radius:14px;width:470px;max-width:92vw;box-shadow:0 16px 44px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.18s ease,transform 0.18s ease">'
-      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));font-size:14px;font-weight:800;color:var(--t1)">📄 인쇄 또는 PDF로 저장 시 안내</div>'
+      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:14px;font-weight:800;color:var(--t1)">📄 인쇄 또는 PDF로 저장 시 안내</div>'
       +'<div style="padding:18px 22px;font-size:13px;color:var(--t1);line-height:1.75">'+escHtmlDp(_txt)+'</div>'
       +'<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--bdr)">'
       +'<button id="dpExcelGuideYes" type="button" style="padding:9px 16px;font-size:12.5px;font-weight:700;border-radius:8px;border:none;background:var(--cyan);color:#fff;cursor:pointer;font-family:var(--f)">예 &amp; 클립보드에 위 내용 복사</button>'
@@ -2032,7 +2032,7 @@ export function openDiaryPrint(){
   overlay.style.paddingTop='6vh';
   let h='<div class="modal-content" style="width:1480px;max-width:98vw;max-height:88vh;padding:0;display:flex;flex-direction:column;overflow:hidden;border-radius:14px">';
   /* 헤더 — X 버튼 제거 (외부 클릭으로 닫기) */
-  h+='<div style="display:flex;align-items:center;padding:18px 24px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.04));flex-shrink:0">'
+  h+='<div style="display:flex;align-items:center;padding:18px 24px;border-bottom:1px solid var(--bdr);background:rgba(99,102,241,0.08);flex-shrink:0">'
     +'<div><div style="font-size:16px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">📋 보건일지 출력</div><div style="font-size:11px;color:var(--t3);margin-top:2px">기간을 선택하고 출력 형식·항목을 지정한 뒤 미리보기 → 원하는 방식으로 내보내세요. (모달 외부 클릭 시 닫힘)</div></div>'
     +'</div>';
   h+='<div id="dpSettingsScroll" style="padding:22px 24px 12px;flex-shrink:0;overflow-y:auto;scrollbar-width:thin">';
@@ -2121,9 +2121,9 @@ export function openDiaryPrint(){
       +'</span>'
       +'</div>';
   }
-  h+='<div id="dpAddOptSection" style="padding:12px 24px 10px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,rgba(99,102,241,0.04),rgba(99,102,241,0))">';
+  h+='<div id="dpAddOptSection" style="padding:12px 24px 10px;border-bottom:1px solid var(--bdr);background:rgba(99,102,241,0.04)">';
   h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-    +'<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:12px;font-weight:800">+</span>'
+    +'<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#4f46e5;color:#fff;font-size:12px;font-weight:800">+</span>'
     +'<span style="font-size:13px;font-weight:800;color:var(--t1);letter-spacing:-0.2px">추가 옵션</span>'
     +'<span style="font-size:10px;color:var(--t3);font-weight:500">— 필요한 항목을 켜세요</span>'
     +'</div>';
@@ -2149,7 +2149,7 @@ export function openDiaryPrint(){
   h+='<div style="margin-top:4px;font-size:10.5px;font-weight:600;color:#2563eb">숫자 부분에 마우스 커서를 댄 후 마우스 휠로 수치 조정이 가능합니다.</div>';
   h+='</div>';
   /* 액션 버튼 바 */
-  h+='<div style="display:flex;align-items:center;gap:8px;padding:12px 24px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.03))">';
+  h+='<div style="display:flex;align-items:center;gap:8px;padding:12px 24px;border-bottom:1px solid var(--bdr);background:rgba(99,102,241,0.06)">';
   h+='<button id="dpPreviewBackBtn" style="padding:8px 16px;font-size:12px;font-weight:700;background:rgba(249,115,22,0.12);color:#ea580c;border:1px solid rgba(249,115,22,0.4);border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;animation:dpBackBlink 1.1s ease-in-out infinite">◀ 뒤로</button>';
   h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-left:8px">미리보기</div>';
   /* 로딩 점 애니메이션 + 안내 문구 — 두 포맷 모두에서 노출 (미리보기 실행 시 표시, 완료 시 숨김) */
@@ -2165,9 +2165,9 @@ export function openDiaryPrint(){
   /* PDF — 미리보기 렌더 그대로. 편집은 못해도 셀 간격/폰트/페이지 나눔이 100% 동일 */
   h+='<button class="btn-pdf" id="dpSavePdf">📄 PDF 저장</button>';
   /* Excel — 미세격자 정렬 빌더 (exportDiaryExcel/_exportDailyExcel + main.js 빌더) */
-  h+='<button class="btn btn-sm" id="dpSaveExcel" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:6px;cursor:pointer">📊 Excel 저장</button>';
+  h+='<button class="btn btn-sm" id="dpSaveExcel" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer">📊 Excel 저장</button>';
   /* 인쇄 — PDF 와 동일 HTML 을 응급기록지식 A4 인쇄 미리보기 다이얼로그(가로)로 출력 */
-  h+='<button class="btn btn-sm" id="dpPrint" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 인쇄</button>';
+  h+='<button class="btn btn-sm" id="dpPrint" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 인쇄</button>';
   h+='</div>';
   h+='<div id="dpPreviewArea" style="flex:1;min-height:200px;margin:0;border:none;background:var(--bg2);padding:18px 24px;overflow-y:auto;scrollbar-width:thin"></div>';
   h+='</div>';
@@ -2229,10 +2229,10 @@ export function openDiaryPrint(){
     const thumb=sw&&sw.querySelector('.dp-opt-switch-thumb');
     const iconBox=card&&card.querySelector('.dp-opt-card-icon');
     if(on){
-      if(sw){sw.style.background='linear-gradient(135deg,#6366f1,#8b5cf6)';}
+      if(sw){sw.style.background='#4f46e5';}
       if(thumb)thumb.style.transform='translateX(18px)';
-      if(card){card.style.borderColor='#6366f1';card.style.background='linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.04))';card.style.boxShadow='0 1px 4px rgba(99,102,241,0.15)';}
-      if(iconBox){iconBox.style.background='linear-gradient(135deg,#6366f1,#8b5cf6)';iconBox.style.color='#fff';}
+      if(card){card.style.borderColor='#6366f1';card.style.background='rgba(99,102,241,0.08)';card.style.boxShadow='0 1px 4px rgba(99,102,241,0.15)';}
+      if(iconBox){iconBox.style.background='#4f46e5';iconBox.style.color='#fff';}
     } else {
       if(sw)sw.style.background='var(--bdr)';
       if(thumb)thumb.style.transform='translateX(0)';
@@ -2507,7 +2507,7 @@ async function dpShowDailyPreview(opts){
     /* 셀 인라인 스타일(옛 cellStyle/headStyle) → dpx- 클래스 (경량화 2026-08-12).
      * 날짜당 통계 3섹션 ≈ 15~18KB → 2~3KB. 선언은 _DPX_CSS 에 동일 보존.
      * cyan 인자는 현재 호출자 없음 — 전달되면 span 인라인으로만 덮어씀(옛 동작 보존). */
-    let s='<div class="dpx-st"><span'+(cyan?' style="background:linear-gradient(180deg,'+cyan+',#0891b2)"':'')+'></span>'+title+'</div>';
+    let s='<div class="dpx-st"><span'+(cyan?' style="background:'+cyan+'"':'')+'></span>'+title+'</div>';
     s+='<div class="dpx-box"><table class="dpx-tbl">';
     s+='<thead><tr>';section.header.forEach(function(h,i){s+='<th class="dpx-sc'+(i===section.header.length-1?' dpx-cy':'')+'">'+h+'</th>';});
     s+='</tr></thead><tbody>';

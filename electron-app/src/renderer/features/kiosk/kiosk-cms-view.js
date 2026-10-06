@@ -1,3 +1,5 @@
+import { normalizeKioskTextScale, kioskTextSizeSettingsHtml } from './kiosk-text-size.js';
+import { kioskCallSettingsHtml, bindKioskCallSettings } from './kiosk-call-audio.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ═══════════════════════════════════════
    KIOSK CMS — Settings Tab + Customization
@@ -122,7 +124,7 @@ setTimeout(function(){
     if(!k.genOrient || !k.genType) return true;
     const curOrient=(k.kioskOrientation==='portrait')?'portrait':'landscape';
     const curType=k.kioskType||'basic';
-    return (k.genOrient!==curOrient) || (k.genType!==curType);
+    return (k.genOrient!==curOrient) || (k.genType!==curType) || normalizeKioskTextScale(k.genTextScale)!==normalizeKioskTextScale(k.textScale);
   }
   function _save(){ saveKioskSettings(); }
 
@@ -845,7 +847,7 @@ setTimeout(function(){
       ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:6px 14px;border:1px solid var(--bdr);color:var(--t3);background:var(--card)"'
       : 'style="font-size:11px;padding:6px 14px;border:1px solid var(--cyan);color:var(--cyan);background:rgba(6,182,212,0.06)"';
 
-    return '<div id="_kcLangBar" style="flex-shrink:0;padding:10px 16px;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,rgba(6,182,212,0.04),rgba(6,182,212,0.01))">'
+    return '<div id="_kcLangBar" style="flex-shrink:0;padding:10px 16px;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.04)">'
       + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">'
       +   '<span style="font-size:11px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:6px">🌐 다국어 지원'
       +   '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(6,182,212,0.12);color:var(--cyan);font-weight:700">' + sel.size + '개 언어 (외국어 ' + foreignCount + ')</span></span>'
@@ -1329,7 +1331,7 @@ setTimeout(function(){
     });
     rulesBody+='</ul>';
     const tabletLayout=''
-      +'<div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;padding:24px;box-sizing:border-box;background:linear-gradient(135deg,rgba(8,145,178,0.05),rgba(14,116,144,0.03))">'
+      +'<div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;padding:24px;box-sizing:border-box;background:rgba(8,145,178,0.05)">'
       +'<div style="flex:1;background:rgba(255,255,255,0.96);border-radius:16px;padding:24px;overflow-y:auto;box-shadow:0 2px 12px rgba(0,0,0,0.06)">'+rulesBody+'</div>'
       +'<div style="margin-top:16px;background:rgba(255,255,255,0.92);border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">'
       +'<div style="font-size:12px;font-weight:700;color:#0e7490;margin-bottom:10px;text-align:center">👤 인적사항 선택 후 등록</div>'
@@ -1339,10 +1341,10 @@ setTimeout(function(){
       +'<div style="padding:12px 8px;border-radius:10px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;text-align:center">번호</div>'
       +'<div style="padding:12px 8px;border-radius:10px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;text-align:center">이름</div>'
       +'</div>'
-      +'<button style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#0891b2,#065f78);color:#fff;font-size:14px;font-weight:800;cursor:default">등록 시작 →</button>'
+      +'<button style="width:100%;padding:14px;border:none;border-radius:12px;background:#0891b2;color:#fff;font-size:14px;font-weight:800;cursor:default">등록 시작 →</button>'
       +'</div></div>';
     const laptopLayout=''
-      +'<div style="position:relative;width:100%;height:100%;display:flex;padding:24px;gap:20px;box-sizing:border-box;background:linear-gradient(135deg,rgba(8,145,178,0.05),rgba(14,116,144,0.03))">'
+      +'<div style="position:relative;width:100%;height:100%;display:flex;padding:24px;gap:20px;box-sizing:border-box;background:rgba(8,145,178,0.05)">'
       +'<div style="flex:0 0 42%;background:rgba(255,255,255,0.96);border-radius:16px;padding:24px;overflow-y:auto;box-shadow:0 2px 12px rgba(0,0,0,0.06)">'+rulesBody+'</div>'
       +'<div style="flex:1;background:rgba(255,255,255,0.92);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">'
       +'<div style="font-size:15px;font-weight:800;color:#0e7490;text-align:center;margin-bottom:12px">🏥 방문 목적을 선택하세요</div>'
@@ -1400,7 +1402,7 @@ setTimeout(function(){
     h+='<div class="settings-panel-desc">보건실 방문자가 직접 입력하고 데이터가 보건일지에 들어가도록 하는 키오스크를 컨트롤합니다.<br>🔗 QR 코드 또는 URL 링크를 생성하여 태블릿 PC 또는 노트북 컴퓨터 등으로 키오스크에 접속할 수 있습니다.</div>';
 
     /* ── 🧭 키오스크 사용 안내 — 항상 표시 (아코디언 제거, 사용자 요청 2026-06-15) ── */
-    h+='<div class="cc" style="padding:0;margin-top:12px;margin-bottom:16px;background:linear-gradient(135deg,rgba(6,182,212,0.04),var(--card));border:1px dashed rgba(6,182,212,0.3);overflow:hidden">'
+    h+='<div class="cc" style="padding:0;margin-top:12px;margin-bottom:16px;background:var(--card);border:1px dashed rgba(6,182,212,0.3);overflow:hidden">'
       +'<div style="display:flex;align-items:center;gap:8px;padding:14px 16px 4px">'
       +'<span style="font-size:18px">🧭</span><div style="font-size:13px;font-weight:800;color:var(--cyan)">키오스크 사용 안내</div>'
       +'</div>'
@@ -1447,7 +1449,7 @@ setTimeout(function(){
       var _frameColor=_green?'rgba(6,182,212,0.3)':(_needGen?'rgba(255,20,147,0.55)':'rgba(245,158,11,0.55)');   /* needgen = 핫핑크 */
       var _frameBg=_green?'rgba(6,182,212,0.05)':(_needGen?'rgba(255,20,147,0.08)':'rgba(245,158,11,0.08)');
       var _chip=function(bg,col,txt){return '<div style="display:inline-flex;align-items:center;gap:7px;background:'+bg+';color:'+col+';font-size:12.5px;font-weight:800;padding:6px 13px;border-radius:999px;margin-bottom:10px">'+txt+'</div>';};
-      h+='<div class="cc" style="padding:18px 20px;margin-bottom:12px;border:2px solid '+_frameColor+';background:linear-gradient(135deg,'+_frameBg+',var(--card));display:flex;gap:20px;align-items:center;flex-wrap:wrap">'
+      h+='<div class="cc" style="padding:18px 20px;margin-bottom:12px;border:2px solid '+_frameColor+';background:var(--card);display:flex;gap:20px;align-items:center;flex-wrap:wrap">'
         /* ── 왼쪽: 상태 + 칩 ── */
         +'<div style="flex:1;min-width:190px">'
         +( _isComplete
@@ -1475,24 +1477,21 @@ setTimeout(function(){
       /* 인증키 카드는 [QR & URL 보기] 팝업 안으로 이동 (사용자 결정 2026-06-13) — 여기선 제거. */
     }
 
+    h+='<section class="cc kiosk-call-card" aria-labelledby="kioskReadableTitle">';
+    h+='<header class="kiosk-call-heading"><span class="kiosk-call-heading-icon" aria-hidden="true">🔊</span><div class="kiosk-call-heading-copy"><h3 id="kioskReadableTitle">글자 크기와 호출 안내</h3>';
+    h+='<p>학생이 읽기 편한 글자 크기와 보건실에 맞는 호출 소리를 설정해 주세요.<br>글자 크기는 기본·크게·더 크게 중에서 선택할 수 있으며, 긴 명단은 스크롤로 확인합니다.</p></div></header>';
+    h+=kioskTextSizeSettingsHtml(ks);
+    h+=kioskCallSettingsHtml(ks);
+    h+='<div class="kiosk-call-guide"><div class="kiosk-call-guide-copy"><div class="kiosk-call-guide-title"><span aria-hidden="true">📖</span>긴 보건실 이용 안내</div><p>처음부터 펼쳐둘지, 필요할 때 눌러서 볼지 선택합니다.</p></div><button type="button" class="btn btn-outline kiosk-call-guide-toggle" data-action="toggle-compact-guide" aria-pressed="'+(ks.compactGuide!==false)+'">'+(ks.compactGuide!==false?'기본 접힘':'기본 펼침')+'</button></div>';
+    h+='</section>';
+
     return h;
   }
 
   /* QR & URL 생성 완료 시(화면 편집에서 업로드 성공) → 설정 패널 리렌더 → 인라인 [QR & URL 보기] 활성화.
    *  모듈 1회 등록 (container 마다 중복 구독 방지). (2026-06-13) */
-  /* ── 매일 첫 실행 시 키오스크 토글 자동 OFF (사용자 결정 2026-06-13) ──
-   *  활성화한 날짜(ks.activeDate)와 오늘이 다르면 비활성으로 시작 — 매일 [QR & URL 보기]에서 토글을 켜는 절차. */
+  /* Activation is a saved preference; a date change must not switch it off. */
   function _kioskTodayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  function _kioskDailyActiveReset(){
-    try{
-      if(ks.active && ks.activeDate!==_kioskTodayStr()){
-        ks.active=false; _save();
-        bus.emit('kiosk:sidebar-refresh');
-      }
-    }catch(_){}
-  }
-  /* 부팅 직후에도 1회 — 어제 켜둔 채 종료했어도 오늘은 꺼진 상태로 시작 */
-  setTimeout(_kioskDailyActiveReset, 2500);
 
   let _urlReadyBound=false;
   function _bindUrlReadyOnce(){
@@ -1559,6 +1558,7 @@ setTimeout(function(){
      kioskSettingsHtml() 반환 HTML이 DOM에 삽입된 후 호출
      ═══════════════════════════════════════ */
   export function _bindKioskCmsEvents(container){
+    if(container)bindKioskCallSettings(container,ks,_save);
     if(!container)return;
     _bindUrlReadyOnce();
     /* 중복 바인딩 방지: 이미 바인딩된 컨테이너는 skip */
@@ -1629,7 +1629,6 @@ setTimeout(function(){
       } else if(action==='kiosk-url-view'){
         /* [확인 및 사용] = 이미 생성된(채널+토큰+urlReady) 게 있으면 재업로드 없이 기존 QR·URL 을 바로 표시(빠름).
            아직 생성 전이면 그때만 채널보장→빌드·업로드. 매번 서버에 올리고 내리면 느려서 분리 (사용자 결정 2026-06-15). */
-        _kioskDailyActiveReset();   /* 매일 첫 진입 시 토글 OFF 보장 */
         if(ks.channelId && ks.authToken && ks.urlReady){
           showKioskUrlPopup();
         } else {
@@ -1659,6 +1658,10 @@ setTimeout(function(){
         if(tab==='flow'){_kioskOpenFlowDesignerPopup();return;}
         if(tab==='rules'){_kioskOpenRulesEditorPopup();return;}
         if(tab){ks._settingsTab=tab;_save();renderSettingsPanel('kiosk');}
+      } else if(action==='toggle-call-name'){
+        ks.callNameEnabled=ks.callNameEnabled===false;if(ks.callAudio)ks.callAudio.mode=ks.callNameEnabled?"both":"chime";_save();_refresh();
+      } else if(action==='toggle-compact-guide'){
+        ks.compactGuide=ks.compactGuide===false;_save();_refresh();
       } else if(action==='toggle-tts'){
         ks.ttsEnabled=!ks.ttsEnabled;_save();_refresh();
       } else if(action==='tts-test'){
@@ -1807,6 +1810,7 @@ setTimeout(function(){
       if(action==='relay-url'){ks.relayUrl=el.value.trim();_save();}
       else if(action==='relay-channel'){ks.channelId=el.value.trim();_save();}
       else if(action==='relay-token'){ks.nurseToken=el.value.trim();_save();}
+      else if(action==='kiosk-text-scale'){ks.textScale=normalizeKioskTextScale(el.value);_save();_refresh();}
       else if(action==='tts-rate'){ks.ttsRate=parseFloat(el.value);_save();}
       else if(action==='set-alt-sec'){const v=parseInt(el.value);if(!isNaN(v)&&v>=3&&v<=60){ks.alternateSec=v;_save();}}
     });

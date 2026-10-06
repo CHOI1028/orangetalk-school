@@ -78,8 +78,8 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
 
   /* ── 사용자 0명일 때: 항상 로그인 화면에서 등록 유도 ── */
   function _renderEmptyUserList(isFirstRun,container,title,msg){
-    title.textContent='사용자를 등록해 주세요';
-    container.innerHTML='<div style="text-align:center;padding:30px 0;color:var(--t3);font-size:12px">등록된 사용자가 없습니다.<br>아래 "사용자 등록" 버튼을 눌러 주세요.</div>';
+    title.textContent='선생님의 첫 보건실을 준비해 볼까요?';
+    container.innerHTML='<div class="school-entry-empty" role="listitem"><span class="school-entry-empty-mark" aria-hidden="true">+</span><strong>등록된 사용자가 없습니다.</strong><p>위의 사용자 등록 버튼으로<br>첫 사용자를 추가해 주세요.</p></div>';
     if(msg)msg.textContent='';
   }
 
@@ -100,13 +100,15 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
     window.electronAPI.userGetActive().then(function(res){
       if(!res||!res.success){container.innerHTML='';return;}
       const users=res.data||[];
+      const count=document.getElementById('spUserCount');
+      if(count)count.textContent=users.length+'명';
 
       if(users.length===0){
         _renderEmptyUserList(true,container,title,msg);
         return;
       }
 
-      title.textContent='사용자를 선택하세요';
+      title.textContent='선생님, 반가워요!';
       if(msg)msg.textContent='';
       /* 아바타 로드 후 렌더 */
       const avatarPromises=users.map(function(u){
@@ -118,15 +120,15 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
           const initials=(u.name||'?').substring(0,1);
           const av=avatars[i];
           const circleContent=av
-            ?'<img src="'+av+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-            :initials;
-          return '<div class="sp-user-card" data-uid="'+u.id+'" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .15s">'
-            +'<div class="sp-avatar" data-uid="'+u.id+'" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;cursor:pointer">'+circleContent+'</div>'
-            +'<div style="flex:1;min-width:0">'
-              +'<div style="font-size:13px;font-weight:700;color:var(--t1)">'+escHtml(u.name)+'</div>'
-              +'<div style="font-size:10px;color:var(--t3);margin-top:2px">'+escHtml(u.position||'보건교사')+(u.school_name?' · '+escHtml(u.school_name):'')+'</div>'
-            +'</div>'
-            +'<div style="font-size:16px;color:var(--t3)">→</div>'
+            ?'<img src="'+escHtml(String(av))+'" alt="">'
+            :escHtml(initials);
+          return '<div class="sp-user-card" data-uid="'+u.id+'" role="listitem">'
+            +'<button type="button" class="sp-avatar" data-uid="'+u.id+'" aria-label="'+escHtml(u.name||'사용자')+' 프로필 사진 변경">'+circleContent+'</button>'
+            +'<button type="button" class="school-user-select" aria-label="'+escHtml(u.name||'사용자')+' 선택">'
+              +'<span class="school-user-meta"><strong>'+escHtml(u.name)+'</strong>'
+              +'<span>'+escHtml(u.position||'보건교사')+(u.school_name?' · '+escHtml(u.school_name):'')+'</span></span>'
+              +'<span class="school-user-arrow" aria-hidden="true">→</span>'
+            +'</button>'
           +'</div>';
         }).join('');
         /* addEventListener for user cards */
@@ -286,7 +288,30 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
   const _eduOfficeList=(window._eduOfficeList&&window._eduOfficeList.length)?window._eduOfficeList:['서울특별시교육청','부산광역시교육청','대구광역시교육청','인천광역시교육청','광주광역시교육청','대전광역시교육청','울산광역시교육청','경기도교육청','충청남도교육청','충청북도교육청','경상남도교육청','경상북도교육청','전라남도교육청','전북특별자치도교육청','강원특별자치도교육청','제주특별자치도교육청','세종특별자치시교육청'];
   const _regionList=['서울특별시','부산광역시','대구광역시','인천광역시','광주광역시','대전광역시','울산광역시','경기도','충청남도','충청북도','경상남도','경상북도','전라남도','전북특별자치도','강원특별자치도','제주특별자치도','세종특별자치시'];
 
+  function _setupShowStage(profile,level){
+    const cardTitle=document.getElementById('setupCardTitle');
+    const count=document.getElementById('setupStageCount');
+    if(cardTitle)cardTitle.textContent=profile?'학교와 사용자 정보':'소속 유형 선택';
+    if(count)count.textContent=profile?'2 / 2':'1 / 2';
+    const first=document.getElementById('setupAffiliationStep');
+    const second=document.getElementById('setupProfileStep');
+    if(first){
+      first.classList.toggle('is-current',!profile);
+      first.classList.toggle('is-complete',profile);
+      if(profile)first.removeAttribute('aria-current');
+      else first.setAttribute('aria-current','step');
+    }
+    if(second){
+      second.classList.toggle('is-current',profile);
+      if(profile)second.setAttribute('aria-current','step');
+      else second.removeAttribute('aria-current');
+    }
+    const selected=document.getElementById('setupSelectedLevel');
+    if(selected)selected.textContent=profile?(_levelNames[level]||''):'';
+  }
+
   export function _setupSelectLevel(level,btn){
+    _setupShowStage(true,level);
     _setupSelectedLevel=level;
     const levelLabel=document.getElementById('setupSchoolLevelRow').previousElementSibling;
     if(levelLabel)levelLabel.style.display='none';
@@ -315,6 +340,7 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
   }
 
   function _setupReset(){
+    _setupShowStage(false,'');
     _setupSelectedLevel='';
     document.querySelectorAll('.sp-level-btn').forEach(function(b){b.classList.remove('selected');});
     const levelLabel=document.getElementById('setupSchoolLevelRow').previousElementSibling;
@@ -352,6 +378,12 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
     _setupReset();
     document.getElementById('spSetup').classList.remove('show');
     document.getElementById('spLogin').classList.add('show');
+  });
+
+  document.getElementById('setupChangeLevel').addEventListener('click',function(){
+    _setupReset();
+    const first=document.querySelector('#setupSchoolLevelRow .sp-level-btn');
+    if(first)first.focus();
   });
 
   document.getElementById('setupPosition').addEventListener('change',function(){
@@ -472,7 +504,7 @@ import { showOrangefarmNotice } from './orangefarm-notice.js';
       +(desc?'<div style="font-size:11.5px;color:var(--t2);margin-bottom:16px;text-align:center;line-height:1.6">'+escHtml(desc)+'</div>':'')
       +'<div style="display:flex;gap:8px;justify-content:center">'
       +'<button data-cc="cancel" style="padding:8px 22px;font-size:12px;font-weight:600;background:transparent;color:var(--t2);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-family:var(--f)">취소</button>'
-      +'<button data-cc="ok" style="padding:8px 22px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">삭제</button>'
+      +'<button data-cc="ok" style="padding:8px 22px;font-size:12px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f)">삭제</button>'
       +'</div></div>';
     function _done(ok){
       ov.style.background='rgba(0,0,0,0)';

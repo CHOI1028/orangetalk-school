@@ -135,7 +135,7 @@ function _renderAcadPopup(ds, events){
     ? events.map(function(t){ return '<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;background:rgba(168,85,247,0.08);border-left:3px solid #a855f7;border-radius:5px;margin-bottom:6px;font-size:12.5px;color:var(--t1)"><span style="font-size:14px">📌</span>'+_esc(t)+'</div>'; }).join('')
     : '<div style="font-size:12.5px;color:var(--t2);text-align:center;padding:10px 0">오늘은 나이스에 등록된 학사일정이 없습니다.</div>';
   ov.innerHTML='<div id="acadPopupBox" style="background:var(--card);border-radius:14px;width:420px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.18s ease,transform 0.18s ease">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(168,85,247,0.12),rgba(99,102,241,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">📅</span><div><div style="font-size:14px;font-weight:800;color:var(--t1)">학사일정 안내</div><div style="font-size:10.5px;color:var(--t3)">'+_esc(_schoolName()||'')+' · '+_esc(dateStr)+'</div></div></div>'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(168,85,247,0.12);display:flex;align-items:center;gap:8px"><span style="font-size:18px">📅</span><div><div style="font-size:14px;font-weight:800;color:var(--t1)">학사일정 안내</div><div style="font-size:10.5px;color:var(--t3)">'+_esc(_schoolName()||'')+' · '+_esc(dateStr)+'</div></div></div>'
     +'<div style="padding:18px 22px;overflow-y:auto;flex:1 1 auto">'+body+'</div>'
     +'</div>';
   document.body.appendChild(ov);

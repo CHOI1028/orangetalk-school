@@ -27,17 +27,17 @@ export function renderTrainingHome(){
   const area=document.getElementById('trainingArea');if(!area)return;
   const st=_trainingState;
   const selCount=Object.keys(st.selectedIds).filter(function(k){return st.selectedIds[k];}).length;
-  let h='<div style="display:flex;gap:0;align-items:stretch;height:calc(100vh - 300px);overflow:hidden">';
+  let h='<div class="school-training-layout" style="display:flex;gap:0;align-items:stretch;height:calc(100vh - 300px);overflow:hidden">';
 
   /* ═══ 왼쪽: 입력 폼 ═══ */
-  h+='<div style="width:350px;flex-shrink:0;background:var(--card);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden">';
+  h+='<div class="school-training-form" style="width:350px;flex-shrink:0;background:var(--card);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden">';
   /* 헤더 */
-  h+='<div style="flex-shrink:0;padding:14px 14px 0">';
+  h+='<div class="school-training-heading" style="flex-shrink:0;padding:14px 14px 0">';
   h+='<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:4px">연수/교육 등록부</div>';
   h+='<div style="font-size:11px;color:var(--t3);margin-bottom:14px">양식을 작성하면 오른쪽 화면에서 미리보기 가능합니다.</div>';
   h+='</div>';
   /* 스크롤 가능한 폼 영역 */
-  h+='<div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:0 14px">';
+  h+='<div class="school-training-fields" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:0 14px">';
   h+='<div style="display:flex;flex-direction:column;gap:8px">';
   /* 연수명 */
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px">연수 또는 교육명</label><input class="form-input" id="trName" value="'+escHtml(st.name)+'" placeholder="예: 감염병 예방 연수" style="width:100%;font-size:11px"></div>';
@@ -74,13 +74,13 @@ export function renderTrainingHome(){
   h+='</div>';
   h+='</div>'; /* 스크롤 폼 영역 닫기 */
   /* 고정 하단 버튼 */
-  h+='<div style="flex-shrink:0;padding:10px 14px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
+  h+='<div class="school-training-actions" style="flex-shrink:0;padding:10px 14px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
   /* (연수/교육 대상 선택 버튼은 연수명 입력창 아래로 이동 — 2026-08-25) */
-  h+='<button data-action="showMessage" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(168,85,247,0.08));color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>';
+  h+='<button data-action="showMessage" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>';
   /* Sheets·Excel 내보내기 — 반폭 나란히, 같은 초록 (사용자 요청 2026-08-25) */
   h+='<div style="display:flex;gap:6px">';
-  h+='<button data-action="exportSheets" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Sheets로 보내기</button>';
-  h+='<button data-action="exportExcel" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Excel로 보내기</button>';
+  h+='<button data-action="exportSheets" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Sheets로 보내기</button>';
+  h+='<button data-action="exportExcel" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Excel로 보내기</button>';
   h+='</div>';
   /* PDF 저장·인쇄 — 반폭 나란히 한 줄 배치 (사용자 요청 2026-08-25) */
   h+='<div style="display:flex;gap:6px">';
@@ -91,8 +91,8 @@ export function renderTrainingHome(){
   h+='</div>'; /* 입력 폼 끝 */
 
   /* ═══ 오른쪽: 구글 시트 스타일 미리보기 ═══ */
-  h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#e5e7eb">';
-  h+='<div style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center">';
+  h+='<div class="school-training-preview" style="flex:1;min-width:0;display:flex;flex-direction:column;background:#e5e7eb">';
+  h+='<div class="school-training-preview-scroll" style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center">';
   h+='<div id="trPreviewA4Wrap" style="background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.1);width:100%;max-width:760px;align-self:flex-start;font-family:\'Pretendard Variable\',\'Pretendard\',\'Noto Sans KR\',\'맑은 고딕\',sans-serif;color:#000"></div>';
   h+='</div></div>';
 
@@ -492,7 +492,7 @@ function trShowMessage(){
   const o=_trMsgOpts;
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='trMsgOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let html='<div class="modal-content" style="width:520px;max-width:94vw;padding:0">';
-  html+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:14px 18px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0;cursor:grab">';
+  html+='<div style="background:rgba(6,182,212,0.10);padding:14px 18px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0;cursor:grab">';
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1)">💬 안내 메시지 미리보기 &amp; 복사</div>';
   html+='<div style="font-size:10px;color:var(--t3);margin-top:3px">내용을 바로 수정하여 사용 가능합니다.</div></div>';
   /* 옵션 체크박스 */
@@ -513,7 +513,7 @@ function trShowMessage(){
   html+='<div style="padding:18px"><textarea id="trMsgBody" style="width:100%;height:220px;padding:12px;font-size:12px;line-height:1.8;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);resize:vertical">'+escHtml(_trMsgResolveVars(_trMsgGetTemplate()))+'</textarea></div>';
   /* 하단 — 복사 버튼만 (편집 버튼 제거: 본문 직접 수정=자동 저장, 사용자 지시 2026-08-21) */
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
-  html+='<button id="trMsgCopyBtn" style="padding:7px 16px;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드에 복사</button>';
+  html+='<button id="trMsgCopyBtn" style="padding:7px 16px;font-size:11px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드에 복사</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   /* 이벤트 바인딩 */
@@ -943,10 +943,10 @@ function trExportSheets(){
   /* 확인 팝업 */
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='trSheetsOverlay';ov.style.background='rgba(0,0,0,0.35)';ov.style.backdropFilter='none';ov.style.webkitBackdropFilter='none';
   let html='<div class="modal-content" style="width:440px;max-width:94vw;padding:0">';
-  html+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:14px 18px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
+  html+='<div style="background:rgba(6,182,212,0.10);padding:14px 18px;border-bottom:1px solid var(--bdr);border-radius:10px 10px 0 0">';
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets로 내보내기</div></div>';
   html+='<div style="padding:18px">';
-  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#34a853,#1e8e3e);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>';
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:8px;background:#1e8e3e;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>';
   html+='<div><div style="font-size:13px;font-weight:700;color:var(--t1)">내 Google 드라이브에 저장</div>';
   html+='<div style="font-size:10px;color:var(--t3)">새 스프레드시트가 자동으로 생성됩니다</div></div></div>';
   html+='<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:12px;font-size:11px;color:var(--t2)">';
@@ -958,7 +958,7 @@ function trExportSheets(){
   html+='</div>';
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
   html+='<button data-action="closeSheetsOverlay" style="padding:7px 16px;font-size:11px;font-weight:600;background:var(--bg2);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button>';
-  html+='<button id="trSheetsSendBtn" style="padding:7px 22px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
+  html+='<button id="trSheetsSendBtn" style="padding:7px 22px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   ov.addEventListener('click',function(e){
@@ -1062,7 +1062,7 @@ async function _trSheetsSend(titleText,rows,selected,isStudent,posLabel,half,max
         +'<div style="font-size:40px;margin-bottom:10px">✅</div>'
         +'<div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:6px">Google Sheets에 저장 완료!</div>'
         +'<div style="font-size:11px;color:var(--t3);margin-bottom:14px">내 Google 드라이브에 새 스프레드시트가 생성되었습니다.</div>'
-        +'<button data-action="openExternal" data-url="'+ssUrl+'" style="padding:10px 24px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:6px">'
+        +'<button data-action="openExternal" data-url="'+ssUrl+'" style="padding:10px 24px;font-size:12px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:6px">'
         +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
         +'Google Sheets에서 열기</button>'
         +'</div>';
@@ -1118,7 +1118,7 @@ function renderTrainingStatus(){
   h+='<div style="flex-shrink:0;padding:12px 14px;border-bottom:1px solid var(--bdr)">';
   h+='<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:4px">연수 이수 현황</div>';
   h+='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">연수를 추가하면 오른쪽 시트에 열이 추가됩니다.</div>';
-  h+='<button data-trs-action="addNew" style="width:100%;padding:6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">+ 연수 추가</button>';
+  h+='<button data-trs-action="addNew" style="width:100%;padding:6px;font-size:11px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">+ 연수 추가</button>';
   h+='</div>';
   /* 스크롤 가능한 리스트 */
   h+='<div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin">';
@@ -1139,13 +1139,13 @@ function renderTrainingStatus(){
   h+='</div>'; /* 스크롤 리스트 닫기 */
   /* 하단 고정 버튼 */
   h+='<div style="flex-shrink:0;padding:10px 14px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
-  h+='<button data-trs-action="showMessagePopup" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(168,85,247,0.08));color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>';
-  h+='<button data-trs-action="showNoticeLog" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.08));color:#fbbf24;border:1px solid rgba(245,158,11,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)">📝 안내 내역 기록에 남기기</button>';
+  h+='<button data-trs-action="showMessagePopup" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>';
+  h+='<button data-trs-action="showNoticeLog" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)">📝 안내 내역 기록에 남기기</button>';
   h+='<div style="display:flex;flex-direction:column;gap:6px">';
   /* Sheets·Excel 내보내기 — 반폭 나란히, 같은 초록 (등록부와 동일 패턴, 사용자 요청 2026-08-25) */
   h+='<div style="display:flex;gap:6px">';
-  h+='<button data-trs-action="exportAllSheets" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Sheets로 보내기</button>';
-  h+='<button data-trs-action="trsExportExcel" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Excel로 보내기</button>';
+  h+='<button data-trs-action="exportAllSheets" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Sheets로 보내기</button>';
+  h+='<button data-trs-action="trsExportExcel" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(52,168,83,0.25);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Excel로 보내기</button>';
   h+='</div>';
   /* PDF 저장·인쇄 — 반폭 나란히 한 줄 배치 (등록부와 동일, 2026-08-25) */
   h+='<div style="display:flex;gap:6px">';
@@ -1203,7 +1203,7 @@ function trsEditItem(idx){
   const ov=document.createElement('div');ov.id='trsEditOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.36);z-index:2200';
   let h='<div class="modal-content" style="width:440px;max-height:80vh;overflow-y:auto;padding:0">';
-  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><div class="modal-title">📝 연수 정보 수정</div></div>';
+  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10)"><div class="modal-title">📝 연수 정보 수정</div></div>';
   h+='<div style="padding:18px 24px;display:flex;flex-direction:column;gap:10px">';
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px;font-weight:600">연수 또는 교육명</label><input class="form-input trs-edit-field" id="trsEditName" value="'+escHtml(item.name)+'" style="width:100%;font-size:12px"></div>';
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px;font-weight:600">이수 기한</label><input class="form-input trs-edit-field" id="trsEditDeadline" value="'+(item.deadline||'')+'" placeholder="YYYY-MM-DD" style="width:100%;font-size:12px"></div>';
@@ -1288,7 +1288,7 @@ function trsShowMessagePopup(){
   const ov=document.createElement('div');ov.id='trsMsgOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.36);z-index:2200';
   let h='<div class="modal-content" style="width:520px;max-height:85vh;overflow-y:auto;padding:0">';
-  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><div class="modal-title">💬 안내 메시지 미리보기 & 복사</div></div>';
+  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10)"><div class="modal-title">💬 안내 메시지 미리보기 & 복사</div></div>';
   h+='<div style="padding:18px 24px">';
   h+='<div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:8px">안내할 연수를 선택하세요:</div>';
   h+='<div id="trsMsgChecks" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">';
@@ -1304,7 +1304,7 @@ function trsShowMessagePopup(){
   h+='<textarea id="trsMsgPreview" style="width:100%;height:180px;padding:12px;font-size:12px;line-height:1.7;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);resize:vertical"></textarea>';
   h+='</div>';
   h+='<div style="padding:14px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;background:var(--bg2)">';
-  h+='<button data-msg-action="copy" style="padding:8px 20px;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px">📋 클립보드에 복사</button>';
+  h+='<button data-msg-action="copy" style="padding:8px 20px;font-size:11px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:6px">📋 클립보드에 복사</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){
@@ -1563,7 +1563,7 @@ function trsShowNoticeLog(){
   const ov=document.createElement('div');ov.id='trsNoticeOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.36);z-index:2200';
   let h='<div class="modal-content" style="width:700px;max-height:85vh;padding:0;display:flex;flex-direction:column">';
-  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);flex-shrink:0;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><div class="modal-title">📝 안내 내역 기록</div><span data-ntc-action="close" style="cursor:pointer;font-size:18px;color:var(--t3);line-height:1">✕</span></div>';
+  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);flex-shrink:0;background:rgba(6,182,212,0.10)"><div class="modal-title">📝 안내 내역 기록</div><span data-ntc-action="close" style="cursor:pointer;font-size:18px;color:var(--t3);line-height:1">✕</span></div>';
   /* 열 필드 설정 (일반 일지와 동일한 카드+SVG 눈알) */
   h+='<div style="padding:10px 24px;border-bottom:1px solid var(--bdr);flex-shrink:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap">';
   h+='<span style="font-size:10px;font-weight:700;color:var(--t3);margin-right:4px">열 필드:</span>';
@@ -1574,7 +1574,7 @@ function trsShowNoticeLog(){
     h+='<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;padding:0;border:1px solid '+(active?'rgba(6,182,212,0.24)':'rgba(148,163,184,0.2)')+';border-radius:999px;background:'+(active?'rgba(6,182,212,0.10)':'rgba(148,163,184,0.10)')+';color:'+(active?'var(--cyan)':'var(--t3)')+';flex:0 0 auto">'+dailyColEyeIcon(active)+'</span>';
     h+='</div>';
   });
-  h+='<button data-ntc-action="addRow" style="margin-left:auto;padding:4px 12px;font-size:10px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:var(--f)">+ 기록 추가</button>';
+  h+='<button data-ntc-action="addRow" style="margin-left:auto;padding:4px 12px;font-size:10px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:var(--f)">+ 기록 추가</button>';
   h+='</div>';
   /* 테이블 */
   h+='<div style="flex:1;overflow-y:auto;padding:14px 24px">';
@@ -1674,7 +1674,7 @@ function trsAddNew(){
   ov.id='trsAddOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.36);z-index:2200';
   let h='<div class="modal-content" style="width:460px;max-height:85vh;overflow-y:auto;padding:0">';
-  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))"><div class="modal-title" style="display:flex;align-items:center;gap:8px">📢 새 연수 이수 안내</div><span data-add-action="close" style="cursor:pointer;font-size:18px;color:var(--t3);line-height:1">✕</span></div>';
+  h+='<div class="modal-header" style="padding:16px 24px;margin-bottom:0;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10)"><div class="modal-title" style="display:flex;align-items:center;gap:8px">📢 새 연수 이수 안내</div><span data-add-action="close" style="cursor:pointer;font-size:18px;color:var(--t3);line-height:1">✕</span></div>';
   h+='<div style="padding:18px 24px;display:flex;flex-direction:column;gap:12px">';
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px;font-weight:600">연수 또는 교육명 *</label><input class="form-input" id="trsNewName" placeholder="예: 성희롱/성폭력/성매매 예방 원격연수" style="width:100%;font-size:12px"></div>';
   h+='<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px;font-weight:600">이수 기한</label>';
@@ -1689,7 +1689,7 @@ function trsAddNew(){
   h+='</div>';
   h+='</div>';
   h+='<div style="padding:14px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;background:var(--bg2)">';
-  h+='<button data-add-action="confirm" style="padding:8px 22px;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">생성</button>';
+  h+='<button data-add-action="confirm" style="padding:8px 22px;font-size:11px;font-weight:700;background:var(--cyan);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">생성</button>';
   h+='</div></div>';
   ov.innerHTML=h;
   ov.addEventListener('click',function(e){

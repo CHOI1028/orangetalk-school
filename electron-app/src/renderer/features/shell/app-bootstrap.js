@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
 import { switchView } from './view-router.js';
+import { renderSchoolReleaseNotes } from './school-release-notes.js';
 import { bus } from '../../core/event-bus.js';
 import { bindViewDailyEvents, bindViewDashboardEvents, bindViewMagicEvents, bindViewStoryEvents, bindViewOrangeEvents, bindMagicSubSurveyEvents, bindMagicSubNewsletterEvents } from '../../core/event-bindings.js';
 import { viewFragmentLoader } from '../../core/helpers.js';
@@ -106,15 +107,15 @@ function _showBetaExpiredModal(){
   ov.id='betaExpiredOverlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:2147483646;display:flex;align-items:center;justify-content:center;animation:bxFadeIn .18s ease-out';
   ov.innerHTML='<div style="background:var(--card,#fff);border:1px solid var(--bdr,rgba(15,23,42,0.10));border-radius:16px;width:480px;max-width:92vw;box-shadow:0 28px 70px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.10);overflow:hidden;animation:bxPopIn .22s cubic-bezier(.2,.9,.3,1.1)">'
-    + '<div style="padding:20px 24px 16px;border-bottom:1px solid var(--bdr,rgba(15,23,42,0.10));display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,rgba(239,68,68,0.07),transparent)">'
-    +   '<div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;line-height:1;box-shadow:0 4px 12px rgba(220,38,38,0.30)">!</div>'
+    + '<div style="padding:20px 24px 16px;border-bottom:1px solid var(--bdr,rgba(15,23,42,0.10));display:flex;align-items:center;gap:14px;background:rgba(239,68,68,0.07)">'
+    +   '<div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;line-height:1;box-shadow:0 4px 12px rgba(220,38,38,0.30)">!</div>'
     +   '<div style="font-size:16px;font-weight:800;color:var(--t1,#0f172a);letter-spacing:-0.2px">사용 기간 만료</div>'
     + '</div>'
     + '<div style="padding:22px 26px 8px;font-size:13.5px;color:var(--t1,#0f172a);line-height:1.85;font-weight:500">'
     +   '사용 기간이 만료되었습니다.<br>오렌지팜 홈페이지에서 새 프로그램을 다운로드 후 그대로 설치하여 <b style="font-weight:800">\'설정\'</b> 의 <b style="font-weight:800">\'오렌지톡 인증코드\'</b> 탭에서 인증코드를 넣어주세요. <span style="color:#0891b2;font-weight:800">즉시 사용 가능</span>합니다.'
     + '</div>'
     + '<div style="padding:18px 24px 22px;display:flex;justify-content:flex-end">'
-    +   '<button id="betaGoSite" style="font-family:inherit;font-size:13.5px;padding:12px 26px;border-radius:11px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;border:none;font-weight:800;letter-spacing:0.2px;cursor:pointer;box-shadow:0 6px 16px rgba(249,115,22,0.32),inset 0 1px 0 rgba(255,255,255,0.20);transition:transform .12s ease,box-shadow .12s ease;display:inline-flex;align-items:center;gap:8px">오렌지팜 홈페이지로 이동 →</button>'
+    +   '<button id="betaGoSite" style="font-family:inherit;font-size:13.5px;padding:12px 26px;border-radius:11px;background:#ea580c;color:#fff;border:none;font-weight:800;letter-spacing:0.2px;cursor:pointer;box-shadow:0 6px 16px rgba(249,115,22,0.32),inset 0 1px 0 rgba(255,255,255,0.20);transition:transform .12s ease,box-shadow .12s ease;display:inline-flex;align-items:center;gap:8px">오렌지팜 홈페이지로 이동 →</button>'
     + '</div></div>';
   /* 키프레임 1회 주입 */
   if(!document.getElementById('betaExpiredKeyframes')){
@@ -206,35 +207,20 @@ function _installBetaLockGuard(){
 /* 전체화면 인증 게이트 — 닫을 수 없음. 코드 입력칸 내장 → 여기서 바로 인증하고,
  * 성공해야만 게이트가 사라져 프로그램을 쓸 수 있다. (ESC·바깥클릭으로 닫히지 않음) */
 function _showCdkeyGate(){
-  if(document.getElementById('cdkeyGateOverlay')) return; /* 중복 방지 */
+  if(document.getElementById('cdkeyGateOverlay')) return;
   const ov=document.createElement('div');
   ov.id='cdkeyGateOverlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0e7490 0%,#0891b2 45%,#06b6d4 100%);animation:bxFadeIn .2s ease-out';
-  ov.innerHTML='<div style="background:#fff;border-radius:18px;width:460px;max-width:92vw;box-shadow:0 30px 80px rgba(0,0,0,0.45);overflow:hidden;animation:bxPopIn .24s cubic-bezier(.2,.9,.3,1.1)">'
-    + '<div style="padding:24px 28px 18px;border-bottom:1px solid rgba(15,23,42,0.08);display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,rgba(6,182,212,0.08),transparent)">'
-    +   '<div style="width:42px;height:42px;border-radius:12px;flex-shrink:0;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;box-shadow:0 6px 16px rgba(6,182,212,0.32)">🔐</div>'
-    +   '<div><div style="font-size:17px;font-weight:800;color:#0f172a;letter-spacing:-0.3px">오렌지톡 인증코드</div>'
-    +   '<div style="font-size:11.5px;color:#64748b;font-weight:600;margin-top:2px">이 PC 에서 단 1회만 인증하시면 됩니다</div></div>'
-    + '</div>'
-    + '<div style="padding:22px 28px 6px;font-size:13px;color:#334155;line-height:1.8;font-weight:500">'
-    +   '오렌지팜에서 받으신 <b style="color:#0f172a">인증코드</b>를 입력해 주세요. 인증을 완료해야 프로그램을 사용할 수 있습니다. '
-    +   '코드는 오렌지팜 "<a href="#" id="cdkeyGateMypage" style="color:#0891b2;font-weight:800;text-decoration:none">나의e오렌지 - 회원정보수정</a>" 메뉴에서 확인하실 수 있습니다.'
-    + '</div>'
-    + '<div style="padding:16px 28px 8px;display:flex;gap:10px;align-items:stretch">'
-    +   '<input id="cdkeyGateInput" type="text" placeholder="____-____" maxlength="9" autocomplete="off" spellcheck="false" style="flex:1;padding:15px 18px;font-family:\'SF Mono\',Consolas,monospace;font-size:18px;font-weight:800;letter-spacing:4px;text-align:center;border:2px solid #cbd5e1;border-radius:11px;background:#f8fafc;color:#0f172a;outline:none;text-transform:uppercase">'
-    +   '<button id="cdkeyGateBtn" style="padding:15px 28px;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;font-weight:800;font-size:13.5px;border:none;border-radius:11px;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;font-family:inherit;box-shadow:0 6px 16px rgba(6,182,212,0.30)">✓ 인증하기</button>'
-    + '</div>'
-    + '<div id="cdkeyGateMsg" style="padding:0 28px;margin-top:10px;font-size:11.5px;font-weight:700;display:none;min-height:16px"></div>'
-    + '<div style="padding:16px 28px 22px;margin-top:8px;font-size:11px;color:#94a3b8;line-height:1.6;border-top:1px solid rgba(15,23,42,0.06)">'
-    +   '문의: 오렌지팜 고객센터 <b style="color:#475569;font-family:var(--fm)">1588-3711</b> (평일 09:00~18:00)'
-    + '</div></div>';
+  ov.className='school-entry-gate';
+  ov.setAttribute('role','dialog');
+  ov.setAttribute('aria-modal','true');
+  ov.setAttribute('aria-labelledby','cdkeyGateTitle');
+  ov.innerHTML="<div class=\"school-entry-shell\">\n  <div class=\"school-entry-brand\"><div class=\"school-entry-brand-top\">\n  <img class=\"school-entry-logo\" src=\"assets/icons/orangetalk_logo.png\" alt=\"오렌지톡\" width=\"184\" height=\"64\">\n  <span class=\"school-entry-edition\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m3 10 9-7 9 7M5 9v12h14V9M9 21v-6h6v6M10 8h4M8 12h.01M16 12h.01\"/></svg><span>초·중·고등학교<br>보건교사용</span></span>\n</div></div>\n  <section class=\"school-entry-panel school-auth-panel\" aria-labelledby=\"cdkeyGateTitle\">\n    <div class=\"school-choice-access school-auth-access\">\n      <div class=\"school-choice-welcome\">\n        <p class=\"school-choice-eyebrow\">오렌지톡 시작하기</p>\n        <h1 id=\"cdkeyGateTitle\">인증코드를 등록해 주세요</h1>\n        <p class=\"school-entry-intro\">발급받은 인증코드로 선생님의 보건실을 시작해 보세요.</p>\n      </div>\n      <div class=\"school-license-form school-auth-form\">\n        <label for=\"cdkeyGateInput\">인증코드</label>\n        <input id=\"cdkeyGateInput\" type=\"text\" placeholder=\"ABCD-1234\" maxlength=\"9\" autocomplete=\"off\" autocapitalize=\"characters\" spellcheck=\"false\" aria-describedby=\"cdkeyGateHint cdkeyGateMsg\">\n        <p id=\"cdkeyGateHint\" class=\"school-entry-footnote\">영문과 숫자로 구성된 8자리 코드를 입력해 주세요.</p>\n        <button type=\"button\" id=\"cdkeyGateBtn\" class=\"school-entry-primary\">인증코드 등록 <span aria-hidden=\"true\">→</span></button>\n        <div id=\"cdkeyGateMsg\" role=\"status\" aria-live=\"polite\" style=\"display:none\"></div>\n      </div>\n    </div>\n    <aside class=\"school-choice-story\" aria-labelledby=\"cdkeyStoryTitle\">\r\n          <img class=\"school-choice-watermark\" src=\"assets/logo/orangefarm_logo.png\" alt=\"\" aria-hidden=\"true\">\r\n          <div class=\"school-choice-story-content\">\r\n            <p class=\"school-choice-eyebrow\"><span class=\"school-choice-leaf\" aria-hidden=\"true\"></span> 오렌지팜과 함께하는 학교 보건실</p>\r\n            <h2 id=\"cdkeyStoryTitle\">작은 돌봄이 쌓이는 곳,<br><em>선생님의 보건실.</em></h2>\r\n            <p class=\"school-choice-story-copy\">아이들의 하루를 살피는 선생님 곁에서,<br>기록과 일정은 오렌지톡이 함께할게요.</p>\r\n            <section class=\"school-choice-news\" aria-labelledby=\"cdkeyUpdatesTitle\">\r\n              <div class=\"school-choice-news-heading\"><h3 id=\"cdkeyUpdatesTitle\">패치노트</h3></div>\r\n              <div class=\"school-choice-release-list\" data-school-release-notes></div>\r\n            </section>\r\n          </div>\r\n        </aside>\n  </section>\n</div>";
   document.body.appendChild(ov);
+  renderSchoolReleaseNotes(ov);
   const inp=document.getElementById('cdkeyGateInput');
   const btn=document.getElementById('cdkeyGateBtn');
-  const myp=document.getElementById('cdkeyGateMypage');
   if(btn) btn.addEventListener('click', _gateVerify);
   if(inp){
-    /* 자동 하이픈 — 4자리 입력 시 '-' 부착 (ABCD1234 → ABCD-1234) */
     inp.addEventListener('input', function(){
       let v=String(this.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
       if(v.length>4) v=v.slice(0,4)+'-'+v.slice(4,8);
@@ -244,10 +230,6 @@ function _showCdkeyGate(){
     inp.addEventListener('keydown', function(e){ if(e.key==='Enter') _gateVerify(); });
     setTimeout(function(){ try{ inp.focus(); }catch(_){} }, 60);
   }
-  if(myp) myp.addEventListener('click', function(e){
-    e.preventDefault();
-    try{ if(window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal('https://www.school114.org'); }catch(_){}
-  });
 }
 
 async function _gateVerify(){
@@ -284,6 +266,7 @@ async function _runCdkeyGateCheck(){
   try{
     const v=await window.electronAPI.updaterGetVersion();
     version=(v && v.version) || '';
+
     if(v && typeof v.isPackaged==='boolean') isPackaged=v.isPackaged;
   }catch(_){ return; }
 
@@ -307,7 +290,7 @@ async function _runBetaExpiryCheck(){
   return;
 }
 /* DOM 준비 즉시 실행 — 인증 게이트는 다른 부트스트랩보다 먼저 보여야 함 */
-function _runLaunchGates(){ _runBetaExpiryCheck(); _runCdkeyGateCheck(); }
+function _runLaunchGates(){ renderSchoolReleaseNotes(); _runBetaExpiryCheck(); _runCdkeyGateCheck(); }
 if(document.readyState==='loading'){
   document.addEventListener('DOMContentLoaded', _runLaunchGates);
 } else {
@@ -365,7 +348,7 @@ if(viewFragmentLoader){
             + '<div style="font-size:11px;color:var(--t2);line-height:1.6;margin-bottom:10px">매칭되지 않은 동명이인이 남아 있습니다. 정확한 입력을 위해 매칭 작업을 완료해 주세요.</div>'
             + '<div style="display:flex;gap:6px;justify-content:flex-end">'
             + '<button id="ambNotifyLater" style="padding:6px 12px;font-size:11px;border-radius:6px;border:1px solid var(--bdr);background:var(--bg2);color:var(--t3);cursor:pointer;font-family:inherit">나중에</button>'
-            + '<button id="ambNotifyNow" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:6px;border:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;cursor:pointer;font-family:inherit">지금 처리</button>'
+            + '<button id="ambNotifyNow" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:6px;border:none;background:#dc2626;color:#fff;cursor:pointer;font-family:inherit">지금 처리</button>'
             + '</div>';
           document.body.appendChild(ov);
           ov.querySelector('#ambNotifyLater').addEventListener('click', function(){ ov.remove(); });

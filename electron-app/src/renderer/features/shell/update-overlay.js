@@ -26,8 +26,8 @@
       '@keyframes uoShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}'+
       '#updateOverlayRoot{position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px;animation:uoFadeIn .25s ease}'+
       '#updateOverlayRoot .uo-card{background:var(--card,#fff);border:1px solid var(--bdr,rgba(15,23,42,0.10));border-radius:16px;width:480px;max-width:92vw;box-shadow:0 28px 70px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.10);overflow:hidden;animation:uoPopIn .22s cubic-bezier(.2,.9,.3,1.1);font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo",sans-serif}'+
-      '#updateOverlayRoot .uo-head{padding:20px 24px 16px;border-bottom:1px solid var(--bdr,rgba(15,23,42,0.10));display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,rgba(6,182,212,0.07),transparent)}'+
-      '#updateOverlayRoot .uo-icon{width:36px;height:36px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;line-height:1;box-shadow:0 4px 12px rgba(6,182,212,0.30)}'+
+      '#updateOverlayRoot .uo-head{padding:20px 24px 16px;border-bottom:1px solid var(--bdr,rgba(15,23,42,0.10));display:flex;align-items:center;gap:14px;background:rgba(6,182,212,0.07)}'+
+      '#updateOverlayRoot .uo-icon{width:36px;height:36px;border-radius:10px;flex-shrink:0;background:#0891b2;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;line-height:1;box-shadow:0 4px 12px rgba(6,182,212,0.30)}'+
       '#updateOverlayRoot .uo-title{font-size:16px;font-weight:800;color:var(--t1,#0f172a);letter-spacing:-0.2px}'+
       '#updateOverlayRoot .uo-body{padding:22px 26px 14px;font-size:13.5px;color:var(--t1,#0f172a);line-height:1.85;font-weight:500}'+
       '#updateOverlayRoot .uo-body b{font-weight:800}'+
@@ -37,8 +37,8 @@
       '#updateOverlayRoot .uo-progress-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11.5px;font-weight:700;color:var(--t2,#475569)}'+
       '#updateOverlayRoot .uo-progress-percent{font-family:"JetBrains Mono","SF Mono",Consolas,monospace;font-weight:800;color:#0891b2;font-size:13px}'+
       '#updateOverlayRoot .uo-progress-track{height:10px;background:rgba(6,182,212,0.10);border:1px solid rgba(6,182,212,0.20);border-radius:8px;overflow:hidden;position:relative}'+
-      '#updateOverlayRoot .uo-progress-fill{height:100%;background:linear-gradient(90deg,#06b6d4,#0891b2);border-radius:7px;transition:width 0.25s linear;position:relative;width:0%;box-shadow:0 0 8px rgba(6,182,212,0.35)}'+
-      '#updateOverlayRoot .uo-progress-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.30) 50%,transparent 100%);animation:uoShimmer 1.5s linear infinite}';
+      '#updateOverlayRoot .uo-progress-fill{height:100%;background:#0891b2;border-radius:7px;transition:width 0.25s linear;position:relative;width:0%;box-shadow:0 0 8px rgba(6,182,212,0.35)}'+
+      '#updateOverlayRoot .uo-progress-fill::after{content:"";position:absolute;inset:0;background:transparent;animation:uoShimmer 1.5s linear infinite}';
     document.head.appendChild(s);
   }
 
@@ -60,13 +60,13 @@
     ov.id='uoDiagRoot';
     ov.style.cssText='position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);padding:24px;font-family:"Malgun Gothic","맑은 고딕",-apple-system,sans-serif';
     ov.innerHTML='<div style="background:var(--card,#fff);border:1px solid var(--bdr,rgba(15,23,42,0.12));border-radius:14px;width:500px;max-width:94vw;max-height:88vh;box-shadow:0 24px 60px rgba(0,0,0,0.45);overflow:hidden;display:flex;flex-direction:column">'
-      +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr,#e5e7eb);background:linear-gradient(180deg,rgba(6,182,212,0.08),transparent);font-size:15px;font-weight:800;color:var(--t1,#0f172a);flex-shrink:0">'+head+'</div>'
+      +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr,#e5e7eb);background:rgba(6,182,212,0.08);font-size:15px;font-weight:800;color:var(--t1,#0f172a);flex-shrink:0">'+head+'</div>'
       +'<div style="padding:16px 20px 8px;font-size:13px;color:var(--t1,#0f172a);line-height:1.8;flex-shrink:0">'+msg+'</div>'
       +'<div style="margin:0 20px 12px;padding:11px 13px;background:var(--bg2,#f1f5f9);border:1px solid var(--bdr,#e5e7eb);border-radius:8px;font-family:Consolas,monospace;font-size:11px;color:var(--t2,#475569);line-height:1.6;white-space:pre-wrap;word-break:break-all;overflow-y:auto;flex:1 1 auto;min-height:0">'+_escHtml(text)+'</div>'
       +'<div style="display:flex;gap:7px;justify-content:flex-end;padding:11px 18px;border-top:1px solid var(--bdr,#e5e7eb);flex-shrink:0">'
       +'<button data-act="copy" style="padding:8px 16px;font-size:12px;font-weight:700;border-radius:7px;border:1px solid var(--cyan,#06b6d4);background:rgba(6,182,212,0.10);color:#0891b2;cursor:pointer;font-family:inherit">📋 진단 정보 복사</button>'
       +'<button data-act="restart" style="padding:8px 16px;font-size:12px;font-weight:700;border-radius:7px;border:1px solid var(--bdr,#cbd5e1);background:var(--bg2,#f1f5f9);color:var(--t2,#475569);cursor:pointer;font-family:inherit">↻ 다시 시작</button>'
-      +'<button data-act="close" style="padding:8px 16px;font-size:12px;font-weight:800;border-radius:7px;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;cursor:pointer;font-family:inherit">닫고 계속 사용</button>'
+      +'<button data-act="close" style="padding:8px 16px;font-size:12px;font-weight:800;border-radius:7px;border:none;background:#0891b2;color:#fff;cursor:pointer;font-family:inherit">닫고 계속 사용</button>'
       +'</div></div>';
     document.body.appendChild(ov);
     const close=function(){ ov.remove(); };

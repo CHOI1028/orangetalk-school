@@ -1,14 +1,14 @@
 <!-- Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. -->
   <div id="view-dashboard" class="view fade-in">
-    <div class="stats-period-tabs" id="dashPeriodTabs">
+    <div class="stats-period-tabs school-subnav" id="dashPeriodTabs">
       <div class="stats-period-tab active" data-period="today">오늘</div>
       <div class="stats-period-tab" data-period="week">주간</div>
       <div class="stats-period-tab" data-period="month">월간</div>
       <div class="stats-period-tab" data-period="semester">학기</div>
       <div class="stats-period-tab" data-period="year">연도</div>
       <div class="stats-period-tab" data-period="custom">기간 선택</div>
-      <!-- 방문 순위 / 상담실적 — 기간 선택 탭에서 약 3cm 간격 (사용자 요청 2026-06-12) -->
-      <div style="margin-left:0.7cm;display:flex;align-items:flex-end">
+      <!-- 방문 순위 / 상담실적: 그룹 구분은 유지하고 내부 간격은 공통 탭 기준을 따름. -->
+      <div style="margin-left:0.7cm;display:flex;align-items:flex-end;gap:inherit;flex:0 0 auto">
         <div class="stats-period-tab" data-dash-view="rank">방문 순위</div>
         <div class="stats-period-tab" data-dash-view="counsel">상담실적</div>
       </div>

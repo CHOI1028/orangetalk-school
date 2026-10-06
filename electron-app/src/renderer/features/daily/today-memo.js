@@ -318,7 +318,7 @@ function _openGearPop(anchorBtn){
     segBtns += '<button data-tmcol="' + n + '" style="border:1px solid ' + (n === st.cols ? 'rgba(132,204,22,0.5)' : 'var(--bdr)') + ';background:' + (n === st.cols ? 'rgba(132,204,22,0.16)' : 'var(--bg2)') + ';color:' + (n === st.cols ? '#4d7c0f' : 'var(--t2)') + ';border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f)">' + n + '칸</button>';
   });
   pop.innerHTML =
-    '<div style="padding:10px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800;color:var(--t1)">⚙ 오늘의 메모 설정</div>'
+    '<div style="padding:10px 16px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:12.5px;font-weight:800;color:var(--t1)">⚙ 오늘의 메모 설정</div>'
     + '<div style="padding:12px 16px">'
       + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;font-size:12px">'
         + '<label style="width:56px;color:var(--t2);font-weight:700;font-size:11.5px;flex-shrink:0">칸 수</label>'

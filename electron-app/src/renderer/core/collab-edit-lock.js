@@ -87,7 +87,7 @@ export function showEditLockWarning(name){
     const who = (name && String(name).trim()) ? (escHtml(String(name).trim()) + ' 선생님') : '다른 선생님';
     ov.innerHTML =
       '<div class="modal-content" style="width:380px;max-width:92vw;padding:0;border-radius:14px;overflow:hidden;transform:scale(0.94);opacity:0;transition:transform .22s cubic-bezier(0.34,1.56,0.64,1),opacity .2s ease;box-shadow:0 14px 50px rgba(0,0,0,0.3)">'
-      + '<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(168,85,247,0.06));border-bottom:1px solid var(--bdr);color:var(--t1);font-size:14px;font-weight:800">⚠️ 동시 수정 주의</div>'
+      + '<div style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);color:var(--t1);font-size:14px;font-weight:800">⚠️ 동시 수정 주의</div>'
       + '<div style="padding:22px 24px;text-align:center;background:var(--card)">'
       +   '<div style="font-size:34px;margin-bottom:10px">✏️</div>'
       +   '<div style="font-size:13px;color:var(--t1);line-height:1.7">지금 <b style="color:var(--cyan)">' + who + '</b>이 이 학생을 수정 중입니다.<br><span style="font-size:11.5px;color:var(--t3)">그래도 열면 마지막에 저장한 내용이 우선됩니다.</span></div>'

@@ -398,8 +398,8 @@ function _rlRenderButtons(){
   const panel = document.getElementById('rlBtnPanel');
   if(!panel) return;
   panel.innerHTML = ''
-    +'<button data-action="showMessage" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(168,85,247,0.08));color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>'
-    +'<button data-action="exportExcel" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(22,163,74,0.25);display:flex;align-items:center;justify-content:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>Excel 다운로드</button>'
+    +'<button data-action="showMessage" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.25);border-radius:7px;cursor:pointer;font-family:var(--f)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>안내 메시지 미리보기 & 복사</button>'
+    +'<button data-action="exportExcel" style="width:100%;padding:9px 14px;font-size:11px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f);box-shadow:0 2px 6px rgba(22,163,74,0.25);display:flex;align-items:center;justify-content:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>Excel 다운로드</button>'
     +'<button class="btn-print btn-block" data-action="print" style="padding:9px 14px">🖨 인쇄</button>';
   panel.addEventListener('click', function(e){
     const el = e.target.closest('[data-action]');
@@ -1149,7 +1149,7 @@ function _rlShowMessage(){
     const _itemName=(target&&target.item)||'(물품)';
     let h = '<div class="modal-content" style="width:620px;max-width:95vw;padding:0;border-radius:14px;overflow:hidden">';
     /* 헤더 */
-    h += '<div style="padding:16px 22px;background:linear-gradient(180deg,rgba(6,182,212,0.08),rgba(6,182,212,0.02));border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
+    h += '<div style="padding:16px 22px;background:rgba(6,182,212,0.08);border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">'
       +  '<div><div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:2px">📩 안내 메시지</div>'
       +  '<div style="font-size:10.5px;color:var(--t3)">담임·학부모에게 전달할 반납 안내 문구입니다</div></div>'
       +  '</div>';
@@ -1169,7 +1169,7 @@ function _rlShowMessage(){
       +  '</div>';
     /* 액션 바 */
     h += '<div style="display:flex;gap:10px;align-items:center;padding-top:12px;border-top:1px dashed var(--bdr)">';
-    h += '<button data-action="copyMsg" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;font-size:12px;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(6,182,212,0.25);transition:transform .15s,box-shadow .15s" data-hover-in="transform:translateY(-1px);boxShadow:0 6px 18px rgba(6,182,212,0.35)" data-hover-out="transform:translateY(0);boxShadow:0 4px 12px rgba(6,182,212,0.25)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드에 복사</button>';
+    h += '<button data-action="copyMsg" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;font-size:12px;font-weight:700;border:none;border-radius:10px;background:#0891b2;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(6,182,212,0.25);transition:transform .15s,box-shadow .15s" data-hover-in="transform:translateY(-1px);boxShadow:0 6px 18px rgba(6,182,212,0.35)" data-hover-out="transform:translateY(0);boxShadow:0 4px 12px rgba(6,182,212,0.25)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드에 복사</button>';
     h += '<span style="flex:1;font-size:10px;color:var(--t3);line-height:1.5">자동 생성 부분은 대상·물품·날짜가 변경되면 자동 반영됩니다.</span>';
     h += '</div>';
     h += '</div></div>';

@@ -12,7 +12,7 @@
 :root{--cyan:#0891b2;--purple:#8b5cf6;--bdr:#e2e8f0;--bg:#f8fafc;--t1:#0f172a;--t2:#475569;--t3:#94a3b8;--rs:#dc2626;--gs:#16a34a;}
 *{box-sizing:border-box}
 body{margin:0;font-family:"Pretendard Variable","Pretendard","Noto Sans KR","맑은 고딕",sans-serif;background:var(--bg);color:var(--t1);font-size:13px;line-height:1.6}
-header{padding:18px 24px 16px;background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(139,92,246,0.07));border-bottom:1px solid var(--bdr);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+header{padding:18px 24px 16px;background:rgba(6,182,212,0.12);border-bottom:1px solid var(--bdr);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 header img.logo{height:64px;width:auto;display:block;margin-bottom:2px}
 header h1{font-size:20px;font-weight:800;margin:0;color:var(--t1)}
 header .sub{font-size:11.5px;color:var(--t3);margin-top:2px}
@@ -21,12 +21,12 @@ main{display:grid;grid-template-columns:1fr 460px;gap:18px;max-width:1560px;marg
 .left,.right{display:flex;flex-direction:column;gap:14px}
 .card{background:#fff;border:1px solid var(--bdr);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .step-title{font-size:14px;font-weight:800;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;font-size:12px;font-weight:800}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--cyan);color:#fff;font-size:12px;font-weight:800}
 .desc{font-size:11.5px;color:var(--t2);margin-bottom:10px}
 .drop{border:2px dashed var(--bdr);border-radius:10px;padding:28px;text-align:center;color:var(--t3);cursor:pointer;transition:all .15s;background:var(--bg)}
 .drop:hover,.drop.over{border-color:var(--cyan);background:rgba(6,182,212,0.05);color:var(--cyan)}
 .btn{border:0;border-radius:8px;padding:9px 18px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
-.btn-primary{background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;box-shadow:0 4px 12px rgba(6,182,212,0.25)}
+.btn-primary{background:var(--cyan);color:#fff;box-shadow:0 4px 12px rgba(6,182,212,0.25)}
 .btn-ghost{background:var(--bg);color:var(--t1);border:1px solid var(--bdr)}
 .btn-sm{padding:6px 12px;font-size:11.5px}
 table{width:100%;border-collapse:collapse;font-size:11.5px}
@@ -689,7 +689,7 @@ function detectMissingRequired(){
   if(symEmpty||treatEmpty){
     var parts=[]; if(symEmpty) parts.push('증상 '+symEmpty); if(treatEmpty) parts.push('처치 '+treatEmpty);
     html+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-      +'<button type="button" id="bulkFillSymTreat" class="btn btn-sm" style="background:linear-gradient(135deg,var(--cyan),#0e7490);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(6,182,212,0.25)">증상·처치 빈칸 일괄 &lsquo;.&rsquo; 기입 ('+parts.join(' · ')+'건)</button>'
+      +'<button type="button" id="bulkFillSymTreat" class="btn btn-sm" style="background:var(--cyan);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(6,182,212,0.25)">증상·처치 빈칸 일괄 &lsquo;.&rsquo; 기입 ('+parts.join(' · ')+'건)</button>'
       +'<span style="font-size:11px;color:var(--t2)">증상·처치가 비어 있는 기록을 한 번에 마침표(.)로 채웁니다. 건건이 직접 입력하려면 아래 칩을 누르세요.</span>'
       +'</div>';
   }

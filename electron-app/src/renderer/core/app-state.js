@@ -248,9 +248,61 @@ export function addInfRecord(rec) { _state.infRecords.push(rec); bus.emit('rende
 /* settings */
 
 /* kiosk settings save */
+let _kioskSettingsWrites=0;
+let _kioskSettingsVersion=0;
+let _kioskSettingsDirty=false;
+let _kioskSettingsWriteQueue=Promise.resolve();
+let _kioskSettingsLoad=null;
+
 export function saveKioskSettings() {
-  localStorage.setItem('ec_kiosk', JSON.stringify(_state.kioskSettings));
-  if (window.electronAPI && window.electronAPI.jsonSaveCommon) window.electronAPI.jsonSaveCommon('kiosk_settings', _state.kioskSettings);
+  const data=JSON.parse(JSON.stringify(_state.kioskSettings));
+  localStorage.setItem('ec_kiosk', JSON.stringify(data));
+  const version=++_kioskSettingsVersion;
+  _kioskSettingsDirty=true;
+  const api=window.electronAPI;
+  if(!api || !api.jsonSaveCommon) return Promise.resolve(false);
+  _kioskSettingsWrites++;
+  _kioskSettingsWriteQueue=_kioskSettingsWriteQueue.then(async function(){
+    try{
+      const result=await api.jsonSaveCommon('kiosk_settings',data);
+      if(result && result.success===false) throw new Error('Kiosk settings save failed');
+      if(version===_kioskSettingsVersion) _kioskSettingsDirty=false;
+      bus.emit('kiosk:sidebar-refresh');
+      return true;
+    }catch(_){
+      bus.emit('toast:show',{text:'키오스크 설정을 저장하지 못했습니다. 연결을 확인한 뒤 다시 저장해 주세요.'});
+      return false;
+    }finally{ _kioskSettingsWrites--; }
+  });
+  return _kioskSettingsWriteQueue;
+}
+
+/* Shared browsers read the host's settings, never restore stale local channels.
+ * Preserve object identity: the kiosk editor/builder retain a reference to it. */
+export function refreshSharedKioskSettings(){
+  if(!window.__isWebBrowser || _kioskSettingsWrites || _kioskSettingsDirty) return Promise.resolve(false);
+  if(_kioskSettingsLoad) return _kioskSettingsLoad;
+  const api=window.electronAPI;
+  if(!api || (!api.dbGet && !api.jsonLoadCommon)) return Promise.resolve(false);
+  const version=_kioskSettingsVersion;
+  const before=JSON.stringify(_state.kioskSettings);
+  _kioskSettingsLoad=Promise.resolve().then(function(){
+    return api.dbGet ? api.dbGet('common','kiosk_settings') : api.jsonLoadCommon('kiosk_settings');
+  }).then(function(result){
+    if(!result || result.success!==true) return false;
+    const data=result.exists===false ? {} : result.data;
+    if(!data || typeof data!=='object' || Array.isArray(data)) return false;
+    if(_kioskSettingsWrites || _kioskSettingsDirty || version!==_kioskSettingsVersion ||
+       before!==JSON.stringify(_state.kioskSettings)) return false;
+    const first=!S._kioskSharedLoaded;
+    Object.keys(_state.kioskSettings).forEach(function(k){delete _state.kioskSettings[k];});
+    Object.assign(_state.kioskSettings,data);
+    localStorage.setItem('ec_kiosk',JSON.stringify(_state.kioskSettings));
+    S._kioskSharedLoaded=true;
+    if(first || before!==JSON.stringify(data)) bus.emit('kiosk:sidebar-refresh');
+    return true;
+  }).catch(function(){return false;}).finally(function(){_kioskSettingsLoad=null;});
+  return _kioskSettingsLoad;
 }
 
 /* ═══ DevTools ═══ */

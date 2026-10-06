@@ -1,3 +1,6 @@
+import { normalizeKioskTextScale, scaleKioskTextCss } from './kiosk-text-size.js';
+import { kioskCallRuntimeSource } from './kiosk-call-audio.js';
+import { kioskReceptionRuntimeSource } from './kiosk-reception-runtime.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module — 키오스크 HTML 생성기 (다운로드 + 미리보기 통합) */
 import { showLoading, hideLoading, closeModalGracefully } from '../../core/helpers.js';
@@ -439,7 +442,7 @@ export function buildKioskHtml(flow, options){
         + '<select id="personType_' + sec.id + '" class="kiosk-select" data-action="search-person-sec" data-sec-id="' + sec.id + '"><option value="student">학생</option><option value="staff">교직원</option></select>'
         + '<input type="text" id="personSearch_' + sec.id + '" class="kiosk-input" placeholder="이름 또는 학년·반·번호를 입력하세요" data-action="search-person-sec" data-sec-id="' + sec.id + '"></div>'
         + '<div id="searchResults_' + sec.id + '" class="search-results"></div>'
-        + '<div id="selectedPerson_' + sec.id + '" style="margin-top:10px;font-size:14px;color:#0891b2;font-weight:700;text-align:center"></div>'
+        + '<div id="selectedPerson_' + sec.id + '" class="selected-person-summary"></div>'
         + '<button class="confirm-btn" id="confirm-' + sec.id + '" style="display:none" data-action="confirm-person-search" data-sec-id="' + sec.id + '">확인</button></div>';
     }
     else if(sec.type === 'guide'){
@@ -504,6 +507,7 @@ export function buildKioskHtml(flow, options){
     /* 전체 화면(웹 requestFullscreen) — 관리자가 의도해 누름. 안드로이드 크롬·삼성인터넷은 진짜 전체화면.
        (브라우저가 좌상단 "끄기 X"를 띄울 수 있고 웹코드로 못 없앤다. X 없는 전체화면은 아래 가이드의 '홈 화면에 추가'.) 사용자 요청 2026-06-14. */
     + '<button class="confirm-btn" id="gear-fs-btn" data-action="gear-fullscreen" style="margin:0">⛶ 전체 화면</button>'
+    + '<button class="confirm-btn" data-action="gear-call-test" style="margin:0">호출 소리 확인</button>'
     + '<button class="confirm-btn" data-action="gear-lock-guide" style="margin:0;background:#475569">📱 전체화면·화면 잠금 방법</button>'
     + '</div>'
     + '<button class="confirm-btn" data-action="gear-panel-close" style="margin-top:16px;background:#94a3b8">닫기</button>'
@@ -654,6 +658,7 @@ export function buildKioskHtml(flow, options){
       + '<button id="kioskGearBtn" data-action="kiosk-gear" style="width:34px;height:34px;border:none;border-radius:10px;background:rgba(255,255,255,0.85);color:#475569;font-size:17px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-left:8px" title="관리">⚙️<\/button><\/div>'
       + '<\/div>'
       + '<div class="kiosk-portrait">'
+      + '<div class="kiosk-portrait-queue">'+queueCardHtml+'<\/div>'
       + '<div class="kiosk-portrait-main">' + screensHtml + '<\/div>'
       + '<div class="kiosk-portrait-footer">' + langHtml + '<\/div>'
       + '<\/div>';
@@ -667,7 +672,7 @@ export function buildKioskHtml(flow, options){
       + '<button id="kioskGearBtn" data-action="kiosk-gear" style="width:34px;height:34px;border:none;border-radius:10px;background:rgba(255,255,255,0.85);color:#475569;font-size:17px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-left:8px" title="관리">⚙️<\/button><\/div>'
       + '<\/div>'
       + '<div class="kiosk-split">'
-      + '<div class="kiosk-left"><div class="kiosk-left-inner">' + rulesCardHtml + queueCardHtml + langHtml + '<\/div><\/div>'
+      + '<div class="kiosk-left"><div class="kiosk-left-inner">' + queueCardHtml + '<details class="kiosk-guide"'+(ks.compactGuide===false?' open':'')+'><summary>보건실 이용 안내</summary>'+rulesCardHtml+'</details>' + langHtml + '<\/div><\/div>'
       + '<div class="kiosk-right">' + screensHtml + '<\/div>'
       + '<\/div>';
   }
@@ -677,11 +682,11 @@ export function buildKioskHtml(flow, options){
   const html = '<!DOCTYPE html>\n<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">'
     + '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="보건실 키오스크">'
     + '<title>' + _esc(school) + ' 보건실 키오스크<\/title>'
-    + '<style>' + _kioskCss(isPortrait) + '<\/style><\/head><body class="' + (isPortrait?'want-portrait':'want-landscape') + '">'
+    + '<style>' + _kioskCss(isPortrait) + scaleKioskTextCss(_kioskReadableCss(), ks.textScale) + '<\/style><\/head><body class="' + (isPortrait?'want-portrait':'want-landscape') + '">'
     + bodyHtml
     + bmModalHtml
     + stModalHtml
-    + '<scr' + 'ipt>' + _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, options.dingdongB64 || '', KIOSK_I18N, _stData) + '<\/scr' + 'ipt>'
+    + '<scr' + 'ipt>' + _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, options.dingdongB64 || '', KIOSK_I18N, _stData, isPreview) + '<\/scr' + 'ipt>'
     + '<\/body><\/html>';
 
   return html;
@@ -772,6 +777,7 @@ function _buildAndUpload(bgBase64List, getFlowFn, bmMap, dingdongB64, done, onUp
   /* 온디맨드 명단 암호화 키 — 채널당 1개. 없으면 생성·저장. URL #rk= 로 키오스크와 공유(릴레이는 못 봄). (2026-06-14) */
   if(!ks.rosterSecret){ try { ks.rosterSecret = genRosterSecret(); saveKioskSettings(); } catch(_){} }
   /* ★ 릴레이 업로드본은 이름을 임베드하지 않는다(embedRoster:false) — 서버에 명단 평문이 남지 않게. */
+  const generatedTextScale=normalizeKioskTextScale(ks.textScale);
   const html = buildKioskHtml(flow, { school: school, bgBase64List: bgImages, bmMap: bmMap, dingdongB64: dingdongB64, embedRoster: false });
 
   const relayUrl = ks.relayUrl || DEFAULT_RELAY_URL;
@@ -795,6 +801,7 @@ function _buildAndUpload(bgBase64List, getFlowFn, bmMap, dingdongB64, done, onUp
       /* ★ 실제로 생성·업로드된 방향·유형을 기록 — 이후 설정만 바꾸고 재생성 안 하면 "재생성 필요" 표시용 (2026-06-14) */
       ks.genOrient = (ks.kioskOrientation === 'portrait') ? 'portrait' : 'landscape';
       ks.genType = ks.kioskType || 'basic';
+      ks.genTextScale = generatedTextScale;
       try{ saveKioskSettings(); }catch(_){}
       try{ bus.emit('kiosk:url-ready'); }catch(_){}
       /* 생성/재생성 후엔 활성 토글을 끈 채로 둔다 — 사용자가 직접 켜며 개인정보 동의를 거치게 (사용자 결정 2026-06-14, 옛 자동활성화 역전) */
@@ -874,7 +881,7 @@ export function showKioskUrlPopup(){
   ov.style.cssText = 'position:fixed;inset:0;z-index:10500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)';
   ov.innerHTML =
     '<div class="modal-content" style="padding:0;width:460px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;border-radius:16px;overflow:hidden">'
-    + '<div class="modal-header" style="padding:14px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:8px">'
+    + '<div class="modal-header" style="padding:14px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:8px">'
     +   '<span style="font-size:14px;font-weight:800;color:var(--t1)">키오스크 접속 QR &amp; URL 링크</span>'
     + '</div>'
     + '<div style="padding:20px 24px;overflow-y:auto">'
@@ -1030,100 +1037,7 @@ function _collectPeopleData(){
    미리보기 — 임시 HTML 파일을 웹브라우저로 열기
    ══════════════════════════════════════════ */
 var _previewBusy = false;
-/* [미사용/DEPRECATED 2026-06-15] 옛 외부 브라우저 미리보기 래퍼 — 인앱 베젤 모달(_openBezelPreviewModal)로 교체됨.
- *  호출처 없음. 다음 정리 때 통째로 삭제 예정. (남겨도 동작엔 무해 — pure function)
- *  미리보기 래퍼 — 키오스크 HTML 을 '기기 선택' UI 로 감싼 standalone 페이지 (외부 브라우저에서 열림, CSP 무관). */
-function _buildPreviewWrapper(opts){
-  /* opts = { defaultOrient, typeToggle, defaultType, title, sideDesc }.
-   *  typeToggle 이면 기본형/확장형 토글이 추가되고 iframe 은 4종(kiosk_inner_{basic|ext}_{land|port}.html) 중에서 로드.
-   *  아니면 기존 2종(kiosk_inner_{land|port}.html) — 편집기 미리보기. (메인=예시 갤러리 / 편집기=편집중 미리보기 구분, 사용자 결정 2026-06-15) */
-  opts = opts || {};
-  var defaultOrient = opts.defaultOrient;
-  var typeToggle = !!opts.typeToggle;
-  var defaultType = (opts.defaultType === 'basic') ? 'basic' : 'extended';
-  var headTitle = opts.title || 'HTML로 키오스크 형태 미리보기';
-  var sideDesc = opts.sideDesc || '실제 기기에서 전체화면으로 켤 때 어떻게 보이는지 확인합니다.';
-  /* ph:1 = 휴대폰(고르면 자동 세로). lo=긴변, sh=짧은변. 방향(가로/세로)에 따라 w/h 가 JS 에서 결정됨. */
-  var devGroups = [
-    { grp:'태블릿',        list:[ {n:'아이패드', lo:1024, sh:768, ph:0}, {n:'갤럭시탭', lo:1280, sh:800, ph:0} ] },
-    { grp:'갤럭시 휴대폰', list:[ {n:'갤럭시 S시리즈', lo:780, sh:360, ph:1}, {n:'갤럭시 노트', lo:883, sh:412, ph:1} ] },
-    { grp:'아이폰',        list:[ {n:'아이폰 일반/프로', lo:844, sh:390, ph:1}, {n:'아이폰 플러스·프로맥스', lo:932, sh:430, ph:1} ] }
-  ];
-  var sideButtons = '';
-  devGroups.forEach(function(g){
-    sideButtons += '<div class="pv-grp"><div class="gt">' + _esc(g.grp) + '<\/div>';
-    g.list.forEach(function(d){
-      sideButtons += '<button class="pv-dev-btn" data-lo="' + d.lo + '" data-sh="' + d.sh + '" data-ph="' + d.ph + '" data-n="' + _esc(d.n) + '">'
-        + '<div class="nm">' + _esc(d.n) + '<\/div><div class="sz"><\/div><\/button>';
-    });
-    sideButtons += '<\/div>';
-  });
-  var startPortrait = (defaultOrient === 'portrait');
-  /* 유형 토글 UI (typeToggle 일 때만) */
-  var typeToggleHtml = typeToggle
-    ? '<div class="pv-ornt pv-type"><button data-t="basic" class="' + (defaultType==='basic'?'on':'') + '">📋 기본형<\/button><button data-t="extended" class="' + (defaultType==='extended'?'on':'') + '">🔀 확장형<\/button><\/div>'
-    : '';
-  /* srcFor — typeToggle 면 (방향,유형) 4종, 아니면 (방향) 2종 */
-  var srcForFn = typeToggle
-    ? 'function srcFor(o){var p=(TYPE==="basic")?"basic":"ext";return o==="portrait"?("kiosk_inner_"+p+"_port.html"):("kiosk_inner_"+p+"_land.html");}'
-    : 'function srcFor(o){return o==="portrait"?"kiosk_inner_port.html":"kiosk_inner_land.html";}';
-  var typeVarJs = typeToggle ? ('var TYPE="' + defaultType + '";') : '';
-  var typeBindJs = typeToggle
-    ? 'function setType(t){if(TYPE!==t){TYPE=t;frame.src=srcFor(ORIENT);}document.querySelectorAll(".pv-type button").forEach(function(x){x.classList.toggle("on",x.dataset.t===t);});applyDev();}'
-      + 'document.querySelectorAll(".pv-type button").forEach(function(b){b.addEventListener("click",function(){setType(b.dataset.t);});});'
-    : '';
-  /* KIOSK_HTML 안의 </script> 가 래퍼 스크립트를 닫지 않도록 이스케이프 */
-  var KH = '';
-  return '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>키오스크 미리보기<\/title><style>'
-    + ':root{--cyan:#0891b2;--t1:#1e293b;--t2:#475569;--t3:#94a3b8;--bdr:#e2e8f0;--card:#fff;--bg2:#f8fafc;--f:\'Pretendard\',\'\\B9D1\\C740 \\ACE0\\B515\',sans-serif}'
-    + '*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--f);background:#1e293b;height:100vh;display:flex;flex-direction:column;color:var(--t1);overflow:hidden}'
-    + '.pv-head{padding:13px 20px;background:#fff;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px}.pv-head .t{font-size:15px;font-weight:800}'
-    + '.pv-body{flex:1;display:flex;min-height:0}'
-    + '.pv-stage{flex:1;min-width:0;background:repeating-conic-gradient(#eef2f7 0 25%,#e6ebf2 0 50%) 50%/22px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;overflow:hidden}'
-    + '.pv-wrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%;min-height:0}'
-    + '.pv-device{background:#0f172a;border-radius:22px;padding:12px;box-shadow:0 18px 50px rgba(0,0,0,0.4);transform-origin:center center;flex-shrink:0}'
-    + '#pvFrame{border:0;background:#000;border-radius:8px;display:block}'
-    + '.pv-meta{font-size:12px;color:var(--t2);background:rgba(255,255,255,0.92);padding:6px 14px;border-radius:999px;border:1px solid var(--bdr)}.pv-meta b{color:var(--cyan)}'
-    + '.pv-div{width:1px;background:var(--bdr)}'
-    + '.pv-side{width:286px;flex-shrink:0;background:var(--bg2);padding:16px 16px 18px;overflow-y:auto}'
-    + '.pv-side .st{font-size:13px;font-weight:800;margin-bottom:3px}.pv-side .sd{font-size:11px;color:var(--t3);line-height:1.5;margin-bottom:14px}'
-    + '.pv-ornt{display:flex;gap:6px;margin-bottom:14px}.pv-ornt button{flex:1;padding:8px;font-size:12px;font-weight:700;border:1.5px solid var(--bdr);background:var(--card);border-radius:8px;cursor:pointer;font-family:var(--f);color:var(--t2)}.pv-ornt button.on{border-color:var(--cyan);background:rgba(6,182,212,0.08);color:var(--cyan)}'
-    + '.pv-grp{margin-bottom:13px}.pv-grp .gt{font-size:10.5px;font-weight:800;color:var(--t2);margin-bottom:7px}'
-    + '.pv-dev-btn{width:100%;text-align:left;background:var(--card);border:1.5px solid var(--bdr);border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer;font-family:var(--f)}'
-    + '.pv-dev-btn:hover{border-color:#67e8f9}.pv-dev-btn.on{border-color:var(--cyan);background:rgba(6,182,212,0.08)}'
-    + '.pv-dev-btn .nm{font-size:12px;font-weight:700;color:var(--t1)}.pv-dev-btn.on .nm{color:var(--cyan)}.pv-dev-btn .sz{font-size:10px;color:var(--t3);margin-top:1px}'
-    + '.pv-note{font-size:10.5px;color:#92400e;line-height:1.6;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);border-radius:8px;padding:9px 11px;margin-top:4px}'
-    + '.pv-type{margin-top:-4px}'
-    + '<\/style><\/head><body>'
-    + '<div class="pv-head"><span class="t">' + _esc(headTitle) + '<\/span><\/div>'
-    + '<div class="pv-body">'
-    +   '<div class="pv-stage"><div class="pv-wrap"><div class="pv-device" id="pvDevice"><iframe id="pvFrame"><\/iframe><\/div><\/div><div class="pv-meta" id="pvMeta"><\/div><\/div>'
-    +   '<div class="pv-div"><\/div>'
-    +   '<div class="pv-side"><div class="st">기기 선택<\/div><div class="sd">' + _esc(sideDesc) + '<\/div>'
-    +     '<div class="pv-ornt"><button data-o="landscape" class="' + (startPortrait?'':'on') + '">🖥️ 가로<\/button><button data-o="portrait" class="' + (startPortrait?'on':'') + '">📲 세로<\/button><\/div>'
-    +     typeToggleHtml
-    +     sideButtons
-    +     '<div class="pv-note">💡 휴대폰(갤럭시 S·노트, 아이폰)은 <b>세로형이 적절<\/b>합니다. 휴대폰을 고르면 자동으로 세로로 표시되며, 이용수칙이 위로 올라옵니다. 태블릿(갤럭시탭·아이패드)은 가로·세로 모두 적합합니다.<\/div>'
-    +   '<\/div>'
-    + '<\/div>'
-    + '<scr' + 'ipt>'
-    +   'var ORIENT="' + (startPortrait?'portrait':'landscape') + '";'
-    +   typeVarJs
-    +   'var frame=document.getElementById("pvFrame"),device=document.getElementById("pvDevice"),wrap=document.querySelector(".pv-wrap"),meta=document.getElementById("pvMeta"),cur=null;'
-    +   srcForFn
-    +   'function dimsOf(b){var lo=+b.dataset.lo,sh=+b.dataset.sh;return ORIENT==="portrait"?{w:sh,h:lo}:{w:lo,h:sh};}'
-    +   'function updateSizes(){document.querySelectorAll(".pv-dev-btn").forEach(function(b){var d=dimsOf(b),sz=b.querySelector(".sz");if(sz)sz.textContent=d.w+" \\u00D7 "+d.h;});}'
-    +   'function applyDev(){if(!cur)return;var d=dimsOf(cur);frame.style.width=d.w+"px";frame.style.height=d.h+"px";device.style.transform="scale(1)";var aw=wrap.clientWidth-24,ah=wrap.clientHeight-24,dw=device.offsetWidth,dh=device.offsetHeight,s=Math.min(aw/dw,ah/dh,1);if(!(s>0))s=1;device.style.transform="scale("+s+")";meta.innerHTML="<b>"+cur.dataset.n+"<\\/b> \\u00B7 "+d.w+" \\u00D7 "+d.h+" \\u00B7 \\uC804\\uCCB4\\uD654\\uBA74(\\uCD5C\\uB300\\uD654) \\uAE30\\uC900";try{var cw=frame.contentWindow;if(cw)setTimeout(function(){try{if(cw._fitKiosk)cw._fitKiosk();else cw.dispatchEvent(new Event("resize"));}catch(_){}},90);}catch(_){}}'
-    +   'function setOrient(o){if(ORIENT!==o){ORIENT=o;frame.src=srcFor(o);}document.querySelectorAll(".pv-ornt:not(.pv-type) button").forEach(function(x){x.classList.toggle("on",x.dataset.o===o);});updateSizes();applyDev();}'
-    +   'document.querySelectorAll(".pv-ornt:not(.pv-type) button").forEach(function(b){b.addEventListener("click",function(){setOrient(b.dataset.o);});});'
-    +   typeBindJs
-    +   'document.querySelectorAll(".pv-dev-btn").forEach(function(b){b.addEventListener("click",function(){document.querySelectorAll(".pv-dev-btn").forEach(function(x){x.classList.remove("on");});b.classList.add("on");cur=b;if(b.dataset.ph==="1"){setOrient("portrait");}else{applyDev();}});});'
-    +   'frame.addEventListener("load",function(){try{if(frame.contentWindow._fitKiosk)frame.contentWindow._fitKiosk();else frame.contentWindow.dispatchEvent(new Event("resize"));}catch(_){}setTimeout(applyDev,30);});'
-    +   'frame.src=srcFor(ORIENT);updateSizes();'
-    +   'var first=document.querySelector(".pv-dev-btn");if(first)first.click();'
-    +   'window.addEventListener("resize",applyDev);'
-    + '<\/scr' + 'ipt><\/body><\/html>';
-}
+
 
 /* 미리보기 공통 — 바디맵·배경·딩동 압축/로드 후 콜백 (편집기·갤러리 미리보기가 공유) */
 function _previewCompressThen(cb){
@@ -1178,7 +1092,7 @@ function _openBezelPreviewModal(opts){
       '<style>'
     + '#_kbzOverlay .modal-content{width:1180px;max-width:95vw;height:90vh;max-height:90vh;padding:0;overflow:hidden;display:flex;flex-direction:column}'
     /* 헤더 — 선호 모달 그라데이션(시안 0.10 + 보라 0.06, 135deg) */
-    + '#_kbzOverlay .kbz-head{padding:12px 20px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(124,58,237,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;cursor:grab}'
+    + '#_kbzOverlay .kbz-head{padding:12px 20px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;cursor:grab}'
     + '#_kbzOverlay .kbz-head .t{font-size:14px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px}'
     + '#_kbzOverlay .kbz-x{cursor:pointer;font-size:16px;color:var(--t3);padding:4px 10px;line-height:1;border-radius:8px}#_kbzOverlay .kbz-x:hover{background:var(--bg2);color:var(--t1)}'
     + '#_kbzOverlay .kbz-body{flex:1;display:flex;min-height:0}'
@@ -1306,10 +1220,10 @@ function _kioskCss(isPortrait){
     + 'body{font-family:"Pretendard",-apple-system,"Noto Sans KR",sans-serif;position:relative;background:#0f172a}'
     + 'body::after{content:"";position:fixed;inset:0;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);background:rgba(245,247,250,0.35);z-index:1}'
     + '.bg-image{position:fixed;inset:0;background-size:cover;background-position:center;transition:opacity 1.5s ease;z-index:-1}'
-    + '.bg-gradient{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%);background-size:400% 400%;animation:gradientShift 20s ease infinite}'
+    + '.bg-gradient{position:fixed;inset:0;z-index:-2;background:#667eea;background-size:400% 400%;animation:gradientShift 20s ease infinite}'
     + '@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}'
     /* ── 탑바 (글래스모피즘) ── */
-    + '.top-bar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:linear-gradient(135deg,rgba(8,145,178,0.55),rgba(6,182,212,0.45),rgba(14,116,144,0.5),rgba(8,145,178,0.55),rgba(6,182,212,0.45));background-size:300% 100%;animation:headerGrad 15s ease infinite;backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 1px 0 rgba(255,255,255,0.15) inset,0 4px 16px rgba(0,0,0,0.08);border-bottom:0.5px solid rgba(255,255,255,0.18)}'
+    + '.top-bar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(8,145,178,0.55);background-size:300% 100%;animation:headerGrad 15s ease infinite;backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 1px 0 rgba(255,255,255,0.15) inset,0 4px 16px rgba(0,0,0,0.08);border-bottom:0.5px solid rgba(255,255,255,0.18)}'
     + '@keyframes headerGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}'
     + '.tb-school{font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;text-shadow:0 1px 4px rgba(0,0,0,0.1)}'
     + '.tb-school span:first-child{font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.15))}'
@@ -1317,7 +1231,7 @@ function _kioskCss(isPortrait){
     + '.queue-badge{font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:5px 18px;backdrop-filter:blur(4px)}'
     /* ── 스플릿 레이아웃 ── */
     + '.kiosk-split{position:relative;z-index:10;display:flex;width:100%;height:100vh;height:100dvh;height:var(--vph,100dvh);padding-top:56px}'
-    + '.kiosk-left{flex:0 0 42%;max-width:42%;height:100%;overflow:hidden;padding:12px 32px;border-right:2px solid rgba(8,145,178,0.15);background:linear-gradient(180deg,rgba(8,145,178,0.03),rgba(255,255,255,0.01));display:flex;flex-direction:column;justify-content:flex-start;align-items:center}'
+    + '.kiosk-left{flex:0 0 42%;max-width:42%;height:100%;overflow:hidden;padding:12px 32px;border-right:2px solid rgba(8,145,178,0.15);background:rgba(8,145,178,0.03);display:flex;flex-direction:column;justify-content:flex-start;align-items:center}'
     /* 가로 좌패널 콘텐츠 래퍼 — 언어 따라 수칙 길어지면 통째로 비례 축소(_fitLeftPanel) (사용자 요청 2026-06-14) */
     + '.kiosk-left-inner{display:flex;flex-direction:column;align-items:stretch;width:100%;min-height:0;transform-origin:center center}'
     /* ★ inner 래퍼 도입 후엔 카드(수칙·대기인원·언어)를 inner 의 자식으로 타겟해야 폭이 산다 — 안 그러면 대기인원 카드가 작아짐 (사용자 보고 2026-06-14) */
@@ -1347,13 +1261,13 @@ function _kioskCss(isPortrait){
     + '.rules-section{margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(8,145,178,0.1);flex-shrink:0}'
     + '.rules-section:last-of-type{border-bottom:none;margin-bottom:4px;padding-bottom:0}'
     + '.rules-section-title{font-size:14px;font-weight:800;color:#0891b2;margin-bottom:6px;display:flex;align-items:center;gap:6px}'
-    + '.rules-section-title .num{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#065f78);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}'
+    + '.rules-section-title .num{width:22px;height:22px;border-radius:50%;background:#0891b2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}'
     + '.rules-ul{list-style:none;padding:0;margin:0}'
     + '.rules-ul li{font-size:12px;color:#5a6478;line-height:1.7;padding-left:14px;position:relative}'
     + '.rules-ul li::before{content:"";position:absolute;left:3px;top:9px;width:4px;height:4px;border-radius:50%;background:#0891b2;opacity:0.6}'
     + '.rules-ul li.sub{padding-left:26px;color:#8c95a6;font-size:11px}'
     + '.rules-ul li.sub::before{left:16px;background:#8c95a6;width:3px;height:3px;opacity:0.4}'
-    + '.rules-highlight{background:linear-gradient(135deg,rgba(8,145,178,0.08),rgba(6,182,212,0.04));border:1px solid rgba(8,145,178,0.12);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:11px;color:#5a6478;line-height:1.6;display:flex;align-items:center;gap:8px;flex-shrink:0}'
+    + '.rules-highlight{background:rgba(8,145,178,0.08);border:1px solid rgba(8,145,178,0.12);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:11px;color:#5a6478;line-height:1.6;display:flex;align-items:center;gap:8px;flex-shrink:0}'
     + '.warn-icon{font-size:15px;flex-shrink:0}'
     /* ── 왼쪽 하단 언어 선택 ── */
     + '.left-lang-sel{flex-shrink:0;padding:20px 0 8px;display:flex;flex-direction:column;align-items:center;gap:10px}'
@@ -1387,7 +1301,7 @@ function _kioskCss(isPortrait){
     + '.main-btn.selected{border-color:#0891b2;background:#e0f7fa;color:#065f78;box-shadow:0 0 0 2px rgba(6,182,212,0.25) inset,0 4px 16px rgba(6,182,212,0.12)}'
     + '.btn-emoji{font-size:clamp(24px,2.8vw,36px);flex-shrink:0}'
     + '.back-btn,.confirm-btn{padding:10px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;min-width:100px;text-align:center;flex-shrink:0}'
-    + '.confirm-btn{margin-top:10px;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;box-shadow:0 4px 16px rgba(6,182,212,0.3)}'
+    + '.confirm-btn{margin-top:10px;border:none;background:#0891b2;color:#fff;box-shadow:0 4px 16px rgba(6,182,212,0.3)}'
     + '.confirm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(6,182,212,0.4)}'
     + '.confirm-btn:disabled{opacity:0.4;cursor:default;transform:none}'
     + '.back-btn{margin-top:8px;border:2px solid #e2a3c0;background:#fdf2f8;color:#9d174d;font-size:13px;padding:10px 28px;font-weight:700}'
@@ -1418,7 +1332,7 @@ function _kioskCss(isPortrait){
     + '.st-header-title{font-size:18px;font-weight:800;color:#1e293b}'
     + '.st-header-right{display:flex;gap:8px;align-items:center;flex-shrink:0}'
     + '.st-close-btn{padding:9px 18px;border:1.5px solid #cbd5e1;border-radius:10px;background:#fff;color:#64748b;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}'
-    + '.st-confirm-btn{padding:9px 22px;border:none;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}'
+    + '.st-confirm-btn{padding:9px 22px;border:none;border-radius:10px;background:#0891b2;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}'
     + '.st-body{padding:20px 22px;overflow-y:auto;-webkit-overflow-scrolling:touch}'
     + '.st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}'
     + '.st-btn{padding:18px 14px;border:2px solid #e2e8f0;border-radius:14px;background:#fff;font-size:16px;font-weight:700;color:#334155;cursor:pointer;font-family:inherit;transition:all .12s}'
@@ -1440,7 +1354,7 @@ function _kioskCss(isPortrait){
     + '.bm-header-sub{font-size:10px;color:#94a3b8;margin-top:2px}'
     + '.bm-header-right{display:flex;gap:8px;align-items:center}'
     + '.bm-close-btn{padding:6px 16px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}'
-    + '.bm-confirm-btn{padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}'
+    + '.bm-confirm-btn{padding:6px 16px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}'
     /* 가로형 height 96→90vh — 세로 중앙정렬이라 위아래 여백이 늘어 헤더(뒤로가기/확인)가 상단 베젤에서 떨어지고 바디맵도 비례 축소.
      *  세로형은 아래 미디어쿼리에서 100dvh 전체화면으로 따로 덮음 (사용자 보고 2026-06-14). */
     + '.bm-inner{background:#fff;border-radius:16px;box-shadow:0 16px 64px rgba(0,0,0,0.25);width:98vw;max-width:1200px;height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:scale(0.92);opacity:0;transition:transform .3s cubic-bezier(0.34,1.56,0.64,1),opacity .25s ease}'
@@ -1542,7 +1456,7 @@ function _kioskCss(isPortrait){
     + '}'
     /* ── 세로형 추가 스타일 ── */
     + (isPortrait
-      ? '.bg-gradient{position:fixed;inset:0;z-index:-2;background:linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%);background-size:400% 400%;animation:gradientShift 20s ease infinite}'
+      ? '.bg-gradient{position:fixed;inset:0;z-index:-2;background:#667eea;background-size:400% 400%;animation:gradientShift 20s ease infinite}'
         + '@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}'
     /* 세로형: 컨텐츠+언어선택을 위에서부터 쌓아 화면 상단에 모음 — 아이패드 세로에서 언어선택이\n'
      * 화면 하단에 묻히던 문제 수정 (사용자 요청 2026-06-13). main 은 컨텐츠 높이만, 길면 스크롤. */
@@ -1571,7 +1485,7 @@ function _kioskCss(isPortrait){
 /* ══════════════════════════════════════════
    키오스크 JavaScript
    ══════════════════════════════════════════ */
-function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, i18nMap, stData){
+function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, i18nMap, stData, isPreview){
   /* 인적사항 이용 대상 — 단독 타입이면 그 타입으로 바로 진입 (buildKioskHtml 의 탭 생략과 짝). (2026-06-11) */
   const _psSecJs = _findSection(flow, 's_personal') || {};
   const _defDrill = (_psSecJs.allowStudent !== false) ? 'student' : 'staff';
@@ -1594,7 +1508,8 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
   }));
 
   const _st = stData || { cats:[], freqMeds:{}, fav:{}, removed:{}, medBySym:{} };
-  const js = 'var RELAY_URL=' + _J(relayUrl||'') + ';\n'
+  const js = 'var KIOSK_CALL_NAME=' + _J(ks.callNameEnabled!==false) + ';\n'
+    + 'var RELAY_URL=' + _J(relayUrl||'') + ';\n'
     + 'var RELAY_CHANNEL=' + _J(channelId||'') + ';\n'
     + 'var KIOSK_ORIENT=' + _J(ks.kioskOrientation==='portrait'?'portrait':'landscape') + ';\n' /* 화면 방향 고정용 (2026-06-13) */
     /* ── 증상처치입력 데이터 (대분류/중분류·자주쓰는처치·증상별약품) ── */
@@ -1639,7 +1554,8 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + 'function _classFetch(level,dept,grade,cls){var k=(level||"")+"|"+(dept||"")+"|"+grade+"|"+cls;if(_classCache[k])return Promise.resolve(_classCache[k]);if(EMBED_ROSTER){var lp=_classLocal(level,dept,grade,cls);_classCache[k]=lp;return Promise.resolve(lp);}return _rosterReq("class",{level:level,department:dept,grade:grade,cls:cls}).then(function(d){var ppl=((d&&d.people)||[]).map(function(p){return {uid:p.uid,name:p.name,num:p.num,type:"student",grade:Number(grade)||0,cls:cls,level:level,department:dept};});_classCache[k]=ppl;_rkMerge(ppl);return ppl;});}\n'
     + 'function _staffFetch(){if(_staffCache)return Promise.resolve(_staffCache);if(EMBED_ROSTER){_staffCache=_staffLocal();return Promise.resolve(_staffCache);}return _rosterReq("staff",{}).then(function(d){var ppl=((d&&d.people)||[]).map(function(p){return {uid:p.uid,name:p.name,position:p.position,type:"staff"};});_staffCache=ppl;_rkMerge(ppl);return ppl;});}\n'
     + 'function _rosterInvalidate(){_struct=null;_classCache={};_staffCache=null;if(!EMBED_ROSTER)PEOPLE_DATA=[];}\n'
-    + 'function _rosterWaitHtml(){return "<div style=\\"text-align:center;padding:24px;color:#94a3b8;font-size:13px;line-height:1.7\\">"+_t("연결을 기다리는 중입니다.")+"<br><span style=\\"font-size:11px\\">"+_t("보건 선생님 프로그램이 켜져 있어야 명단이 표시됩니다.")+"</span></div>";}\n'
+    + "function _rosterEmptyHtml(message){return '<div class=\"kiosk-roster-state\" role=\"status\"><strong>'+_stE(message)+'</strong>보건 선생님께 명단 등록을 확인해 주세요.<br><button type=\"button\" class=\"back-btn\" data-action=\"roster-retry\">명단 다시 불러오기</button></div>';}\n"
+    + "function _rosterWaitHtml(){return '<div class=\"kiosk-roster-state\" role=\"status\"><strong>명단을 불러오지 못했습니다.</strong>보건 선생님 프로그램과 인터넷 연결을 확인한 뒤 다시 눌러 주세요.<br><button type=\"button\" class=\"back-btn\" data-action=\"roster-retry\">명단 다시 불러오기</button></div>';}\n"
     + 'var _selectedPerson=null;\n'
     + 'var _selectedOptions=[];\n'
     + 'var _bodymapData=[];\n'
@@ -1647,11 +1563,12 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + 'var _waitQueue=[];\n'
     + 'var _currentScreen="personal";\n'
     + 'var _navHistory=[];\n'
-    + 'function _personInfoText(p){if(!p)return "";if(p.type==="staff")return p.position||"교직원";var a=[];if(p.level)a.push(p.level);if(p.department)a.push(p.department);if(p.grade)a.push(p.grade+"-"+(p.cls||0));return a.join(" ");}\n'
+    + 'function _kioskPersonDetailLabel(p){var parts=[];if(p.grade&&String(p.grade)!=="0")parts.push(p.grade+(p.level==="kindergarten"?"세":"학년"));if(p.cls&&String(p.cls)!=="0")parts.push(String(p.cls).replace(/반$/,"")+"반");if(p.num&&String(p.num)!=="0")parts.push(p.num+"번");return parts.join(" ");}\n'
+    + 'function _personInfoText(p){if(!p)return "";if(p.type==="staff")return p.position||"교직원";var a=[];if(p.level)a.push(p.level);if(p.department)a.push(p.department);var detail=_kioskPersonDetailLabel(p);if(detail)a.push(detail);return a.join(" ");}\n'
     /* 인적사항 칩은 앞에서 5명까지만 — 대기인원 숫자(leftQueue)는 전체 누적 그대로. 명단이 길어도 칩 영역이 안 넘침 (사용자 요청 2026-06-14).
      *  큐가 바뀌어 칩이 늘면(최대 5개라도 줄바꿈) 좌패널 높이가 변하므로 _fitLeftPanel 재호출 — 인원 추가 시 축소 안 되던 문제 수정 (사용자 보고 2026-06-14) */
-    + 'function _updateQueueList(){var ql=document.getElementById("queueList");if(!ql){if(typeof _fitKiosk==="function")setTimeout(_fitKiosk,30);return;}if(_waitQueue.length===0){ql.innerHTML="<span class=\\"q-empty\\">대기 중인 방문자가 없습니다</span>";}else{var h="";_waitQueue.slice(0,5).forEach(function(w){var label=w.gradeClass?w.gradeClass+" "+w.name:w.name;h+="<span class=\\"queue-person\\">"+label+"</span>";});ql.innerHTML=h;}if(typeof _fitKiosk==="function")setTimeout(_fitKiosk,30);}\n'
-    /* 대기 명단 압축 라벨 — 학과는 있을 때만, 학교급은 여러 개 등록 학교만 약칭 접두 (사용자 설계 2026-06-13) */
+    + "function _updateQueueList(){var list=document.getElementById('queueList');if(!list)return;list.replaceChildren();if(!_waitQueue.length){var empty=document.createElement('span');empty.className='q-empty';empty.textContent='대기 중인 방문자가 없습니다';list.appendChild(empty);}else{_waitQueue.slice(0,5).forEach(function(person){var item=document.createElement('div');item.className='queue-person';var name=document.createElement('strong');name.className='queue-person-name';name.textContent=person.name||'이름 확인 중';var info=document.createElement('span');info.className='queue-person-info';info.textContent=person.gradeClass||'';item.append(name,info);list.appendChild(item);});if(_waitQueue.length>5){var more=document.createElement('div');more.className='queue-more';more.textContent='외 '+(_waitQueue.length-5)+'명 대기 중';list.appendChild(more);}}if(typeof _fitKiosk==='function')setTimeout(_fitKiosk,30);}\n"
+    /* 대기 명단: 학년·반·번호를 명시하고, 학과와 복수 학교급 접두는 유지. */
     + 'function _queueGcOf(p){\n'
     + '  if(!p)return "";\n'
     + '  if(p.type==="staff")return p.position||"교직원";\n'
@@ -1660,8 +1577,7 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '  var lvSet={};(PEOPLE_DATA||[]).forEach(function(q){if(q.type==="student"&&q.level)lvSet[q.level]=1;});\n'
     + '  if(Object.keys(lvSet).length>1&&p.level)parts.push(lvMap[p.level]||p.level);\n'
     + '  if(p.department)parts.push(p.department);\n'
-    + '  if(p.grade)parts.push(p.grade+"-"+(p.cls||0));\n'
-    + '  if(p.num)parts.push(String(p.num));\n'
+    + '  var detail=_kioskPersonDetailLabel(p);if(detail)parts.push(detail);\n'
     + '  return parts.join(" ");\n'
     + '}\n'
     /* 서버 대기자 uid 목록 → 임베드 명단(PEOPLE_DATA)에서 복원 — 새로고침해도 대기 명단 유지 (2026-06-13) */
@@ -1704,9 +1620,9 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
        방문자가 화면을 한 번이라도 터치하면 이 엘리먼트가 unlock 되어, 이후 호출 때 같은 엘리먼트로 소리가 난다. (사용자 보고 2026-06-14) */
     + 'var _fdCallAudio=null; try{ if(FD_DINGDONG){ _fdCallAudio=new Audio(FD_DINGDONG); _fdCallAudio.volume=0.8; } }catch(e){}\n'
     + 'var _fdAudioUnlocked=false;\n'
-    + 'function _fdUnlockAudio(){ if(_fdAudioUnlocked||!_fdCallAudio)return; _fdAudioUnlocked=true; try{ var _v=_fdCallAudio.volume; _fdCallAudio.volume=0; var _p=_fdCallAudio.play(); if(_p&&_p.then){ _p.then(function(){ _fdCallAudio.pause(); _fdCallAudio.currentTime=0; _fdCallAudio.volume=_v; }).catch(function(){ try{_fdCallAudio.volume=_v;}catch(_){} }); } else { _fdCallAudio.pause(); _fdCallAudio.currentTime=0; _fdCallAudio.volume=_v; } }catch(e){} }\n'
-    + 'document.addEventListener("touchstart",_fdUnlockAudio,{once:true,passive:true});\n'
-    + 'document.addEventListener("click",_fdUnlockAudio,{once:true});\n'
+    + "var _fdAudioUnlockPending=false;\nfunction _fdUnlockAudio(){if(_fdAudioUnlocked||_fdAudioUnlockPending||!_fdCallAudio||_fdCallBusy)return;_fdAudioUnlockPending=true;var a=_fdCallAudio;function finish(ok){_fdAudioUnlockPending=false;if(ok)_fdAudioUnlocked=true;try{if(!_fdCallBusy){a.pause();a.currentTime=0;}a.volume=.8;}catch(_){}}try{a.volume=0;var p=a.play();if(p&&p.then)p.then(function(){finish(true);},function(){finish(false);});else finish(true);}catch(_){finish(false);}}\n"
+    + 'document.addEventListener("touchstart",_fdUnlockAudio,{passive:true});\n'
+    + 'document.addEventListener("click",_fdUnlockAudio);\n'
     + 'var _bgIdx=Math.floor(Math.random()*BG_IMAGES.length);\n'
     + 'function rotateBg(){var el=document.getElementById("bgImage");if(el&&BG_IMAGES.length){_bgIdx=(_bgIdx+1)%BG_IMAGES.length;el.style.opacity="0";setTimeout(function(){el.style.backgroundImage="url("+BG_IMAGES[_bgIdx]+")";el.style.opacity="1"},1500);}}\n'
     + '(function(){var el=document.getElementById("bgImage");if(el&&BG_IMAGES.length)el.style.backgroundImage="url("+BG_IMAGES[_bgIdx]+")";setInterval(rotateBg,3600000)})();\n'
@@ -1844,15 +1760,15 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '      if(_drillTab!=="staff")return;\n'
     + '      staff=staff.slice().sort(function(a,b){return(a.name||"").localeCompare(b.name||"");});\n'
     + '      _people=staff;\n'
-    + '      var h="<div style=\\"display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px\\">";\n' /* 교직원도 폭 채우는 다열 그리드(직위 라벨이 있어 학생보다 넓게) (사용자 요청 2026-06-16) */
-    + '      staff.forEach(function(p,i){h+="<span class=\\"drill-sel-chip\\" data-action=\\"drill-select\\" data-idx=\\""+i+"\\">"+p.name+(p.position?" ("+p.position+")":"")+"</span>";});\n'
+    + "      var h='<div class=\"drill-staff-grid\">';\n"
+    + "      if(!staff.length){body.innerHTML=_rosterEmptyHtml('등록된 교직원이 없습니다.');return;}\n      staff.forEach(function(p,i){h+='<button type=\"button\" class=\"drill-sel-chip\" data-action=\"drill-select\" data-idx=\"'+i+'\"><span class=\"drill-person-name\">'+_stE(p.name)+'</span>'+(p.position?'<span class=\"drill-person-meta\">'+_stE(p.position)+'</span>':'')+'</button>';});\n"
     + '      h+="</div>";body.innerHTML=h;\n'
     + '      if(_curLang&&_curLang!=="ko"&&typeof setKioskLang==="function")setKioskLang(_curLang);\n'
     + '    }).catch(function(){if(_drillTab==="staff")body.innerHTML=_rosterWaitHtml();});\n'
     + '  } else {\n'
     + '    _structFetch().then(function(st){\n'
     + '      if(_drillTab!=="student")return;\n'
-    + '      var grades=(st.grades||[]).slice();\n'
+    + "      var grades=(st.grades||[]).slice();\n      if(!grades.length){body.innerHTML=_rosterEmptyHtml('등록된 학생이 없습니다.');return;}\n"
     + '      var h="<div style=\\"display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px\\">";\n'
     + '      grades.forEach(function(g){h+="<button class=\\"drill-grade-btn\\" data-action=\\"drill-grade\\" data-grade=\\""+g+"\\">"+_fmtGrade(g)+"</button>";});\n'
     + '      h+="</div><div id=\\"drillGradeBody\\"></div>";body.innerHTML=h;\n'
@@ -1904,16 +1820,16 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '    _people=students;\n'
     + '    var _title=(_drillSelDept?_drillSelDept+" ":"")+_fmtGrade(_rg)+" "+_fmtClass(_drillSelCls);\n'
     + '    var h="<div style=\\"border:2px solid #06b6d4;border-radius:12px;padding:16px;background:#f0fdf4\\">";\n'
-    + '    h+="<div style=\\"font-size:14px;font-weight:700;color:#0891b2;margin-bottom:12px\\">"+_title+" ("+students.length+"명)";\n'
-    + '    h+=" <span data-action=\\"drill-back-grade\\" style=\\"font-size:11px;color:#94a3b8;cursor:pointer;margin-left:10px\\">← 반 목록으로</span></div>";\n'
-    + '    h+="<div style=\\"display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px\\">";\n' /* 폭 채우는 다열 그리드 — 세로(네비바 크기 가변) 의존 줄이고 폭 채움. 휴대폰=3열, 태블릿은 더 많은 열 (사용자 요청 2026-06-16) */
-    + '    students.forEach(function(p,i){h+="<span class=\\"drill-sel-chip\\" data-action=\\"drill-select\\" data-idx=\\""+i+"\\">"+p.num+"번 "+p.name+"</span>";});\n'
+    + "    h+='<div class=\"drill-class-heading\"><span>'+_stE(_title)+' ('+students.length+'명)</span>';\n"
+    + "    h+='<button type=\"button\" class=\"back-btn\" data-action=\"drill-back-grade\">반 목록으로</button></div>';\n"
+    + "    h+='<div class=\"drill-student-grid\">';\n"
+    + "    students.forEach(function(p,i){h+='<button type=\"button\" class=\"drill-sel-chip\" data-action=\"drill-select\" data-idx=\"'+i+'\">'+(p.num!=null?'<span class=\"drill-person-meta\">'+_stE(p.num+'번')+'</span>':'')+'<span class=\"drill-person-name\">'+_stE(p.name)+'</span></button>';});\n"
     + '    h+="</div></div>";\n'
     + '    h+="<div style=\\"text-align:center;margin-top:12px\\"><button class=\\"back-btn\\" data-action=\\"drill-back-grade\\" style=\\"border-radius:12px;cursor:pointer\\">← 뒤로가기</button></div>";\n'
-    + '    gb.innerHTML=h;\n'
+    + "    gb.innerHTML=students.length?h:_rosterEmptyHtml('이 반에 등록된 학생이 없습니다.');\n"
     + '    try{if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();}catch(e){}\n'
     + '    if(typeof _fitKiosk==="function"){setTimeout(_fitKiosk,20);setTimeout(_fitKiosk,160);}\n' /* ★ 학생 이름 목록(많으면 길어짐) 비동기 렌더 직후 화면 비례 축소 — 언어선택 위에서 끝나게 (사용자 보고 2026-06-15, 세로 휴대폰 학생목록이 언어선택 아래로 넘침) */
-    + '  }).catch(function(){gb.innerHTML="<div style=\\"text-align:center;padding:20px;color:#94a3b8;font-size:13px;line-height:1.7\\">"+_t("연결을 기다리는 중입니다.")+"<br><button class=\\"back-btn\\" data-action=\\"drill-back-grade\\" style=\\"border-radius:12px;cursor:pointer;margin-top:10px\\">← 뒤로가기</button></div>";});\n'
+    + "  }).catch(function(){gb.innerHTML=_rosterWaitHtml();});\n"
     + '}\n'
     + '\n'
     + 'function selectPerson(idx){\n'
@@ -2051,25 +1967,25 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '  return {wait:(wm!=="direct"), title:t};\n'
     + '}\n'
     + 'function submitAndReset(secId){\n'
+    + "  if(window._kioskReceptionLocked&&window._kioskReceptionLocked())return;\n"
     + '  var agg=_aggregateSymTreat();\n'
     + '  var payload={person:_selectedPerson,options:_selectedOptions,bodymap:_bodymapData,symptoms:agg.symptoms,treatments:agg.treatments,time:new Date().toISOString()};\n'
     + '  sendReception(payload);\n'
-    + '  showReceptionPopup();\n'
     + '}\n'
     + 'function submitNurse(secId,optId){\n'
+    + "  if(window._kioskReceptionLocked&&window._kioskReceptionLocked())return;\n"
     + '  var sec=FLOW.find(function(s){return s.id===secId;});\n'
     + '  var opt=sec?sec.options.find(function(o){return o.id===optId;}):null;\n'
     + '  if(opt)_selectedOptions.push({secId:secId,optId:optId,label:opt.label,emoji:opt.emoji||"",tag:opt.tag||"",symptomTreat:(opt.hasSymTreatInsert?opt.symptomTreat:null)||null,returnNeeded:(opt.returnNeeded===true),rentalItem:opt.rentalItem||"",diaryRegister:(opt.diaryRegister!==false),counselTopic:opt.counselTopic||"",waitMode:opt.waitMode||"",doneMsg:(typeof opt.doneMsg==="string"?opt.doneMsg:undefined),guideMsg:opt.guideMsg||"",guideEmoji:opt.guideEmoji||""});\n'
     + '  var agg=_aggregateSymTreat();\n'
     + '  var payload={person:_selectedPerson,options:_selectedOptions,bodymap:_bodymapData,symptoms:agg.symptoms,treatments:agg.treatments,time:new Date().toISOString(),type:"nurse"};\n'
     + '  sendReception(payload);\n'
-    + '  showReceptionPopup();\n'
     + '}\n'
     + '\n'
     + '/* 접수 완료 통합 팝업 (사용자 설계 2026-06-13) —\n'
     + ' *  [항목 이모지] + (안내문구 지정 시 안내문) + [마지막 안내 문구(doneMsg, 편집 화면 지정 그대로)] + [확인] 버튼.\n'
     + ' *  확인 클릭 = 즉시 닫힘 / 무반응 5초 = 자동으로 닫히며 처음 화면(방문자 선택) 복귀. 배경 터치도 닫힘. */\n'
-    + 'function showReceptionPopup(){\n'
+    + 'function showReceptionPopup(receipt){\n'
     + '  var popup=document.getElementById("reception-popup");\n'
     + '  if(popup&&popup.parentNode!==document.body)document.body.appendChild(popup);\n' /* ★ .kiosk-right(.kiosk-split z-index:10) 안에 있으면 상단바(z:100) 밑에 깔린다 → body 직속으로 올려 최상위(z:1000)로 (휴대폰 가로 완료 메시지가 제목 아래로 들어가던 문제, 사용자 보고 2026-06-14) */
     + '  var meta=_activeWaitMeta();\n'
@@ -2079,21 +1995,10 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '  for(var gi=_selectedOptions.length-1;gi>=0;gi--){var go=_selectedOptions[gi];if(go&&go.guideMsg){_gm=go.guideMsg;if(go.guideEmoji)_em=go.guideEmoji;break;}}\n'
     + '  if(_em==="✅"&&_lastOpt&&_lastOpt.emoji)_em=_lastOpt.emoji;\n'
     + '  /* 대기하게 하기 항목만 대기 인원 카운트 — 바로 들어오게 하기는 카운트 제외 (사용자 설계 2026-06-13) */\n'
-    + '  if(meta.wait){\n'
+    + '  if(meta.wait&&(!receipt||receipt.updateQueue!==false)&&!_waitQueue.some(function(p){return _selectedPerson&&(p.uid||p.id)===(_selectedPerson.uid||_selectedPerson.id);})){\n'
     + '    _waitCount++;\n'
-    /* 대기 명단 라벨 — 압축 표기 (사용자 설계 2026-06-13):
-     *  · 학과는 입력돼 있을 때만: "항공기계과 1-1 12 김재웅"
-     *  · 학교급이 여러 개 등록된 학교면 약칭 접두: "초 1-1 1 김재웅" */
-    + '    if(_selectedPerson){var _p=_selectedPerson;var _parts=[];\n'
-    + '      if(_p.type!=="staff"){\n'
-    + '        var _lvMap={elementary:"초",middle:"중",high:"고",kindergarten:"유"};\n'
-    + '        var _lvSet={};(PEOPLE_DATA||[]).forEach(function(q){if(q.type==="student"&&q.level)_lvSet[q.level]=1;});\n'
-    + '        if(Object.keys(_lvSet).length>1&&_p.level)_parts.push(_lvMap[_p.level]||_p.level);\n'
-    + '        if(_p.department)_parts.push(_p.department);\n'
-    + '        if(_p.grade)_parts.push(_p.grade+"-"+(_p.cls||0));\n'
-    + '        if(_p.num)_parts.push(String(_p.num));\n'
-    + '      } else if(_p.position){_parts.push(_p.position);}\n'
-    + '      var _gc=_parts.join(" ");\n'
+    /* 신규 접수와 새로고침 후 대기 명단에 동일한 상세 표기 적용. */
+    + '    if(_selectedPerson){var _p=_selectedPerson;var _gc=_queueGcOf(_p);\n'
     + '      _waitQueue.push({uid:_p.uid||_p.id||"",name:_p.name,gradeClass:_gc,info:_personInfoText(_p)});}\n'
     + '    var tq=document.getElementById("topQueue");if(tq)tq.textContent=_waitCount;\n'
     + '    var lq=document.getElementById("leftQueue");if(lq)lq.textContent=_waitCount;\n'
@@ -2103,22 +2008,31 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '  var _due="";for(var di=_selectedOptions.length-1;di>=0;di--){if(_selectedOptions[di]&&_selectedOptions[di].dueText){_due=_selectedOptions[di].dueText;break;}}\n'
     + '  /* 팝업 본문 재구성 — 이모지 + (안내문) + (반납 일자) + 완료 문구 + 확인 버튼 */\n'
     + '  var pc=popup.querySelector(".popup-content");\n'
-    + '  var h="<div style=\\"font-size:48px;margin-bottom:12px\\">"+_em+"</div>";\n'
-    + '  if(_gm){h+="<div style=\\"font-size:15px;color:#334155;line-height:1.8;white-space:pre-line;text-align:left;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;max-width:520px\\">"+_t(_gm).replace(/</g,"&lt;")+"</div>";}\n'
-    + '  if(_due){h+="<div style=\\"font-size:14px;color:#0e7490;font-weight:700;background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.25);border-radius:12px;padding:12px 16px;margin-bottom:16px\\">📅 "+_t("반납 일자")+": <b style=\\"font-size:18px\\">"+_due+"</b> "+_t("까지")+"</div>";}\n'
-    + '  h+="<div style=\\"font-size:18px;font-weight:800;margin-bottom:18px\\">"+_t(meta.title).replace(/</g,"&lt;")+"</div>";\n'
-    + '  h+="<button class=\\"confirm-btn\\" data-action=\\"reception-ok\\" style=\\"margin:0\\">확인</button>";\n'
+    + "  var h='<div class=\"reception-body\">';\n"
+    + "  if(receipt&&receipt.preview)h+='<div class=\"reception-preview\">'+_stE(_t('미리보기 · 실제 접수는 전송되지 않습니다.'))+'</div>';\n"
+    + "  h+='<div class=\"reception-icon\" aria-hidden=\"true\">'+_em+'</div>';\n"
+    + "  h+='<div class=\"reception-title\">'+_stE(_t(meta.title))+'</div>';\n"
+    + "  if(_gm)h+='<div class=\"reception-guide\">'+_stE(_t(_gm))+'</div>';\n"
+    + "  if(_due)h+='<div class=\"reception-due\">'+_stE(_t('반납 일자'))+': <strong>'+_stE(_due)+'</strong> '+_stE(_t('까지'))+'</div>';\n"
+    + "  h+='</div><div class=\"reception-actions\"><button type=\"button\" class=\"confirm-btn\" data-action=\"reception-ok\">'+_stE(_t('확인'))+'</button></div>';\n"
     + '  pc.innerHTML=h;\n'
     + '  popup.style.display="flex";\n'
     + '  if(_curLang&&_curLang!=="ko"&&typeof setKioskLang==="function")setKioskLang(_curLang);\n'
     + '  if(typeof _fitReceptionPopup==="function"){setTimeout(_fitReceptionPopup,30);setTimeout(_fitReceptionPopup,260);setTimeout(_fitReceptionPopup,360);}\n' /* 팝업 표시 직후·언어 리플로우·popIn 애니메이션(300ms) 종료 후까지 (2026-06-14) */
     + '  /* 확인 클릭/배경 터치 = 즉시, 무반응 5초 = 자동 — 닫히면 처음 화면 복귀 */\n'
-    + '  var _rcDone=false;\n'
-    + '  var _rcClose=function(){if(_rcDone)return;_rcDone=true;clearTimeout(_rcTimer);popup.onclick=null;popup.style.display="none";resetToPersonal();};\n'
-    + '  var _rcTimer=setTimeout(_rcClose,5000);\n'
-    + '  popup.onclick=_rcClose;\n'
-    + '}\n'
+    + "  popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');popup.setAttribute('aria-label',_t(meta.title)||_t('접수 완료'));\n"
+    + "  var _rcDone=false,_rcTimer;\n"
+    + "  popup._pauseAutoClose=function(){clearTimeout(_rcTimer);};\n"
+    + "  var _rcClose=function(){if(_rcDone)return;_rcDone=true;clearTimeout(_rcTimer);popup.onclick=popup.onpointerdown=popup.ontouchstart=popup.onwheel=popup.onfocusin=null;popup._pauseAutoClose=null;popup.style.display='none';resetToPersonal();};\n"
+    + "  var _ok=pc.querySelector('[data-action=\"reception-ok\"]');if(_ok)_ok.focus({preventScroll:true});\n"
+    + "  _rcTimer=setTimeout(_rcClose,5000);\n"
+    + "  popup.onclick=function(e){if(e.target===popup||e.target.closest('[data-action=\"reception-ok\"]'))_rcClose();};\n"
+    + "  popup.onpointerdown=popup.ontouchstart=popup.onwheel=popup.onfocusin=popup._pauseAutoClose;\n"
+    + "  if(typeof _fitReceptionPopup==='function')_fitReceptionPopup();\n"
+    + "}\n"
+    + "\n"
     + 'function resetToPersonal(){\n'
+    + "  if(window._kioskResetReception&&window._kioskResetReception()===false)return;\n"
     + '  if(typeof _rulesZoomReset==="function")_rulesZoomReset();\n' /* 이용수칙 확대 상태 원위치 — 다음 방문자에게 확대된 채 안 넘어가게 (2026-06-14) */
     + '  _selectedPerson=null;_selectedOptions=[];_bodymapData=[];_visitorSymTreat={symptoms:[],treatments:[]};_skipPreInsert={};\n'
     + '  var _bmM0=document.getElementById("bmModal");if(_bmM0)_bmM0.classList.remove("active");if(typeof _bmZoomDisable==="function")_bmZoomDisable();\n' /* 방치 복귀 시 바디맵 모달·핀치 줌 잠금 복원 (2026-06-13) */
@@ -2228,68 +2142,19 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
      *    transform-origin:top — 줄이면 하단(국기·언어)이 위로 올라와 베젤 안에 항상 들어옴. 100dvh 가 iframe 보다
      *    크게 잡혀 패널이 화면보다 길어져 국기가 베젤 밑으로 내려가던 문제 근본 수정 (아이패드 가로 영어, 사용자 보고 2026-06-14). */
     + 'var _lpZoom=1,_lpPanX=0,_lpPanY=0;\n' /* 좌측 영역(이용수칙+대기+언어) 손가락 확대 배율·이동 — _fitLeftPanel 의 기본 핏에 곱해 적용 (사용자 요청 2026-06-14) */
-    + 'function _fitLeftPanel(){\n'
-    + '  var left=document.querySelector(".kiosk-split .kiosk-left");\n'
-    + '  var inner=left&&left.querySelector(".kiosk-left-inner");\n'
-    + '  if(!left||!inner)return;\n'
-    + '  inner.style.transform="";inner.style.transformOrigin="top center";\n'
-    + '  var cs=getComputedStyle(left);\n'
-    + '  var _padH=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);\n'
-    + '  var vH=(window.visualViewport&&window.visualViewport.height)||document.documentElement.clientHeight||window.innerHeight;\n'
-    + '  var topY=inner.getBoundingClientRect().top;\n' /* 좌패널은 justify-content:flex-start 라 topY 가 패널 상단으로 안정적 */
-    + '  var availH=vH-topY-8;\n'
-    + '  var availW=left.clientWidth-_padH;\n'
-    + '  var natH=inner.scrollHeight,natW=inner.scrollWidth;\n'
-    + '  var sH=(natH>availH&&availH>0&&natH>0)?availH/natH:1;\n'
-    + '  var sW=(natW>availW&&availW>0&&natW>0)?availW/natW:1;\n'
-    + '  var fit=Math.min(sH,sW,1); if(fit<0.3)fit=0.3;\n'
-    + '  var eff=fit*(_lpZoom||1);\n'
-    + '  if(eff!==1||_lpPanX||_lpPanY){ inner.style.transform="translate("+(_lpPanX||0)+"px,"+(_lpPanY||0)+"px) scale("+eff+")"; }\n' /* 기본 핏 × 손가락 확대(_lpZoom) + 이동(pan). .kiosk-left overflow:hidden 이라 우측 구분선을 넘지 않음 */
-    + '}\n'
+    + "function _fitLeftPanel(){var left=document.querySelector('.kiosk-split .kiosk-left'),inner=left&&left.querySelector('.kiosk-left-inner');if(!inner)return;inner.style.transformOrigin='top center';inner.style.transform=(_lpZoom>1)?'translate('+(_lpPanX||0)+'px,'+(_lpPanY||0)+'px) scale('+_lpZoom+')':'';}\n"
     /* 방문자 선택 영역(우패널/세로 본문)도 콘텐츠가 넘치면 활성 화면을 통째로 비례 축소 — 학년 등 터치영역이 베젤 밖으로 안 나가게 (사용자 요청 2026-06-14).
      *  중앙 정렬 유지(center origin) + availH 는 box 높이와 '뷰포트 바닥까지' 중 작은 값(dvh 과대 측정 방지). */
-    + 'function _fitRightPanel(){\n'
-    + '  var isPort=!document.querySelector(".kiosk-right");\n'
-    + '  var box=document.querySelector(".kiosk-right")||document.querySelector(".kiosk-portrait-main");\n'
-    + '  if(!box)return;\n'
-    + '  var sc=box.querySelector(".screen.active");if(!sc)return;\n'
-    + '  sc.style.transform="";sc.style.transformOrigin=isPort?"top center":"center center";\n' /* 세로=상단 기준(헤더 바로 아래부터 채움) / 가로=가운데 (사용자 요청 2026-06-14, 2026-06-16) */
-    + '  var cs=getComputedStyle(box);\n'
-    + '  var vH=(window.visualViewport&&window.visualViewport.height)||document.documentElement.clientHeight||window.innerHeight;\n'
-    + '  var bTop=box.getBoundingClientRect().top;\n'
-    + '  var availH=Math.min(box.clientHeight,vH-bTop)-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);\n' /* dvh 과대 측정 방지 — box 높이와 뷰포트 바닥까지 중 작은 값 */
-    + '  var availW=box.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);\n'
-    + '  var natH=sc.scrollHeight,natW=sc.scrollWidth;\n'
-    + '  if(isPort){\n'
-    /* 세로: 헤더~언어선택 사이 공간을 상단 기준으로 꽉 채움 — 작으면 키우고(확대) 길면 줄여(축소) 비율 유지. 상한 1.8·하한 0.3. (사용자 요청 2026-06-16) */
-    + '    var gH=(availH>0&&natH>0)?availH/natH:1;\n'
-    + '    var gW=(availW>0&&natW>0)?availW/natW:1;\n'
-    + '    var gs=Math.min(gH,gW); if(gs>1.8)gs=1.8; if(gs<0.3)gs=0.3;\n'
-    + '    sc.style.transform="scale("+gs+")";\n'
-    + '  } else {\n'
-    + '    var sH=(natH>availH&&availH>0&&natH>0)?availH/natH:1;\n'
-    + '    var sW=(natW>availW&&availW>0&&natW>0)?availW/natW:1;\n'
-    + '    var s=Math.min(sH,sW);\n'
-    + '    if(s<1){ s=Math.max(0.3,s); sc.style.transform="scale("+s+")"; }\n' /* 하한 0.3 — 학과·명단 많은 학교도 스크롤 없이 한 화면에 (2026-06-14) */
-    + '  }\n'
-    + '}\n'
-    /* 접수 완료 팝업(.popup-content)도 화면에 맞게 축소 — .screen 이 아니라 고정 오버레이라 _fitRightPanel 이 못 닿음.
-     *  휴대폰처럼 작은 화면에서 안내문이 길면 팝업이 화면 밖으로 나가던 문제 (사용자 보고 2026-06-14). 가운데 기준 비례 축소. */
-    + 'function _fitReceptionPopup(){\n'
-    + '  var popup=document.getElementById("reception-popup");\n'
-    + '  if(!popup||popup.style.display==="none"||!popup.style.display)return;\n'
-    + '  var pc=popup.querySelector(".popup-content");if(!pc)return;\n'
-    + '  pc.style.animation="none";\n' /* ★ popIn 애니메이션(scale 0.8→1)이 transform 을 잡아 내 scale 을 덮어쓰던 문제 — 끄고 직접 제어 (휴대폰 가로 완료팝업 축소 안 됨, 사용자 보고 2026-06-14) */
-    + '  pc.style.transformOrigin="center center";\n'
-    /* ★ offsetWidth/Height 로 측정 — transform 무시하는 레이아웃 실제 크기 (getBoundingClientRect 는 scale 반영돼 빗나감). */
-    + '  var vH=(window.visualViewport&&window.visualViewport.height)||document.documentElement.clientHeight||window.innerHeight;\n'
-    + '  var vW=(window.visualViewport&&window.visualViewport.width)||document.documentElement.clientWidth||window.innerWidth;\n'
-    + '  var natH=pc.offsetHeight,natW=pc.offsetWidth;\n'
-    + '  var availH=vH-20,availW=vW-20;\n'
-    + '  var sH=(natH>availH&&availH>0&&natH>0)?availH/natH:1;\n'
-    + '  var sW=(natW>availW&&availW>0&&natW>0)?availW/natW:1;\n'
-    + '  var s=Math.min(sH,sW);\n'
-    + '  pc.style.transform=(s<1)?("scale("+Math.max(0.3,s)+")"):"";\n'
+    + "function _fitRightPanel(){var box=document.querySelector('.kiosk-right')||document.querySelector('.kiosk-portrait-main');if(!box)return;var sc=box.querySelector('.screen.active');if(!sc)return;sc.style.transform='';sc.style.transformOrigin='';if(box.dataset.readableScreen!==sc.id){box.dataset.readableScreen=sc.id;box.scrollTop=0;}}\n"
+    /* Scroll long completion guidance without shrinking the chosen text size. */
+    + "function _fitReceptionPopup(){\n"
+    + "  var popup=document.getElementById('reception-popup');if(!popup||popup.style.display==='none'||!popup.style.display)return;\n"
+    + "  var pc=popup.querySelector('.popup-content');if(!pc)return;\n"
+    + "  var vh=(window.visualViewport&&window.visualViewport.height)||document.documentElement.clientHeight||window.innerHeight;\n"
+    + "  pc.style.animation='none';pc.style.transform='none';pc.style.maxHeight=Math.max(0,vh-24)+'px';\n"
+    + "  var body=pc.querySelector('.reception-body');\n"
+    + "  if(body&&body.scrollHeight>body.clientHeight+1&&popup._pauseAutoClose)popup._pauseAutoClose();\n"
+    + "\n"
     + '}\n'
     + 'function _fitKiosk(){ try{ if(typeof _fitLeftPanel==="function")_fitLeftPanel(); }catch(e){} try{ if(typeof _fitRightPanel==="function")_fitRightPanel(); }catch(e){} try{ if(typeof _fitReceptionPopup==="function")_fitReceptionPopup(); }catch(e){} }\n'
     + 'window._fitKiosk=_fitKiosk;\n' /* 미리보기 래퍼가 iframe 리사이즈 후 강제 호출할 수 있게 노출 */
@@ -2541,7 +2406,7 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '  }\n'
     + '  h+="</div>";\n'
     + '  h+="<div style=\\"display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:16px\\"><span>"+_t("통증 없음")+"</span><span>"+_t("극심한 통증")+"</span></div>";\n'
-    + '  h+="<button id=\\"nrsConfirm\\" style=\\"padding:10px 32px;border:none;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit\\">"+_t("확인")+"</button>";\n'
+    + '  h+="<button id=\\"nrsConfirm\\" style=\\"padding:10px 32px;border:none;border-radius:10px;background:#0891b2;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit\\">"+_t("확인")+"</button>";\n'
     + '  h+="</div>";\n'
     + '  ov.innerHTML=h;\n'
     + '  var selNrs=curNrs;\n'
@@ -2579,15 +2444,7 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + ' * 별도 반납일자 모달(openDeadline/confirmDeadline)은 폐지 — 접수 완료 통합 팝업에 함께 표시 (사용자 결정 2026-06-13). */\n'
     + 'function _addBusinessDays(date,n){var d=new Date(date);var added=0;while(added<n){d.setDate(d.getDate()+1);var dow=d.getDay();if(dow!==0&&dow!==6)added++;}return d;}\n'
     + '\n'
-    + 'function sendReception(payload){\n'
-    + '  if(!RELAY_URL||!RELAY_CHANNEL)return;\n'
-    /* ★ 릴레이로는 이름·학년 등 절대 안 보낸다 — person 은 UID 만. 교사 PC 가 자기 DB 에서 이름 보강. (2026-06-14) */
-    + '  var per=(payload&&payload.person)||{};\n'
-    + '  var safe=Object.assign({},payload||{},{person:{uid:(per.uid||per.id||"")}});\n'
-    + '  fetch(RELAY_URL+"/api/v1/kiosk/reception/"+encodeURIComponent(RELAY_CHANNEL),{\n'
-    + '    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(safe)\n'
-    + '  }).catch(function(){});\n'
-    + '}\n'
+    + kioskReceptionRuntimeSource({ preview: isPreview })
     /* 명단 변동(roster_changed) 시 캐시 무효화 + 현재 화면(명단 선택)이면 다시 그림 — 온디맨드라 즉시 최신 반영 (2026-06-14) */
     + 'function _refreshRosterFromRelay(){\n'
     + '  _rosterInvalidate();\n'
@@ -2605,7 +2462,7 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '      if(document.getElementById("kioskNurseOffOv"))return;\n'
     + '      var ov=document.createElement("div");ov.id="kioskNurseOffOv";\n'
     + '      ov.style.cssText="position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:24px";\n'
-    + '      ov.innerHTML="<div style=\\"font-size:64px;margin-bottom:18px\\">🌙</div>"+"<div style=\\"font-size:23px;font-weight:800;margin-bottom:12px\\">오렌지톡 프로그램이 종료되었습니다</div>"+"<div style=\\"font-size:15px;color:#cbd5e1;line-height:1.7;margin-bottom:24px\\">지금은 키오스크를 사용할 수 없습니다.<br>보건 선생님이 프로그램을 켜면 아래 버튼으로 다시 시작하세요.</div>"+"<button id=\\"kioskNurseOffRestart\\" style=\\"font-size:17px;font-weight:800;padding:14px 30px;border:none;border-radius:12px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;cursor:pointer\\">다시 시작</button>";\n'
+    + '      ov.innerHTML="<div style=\\"font-size:64px;margin-bottom:18px\\">🌙</div>"+"<div style=\\"font-size:23px;font-weight:800;margin-bottom:12px\\">오렌지톡 프로그램이 종료되었습니다</div>"+"<div style=\\"font-size:15px;color:#cbd5e1;line-height:1.7;margin-bottom:24px\\">지금은 키오스크를 사용할 수 없습니다.<br>보건 선생님이 프로그램을 켜면 아래 버튼으로 다시 시작하세요.</div>"+"<button id=\\"kioskNurseOffRestart\\" style=\\"font-size:17px;font-weight:800;padding:14px 30px;border:none;border-radius:12px;background:#0891b2;color:#fff;cursor:pointer\\">다시 시작</button>";\n'
     + '      document.body.appendChild(ov);\n'
     + '      var rb=document.getElementById("kioskNurseOffRestart");if(rb)rb.addEventListener("click",function(){location.reload();});\n'
     + '    }\n'
@@ -2613,7 +2470,7 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '      if(document.getElementById("kioskKickedOv"))return;\n'
     + '      var ov=document.createElement("div");ov.id="kioskKickedOv";\n'
     + '      ov.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:24px";\n'
-    + '      ov.innerHTML="<div style=\\"font-size:64px;margin-bottom:18px\\">🖥️</div>"+"<div style=\\"font-size:23px;font-weight:800;margin-bottom:12px\\">다른 기기에서 키오스크가 열렸습니다</div>"+"<div style=\\"font-size:15px;color:#cbd5e1;line-height:1.7;margin-bottom:24px\\">키오스크는 한 기기에서만 작동합니다.<br>이 기기에서 계속 사용하려면 아래 버튼을 누르세요.</div>"+"<button id=\\"kioskKickedRestart\\" style=\\"font-size:17px;font-weight:800;padding:14px 30px;border:none;border-radius:12px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;cursor:pointer\\">이 기기로 다시 시작</button>";\n'
+    + '      ov.innerHTML="<div style=\\"font-size:64px;margin-bottom:18px\\">🖥️</div>"+"<div style=\\"font-size:23px;font-weight:800;margin-bottom:12px\\">다른 기기에서 키오스크가 열렸습니다</div>"+"<div style=\\"font-size:15px;color:#cbd5e1;line-height:1.7;margin-bottom:24px\\">키오스크는 한 기기에서만 작동합니다.<br>이 기기에서 계속 사용하려면 아래 버튼을 누르세요.</div>"+"<button id=\\"kioskKickedRestart\\" style=\\"font-size:17px;font-weight:800;padding:14px 30px;border:none;border-radius:12px;background:#0891b2;color:#fff;cursor:pointer\\">이 기기로 다시 시작</button>";\n'
     + '      document.body.appendChild(ov);\n'
     + '      var rb=document.getElementById("kioskKickedRestart");if(rb)rb.addEventListener("click",function(){location.reload();});\n'
     + '    }\n'
@@ -2627,9 +2484,9 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '    ws.onmessage=function(e){try{var m=JSON.parse(e.data);\n'
     + '      if(m.type==="kicked"){_kioskKicked=true;_showKickedOverlay();try{ws.close();}catch(x){}return;}\n' /* 다른 기기 우선 — 즉시 종료 안내, 재연결 안 함 (2026-06-13) */
     + '      else if(m.type==="roster_response"){_onRosterResponse(m.payload);}\n' /* 온디맨드 명단 응답 (2026-06-14) */
-    + '      else if(m.type==="waitCount"||m.type==="queue_update"){var c=(m.payload&&m.payload.waiting_count)||m.count||0;_waitCount=c;document.querySelectorAll("[id^=\\"wait-count-\\"]").forEach(function(el){el.textContent=_waitCount;});var tq=document.getElementById("topQueue");if(tq)tq.textContent=_waitCount;var lq=document.getElementById("leftQueue");if(lq)lq.textContent=_waitCount;if(m.payload&&m.payload.waiting_uids)_rebuildQueueFromUids(m.payload.waiting_uids);}\n' /* 대기 명단도 서버 기준 복원 (2026-06-13) */
-    + '      else if(m.type==="nurse_call"){fdShowNurseCall(m.payload);_removeFromQueue(m.payload&&m.payload.person);}\n' /* 호출되면 대기 명단에서 제거 (사용자 요청 2026-06-12) */
-    + '      else if(m.type==="reception_complete"){/* 완료(일지 등록 포함): 대기인원 감소 + 리스트 제거. uid 우선 매칭 — 릴레이는 PII 0(uid만) */var cp=m.payload||{};_removeFromQueue(cp.person||{name:cp.person_name});if(typeof cp.waiting_count==="number"){_waitCount=cp.waiting_count;_refreshWaitCountEls();}}\n'
+    + '      else if(m.type==="waitCount"||m.type==="queue_update"){window._kioskQueueRevision=(window._kioskQueueRevision||0)+1;var c=(m.payload&&m.payload.waiting_count)||m.count||0;_waitCount=c;document.querySelectorAll("[id^=\\"wait-count-\\"]").forEach(function(el){el.textContent=_waitCount;});var tq=document.getElementById("topQueue");if(tq)tq.textContent=_waitCount;var lq=document.getElementById("leftQueue");if(lq)lq.textContent=_waitCount;if(m.payload&&m.payload.waiting_uids)_rebuildQueueFromUids(m.payload.waiting_uids);}\n' /* 대기 명단도 서버 기준 복원 (2026-06-13) */
+    + '      else if(m.type==="nurse_call"){window._kioskQueueRevision=(window._kioskQueueRevision||0)+1;fdShowNurseCall(m.payload);_removeFromQueue(m.payload&&m.payload.person);}\n' /* 호출되면 대기 명단에서 제거 (사용자 요청 2026-06-12) */
+    + '      else if(m.type==="reception_complete"){window._kioskQueueRevision=(window._kioskQueueRevision||0)+1;/* 완료(일지 등록 포함): 대기인원 감소 + 리스트 제거. uid 우선 매칭 — 릴레이는 PII 0(uid만) */var cp=m.payload||{};_removeFromQueue(cp.person||{name:cp.person_name});if(typeof cp.waiting_count==="number"){_waitCount=cp.waiting_count;_refreshWaitCountEls();}}\n'
     + '      else if(m.type==="nurse_status"){\n'
     + '        _nurseOnline=!!(m.payload&&m.payload.online);\n'
     /* 보건교사 프로그램 종료 → 키오스크 사용 중지 화면 (수동으로 다시 켜야 함 — 사용자 결정 2026-06-13).
@@ -2647,38 +2504,8 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '    if(_connBadgeEl){_connBadgeEl.style.cursor="pointer";_connBadgeEl.title="클릭하면 다시 연결을 시도합니다";_connBadgeEl.addEventListener("click",function(){connect();});}\n'
     + '  })();\n'
     + '}\n'
-    + 'function fdShowNurseCall(payload){\n'
-    + '  if(!payload)return;\n'
-    + '  var ex=document.getElementById("fdNurseCallModal");if(ex)ex.remove();\n'
-    + '  var ov=document.createElement("div");ov.id="fdNurseCallModal";\n'
-    + '  ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease";\n'
-    + '  /* 서버 payload = {id, person, nurse} — person 객체 기준 (옛 person_name 필드는 폴백). 학생 "OOO 학생"/교직원 "OOO님" (사용자 결정 2026-06-11) */\n'
-    + '  var p=payload.person||{};\n'
-    /* 릴레이는 UID 만 보냄 — 이 키오스크가 받아온(캐시된) 명단에서 이름·학년 보강 (2026-06-14) */
-    + '  if(p.uid&&!p.name){var _f=(PEOPLE_DATA||[]).find(function(q){return (q.uid||q.id)===p.uid;});if(_f)p=_f;}\n'
-    + '  var name=p.name||payload.person_name||"방문자";\n'
-    + '  var isStaff=(p.type==="staff");\n'
-    + '  var gcText="";\n'
-    + '  if(!isStaff){\n'
-    /* 학과 입력 학교면 학과를 맨 왼쪽에: "지형공간디자인과 2학년 1반" (사용자 요청 2026-06-14) */
-    + '    var _dept=p.department?p.department+" ":"";\n'
-    + '    if(p.grade&&p.cls){gcText=_dept+p.grade+"학년 "+p.cls+"반";}\n'
-    + '    else{var gc=payload.grade_class||"";var gcParts=gc.split("-");if(gcParts.length>=2){gcText=_dept+gcParts[0]+"학년 "+gcParts[1]+"반";}}\n'
-    + '  }\n'
-    + '  var honorific=isStaff?"님 들어오세요":" 학생 들어오세요";\n'
-    /* 협업 시 어느 선생님이 호출했는지 — PC 가 협업 켜둔 상태에서만 nurse.name 을 실어 보냄. 솔로면 빈값 → 줄 숨김 (사용자 요청 2026-06-14) */
-    + '  var _nurseName=(payload.nurse&&payload.nurse.name)?String(payload.nurse.name):"";\n'
-    + '  var _nurseLine=_nurseName?"<div style=\\"font-size:19px;color:#475569;font-weight:600;margin-top:12px\\">("+_nurseName+" 선생님에게로 가기)</div>":"";\n'
-    + '  ov.innerHTML="<div style=\\"background:#fff;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 16px 64px rgba(0,0,0,0.3);max-width:80vw\\">"\n'
-    + '    +"<div style=\\"font-size:72px;margin-bottom:16px\\">📢</div>"\n'
-    + '    +"<div style=\\"font-size:28px;font-weight:800;color:#1e293b;line-height:1.6\\">"+(gcText?gcText+" ":"")+"<span style=\\"color:#0891b2\\">"+name+"</span>"+honorific+"</div>"\n'
-    + '    +_nurseLine\n'
-    + '    +"</div>";\n'
-    + '  document.body.appendChild(ov);\n'
-    + '  ov.addEventListener("click",function(){if(ov.parentNode)ov.parentNode.removeChild(ov);});\n' /* 터치/클릭 시 즉시 닫기 (사용자 결정 2026-06-11) */
-    + '  try{ if(_fdCallAudio){ _fdCallAudio.currentTime=0; _fdCallAudio.volume=0.8; _fdCallAudio.play(); } else if(FD_DINGDONG){ var _a=new Audio(FD_DINGDONG); _a.volume=0.8; _a.play(); } }catch(x){}\n'
-    + '  setTimeout(function(){if(ov.parentNode)ov.parentNode.removeChild(ov);},4000);\n' /* 8초→4초 (사용자 결정 2026-06-11) */
-    + '}\n'
+    + "\nvar _fdPendingCalls=[],_fdCallBusy=false,_fdCallNumber=0,_fdSpeechPrimed=false;\nfunction _fdLocalKoreanVoice(){\n  if(!window.speechSynthesis)return null;\n  return window.speechSynthesis.getVoices().find(function(v){return v.localService===true&&/^ko(?:[-_]|$)/i.test(v.lang||'');})||null;\n}\nfunction _fdPrimeSpeech(){\n  if(_fdSpeechPrimed||_fdCallBusy||!KIOSK_CALL_NAME||!window.SpeechSynthesisUtterance)return;\n  try{var voice=_fdLocalKoreanVoice();if(!voice||window.speechSynthesis.speaking)return;var u=new SpeechSynthesisUtterance('안내');u.voice=voice;u.lang='ko-KR';u.volume=0;u.onend=function(){_fdSpeechPrimed=true;};window.speechSynthesis.speak(u);}catch(_){}\n}\ndocument.addEventListener('click',_fdPrimeSpeech);\ndocument.addEventListener('touchend',_fdPrimeSpeech,{passive:true});\ndocument.addEventListener('keydown',_fdPrimeSpeech);\nfunction _fdCallChime(done){\n  var audio=_fdCallAudio,finished=false,timer;\n  function finish(){if(finished)return;finished=true;clearTimeout(timer);if(audio){audio.removeEventListener('ended',finish);audio.removeEventListener('error',finish);try{audio.pause();}catch(_){}}done();}\n  if(!audio){done();return;}\n  audio.addEventListener('ended',finish);audio.addEventListener('error',finish);\n  timer=setTimeout(finish,5000);\n  try{audio.currentTime=0;audio.volume=.8;var result=audio.play();if(result&&result.catch)result.catch(finish);}catch(_){finish();}\n}\nfunction _fdSpeakName(text,status,done){\n  if(!KIOSK_CALL_NAME){done();return;}\n  var voice=null;\n  try{voice=_fdLocalKoreanVoice();}catch(_){}\n  if(!voice||!window.SpeechSynthesisUtterance){status.textContent='이 기기에 한국어 음성이 없어 알림음과 화면으로 안내합니다. 기기의 한국어 음성 설정을 확인해 주세요.';done();return;}\n  var utterance=new SpeechSynthesisUtterance(text),finished=false,timer;\n  function finish(){if(finished)return;finished=true;clearTimeout(timer);done();}\n  utterance.voice=voice;utterance.lang='ko-KR';utterance.rate=.9;utterance.volume=1;\n  utterance.onend=finish;\n  utterance.onerror=function(){status.textContent='음성을 재생하지 못했습니다. 키오스크 관리에서 호출 소리를 확인해 주세요.';finish();};\n  timer=setTimeout(function(){if(finished)return;status.textContent='음성 안내가 지연되어 다음 호출을 준비합니다.';try{window.speechSynthesis.cancel();}catch(_){}finish();},20000);\n  try{window.speechSynthesis.speak(utterance);}catch(_){utterance.onerror();}\n}\nfunction _fdResolveCallPerson(payload){\n  var person=payload.person||{},uid=person.uid||person.id;\n  if(!uid||person.name)return Promise.resolve(person);\n  var known=(PEOPLE_DATA||[]).find(function(p){return(p.uid||p.id)===uid;});\n  if(known&&known.name)return Promise.resolve(known);\n  if(!EMBED_ROSTER&&typeof _rosterReq==='function')return _rosterReq('byuids',{uids:[uid]}).then(function(data){var people=(data&&data.people)||[];_rkMerge(people);return people.find(function(p){return(p.uid||p.id)===uid;})||person;}).catch(function(){return person;});\n  return Promise.resolve(person);\n}\nfunction fdShowNurseCall(payload){if(!payload)return;_fdPendingCalls.push(payload);_fdDrainCallQueue();}\nfunction _fdDrainCallQueue(){\n  if(_fdCallBusy||!_fdPendingCalls.length)return;\n  _fdCallBusy=true;var payload=_fdPendingCalls.shift();\n  _fdResolveCallPerson(payload).then(function(person){_fdPresentCall(payload,person);}).catch(function(){_fdPresentCall(payload,payload.person||{});});\n}\nfunction _fdPresentCall(payload,person){\n  var old=document.getElementById('fdNurseCallModal');if(old)old.remove();\n  var box=document.createElement('section');box.id='fdNurseCallModal';box.className='fd-call-notice';box.setAttribute('role','status');box.setAttribute('aria-live','polite');\n  var heading=document.createElement('div');heading.className='fd-call-heading';heading.textContent=payload.test?'호출 소리 확인':'지금 보건실에서 부르고 있어요';\n  var close=document.createElement('button');close.type='button';close.className='fd-call-close';close.textContent='✕';close.setAttribute('aria-label','호출 안내 닫기');close.addEventListener('click',function(){box.remove();});\n  var name=String(person.name||payload.person_name||'방문자');\n  var info=[];if(person.type!=='staff'){if(person.grade)info.push(person.grade+'학년');if(person.cls)info.push(person.cls+'반');}\n  var group=document.createElement('div');group.className='fd-call-info';group.textContent=info.join(' ');\n  var title=document.createElement('div');title.className='fd-call-person';title.textContent=name+(person.type==='staff'?'님':' 학생');\n  var instruction=document.createElement('div');instruction.className='fd-call-info';instruction.textContent='보건실로 들어오세요.';\n  var nurse=payload.nurse&&payload.nurse.name;if(nurse)instruction.textContent+=' '+String(nurse)+' 선생님께 가 주세요.';\n  var status=document.createElement('div');status.className='fd-call-status';status.textContent='입력 중인 내용은 그대로 유지됩니다.';\n  box.append(heading,close,group,title,instruction,status);document.body.appendChild(box);\n  var started=Date.now(),number=++_fdCallNumber;\n  function finished(){var delay=_fdPendingCalls.length?250:Math.max(0,8000-(Date.now()-started));setTimeout(function(){if(number!==_fdCallNumber)return;box.remove();_fdCallBusy=false;_fdDrainCallQueue();},delay);}\n  var spoken=info.join(' ')+' '+name+(person.type==='staff'?'님, ':' 학생, ')+'보건실로 들어오세요.';\n  if(nurse)spoken+=' '+String(nurse)+' 선생님께 가 주세요.';\n  _fdCallChime(function(){_fdSpeakName(spoken,status,finished);});\n}\n"
+    + kioskCallRuntimeSource(ks)
     + 'document.addEventListener("click",function(ev){\n'
     + '  var t=ev.target.closest("[data-action]");if(!t)return;\n'
     + '  var act=t.getAttribute("data-action");\n'
@@ -2710,11 +2537,12 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '    case "gear-auth-ok":_gearAuthSubmit();break;\n'
     + '    case "gear-panel-close":(function(){var p=document.getElementById("gear-panel-popup");if(p)p.style.display="none";})();break;\n'
     + '    case "gear-fullscreen":_gearToggleFullscreen();break;\n'
+    + "    case \"gear-call-test\":fdOpenCallSettings();break;\n"
     + '    case "gear-lock-guide":(function(){var p=document.getElementById("gear-lock-popup");if(p)p.style.display="flex";})();break;\n'
     + '    case "gear-lock-close":(function(){var p=document.getElementById("gear-lock-popup");if(p)p.style.display="none";})();break;\n'
     + '    case "select-person":selectPerson(parseInt(t.getAttribute("data-idx")));break;\n'
     + '    case "select-person-sec":selectPersonSec(t.getAttribute("data-sec-id"),parseInt(t.getAttribute("data-idx")));break;\n'
-    + '    case "drill-tab":drillShowTab(t.getAttribute("data-type"));break;\n'
+    + "    case \"roster-retry\":_rosterInvalidate();if(_drillTab==='student'&&_drillSelCls){drillSelectClass(_drillSelCls,_drillSelDept,_drillSelLevel);}else{drillShowTab(_drillTab||'student');}break;\n"    + '    case "drill-tab":drillShowTab(t.getAttribute("data-type"));break;\n'
     + '    case "drill-grade":drillSelectGrade(parseInt(t.getAttribute("data-grade")));break;\n'
     + '    case "drill-cls":drillSelectClass(t.getAttribute("data-cls"),t.getAttribute("data-dept"),t.getAttribute("data-level"));break;\n'
     + '    case "drill-select":selectPerson(parseInt(t.getAttribute("data-idx")));break;\n'
@@ -2787,4 +2615,8 @@ function _kioskJs(flow, relayUrl, channelId, bgImages, peopleData, dingdongB64, 
     + '},true);\n';
 
   return js;
+}
+
+function _kioskReadableCss(){
+  return "\n/* Readable kiosk controls: preserve touch size instead of shrinking whole screens. */\n.kiosk-split .kiosk-left{flex:0 0 34%;max-width:34%;padding:16px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}\n.kiosk-left-inner{flex:0 0 auto;min-width:0;gap:14px}\n.kiosk-left-inner>*{max-width:none}\n.kiosk-right,.kiosk-portrait-main{min-width:0;overflow-y:auto;overflow-x:hidden;justify-content:flex-start;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}\n.kiosk-right .screen,.kiosk-portrait-main .screen{width:100%;max-width:920px;height:auto;min-height:100%;flex:0 0 auto;justify-content:flex-start;padding:10px 4px 20px;animation:none}\n.personal-drill{max-width:920px;flex:0 0 auto}\nh2{font-size:clamp(26px,3vw,36px);line-height:1.4;margin-bottom:20px;overflow-wrap:anywhere}\n.drill-tab,.drill-grade-btn{min-height:58px;font-size:22px;line-height:1.4;padding:12px 20px;touch-action:manipulation}\n.drill-sel-chip{min-width:0;min-height:68px;padding:14px 10px;font-size:clamp(22px,2.1vw,28px);line-height:1.45;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere;white-space:normal;touch-action:manipulation}\n.drill-student-grid,.drill-staff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:12px}\n.drill-staff-grid{grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr))}\n.drill-class-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:20px;font-weight:800;color:#0e7490;margin-bottom:14px}\n#drillBody{flex:0 0 auto;overflow:visible}\n.btn-list{flex:0 0 auto;overflow:visible;gap:12px}\n.main-btn{min-height:68px;flex-shrink:0;font-size:clamp(22px,2vw,28px);line-height:1.5;padding:16px 20px;overflow:visible;overflow-wrap:anywhere;touch-action:manipulation}\n.main-btn>span:last-child{min-width:0;overflow-wrap:anywhere}\n.back-btn,.confirm-btn{min-height:52px;font-size:18px;padding:12px 20px;touch-action:manipulation}\n.nav-btns{flex-wrap:wrap;gap:12px}\n.search-input{width:100%;min-width:0;min-height:60px;font-size:22px;padding:14px}\n.search-item{display:block;width:100%;min-height:68px;text-align:left;font-family:inherit;white-space:normal;overflow-wrap:anywhere}\n.search-item .name{font-size:24px}.search-item .info{font-size:17px;color:#475569}\n.queue-card{flex-direction:column;margin:0;padding:16px;gap:12px;min-width:0}\n.queue-card-left{flex:none;flex-direction:row;flex-wrap:wrap;gap:8px;justify-content:flex-start;border-right:0;border-bottom:1px solid #cbd5e1;padding:0 0 10px}\n.queue-card-label{font-size:16px;color:#334155;margin:0}.queue-card-num{font-size:38px}.queue-card-unit{font-size:16px}\n.queue-card-right{display:grid;gap:9px;min-width:0;max-height:290px;padding:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}\n.queue-card-right .q-empty{font-size:17px;line-height:1.6;color:#475569}\n.queue-person{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:62px;padding:10px 14px;white-space:normal;overflow-wrap:anywhere;border-radius:12px}\n.queue-person-name{font-size:clamp(23px,2.3vw,30px);font-weight:800;line-height:1.4;color:#0e7490}\n.queue-person-info,.queue-more{font-size:15px;line-height:1.5;color:#475569}\n.kiosk-guide{border:1px solid rgba(8,145,178,.18);border-radius:14px;background:rgba(255,255,255,.9);overflow:hidden}\n.kiosk-guide>summary{min-height:54px;padding:14px;font-size:18px;font-weight:800;color:#0e7490;cursor:pointer;line-height:1.5}\n.kiosk-guide .rules-card{border:0;box-shadow:none;border-radius:0;padding-top:4px}\n.rules-ul li{font-size:16px;line-height:1.75}.rules-ul li.sub{font-size:15px}.rules-section-title{font-size:18px}.rules-highlight{font-size:15px}\n.left-lang-sel{padding:6px 0}.lang-sel-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;width:100%;max-width:320px}\n.lang-btn{width:100%;min-width:0;min-height:44px;height:48px}.lang-sel-label{font-size:14px}\n.kiosk-roster-state{padding:22px 16px;line-height:1.75;color:#475569;font-size:18px;overflow-wrap:anywhere}\n.kiosk-roster-state strong{display:block;font-size:22px;color:#1e293b;margin-bottom:6px}\n.kiosk-roster-state .back-btn{margin-top:14px}\n.kiosk-portrait-queue{flex:0 0 auto;padding:8px 12px;min-width:0}\n.kiosk-portrait-queue .queue-card{padding:10px 14px;gap:6px}\n.kiosk-portrait-queue .queue-card-left{border:0;padding:0}\n.kiosk-portrait-queue .queue-card-right{display:flex;flex-wrap:wrap;max-height:120px;gap:8px}\n.kiosk-portrait-queue .queue-person{flex:0 1 auto;min-height:52px;padding:6px 12px}.kiosk-portrait-queue .queue-person-name{font-size:22px}\n.fd-call-notice{position:fixed;z-index:99999;left:50%;top:72px;transform:translateX(-50%);width:min(840px,calc(100vw - 24px));max-height:calc(100dvh - 84px);overflow-y:auto;border:3px solid #0891b2;border-radius:22px;background:#fff;padding:24px;box-shadow:0 16px 60px rgba(15,23,42,.35);color:#1e293b;text-align:center;overflow-wrap:anywhere}\n.fd-call-heading{font-size:20px;font-weight:800;color:#0e7490;padding-right:44px}.fd-call-person{font-size:clamp(30px,5vw,50px);font-weight:900;line-height:1.45;margin:12px 0;color:#0e7490}\n.fd-call-info{font-size:clamp(18px,2.5vw,26px);line-height:1.5}.fd-call-status{font-size:15px;line-height:1.6;margin-top:10px;color:#475569}\n.fd-call-close{position:absolute;right:10px;top:10px;min-width:44px;min-height:44px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;color:#334155;font-size:18px;cursor:pointer}\nbutton:focus-visible,summary:focus-visible,html.touch button:focus-visible{outline:3px solid #0e7490;outline-offset:3px}\n@media(max-width:768px) and (orientation:portrait){.kiosk-split .kiosk-left{max-width:100%;flex:none;padding:12px}.kiosk-right{height:auto;min-height:360px}.kiosk-right .screen{min-height:0}.kiosk-portrait-queue .queue-card-right{max-height:96px}.lang-btn{height:44px}.kiosk-portrait-footer{padding:6px 12px}.fd-call-notice{top:60px;padding:18px;max-height:calc(100dvh - 72px)}}\n@media(orientation:landscape) and (max-height:520px){.kiosk-split .kiosk-left{padding:10px}.kiosk-left-inner{gap:10px}.queue-card{padding:12px}.fd-call-notice{top:12px;max-height:calc(100dvh - 24px);padding:16px}.fd-call-person{margin:6px 0}.fd-call-info{font-size:18px}}\n\n.screen input:not([type=checkbox]):not([type=radio]){min-width:0;min-height:60px;font-size:22px;max-width:100%}.search-item .name,.search-item .info{display:block}\n\n.drill-student-grid,.drill-staff-grid{grid-template-columns:repeat(auto-fit,minmax(min(192px,100%),1fr))}\n.drill-sel-chip{flex-direction:column;gap:5px;min-height:88px;padding:12px;word-break:keep-all}\n.drill-person-name{display:block;width:100%;min-width:0;overflow-wrap:anywhere;word-break:keep-all;line-height:1.4}\n.drill-person-meta{display:block;font-size:15px;line-height:1.4;color:#64748b;font-weight:600;white-space:normal}\n.drill-class-heading .back-btn{font-size:16px;min-height:44px;margin:0;padding:8px 12px}\n\n/* Keep waiting details inside their cards and language choices touchable. */\n.queue-card-right{grid-auto-rows:max-content;align-content:start}\n.queue-person{height:auto;flex-shrink:0}\n.queue-person-name,.queue-person-info{flex-shrink:0;max-width:100%}\n.lang-sel-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}\n.lang-btn{width:48px;min-width:48px;height:48px;min-height:48px;flex:0 0 48px}\n.kiosk-portrait-footer .left-lang-sel{width:100%;max-width:320px;min-width:0}\n\n/* Student-facing guidance follows the same text-size setting. */\n.guide-text{font-size:18px;line-height:1.75;overflow-wrap:anywhere}\n.selected-person-summary{margin-top:10px;font-size:18px;color:#0e7490;font-weight:700;text-align:center;overflow-wrap:anywhere}\n#reception-popup{padding:12px;box-sizing:border-box}\n#reception-popup .popup-content{box-sizing:border-box;width:min(600px,100%);max-width:100%;max-height:calc(100dvh - 24px);padding:24px;display:flex;flex-direction:column;gap:20px;overflow:hidden;transform:none;animation:none}\n#reception-popup .reception-body{min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;overflow-wrap:anywhere;line-height:1.65}\n#reception-popup .reception-title{font-size:22px;font-weight:800;color:#1e293b;margin-bottom:16px;line-height:1.5}\n#reception-popup .reception-detail,#reception-popup .reception-guide{font-size:18px;color:#334155;line-height:1.8;white-space:pre-line}\n#reception-popup .reception-guide{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;text-align:left;margin-top:16px}\n#reception-popup .reception-due{font-size:18px;color:#0e7490;font-weight:700;background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:14px;margin-top:16px}\n#reception-popup .reception-due strong{font-size:20px}\n#reception-popup .reception-preview{font-size:15px;color:#475569;background:#f1f5f9;border-radius:10px;padding:10px;margin-bottom:16px}\n#reception-popup .reception-icon{font-size:40px;margin-bottom:12px}\n#reception-popup .reception-actions{flex-shrink:0;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}\n#reception-popup .reception-actions button{margin:0;min-width:0;max-width:100%;overflow-wrap:anywhere}\n#reception-popup[data-reception-state=\"uncertain\"] .reception-title,#reception-popup[data-reception-state=\"failed\"] .reception-title{color:#9a3412}\n@media(max-height:520px){#reception-popup .popup-content{padding:16px;gap:12px}#reception-popup .reception-icon{display:none}}\n";
 }

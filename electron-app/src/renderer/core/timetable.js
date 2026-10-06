@@ -111,7 +111,7 @@ function _defaultAySem(){
   return {ay:ay, sem:sem};
 }
 function _todayYmd(){ const d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
-function _ymdToInput(y){ return /^\d{8}$/.test(y)? (y.slice(0,4)+'-'+y.slice(4,6)+'-'+y.slice(6,8)) : ''; }
+
 
 let _ttDepts = [];   /* 마지막으로 받은 학과 목록 */
 
@@ -129,11 +129,11 @@ export async function showTimetableModal(opts){
   ov.id='ttSearchOverlay';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13050;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="ttSearchBox" style="background:var(--card);border-radius:14px;width:1140px;max-width:97vw;height:auto;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.18s">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px">'
+    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px">'
       +'<span style="font-size:18px">'+(PICK?'🔔':'🔍')+'</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">'+(PICK?'나의 수업 시간 선택':'나이스 전체 시간표 보기')+'</div><div id="ttKindLine" style="font-size:10.5px;color:var(--t3)">'+(PICK?'학교급 확인 중…':'학교급 확인 중…')+'</div>'+(PICK?'<div style="font-size:12.5px;color:#ec4899;font-weight:700;margin-top:4px">원클릭으로 나의 수업 선택, 더블클릭으로 팝업 알림 시간 선택이 가능합니다.</div>':'')+'</div>'
-      +'<button id="ttFilterBtn" type="button" style="padding:7px 14px;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f);align-self:center">🔎 필터링 검색</button>'
+      +'<button id="ttFilterBtn" type="button" style="padding:7px 14px;background:var(--cyan);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f);align-self:center">🔎 필터링 검색</button>'
       +'<button id="ttReload" type="button" style="margin-left:6px;padding:7px 12px;background:var(--bg2);color:var(--t2);border:1px solid var(--bdr);border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f);align-self:center">↻ 새로고침</button>'
-      +(PICK?'<button id="ttClearAll" type="button" style="margin-left:6px;padding:7px 12px;background:linear-gradient(135deg,#ec4899,#db2777);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f);align-self:center">🗑 모두 삭제</button>':'')
+      +(PICK?'<button id="ttClearAll" type="button" style="margin-left:6px;padding:7px 12px;background:#db2777;color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--f);align-self:center">🗑 모두 삭제</button>':'')
       +'</div>'   /* X 닫기 제거 — 바깥 클릭으로 닫음. 입력폼·조회 버튼 제거 — 열면 이번 주 자동 표시. 상세조건은 [필터링 검색] (사용자 요청 2026-06-17) */
     +'<div id="ttResult" style="padding:14px 20px;overflow:auto;flex:0 0 auto;min-height:160px;font-size:12px;color:var(--t2)">이번 주 시간표를 불러오는 중…</div>'
     +'</div>';
@@ -253,7 +253,7 @@ export async function showTimetableModal(opts){
     ov.id='ttFilterOv';
     ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13070;opacity:0;transition:opacity 0.15s ease';
     ov.innerHTML='<div id="ttFilterBox" style="background:var(--card);border-radius:14px;width:360px;max-width:92vw;box-shadow:0 18px 48px rgba(0,0,0,0.4);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-      +'<div style="padding:13px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));font-size:13.5px;font-weight:800;color:var(--t1)">🔎 필터링 검색</div>'
+      +'<div style="padding:13px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:13.5px;font-weight:800;color:var(--t1)">🔎 필터링 검색</div>'
       +'<div style="padding:16px 18px;display:flex;flex-direction:column;gap:11px">'
         +'<div style="display:flex;gap:10px"><label style="'+lab+';flex:1">학년도<select id="ttfAy" style="'+fsel+'">'+ayO+'</select></label>'
           +'<label style="'+lab+';flex:1">학기<select id="ttfSem" style="'+fsel+'"><option value="1"'+(_flt.sem==='1'?' selected':'')+'>1학기</option><option value="2"'+(_flt.sem==='2'?' selected':'')+'>2학기</option></select></label></div>'
@@ -263,7 +263,7 @@ export async function showTimetableModal(opts){
       +'</div>'
       +'<div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--bdr)">'
         +'<button id="ttfReset" type="button" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid var(--bdr);background:transparent;color:var(--t2);border-radius:7px;cursor:pointer;font-family:var(--f)">초기화</button>'
-        +'<button id="ttfApply" type="button" style="padding:7px 18px;font-size:12px;font-weight:700;border:none;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#fff;border-radius:7px;cursor:pointer;font-family:var(--f)">적용</button>'
+        +'<button id="ttfApply" type="button" style="padding:7px 18px;font-size:12px;font-weight:700;border:none;background:var(--cyan);color:#fff;border-radius:7px;cursor:pointer;font-family:var(--f)">적용</button>'
       +'</div></div>';
     document.body.appendChild(ov);
     requestAnimationFrame(function(){ ov.style.opacity='1'; const b=document.getElementById('ttFilterBox'); if(b){b.style.opacity='1';b.style.transform='scale(1)';} });
@@ -296,12 +296,12 @@ export async function showTimetableModal(opts){
     const ov=document.createElement('div'); ov.id='cpTimeOv';
     ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);z-index:13090;opacity:0;transition:opacity 0.15s';
     ov.innerHTML='<div id="cpTimeBox" style="background:var(--card);border-radius:14px;width:340px;max-width:92vw;box-shadow:0 18px 48px rgba(0,0,0,0.4);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.95);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-      +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(236,72,153,0.14),rgba(139,92,246,0.06))"><div style="font-size:13.5px;font-weight:800;color:var(--t1)">⏰ 팝업 알림을 희망하는 시간을 지정하세요.</div><div style="font-size:10.5px;color:var(--t3);margin-top:3px">'+_esc(dowL)+'요일 '+_esc(perio)+'교시'+(content?(' · '+_esc(content)):'')+'</div></div>'
+      +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(236,72,153,0.14)"><div style="font-size:13.5px;font-weight:800;color:var(--t1)">⏰ 팝업 알림을 희망하는 시간을 지정하세요.</div><div style="font-size:10.5px;color:var(--t3);margin-top:3px">'+_esc(dowL)+'요일 '+_esc(perio)+'교시'+(content?(' · '+_esc(content)):'')+'</div></div>'
       +'<div style="padding:18px;display:flex;align-items:center;justify-content:center;gap:8px"><select id="cpTimeHour" style="'+_ssel+'">'+hOpts+'</select><select id="cpTimeMin" style="'+_ssel+'">'+mOpts+'</select></div>'
       +'<div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--bdr)">'
         +(existing?'<button id="cpTimeDel" type="button" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.08);color:#dc2626;border-radius:7px;cursor:pointer;font-family:var(--f);margin-right:auto">선택 해제</button>':'')
         +'<button id="cpTimeCancel" type="button" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid var(--bdr);background:transparent;color:var(--t2);border-radius:7px;cursor:pointer;font-family:var(--f)">취소</button>'
-        +'<button id="cpTimeSave" type="button" style="padding:7px 18px;font-size:12px;font-weight:700;border:none;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;border-radius:7px;cursor:pointer;font-family:var(--f)">저장</button>'
+        +'<button id="cpTimeSave" type="button" style="padding:7px 18px;font-size:12px;font-weight:700;border:none;background:#db2777;color:#fff;border-radius:7px;cursor:pointer;font-family:var(--f)">저장</button>'
       +'</div></div>';
     document.body.appendChild(ov);
     requestAnimationFrame(function(){ ov.style.opacity='1'; const b=document.getElementById('cpTimeBox'); if(b){b.style.opacity='1';b.style.transform='scale(1)';} });

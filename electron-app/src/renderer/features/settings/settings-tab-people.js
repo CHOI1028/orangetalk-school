@@ -1174,7 +1174,7 @@ function _renderStaffMatch(vArea, identical, rows, fresh, lastStaff, save, yr){
   const TIPS={stay:'작년에도 있었던 교직원이 맞습니다.',fresh:'이 이름의 교직원이 다른 학교로 가거나 퇴직하였고 같은 이름의 다른 사람이 이 학교에 온 케이스입니다.',other:'작년에 있던 인원과 정확한 매칭을 수동으로 진행합니다.'};
   const GRID='display:grid;grid-template-columns:1fr 270px 1fr;gap:10px;align-items:center';
   function _seg(i,k,label,state){
-    const onbg=k==='stay'?'linear-gradient(135deg,#22c55e,#16a34a)':k==='fresh'?'linear-gradient(135deg,#3b82f6,#2563eb)':'linear-gradient(135deg,#f59e0b,#d97706)';
+    const onbg=k==='stay'?'#16a34a':k==='fresh'?'#2563eb':'#d97706';
     return '<button data-srow="'+i+'" data-sk="'+k+'" style="border:none;border-right:1px solid var(--bdr);background:'+(state===k?onbg:'transparent')+';color:'+(state===k?'#fff':'var(--t3)')+';padding:7px 8px;font-size:10px;font-weight:800;cursor:pointer;font-family:var(--f);white-space:nowrap">'+label+'</button>';
   }
   function _person(name,pos,right){
@@ -1319,7 +1319,7 @@ function _staffPick(row, lastStaff, after){
   const ov=document.createElement('div'); ov.id=id;
   ov.style.cssText='position:fixed;inset:0;z-index:13000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4)';
   let h='<div style="background:var(--card);border-radius:14px;width:460px;max-width:92vw;border:1px solid var(--bdr);box-shadow:0 18px 46px rgba(0,0,0,0.4);overflow:hidden">';
-  h+='<div style="padding:13px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(139,92,246,0.05));font-size:14px;font-weight:800;color:var(--t1)">🔗 작년 교직원과 수동 매칭</div>';
+  h+='<div style="padding:13px 18px;border-bottom:1px solid var(--bdr);background:rgba(245,158,11,0.12);font-size:14px;font-weight:800;color:var(--t1)">🔗 작년 교직원과 수동 매칭</div>';
   h+='<div style="padding:6px 18px 0;font-size:11px;color:var(--t3)">올해 "'+escHtml(row.staff.position||'')+' '+escHtml(row.staff.name||'')+'" 이(가) 작년의 누구였는지 선택하세요.</div>';
   h+='<div id="_spList" style="padding:12px 18px;max-height:48vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>';
   h+='<div style="padding:12px 18px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end">'
@@ -1493,11 +1493,11 @@ export function _careListPanelHtml(careList,title){
   h+='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">총 '+careList.length+'명</div>';
   const _btnS='padding:6px 12px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;';
   h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">';
-  h+='<button data-action="care-copy" style="'+_btnS+'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드 복사</button>';
-  h+='<button data-action="care-excel" style="'+_btnS+'background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>';
-  h+='<button data-action="care-sheets" style="'+_btnS+'background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets</button>';
-  h+='<button data-action="care-print" style="'+_btnS+'background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none">인쇄</button>';
-  h+='<button data-action="care-pdf" style="'+_btnS+'background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none">PDF</button>';
+  h+='<button data-action="care-copy" style="'+_btnS+'background:#7c3aed;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>클립보드 복사</button>';
+  h+='<button data-action="care-excel" style="'+_btnS+'background:#16a34a;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>엑셀 내보내기</button>';
+  h+='<button data-action="care-sheets" style="'+_btnS+'background:#1e8e3e;color:#fff;border:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Google Sheets</button>';
+  h+='<button data-action="care-print" style="'+_btnS+'background:#0891b2;color:#fff;border:none">인쇄</button>';
+  h+='<button data-action="care-pdf" style="'+_btnS+'background:#dc2626;color:#fff;border:none">PDF</button>';
   h+='</div>';
   h+='<div style="font-size:9px;color:#ef4444;margin-bottom:8px">‼️ Google Sheets로 내보낼 경우 편집 용도로 사용하고 저장을 하지 마세요.</div>';
   const bd='border:1px solid #c0c0c0;';const pd='padding:3px 5px;';const ctr='text-align:center;';
@@ -1565,7 +1565,7 @@ async function careExportSheets(){
   html+='</div>';
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2);border-radius:0 0 10px 10px">';
   html+='<button data-action="close-care-sheets" style="padding:7px 16px;font-size:11px;font-weight:600;background:var(--bg2);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button>';
-  html+='<button id="careSheetsSendBtn" style="padding:7px 22px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
+  html+='<button id="careSheetsSendBtn" style="padding:7px 22px;font-size:11px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>생성 및 보내기</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   ov.addEventListener('click',function(e){

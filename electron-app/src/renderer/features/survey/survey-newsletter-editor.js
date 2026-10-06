@@ -366,7 +366,7 @@ function svOpenNewsletterModal(customTitle){
   h+='<div class="nl-canvas-area" id="nlCanvasArea" data-nl-click="nlCanvasAreaClick">'
     +'<div class="nl-canvas" id="nlCanvas"></div></div>';
   /* 머지 미리보기 바 (하단) */
-  h+='<div id="nlMergePreviewBar" style="display:'+(getNlMerge().data.length?'flex':'none')+';padding:6px 12px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(251,191,36,0.08));border-top:1px solid rgba(245,158,11,0.2);align-items:center;gap:8px;font-size:11px">'
+  h+='<div id="nlMergePreviewBar" style="display:'+(getNlMerge().data.length?'flex':'none')+';padding:6px 12px;background:rgba(245,158,11,0.08);border-top:1px solid rgba(245,158,11,0.2);align-items:center;gap:8px;font-size:11px">'
     +'<span style="font-weight:700;color:#f59e0b">📬 머지</span>'
     +'<button data-nl-click="nlMergeNav" data-nl-arg="-1" style="padding:2px 8px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t1);cursor:pointer;font-size:11px;font-weight:700">◀</button>'
     +'<span id="nlMergeNavLabel" style="font-weight:600;color:var(--t1);min-width:120px;text-align:center"></span>'
@@ -382,11 +382,11 @@ function svOpenNewsletterModal(customTitle){
     +'<span id="nlZoomLabel" style="font-size:10px;font-weight:700;color:var(--t2);min-width:32px;text-align:center">100%</span>'
     +'<button data-nl-click="nlSetZoom" data-nl-arg="100" style="height:22px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t3);cursor:pointer;font-size:9px;font-weight:600;padding:0 6px">맞춤</button>'
     +'<div style="width:1px;height:16px;background:var(--bdr);margin:0 4px"></div>'
-    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="pdf" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</button>'
-    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="png" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG</button>'
-    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="jpeg" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>JPEG</button>'
+    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="pdf" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#dc2626;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</button>'
+    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="png" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#0891b2;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG</button>'
+    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="jpeg" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#7c3aed;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>JPEG</button>'
     +'<div style="width:1px;height:16px;background:var(--bdr);margin:0 4px"></div>'
-    +'<button data-nl-click="nlPrint" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>인쇄</button>'
+    +'<button data-nl-click="nlPrint" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#d97706;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>인쇄</button>'
     +'</span></div>';
   h+='</div></div></div>'; /* nl-right, nl-body, nl-modal */
   ov.innerHTML=h;
@@ -452,8 +452,8 @@ export function nlRenderInlineTab(){
   const _editLabel=_nlEditingId?(' — '+(_nlGetSavedList().find(function(it){return it.id===_nlEditingId;})||{}).name||''):'';
   h+='<div class="nl-header" style="border-radius:0"><span class="nl-header-title">📄 가정통신문 마법사'+escHtml(_editLabel)+'</span>'
     +'<div style="display:flex;align-items:center;gap:6px">'
-    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="png" title="PNG로 저장" style="height:26px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG로 저장</button>'
-    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="pdf" title="PDF로 저장" style="height:26px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF로 저장</button>'
+    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="png" title="PNG로 저장" style="height:26px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#0891b2;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG로 저장</button>'
+    +'<button data-nl-click="nlShowExportPopup" data-nl-arg="pdf" title="PDF로 저장" style="height:26px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#dc2626;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF로 저장</button>'
     +'<button class="sv-btn sv-btn-sm" data-nl-click="nlUndo" title="실행 취소 (Ctrl+Z)">↩</button>'
     +'<button class="sv-btn sv-btn-sm" data-nl-click="nlResetEditor" title="초기화">↺ 초기화</button>'
     +'</div></div>';
@@ -511,7 +511,7 @@ export function nlRenderInlineTab(){
   /* 오른쪽 패널 */
   h+='<div class="nl-right">';
   /* 머지 미리보기 바 */
-  h+='<div id="nlMergePreviewBar" style="display:none;padding:6px 12px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(251,191,36,0.08));border-bottom:1px solid rgba(245,158,11,0.2);align-items:center;gap:8px;font-size:11px">'
+  h+='<div id="nlMergePreviewBar" style="display:none;padding:6px 12px;background:rgba(245,158,11,0.08);border-bottom:1px solid rgba(245,158,11,0.2);align-items:center;gap:8px;font-size:11px">'
     +'<span style="font-weight:700;color:#f59e0b">📬 머지 미리보기</span>'
     +'<button data-nl-click="nlMergeNav" data-nl-arg="-1" style="padding:2px 8px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t1);cursor:pointer;font-size:11px;font-weight:700">◀</button>'
     +'<span id="nlMergeNavLabel" style="font-weight:600;color:var(--t1);min-width:120px;text-align:center"></span>'
@@ -615,7 +615,7 @@ export function nlRenderInlineTab(){
   h+='<div class="nl-zoom-bar">'
     +'<span id="nlObjInfo" style="color:var(--t3)">객체 0개</span>'
     +'<span style="display:flex;align-items:center;gap:4px;margin-left:auto">'
-    +'<button data-nl-click="nlPrint" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>인쇄</button>'
+    +'<button data-nl-click="nlPrint" style="height:22px;padding:0 10px;font-size:10px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;gap:4px;background:#d97706;color:#fff;border:none;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>인쇄</button>'
     +'</span></div>';
   h+='</div></div>'; /* nl-right, nl-body */
   wrap.innerHTML=h;
@@ -767,7 +767,7 @@ function nlRenderList(){
   const list=_nlGetSavedList();
   let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
     +'<span style="font-size:14px;font-weight:800;color:var(--t1)">📋 저장된 가정통신문 ('+list.length+')</span>'
-    +'<button data-nl-click="nlResetForNew" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none">+ 새 가정통신문</button>'
+    +'<button data-nl-click="nlResetForNew" style="padding:6px 14px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;font-family:var(--f);background:#0891b2;color:#fff;border:none">+ 새 가정통신문</button>'
     +'</div>';
   if(!list.length){
     h+='<div style="text-align:center;padding:60px 20px;color:var(--t3)">'

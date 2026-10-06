@@ -91,7 +91,7 @@ export function createEmptyState(opts){
   const title = opts.title || '데이터가 없습니다';
   const desc = opts.desc || '';
   const actionLabel = opts.actionLabel || '';
-  return '<div class="empty-state">'
+  return '<div class="empty-state" data-ui-state="empty" role="status" aria-live="polite">'
     + '<div class="empty-state-icon">'+ icon +'</div>'
     + '<div class="empty-state-title">'+ escHtml(title) +'</div>'
     + (desc ? '<div class="empty-state-desc">'+ escHtml(desc) +'</div>' : '')
@@ -101,10 +101,13 @@ export function createEmptyState(opts){
 export function showLoading(container, text){
   const c = (typeof container === 'string') ? document.getElementById(container) : container;
   if(!c) return;
-  hideLoading(c);
+  c.querySelectorAll('[data-ui-helper-loading="1"]').forEach(function(node){node.remove();});
+  c.setAttribute('aria-busy','true');
   const ov = document.createElement('div');
   ov.className = 'loading-overlay';
   ov.dataset.uiHelperLoading = '1';
+  ov.setAttribute('role','status');
+  ov.setAttribute('aria-live','polite');
   ov.innerHTML = '<div class="loading-spinner"></div>'
     + (text ? '<span class="loading-overlay-text">'+ escHtml(text) +'</span>' : '');
   const st = getComputedStyle(c);
@@ -114,6 +117,7 @@ export function showLoading(container, text){
 export function hideLoading(container){
   const c = (typeof container === 'string') ? document.getElementById(container) : container;
   if(!c) return;
+  c.setAttribute('aria-busy','false');
   const ov = c.querySelector('[data-ui-helper-loading="1"]');
   if(ov){
     ov.style.transition = 'opacity .15s ease';
@@ -134,7 +138,7 @@ export function fireConfetti(stuId){
       flash.style.left='calc('+orig[0]+'vw - 60px)';
       flash.style.top='calc(100vh - 120px)';
       flash.style.width='120px';flash.style.height='120px';
-      flash.style.background='radial-gradient(circle,rgba(255,215,0,0.6),rgba(255,165,0,0.3),transparent)';
+      flash.style.background='transparent';
       document.documentElement.appendChild(flash);
       setTimeout(function(){flash.remove();},700);
     },idx*100);
@@ -167,56 +171,79 @@ export function fireConfetti(stuId){
  *   호출: const ok = await appConfirmModal('삭제하시겠습니까?', '약품 삭제');
  *   · 헤더(회색) + 바디(흰색) + 푸터(취소·삭제) 분리, ESC=취소, Enter=확인
  *   · resolve(true|false) 반환. backdrop 클릭 = 취소. */
+let confirmSequence = 0;
 export function appConfirmModal(msg, title, opts){
-  /* opts (선택):
-   *   okLabel       — ok 버튼 라벨 (기본 "삭제")
-   *   cancelLabel   — cancel 버튼 라벨 (기본 "취소")
-   *   vertical      — true 면 버튼을 세로 배열 (ok 위, cancel 아래) + full width. 라벨이 긴 경우용.
-   *   okBg / okBorder / okColor — ok 버튼 색 (기본 빨강 계열 — 삭제 액션)
-   * 기존 호출자 (msg, title 만 전달) 는 모두 그대로 동작 — 옵션 미지정 시 옛 GUI 유지. */
   opts = opts || {};
   const okLabel = opts.okLabel || '삭제';
   const cancelLabel = opts.cancelLabel || '취소';
-  const vertical = !!opts.vertical;
-  const okOnly = !!opts.okOnly;   /* true 면 취소 버튼 없이 ok(확인) 단일 버튼 — 정보/완료 모달용 (네이티브 alert 대체) */
-  const noButtons = !!opts.noButtons;   /* true 면 버튼 자체를 없앰 — 배경 클릭/ESC 로만 닫는 순수 정보 모달 (사용자 요청 2026-06-24) */
-  const okBg = opts.okBg || 'rgba(239,68,68,0.12)';
-  const okBorder = opts.okBorder || 'rgba(239,68,68,0.35)';
-  const okColor = opts.okColor || '#dc2626';
+  const danger = /삭제|비우기|초기화/.test(okLabel);
+  const noButtons = !!opts.noButtons;
+  const previousFocus = document.activeElement;
+  const uid = 'school-confirm-' + (++confirmSequence);
   return new Promise(function(resolve){
-    const _title = title || '인원 삭제';
     const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
-    /* 세로 배열: ok(예) 위 + cancel(아니오) 아래 — 라벨이 길 때 사용자 정책 (2026-05-21) */
-    const btnRowStyle = vertical
-      ? 'display:flex;flex-direction:column;gap:6px;padding:10px 16px;border-top:1px solid var(--bdr);background:var(--card)'
-      : 'display:flex;gap:6px;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--bdr);background:var(--card)';
-    const okBtnStyle = 'padding:6px 14px;font-size:11.5px;font-weight:700;border-radius:6px;border:1px solid '+okBorder+';background:'+okBg+';color:'+okColor+';cursor:pointer;outline:none;font-family:var(--f)'+(vertical?';width:100%':'');
-    const cancelBtnStyle = 'padding:6px 14px;font-size:11.5px;font-weight:600;border-radius:6px;border:1px solid var(--bdr);background:transparent;color:var(--t2);cursor:pointer;outline:none;font-family:var(--f)'+(vertical?';width:100%':'');
-    const okBtn = '<button data-act="ok" style="'+okBtnStyle+'">'+okLabel+'</button>';
-    const cancelBtn = '<button data-act="cancel" style="'+cancelBtnStyle+'">'+cancelLabel+'</button>';
-    /* 가로: 취소 → ok (옛 동작). 세로: ok → 취소 (예 위 / 아니오 아래) */
-    const btnsHtml = okOnly ? okBtn : (vertical ? (okBtn + cancelBtn) : (cancelBtn + okBtn));
-    /* 세로 배열 시 너비 살짝 확대 — 긴 라벨이 한 줄에 들어오도록. opts.width 로 호출자가 명시 가능(긴 한 줄 안내문용). */
-    const boxWidth = opts.width || (vertical ? '400px' : '340px');
-    /* noButtons: 푸터(버튼 행) 자체를 생략 — 본문 하단 여백만 살짝 확보 */
-    const footerHtml = noButtons ? '<div style="height:6px;background:var(--card)"></div>' : ('<div style="'+btnRowStyle+'">'+btnsHtml+'</div>');
-    ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:'+boxWidth+';max-width:92vw;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden">'
-      +'<div style="padding:12px 18px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">'+_title+'</div>'
-      +'<div style="padding:18px 20px;font-size:12.5px;color:var(--t1);line-height:1.7;background:var(--card)">'+msg+'</div>'
-      +footerHtml+'</div>';
-    document.body.appendChild(ov);
-    const close=function(r){ try{document.removeEventListener('keydown',onKey,true);}catch(_){} ov.remove(); resolve(r); };
-    const _okBtnEl = ov.querySelector('[data-act="ok"]');   /* noButtons 면 ok 버튼이 없음 — null 가드 */
-    if(_okBtnEl) _okBtnEl.addEventListener('click',function(){close(true);});
-    const _cancelBtnEl = ov.querySelector('[data-act="cancel"]');   /* okOnly 면 취소 버튼이 없음 — null 가드 */
-    if(_cancelBtnEl) _cancelBtnEl.addEventListener('click',function(){close(false);});
-    ov.addEventListener('click',function(e){ if(e.target===ov) close(false); });
-    const onKey=function(e){
-      if(e.key==='Escape'){ e.preventDefault(); close(false); }
-      else if(e.key==='Enter'){ e.preventDefault(); close(true); }
+    ov.className='school-confirm-overlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)';
+    const box=document.createElement('div');
+    box.className='school-confirm-dialog';
+    box.style.width=opts.width || (opts.vertical ? '440px' : '380px');
+    box.setAttribute('role',danger ? 'alertdialog' : 'dialog');
+    box.setAttribute('aria-modal','true');
+    box.setAttribute('aria-labelledby',uid+'-title');
+    box.setAttribute('aria-describedby',uid+'-body');
+    box.tabIndex=-1;
+    box.innerHTML='<div class="school-confirm-title" id="'+uid+'-title">'+(title || '인원 삭제')+'</div>'
+      +'<div class="school-confirm-body" id="'+uid+'-body">'+msg+'</div>';
+    let okButton=null, cancelButton=null;
+    if(!noButtons){
+      const actions=document.createElement('div');
+      actions.className='school-confirm-actions'+(opts.vertical?' is-vertical':'');
+      okButton=document.createElement('button');
+      okButton.type='button';okButton.dataset.act='ok';
+      okButton.className='school-confirm-ok';
+      okButton.dataset.schoolEmphasis=danger?'danger':'primary';
+      okButton.textContent=okLabel;
+      if(opts.okBg)okButton.style.setProperty('--school-action-bg',opts.okBg);
+      if(opts.okBorder)okButton.style.setProperty('--school-action-border',opts.okBorder);
+      if(opts.okColor)okButton.style.setProperty('--school-action-color',opts.okColor);
+      if(!opts.okOnly){
+        cancelButton=document.createElement('button');
+        cancelButton.type='button';cancelButton.dataset.act='cancel';
+        cancelButton.dataset.schoolEmphasis='secondary';cancelButton.textContent=cancelLabel;
+        if(!opts.vertical)actions.append(cancelButton);
+      }
+      actions.append(okButton);
+      if(opts.vertical && cancelButton)actions.append(cancelButton);
+      box.append(actions);
+    }
+    ov.append(box);document.body.append(ov);
+    let finished=false;
+    const close=function(result){
+      if(finished)return;finished=true;
+      document.removeEventListener('keydown',onKey,true);
+      ov.remove();
+      if(previousFocus && previousFocus.isConnected)previousFocus.focus({preventScroll:true});
+      resolve(result);
     };
+    const focusable=()=>Array.from(box.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')).filter(node=>node.getClientRects().length);
+    const onKey=function(event){
+      if(Array.from(document.querySelectorAll('.school-confirm-overlay')).at(-1)!==ov)return;
+      if(event.key==='Escape'){
+        event.preventDefault();event.stopImmediatePropagation();close(false);
+      }else if(event.key==='Tab'){
+        const nodes=focusable(),first=nodes[0],last=nodes.at(-1);
+        if(!first){event.preventDefault();box.focus();return;}
+        if(!box.contains(document.activeElement)||document.activeElement===box){event.preventDefault();(event.shiftKey?last:first).focus();}
+        else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+      }
+      // Enter/Space activate only the focused native control, never an implicit deletion.
+    };
+    if(okButton)okButton.addEventListener('click',()=>close(true));
+    if(cancelButton)cancelButton.addEventListener('click',()=>close(false));
+    ov.addEventListener('click',event=>{if(event.target===ov)close(false);});
     document.addEventListener('keydown',onKey,true);
+    (cancelButton||okButton||box).focus({preventScroll:true});
   });
 }
 

@@ -90,13 +90,13 @@ export function showClassPopup(p, opts){
   ov.className = 'modal-overlay show';
   ov.style.zIndex = '13200';
   ov.innerHTML = '<div class="modal-content" style="width:400px;max-width:94vw;padding:0;overflow:hidden">'
-    + '<div style="padding:14px 20px;background:linear-gradient(135deg,rgba(236,72,153,0.14),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px"><span style="font-size:20px">📚</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">수업 알림</div><div style="font-size:10.5px;color:var(--t3)">' + dowL + '요일 ' + escHtml(String(p.perio)) + '교시</div></div></div>'
+    + '<div style="padding:14px 20px;background:rgba(236,72,153,0.14);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px"><span style="font-size:20px">📚</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">수업 알림</div><div style="font-size:10.5px;color:var(--t3)">' + dowL + '요일 ' + escHtml(String(p.perio)) + '교시</div></div></div>'
     + '<div style="padding:22px 20px;text-align:center">'
     +   '<div style="font-size:17px;font-weight:800;color:var(--t1);margin-bottom:6px">' + escHtml(p.content || '수업') + '</div>'
     +   (info ? '<div style="font-size:12px;color:var(--t2)">' + escHtml(info) + '</div>' : '')
     +   '<div style="font-size:11px;color:var(--t3);margin-top:12px">곧 수업 시간입니다.</div>'
     + '</div>'
-    + '<div style="padding:12px 20px;border-top:1px solid var(--bdr);text-align:right"><button data-cp-close style="padding:7px 18px;font-size:12px;font-weight:700;border:none;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;border-radius:7px;cursor:pointer;font-family:var(--f)">확인</button></div>'
+    + '<div style="padding:12px 20px;border-top:1px solid var(--bdr);text-align:right"><button data-cp-close style="padding:7px 18px;font-size:12px;font-weight:700;border:none;background:#db2777;color:#fff;border-radius:7px;cursor:pointer;font-family:var(--f)">확인</button></div>'
     + '</div>';
   document.body.appendChild(ov);
   const close = function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); };

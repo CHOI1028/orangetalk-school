@@ -23,8 +23,8 @@ export function _renderPrivacyTab(){
      라이트/다크 모드에 따라 hero·디바이더 색상 분기. */
   const _isLight=document.body.classList.contains('light');
   const _heroBg=_isLight
-    ? 'linear-gradient(135deg,rgba(6,182,212,0.07),rgba(139,92,246,0.04))'
-    : 'linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))';
+    ? 'rgba(6,182,212,0.07)'
+    : 'rgba(6,182,212,0.10)';
   const _heroBdr=_isLight?'rgba(6,182,212,0.30)':'rgba(6,182,212,0.25)';
   const _heroGlow=_isLight?'rgba(6,182,212,0.10)':'rgba(6,182,212,0.18)';
   const _heroTagBg=_isLight?'rgba(6,182,212,0.10)':'rgba(6,182,212,0.15)';
@@ -36,7 +36,7 @@ export function _renderPrivacyTab(){
 
   /* Hero — 핵심 원칙 강조 박스 (라디얼 글로우 포함) */
   html+='<div style="background:'+_heroBg+';border:1px solid '+_heroBdr+';border-radius:14px;padding:18px 22px;margin-bottom:20px;position:relative;overflow:hidden">';
-  html+='<div style="position:absolute;top:-30%;right:-10%;width:300px;height:300px;background:radial-gradient(circle,'+_heroGlow+',transparent 70%);pointer-events:none"></div>';
+  html+='<div style="position:absolute;top:-30%;right:-10%;width:300px;height:300px;background:transparent;pointer-events:none"></div>';
   html+='<div style="position:relative">';
   html+='<div style="display:inline-block;font-size:10px;font-weight:800;color:var(--cyan);background:'+_heroTagBg+';padding:3px 10px;border-radius:99px;letter-spacing:0.5px;margin-bottom:10px;text-transform:uppercase">📌 핵심 원칙</div>';
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1);line-height:1.7;margin-bottom:6px">프로그램 제공자(오렌지팜 주식회사)는 사용자가 등록한 보건일지 상의 학생·교직원 개인정보 및 민감정보를 <span style="color:'+_emphasis+'">일체 보유하지 않습니다.</span></div>';
@@ -64,7 +64,7 @@ export function _renderPrivacyTab(){
     const borderStyle=isLast?'':'border-bottom:1px dashed '+_divider+';';
     html+='<div style="display:flex;gap:18px;padding:14px 0;'+borderStyle+'">';
     /* 큰 숫자 — 청록 그라데이션 텍스트 */
-    html+='<div style="font-size:36px;font-weight:900;line-height:1;font-family:var(--fm);background:linear-gradient(180deg,#06B6D4,#0891B2);-webkit-background-clip:text;background-clip:text;color:transparent;width:60px;text-align:center;letter-spacing:-1px;flex-shrink:0">'+p.n+'</div>';
+    html+='<div style="font-size:36px;font-weight:900;line-height:1;font-family:var(--fm);background:transparent;color:#0891b2;width:60px;text-align:center;letter-spacing:-1px;flex-shrink:0">'+p.n+'</div>';
     html+='<div style="flex:1">';
     html+='<div style="font-size:13px;font-weight:800;color:var(--t1);margin-bottom:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">';
     html+='<span>'+p.ko+'</span>';
@@ -224,7 +224,7 @@ export function _renderDiaryTab(){
       +'<div id="setMedBulkStatus" style="flex:1;min-width:160px;font-size:10px;color:var(--t3);font-family:var(--fm)"></div>'
     +'</div>'
     +'<div id="setMedBulkProgressWrap" style="display:none;margin-top:6px;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">'
-      +'<div id="setMedBulkProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, var(--cyan), #22c55e);transition:width .3s ease"></div>'
+      +'<div id="setMedBulkProgressBar" style="height:100%;width:0%;background:var(--cyan);transition:width .3s ease"></div>'
     +'</div>'
   +'</div>';
   html+='</div></div>';

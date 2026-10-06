@@ -69,10 +69,10 @@ export async function buildDeptStatsCover(from,to){
   const wrap='border:1px solid var(--bdr,#cbd5e1);border-radius:10px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.03)';
   let h='<div style="page-break-after:always;font-family:\'Pretendard Variable\',\'Pretendard\',\'Noto Sans KR\',\'맑은 고딕\',sans-serif;color:var(--t1,#1e293b)">';
   /* 제목 박스 */
-  h+='<div style="text-align:center;padding:14px 0 4px"><div style="display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:800;letter-spacing:-0.3px"><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:14px">📋</span>진료과별 선택기간 통계</div></div>';
+  h+='<div style="text-align:center;padding:14px 0 4px"><div style="display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:800;letter-spacing:-0.3px"><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#0891b2;color:#fff;font-size:14px">📋</span>진료과별 선택기간 통계</div></div>';
   h+='<div style="text-align:center;font-size:11px;color:var(--t3,#64748b);margin-bottom:14px">'+_esc(schoolName)+' · '+fmtD(from)+' ~ '+fmtD(to)+'</div>';
 
-  function _sectionBar(label){return '<div style="'+sectionTitle+'"><span style="display:inline-block;width:3px;height:14px;background:linear-gradient(180deg,#06b6d4,#0891b2);border-radius:2px"></span>'+label+'</div>';}
+  function _sectionBar(label){return '<div style="'+sectionTitle+'"><span style="display:inline-block;width:3px;height:14px;background:#0891b2;border-radius:2px"></span>'+label+'</div>';}
 
   /* 1) 학생 — 학년별 진료과 통계 */
   h+=_sectionBar('학생 — 학년별 진료과 통계');
@@ -266,10 +266,10 @@ export async function buildCounselStatsCover(from,to){
   const headStyle=cellStyle+';background:var(--bg2,#f8fafc);font-weight:700;color:var(--t2,#475569);letter-spacing:-0.2px';
   const sectionTitle='font-size:13px;font-weight:800;color:var(--t1,#1e293b);margin:18px 0 8px;display:flex;align-items:center;gap:6px';
   const wrap='border:1px solid var(--bdr,#cbd5e1);border-radius:10px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.03)';
-  function _sectionBar(label){return '<div style="'+sectionTitle+'"><span style="display:inline-block;width:3px;height:14px;background:linear-gradient(180deg,#a855f7,#8b5cf6);border-radius:2px"></span>'+label+'</div>';}
+  function _sectionBar(label){return '<div style="'+sectionTitle+'"><span style="display:inline-block;width:3px;height:14px;background:#a855f7;border-radius:2px"></span>'+label+'</div>';}
 
   let h='<div style="page-break-after:always;font-family:\'Pretendard Variable\',\'Pretendard\',\'Noto Sans KR\',\'맑은 고딕\',sans-serif;color:var(--t1,#1e293b)">';
-  h+='<div style="text-align:center;padding:14px 0 4px"><div style="display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:800;letter-spacing:-0.3px"><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#a855f7,#8b5cf6);color:#fff;font-size:14px">💬</span>상담 주제별 선택기간 통계</div></div>';
+  h+='<div style="text-align:center;padding:14px 0 4px"><div style="display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:800;letter-spacing:-0.3px"><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#a855f7;color:#fff;font-size:14px">💬</span>상담 주제별 선택기간 통계</div></div>';
   h+='<div style="text-align:center;font-size:11px;color:var(--t3,#64748b);margin-bottom:14px">'+_esc(schoolName)+' · '+fmtD(from)+' ~ '+fmtD(to)+'</div>';
 
   if(!(data.recordTotal>0)){

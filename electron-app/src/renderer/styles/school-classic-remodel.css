@@ -1,0 +1,3022 @@
+/* School Classic: screen presentation only. Existing actions and data stay intact. */
+@media screen {
+  body.school-interface.school-classic {
+    --classic-paper: var(--card);
+    --classic-soft: #23343e;
+    --classic-heading: #283941;
+    --classic-line: var(--bdr);
+    --classic-shadow: 0 3px 14px rgba(0, 0, 0, .12);
+    --classic-radius: 14px;
+    --classic-gap: 18px;
+    --school-card-radius: var(--classic-radius);
+    --school-card-title: 15px;
+    --school-card-padding: 16px;
+    --school-card-heading-bg: var(--card);
+    --school-card-shadow: var(--classic-shadow);
+    --school-ui-shadow: var(--classic-shadow);
+  }
+
+  body.school-interface.school-classic.light {
+    --classic-soft: #f3f7f7;
+    --classic-heading: #f7f8f3;
+    --classic-shadow: 0 3px 14px rgba(36, 75, 84, .055);
+  }
+
+  /* Keep the existing measured header/footer and drawer geometry. */
+  body.school-interface.school-classic .top-header .header-row1,
+  body.school-interface.school-classic .top-header .header-row2 {
+    max-width: 1680px;
+    margin-inline: auto;
+  }
+
+  body.school-interface.school-classic .school-edition-badge {
+    border-radius: 9px;
+    border-color: var(--bdr);
+  }
+
+  body.school-interface.school-classic .header-btn-stack {
+    gap: 8px;
+  }
+
+  body.school-interface.school-classic .header-btn-stack :is(.settings-btn, .theme-btn) {
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  body.school-interface.school-classic .header-row2 .nav-link {
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -.2px;
+    gap: 7px;
+  }
+
+  body.school-interface.school-classic .header-row2 .nav-link.active {
+    box-shadow: 0 3px 11px rgba(25, 65, 80, .09);
+    border-color: var(--bdr);
+  }
+
+  body.school-interface.school-classic > .app {
+    max-width: 1680px;
+    margin-inline: auto;
+    column-gap: var(--classic-gap);
+  }
+
+  body.school-interface.school-classic #schoolMain {
+    min-width: 0;
+    container-type: inline-size;
+    scrollbar-gutter: stable;
+  }
+
+  body.school-interface.school-classic #schoolSidebar {
+    border-radius: var(--classic-radius);
+    border-color: var(--classic-line);
+    box-shadow: var(--classic-shadow);
+  }
+
+  body.school-interface.school-classic .school-context-heading {
+    gap: 10px;
+    padding-block: 5px 15px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--classic-line);
+  }
+
+  body.school-interface.school-classic .school-context-heading h2 {
+    font-size: 14px;
+    line-height: 1.55;
+    font-weight: 700;
+    color: var(--t1);
+  }
+
+  body.school-interface.school-classic #schoolSidebar :is(#sideSearch, .compact-list, .visit-history-card) {
+    font-size: 12px;
+    line-height: 1.65;
+  }
+
+  /* New section headings do not replace existing hidden date/title hooks. */
+  body.school-interface.school-classic .school-classic-page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--classic-line);
+    border-radius: var(--classic-radius);
+    background: var(--classic-paper);
+    color: var(--t1);
+    box-shadow: var(--classic-shadow);
+    flex: 0 0 auto;
+  }
+
+  body.school-interface.school-classic .school-classic-eyebrow {
+    margin-bottom: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.6;
+    color: var(--cyan);
+    letter-spacing: .035em;
+  }
+
+  body.school-interface.school-classic .school-classic-page-heading h1 {
+    margin: 0;
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1.4;
+    letter-spacing: -.6px;
+  }
+
+  body.school-interface.school-classic .school-classic-page-heading p {
+    margin: 5px 0 0;
+    color: var(--t2);
+    font-size: 12px;
+    line-height: 1.65;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 0 0 10px !important;
+    margin: 0 !important;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav .magic-index-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    max-width: 100%;
+    padding: 8px 14px;
+    margin: 0 !important;
+    border: 1px solid var(--classic-line);
+    border-radius: 8px;
+    background: var(--classic-paper);
+    color: var(--t2);
+    font-size: 13px;
+    line-height: 1.5;
+    font-weight: 600;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav .magic-index-tab.active {
+    background: var(--classic-soft);
+    color: var(--cyan);
+    border-color: var(--cyan);
+    box-shadow: inset 0 -2px var(--cyan);
+    font-weight: 700;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .magic-chart-body {
+    border-radius: var(--classic-radius) !important;
+    padding: 20px !important;
+    border: 1px solid var(--classic-line);
+    box-shadow: var(--classic-shadow);
+    min-width: 0;
+  }
+
+  /* Home keeps its saved widgets, their order and calendar-event geometry. */
+  body.school-interface.school-classic #homeWidgetArea {
+    padding: 20px !important;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-hero {
+    border-left: 1px solid var(--classic-line) !important;
+    min-height: 82px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+    border-radius: var(--classic-radius);
+  }
+
+  body.school-interface.school-classic #view-home .school-home-start {
+    grid-template-columns: minmax(0, 1.45fr) minmax(270px, 1fr);
+    gap: var(--classic-gap);
+    margin-bottom: 18px;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-side {
+    gap: var(--classic-gap);
+  }
+
+  body.school-interface.school-classic #view-home :is(.home-widget-card, #homeCalWrap) {
+    border-radius: var(--classic-radius) !important;
+    border-color: var(--classic-line);
+    box-shadow: var(--classic-shadow);
+  }
+
+  body.school-interface.school-classic #view-home .home-widget-card > :first-child {
+    background: var(--school-card-heading-bg) !important;
+    border-bottom: 1px solid var(--classic-line);
+    min-height: 48px;
+    padding: 12px 15px;
+    color: var(--t1);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  body.school-interface.school-classic #view-home .home-widget-card > :first-child :is(h2, h3) {
+    font-size: 15px !important;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  body.school-interface.school-classic #view-home #homeCalWrap {
+    padding: 15px 16px !important;
+  }
+
+  body.school-interface.school-classic #view-home :is(.school-home-priority, .school-widget-grid) {
+    gap: var(--classic-gap);
+  }
+
+  /* Search first; summary second. Never clip the input's focus ring. */
+  body.school-interface.school-classic #view-daily .school-record-topline {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 12px 16px !important;
+    min-width: 0;
+    overflow: visible;
+    padding: 3px;
+    margin: 0 0 14px !important;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-search {
+    position: relative !important;
+    inset: auto !important;
+    display: flex !important;
+    flex: 1 1 530px !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    min-width: 0 !important;
+    width: auto !important;
+    overflow: visible;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-search > .autocomplete-wrap {
+    flex: 1 1 310px !important;
+    width: auto !important;
+    min-width: min(100%, 260px) !important;
+    max-width: 510px;
+  }
+
+  body.school-interface.school-classic #view-daily :is(#dailySearchInput, #ecSearchInput, #infSearchInput) {
+    min-height: 42px;
+    padding: 10px 83px 10px 33px !important;
+    font-size: 14px !important;
+    line-height: 1.5;
+    border-radius: 9px !important;
+    background: var(--classic-soft) !important;
+    color: var(--t1);
+  }
+
+  body.school-interface.school-classic #view-daily .adv-search-hover-btn {
+    font-size: 11px !important;
+    min-height: 28px;
+    padding: 5px 8px !important;
+    border-radius: 6px !important;
+  }
+
+  body.school-interface.school-classic #view-daily :is(#dailyVisitorCount, #ecVisitorCount, #infVisitorCount) {
+    position: static !important;
+    order: 2;
+    flex: 0 1 auto;
+    max-width: 100%;
+    margin-inline-start: auto;
+    align-self: center;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-search > button {
+    min-height: 36px !important;
+    height: auto !important;
+    max-width: 100%;
+    min-width: 0 !important;
+    padding: 8px 11px !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    border-radius: 8px !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  /* Four bulky cards become a compact, grouped two-row toolbar. */
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap {
+    overflow: visible !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    margin: 0 0 15px !important;
+    padding: 12px !important;
+    background: var(--classic-soft);
+    border: 1px solid var(--classic-line);
+    border-radius: 11px;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-tools {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas: 'period print' 'tools sort';
+    align-items: start !important;
+    gap: 12px 18px !important;
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  body.school-interface.school-classic #view-daily .school-classic-period { grid-area: period; }
+  body.school-interface.school-classic #view-daily .school-classic-tools { grid-area: tools; }
+  body.school-interface.school-classic #view-daily .school-classic-print { grid-area: print; }
+  body.school-interface.school-classic #view-daily .school-classic-sort { grid-area: sort; }
+
+  body.school-interface.school-classic #view-daily .school-tool-group {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  body.school-interface.school-classic #view-daily .school-tool-label {
+    flex: 0 0 47px;
+    margin: 0;
+    padding-top: 8px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--t2);
+    font-weight: 700;
+  }
+
+  body.school-interface.school-classic #view-daily .school-tool-controls {
+    display: flex !important;
+    flex: 1 1 auto;
+    flex-wrap: wrap !important;
+    align-items: center;
+    gap: 6px !important;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic #view-daily .school-tool-controls > :is(button, #dailyDateLabel),
+  body.school-interface.school-classic #view-daily .school-record-actionbar button {
+    min-height: 35px !important;
+    height: auto !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    padding: 7px 10px !important;
+    border-radius: 7px !important;
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    flex: 0 1 auto;
+  }
+
+  body.school-interface.school-classic #view-daily :is(#btnPrevDay, #btnNextDay) {
+    min-width: 30px !important;
+    padding-inline: 7px !important;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyDateLabel {
+    flex: 1 1 140px;
+    max-width: 230px;
+    font-weight: 700;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-actionbar,
+  body.school-interface.school-classic #view-daily .school-record-actionbar > div {
+    flex-wrap: wrap !important;
+    gap: 7px !important;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyTodayMemo {
+    margin-block: 0 13px !important;
+  }
+
+  /* Keep every original column and the column-visibility settings. */
+  body.school-interface.school-classic #view-daily :is(#dailyTableWrap, #ecListCard, #infListCard) {
+    border: 1px solid var(--classic-line);
+    border-radius: 11px;
+    box-shadow: none;
+    scrollbar-width: thin;
+  }
+
+  body.school-interface.school-classic #view-daily :is(.rec-table, .ec-list-table, .inf-list-table) {
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  body.school-interface.school-classic #view-daily :is(.rec-table, .ec-list-table, .inf-list-table) th {
+    padding: 11px 8px;
+    background: var(--classic-soft);
+    color: var(--t2);
+    font-size: 12px;
+    line-height: 1.55;
+    font-weight: 700;
+    border-bottom: 1px solid var(--classic-line);
+  }
+
+  body.school-interface.school-classic #view-daily :is(.rec-table, .ec-list-table, .inf-list-table) td {
+    padding-block: 11px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--t1);
+  }
+
+  body.school-interface.school-classic #view-daily #recTable td[data-col-index='4'] {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -.15px;
+  }
+
+  body.school-interface.school-classic #view-daily #recTable :is(td[data-col-index='10'], td[data-col-index='11']) {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  body.school-interface.school-classic #view-daily :is(.rec-table, .ec-list-table, .inf-list-table) tbody tr:hover {
+    background: color-mix(in srgb, var(--cyan) 5%, var(--card));
+  }
+
+  body.school-interface.school-classic #view-dashboard .cc {
+    border-color: var(--classic-line);
+    border-radius: var(--classic-radius);
+    box-shadow: var(--classic-shadow);
+  }
+
+  body.school-interface.school-classic #view-dashboard :is(.stats-period-tabs, .school-stats-tabs) {
+    gap: 8px !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  /* Settings keep every existing category and its original save behavior. */
+  body.school-interface.school-classic #settingsModal > .modal-content {
+    width: 1000px !important;
+    max-width: calc(var(--school-viewport-width, 100vw) - 32px) !important;
+    border-radius: 16px;
+  }
+
+  body.school-interface.school-classic #settingsModal .settings-notion {
+    display: grid !important;
+    grid-template-columns: 210px minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic #settingsSidebar {
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 14px 10px !important;
+    background: var(--classic-soft);
+    border-right: 1px solid var(--classic-line);
+    overflow: auto;
+  }
+
+  body.school-interface.school-classic #settingsSidebar .settings-sidebar-item {
+    padding: 10px 12px !important;
+    margin: 3px 0;
+    border-radius: 8px;
+    min-height: 39px;
+    font-size: 13px !important;
+    font-weight: 500;
+    line-height: 1.55;
+    white-space: normal;
+    color: var(--t2);
+  }
+
+  body.school-interface.school-classic #settingsSidebar .settings-sidebar-item.active {
+    background: var(--card);
+    color: var(--cyan);
+    font-weight: 700;
+    box-shadow: inset 3px 0 var(--cyan), var(--classic-shadow);
+  }
+
+  body.school-interface.school-classic #settingsPanel {
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 22px !important;
+    overflow: auto;
+    color: var(--t1);
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  body.school-interface.school-classic #settingsPanel :is(h2, h3) {
+    color: var(--t1);
+    line-height: 1.55;
+    font-weight: 700;
+  }
+
+  /* Shared interaction hierarchy, without enlarging emoji/check boxes. */
+  body.school-interface.school-classic :is(#schoolMain, #settingsModal, .modal-content) :is(.form-input, .form-select):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']) {
+    max-width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.55;
+    border-color: var(--bdr);
+  }
+
+  body.school-interface.school-classic :is(#schoolMain, #settingsModal, .modal-content) .btn:not(.btn-sm):not(.btn-icon) {
+    min-height: 37px;
+    padding: 8px 13px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  body.school-interface.school-classic .modal-content > .modal-header {
+    background: var(--school-card-heading-bg) !important;
+    border-bottom: 1px solid var(--classic-line);
+    padding: 16px 20px !important;
+    flex-shrink: 0;
+  }
+
+  body.school-interface.school-classic .modal-content .modal-title {
+    font-size: 18px;
+    line-height: 1.5;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    color: var(--t1);
+  }
+
+  body.school-interface.school-classic button[data-school-emphasis='primary'] {
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(6, 120, 145, .12);
+  }
+
+  body.school-interface.school-classic button[data-school-emphasis='secondary'] {
+    box-shadow: none;
+    font-weight: 500;
+  }
+
+  body.school-interface.school-classic > footer {
+    font-size: 11px;
+    border-top: 1px solid var(--bdr);
+  }
+
+  @container (max-width: 960px) {
+    body.school-interface.school-classic #view-home .school-home-start {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    body.school-interface.school-classic #view-home .school-home-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: auto;
+    }
+    body.school-interface.school-classic #view-daily .school-tool-group {
+      flex-direction: column;
+      gap: 5px;
+    }
+    body.school-interface.school-classic #view-daily .school-tool-label {
+      flex-basis: auto;
+      padding-top: 0;
+    }
+  }
+
+  @container (max-width: 680px) {
+    body.school-interface.school-classic #view-daily .school-record-tools {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'period' 'tools' 'print' 'sort';
+      gap: 12px !important;
+    }
+    body.school-interface.school-classic #view-daily .school-tool-group {
+      flex-direction: row;
+      gap: 9px;
+    }
+    body.school-interface.school-classic #view-daily .school-tool-label {
+      flex: 0 0 47px;
+      padding-top: 8px;
+    }
+    body.school-interface.school-classic #view-home .school-home-side {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    body.school-interface.school-classic #homeWidgetArea,
+    body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .magic-chart-body {
+      padding: 14px !important;
+    }
+    body.school-interface.school-classic .school-classic-page-heading {
+      padding: 14px 16px;
+    }
+    body.school-interface.school-classic .school-classic-page-heading h1 {
+      font-size: 21px;
+    }
+    body.school-interface.school-classic #view-daily .school-record-search > .autocomplete-wrap {
+      max-width: none;
+    }
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsModal .settings-notion {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsSidebar {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 5px;
+    padding: 8px !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--classic-line);
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsSidebar > :not(.settings-sidebar-item) {
+    display: none !important;
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsSidebar .settings-sidebar-item {
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsPanel {
+    padding: 16px !important;
+  }
+
+  body.school-interface.school-classic.school-narrow > .app {
+    column-gap: 10px;
+  }
+
+  @media (pointer: coarse) {
+    body.school-interface.school-classic #view-daily .school-tool-controls > button,
+    body.school-interface.school-classic #settingsSidebar .settings-sidebar-item,
+    body.school-interface.school-classic .school-context-close {
+      min-height: 44px !important;
+    }
+  }
+}
+
+@media print {
+  .school-classic-page-heading { display: none !important; }
+}
+
+/* Classic workspace composition. Keep the existing shell and context-panel state machine. */
+@media screen {
+  body.school-interface.school-classic {
+    --school-shell-width: 1760px;
+    --school-sidebar-width: 240px;
+    --school-gutter: clamp(14px, 1.7vw, 26px);
+    --school-gap: 18px;
+    --classic-gap: 16px;
+    --classic-workspace-radius: 20px;
+    --classic-workspace-shadow: 0 8px 28px rgba(12, 25, 35, .13);
+  }
+
+  body.school-interface.school-classic.light {
+    --classic-heading: #faf8f2;
+    --classic-soft: #f3f6f6;
+    --classic-workspace-shadow: 0 8px 28px rgba(32, 63, 72, .075);
+  }
+
+  body.school-interface.school-classic .top-header .header-row1 {
+    min-height: 70px;
+    height: auto;
+    padding: 9px var(--school-gutter);
+    gap: 18px;
+  }
+
+  body.school-interface.school-classic .school-brand-group {
+    gap: 20px;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic .cycling-brand {
+    font-size: 42px;
+    line-height: 1.12;
+  }
+
+  body.school-interface.school-classic .school-edition-badge {
+    padding: 7px 11px;
+  }
+
+  body.school-interface.school-classic .header-right-cluster {
+    gap: 20px;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic .top-header .header-row2 {
+    min-height: 46px;
+    padding: 3px var(--school-gutter) 8px;
+    gap: 7px;
+  }
+
+  body.school-interface.school-classic .header-row2 .nav-link {
+    min-height: 36px;
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  body.school-interface.school-classic .header-row2 .nav-link.active {
+    box-shadow: 0 3px 10px rgba(30, 50, 62, .10);
+  }
+
+  body.school-interface.school-classic > .app {
+    max-width: var(--school-shell-width);
+    padding-top: 12px;
+    padding-bottom: 12px;
+    column-gap: var(--classic-gap);
+  }
+
+  body.school-interface.school-classic #schoolSidebar {
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: var(--classic-workspace-shadow);
+  }
+
+  body.school-interface.school-classic #schoolMain {
+    padding: 0 3px 12px 0;
+    scrollbar-gutter: stable;
+  }
+
+  body.school-interface.school-classic #view-home,
+  body.school-interface.school-classic #view-daily,
+  body.school-interface.school-classic #view-dashboard {
+    margin-top: 0;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea,
+  body.school-interface.school-classic #view-daily,
+  body.school-interface.school-classic #view-dashboard {
+    padding: 22px !important;
+    border: 1px solid var(--classic-line);
+    border-radius: var(--classic-workspace-radius);
+    background: var(--card);
+    box-shadow: var(--classic-workspace-shadow);
+    box-sizing: border-box;
+  }
+
+  /* The greeting is a page heading, not another nested dashboard card. */
+  body.school-interface.school-classic #view-home .school-home-hero {
+    min-height: 72px;
+    padding: 0 0 16px;
+    margin: 0 0 18px;
+    gap: 12px 18px;
+    border: 0 !important;
+    border-bottom: 1px solid var(--classic-line) !important;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none;
+    animation: none;
+  }
+
+  body.school-interface.school-classic .school-home-greeting h1,
+  body.school-interface.school-classic .school-classic-page-heading h1 {
+    margin: 3px 0 5px;
+    font-size: 24px;
+    line-height: 1.4;
+    font-weight: 800;
+    letter-spacing: -.6px;
+    color: var(--t1);
+  }
+
+  body.school-interface.school-classic .school-home-greeting p {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--t2);
+  }
+
+  body.school-interface.school-classic .school-home-eyebrow,
+  body.school-interface.school-classic .school-classic-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.6;
+    letter-spacing: .2px;
+  }
+
+  body.school-interface.school-classic .school-home-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-start.has-calendar-and-side {
+    grid-template-columns: minmax(0, 1.45fr) minmax(270px, 1fr);
+    align-items: stretch;
+    gap: var(--classic-gap);
+    margin-bottom: var(--classic-gap);
+  }
+
+  body.school-interface.school-classic #view-home #homeCalWrap {
+    padding: 14px !important;
+    gap: 6px;
+    align-content: start;
+    border-radius: 14px !important;
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic #homeCalWrap .school-calendar-toolbar {
+    margin-bottom: 4px !important;
+    gap: 8px !important;
+  }
+
+  body.school-interface.school-classic #homeCalWrap .school-calendar-month {
+    margin: 0 0 6px !important;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-start.has-calendar-and-side > .school-home-side {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: var(--classic-gap);
+    contain: size;
+  }
+
+  body.school-interface.school-classic #view-home .home-widget-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    margin-bottom: 0;
+    border: 1px solid var(--classic-line);
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(25, 50, 65, .035);
+  }
+
+  body.school-interface.school-classic #view-home .home-widget-card > .school-widget-heading {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 10px 14px !important;
+    background: var(--school-card-heading-bg) !important;
+    border-bottom: 1px solid var(--classic-line);
+  }
+
+  body.school-interface.school-classic #view-home .school-home-side .school-widget-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* A constrained card must constrain its body, not clip a full-height block. */
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card > .school-widget-heading {
+    flex: 0 0 auto;
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card > .school-widget-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card:is(
+    [data-widget-id="todolist"], [data-widget-id="memos"],
+    [data-widget-id="routine"], [data-widget-id="quicklinks"],
+    [data-widget-id="phonebook"], [data-widget-id="procurement"],
+    [data-widget-id="caution"], [data-widget-id="bed"],
+    [data-widget-id="todayVisit"], [data-widget-id="frequent"],
+    [data-widget-id="birthday"], [data-widget-id="rentalDue"]
+  ) > .school-widget-body {
+    max-height: 280px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+    scrollbar-color: var(--cyan) transparent;
+    overscroll-behavior-y: auto;
+    scroll-padding-block: 12px;
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeMemoList {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-priority {
+    gap: var(--classic-gap);
+    margin-bottom: var(--classic-gap);
+  }
+
+  body.school-interface.school-classic #view-home .school-home-priority .home-widget-card {
+    min-height: 136px;
+    border-top: 1px solid var(--classic-line);
+  }
+
+  body.school-interface.school-classic #view-home .school-widget-grid {
+    gap: var(--classic-gap);
+  }
+
+  /* Join headings, tabs, tools and results into one continuous workspace. */
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-classic-page-heading {
+    min-height: 0;
+    margin: 0;
+    padding: 0 0 16px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav {
+    width: fit-content;
+    max-width: 100%;
+    gap: 4px;
+    margin: 0 0 2px;
+    padding: 4px;
+    border: 1px solid var(--classic-line);
+    border-radius: 11px;
+    background: var(--classic-soft);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav .magic-index-tab {
+    min-height: 36px;
+    margin: 0;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 13px;
+    color: var(--t2);
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav .magic-index-tab.active {
+    background: var(--card);
+    color: var(--cyan);
+    font-weight: 700;
+    box-shadow: 0 1px 5px rgba(30, 55, 68, .10);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .magic-chart-body {
+    padding: 18px 0 0 !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-topline {
+    padding: 3px;
+    margin-bottom: 14px !important;
+    gap: 12px;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-search > .autocomplete-wrap {
+    flex-basis: 340px;
+    max-width: none;
+  }
+
+  body.school-interface.school-classic #view-daily :is(#dailySearchInput, #ecSearchInput, #infSearchInput) {
+    min-height: 44px;
+    border: 1px solid var(--classic-line);
+    background: var(--card);
+    font-size: 14px;
+  }
+
+  body.school-interface.school-classic #dailyToolbarWrap {
+    padding: 14px;
+    margin-bottom: 16px;
+    border: 1px solid var(--classic-line);
+    border-radius: 12px;
+    background: var(--classic-soft);
+  }
+
+  body.school-interface.school-classic #dailyToolbarWrap .school-record-tools {
+    gap: 12px 18px;
+  }
+
+  body.school-interface.school-classic #view-daily :is(#dailyTableWrap, #ecListTable, #infListTable) {
+    border-color: var(--classic-line);
+  }
+
+  body.school-interface.school-classic #view-daily .rec-table tbody td {
+    padding-top: 13px;
+    padding-bottom: 13px;
+    line-height: 1.65;
+  }
+
+  body.school-interface.school-classic #settingsModal > .modal-content {
+    width: 1040px !important;
+    border-radius: 18px;
+  }
+
+  body.school-interface.school-classic #settingsModal .settings-notion {
+    grid-template-columns: 196px minmax(0, 1fr);
+  }
+
+  body.school-interface.school-classic #settingsModal .settings-sidebar {
+    padding: 16px 12px;
+    background: var(--classic-heading);
+  }
+
+  body.school-interface.school-classic #settingsModal .settings-panel {
+    padding: 24px;
+  }
+
+  /* Compact header behavior follows the existing logical-zoom breakpoints. */
+  body.school-interface.school-classic.school-compact .top-header .header-row1 {
+    min-height: 62px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    gap: 12px;
+  }
+
+  body.school-interface.school-classic.school-narrow .top-header .header-row1 {
+    min-height: 54px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  body.school-interface.school-classic.school-narrow .cycling-brand {
+    font-size: 30px;
+  }
+
+  body.school-interface.school-classic.school-narrow .school-brand-group {
+    gap: 10px;
+  }
+
+  body.school-interface.school-classic.school-narrow .top-header .header-row2 {
+    min-height: 42px;
+    padding-bottom: 6px;
+    gap: 5px;
+  }
+
+  body.school-interface.school-classic.school-narrow .header-row2 .nav-link {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsModal .settings-notion {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsModal .settings-sidebar {
+    padding: 8px;
+  }
+
+  body.school-interface.school-classic.school-narrow #settingsModal .settings-panel {
+    padding: 16px;
+  }
+
+  @container (max-width: 900px) {
+    body.school-interface.school-classic #view-home .school-home-start.has-calendar-and-side {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.school-interface.school-classic #view-home .school-home-start.has-calendar-and-side > .school-home-side {
+      contain: none;
+      grid-auto-rows: auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body.school-interface.school-classic #view-home .school-home-side .home-widget-card {
+      min-height: 190px;
+      max-height: 320px;
+    }
+
+    body.school-interface.school-classic #view-home .school-home-actions {
+      margin-left: 0;
+    }
+  }
+
+  @container (max-width: 620px) {
+    body.school-interface.school-classic #view-home #homeWidgetArea,
+    body.school-interface.school-classic #view-daily,
+    body.school-interface.school-classic #view-dashboard {
+      padding: 14px !important;
+      border-radius: 14px;
+    }
+
+    body.school-interface.school-classic #view-home .school-home-start.has-calendar-and-side > .school-home-side {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.school-interface.school-classic .school-home-greeting h1,
+    body.school-interface.school-classic .school-classic-page-heading h1 {
+      font-size: 21px;
+    }
+
+    body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav .magic-index-tab {
+      padding-inline: 11px;
+      font-size: 12px;
+    }
+
+    body.school-interface.school-classic #dailyToolbarWrap {
+      padding: 10px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body.school-interface.school-classic #schoolMain,
+    body.school-interface.school-classic .magic-chart-body {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+
+/* Memo-first home layout: calendar and full-height memos, then tasks. */
+@media screen {
+  body.school-interface.school-classic #view-home .school-home-memo-first:not(.has-calendar-and-side) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.school-interface.school-classic #view-home .school-home-start > .school-home-memo-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-memo-column > .home-widget-card[data-widget-id="memos"] {
+    max-height: none;
+  }
+
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-memo-column > .home-widget-card[data-widget-id="memos"] > .school-widget-body {
+    max-height: none;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-memo-first:not(.has-calendar-and-side) .school-home-memo-column > .home-widget-card {
+    height: 400px;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-followup {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(270px, 1fr);
+    gap: var(--classic-gap);
+    margin-bottom: var(--classic-gap);
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-followup:not(.has-status-and-todo) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.school-interface.school-classic #view-home .school-home-followup > .school-home-priority {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    margin-bottom: 0;
+    min-width: 0;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-todo {
+    display: flex;
+    align-items: flex-start;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  body.school-interface.school-classic #view-home .school-home-todo > .home-widget-card {
+    width: 100%;
+    min-height: 190px;
+    max-height: 336px;
+  }
+
+  @container (max-width: 900px) {
+    body.school-interface.school-classic #view-home .school-home-followup {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.school-interface.school-classic #view-home #homeWidgetArea .school-home-memo-column > .home-widget-card[data-widget-id="memos"] {
+      height: 360px;
+      max-height: none;
+    }
+  }
+}
+
+
+/* Restore the compact search field and transparent, document-style tabs. */
+@media screen {
+  body.school-interface.school-classic {
+    --school-sidebar-width: 264px;
+  }
+
+  body.school-interface.school-classic #schoolSidebar #sidebarSearchBox {
+    display: block;
+    position: relative;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+  }
+
+  body.school-interface.school-classic #schoolSidebar #sideSearch {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    margin: 0;
+    padding: 9px 72px 9px 30px !important;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--bg2);
+    font-size: 11px !important;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+  }
+
+  body.school-interface.school-classic #schoolSidebar #advSearchSidebarBtn {
+    position: absolute !important;
+    inset: auto 4px auto auto !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0 !important;
+    margin: 0;
+    padding: 3px 8px !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) {
+    padding: 0 !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
+    min-height: 46px;
+    gap: 0 !important;
+    margin: 0;
+    padding: 6px 2px 0 !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav :is(.magic-index-tab, .stats-period-tab) {
+    position: relative;
+    top: 4px;
+    flex: 0 0 auto;
+    min-height: 0;
+    margin: 0;
+    padding: 9px 22px;
+    border: 1px solid var(--bdr);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: rgba(6, 182, 212, .04);
+    color: var(--t2);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: -.1px;
+    white-space: nowrap;
+    opacity: .7;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, .05);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav :is(.magic-index-tab, .stats-period-tab).active {
+    top: 0;
+    padding-bottom: 11px;
+    border-color: var(--bdr);
+    background: rgba(6, 182, 212, .08);
+    color: var(--t1);
+    font-size: 13px;
+    opacity: 1;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, .14);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .school-subnav :is(.magic-index-tab, .stats-period-tab):hover {
+    top: 0;
+    background: rgba(6, 182, 212, .06);
+    color: var(--t1);
+    opacity: 1;
+  }
+
+  body.school-interface.school-classic.light :is(#view-daily, #view-dashboard) > .school-subnav :is(.magic-index-tab, .stats-period-tab) {
+    text-shadow: 0 0 3px #fff, -1px -1px 0 rgba(255,255,255,.8), 1px -1px 0 rgba(255,255,255,.8), -1px 1px 0 rgba(255,255,255,.8), 1px 1px 0 rgba(255,255,255,.8);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, .14);
+  }
+
+  body.school-interface.school-classic:not(.light) :is(#view-daily, #view-dashboard) > .school-subnav :is(.magic-index-tab, .stats-period-tab) {
+    text-shadow: 0 0 4px rgba(0,0,0,.9), -1px -1px 0 rgba(0,0,0,.7), 1px -1px 0 rgba(0,0,0,.7), -1px 1px 0 rgba(0,0,0,.7), 1px 1px 0 rgba(0,0,0,.7);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .magic-chart-body {
+    padding: 18px !important;
+    border: 1px solid var(--bdr);
+    border-radius: 0 14px 14px 14px;
+    background: var(--card);
+    box-shadow: var(--classic-workspace-shadow);
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-search > .autocomplete-wrap {
+    flex: 1 1 280px;
+    min-width: min(100%, 250px);
+    max-width: 420px;
+  }
+
+  body.school-interface.school-classic #view-daily .school-record-search > button {
+    flex: 0 0 auto !important;
+    width: auto;
+    min-height: 36px;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap {
+    margin: 0 0 14px !important;
+    padding: 0 !important;
+    border: 0;
+    background: transparent;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-record-tools {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-areas: none !important;
+    align-items: stretch;
+    gap: 10px !important;
+    min-width: 0 !important;
+    width: 100%;
+    margin: 0;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-group {
+    grid-area: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    margin: 0 !important;
+    padding: 12px !important;
+    border: 1px solid var(--bdr);
+    border-radius: 11px;
+    background: var(--bg2);
+  }
+
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-label {
+    display: block;
+    flex: 0 0 auto !important;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0 !important;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-controls {
+    display: flex !important;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: flex-start;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-controls > button {
+    flex: 0 0 auto !important;
+    min-height: 32px;
+    height: auto;
+    padding: 6px 9px !important;
+    font-size: 11px !important;
+    line-height: 1.4;
+    white-space: nowrap !important;
+  }
+
+  @container (max-width: 1100px) {
+    body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-record-tools {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
+  @container (max-width: 620px) {
+    body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-record-tools {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body.school-interface.school-classic :is(#view-daily, #view-dashboard) > .magic-chart-body {
+      padding: 12px !important;
+    }
+  }
+}
+
+
+/* Restore selected-menu accents without changing the transparent tab surfaces. */
+@media screen {
+  body.school-interface.school-classic .top-header .header-row2 {
+    column-gap: 10px !important;
+    padding-bottom: 12px !important;
+  }
+
+  body.school-interface.school-classic .top-header .header-row2 .nav-link.active::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    top: auto;
+    bottom: -7px;
+    width: auto;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--tab-c, var(--cyan));
+    box-shadow: none;
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  body.school-interface.school-classic #view-daily {
+    --school-tab-accent: #3b82f6;
+  }
+
+  body.school-interface.school-classic #view-dashboard,
+  body.school-interface.school-classic #view-orange {
+    --school-tab-accent: #f97316;
+  }
+
+  body.school-interface.school-classic #view-magic {
+    --school-tab-accent: #22c55e;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard, #view-magic) > .school-subnav,
+  body.school-interface.school-classic #view-orange > div:has(> [data-orange-tab]) {
+    gap: 8px !important;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard, #view-magic) > .school-subnav :is(.magic-index-tab, .stats-period-tab).active::before,
+  body.school-interface.school-classic #view-orange > div > .magic-index-tab[data-orange-tab].active::before {
+    content: none !important;
+    display: none !important;
+  }
+}
+
+
+/* Menu identity palette. Keep semantic status colours and chart series independent. */
+@media screen {
+  body.school-interface.school-classic #view-home,
+  body.school-interface.school-classic .header-row2 .nav-link[data-view="home"] {
+    --school-menu-accent: #0f766e;
+    --school-menu-rgb: 15, 118, 110;
+    --school-menu-strong: #0f766e;
+    --school-menu-hover: #115e59;
+    --school-menu-night-ink: #5eead4;
+  }
+
+  body.school-interface.school-classic #view-daily,
+  body.school-interface.school-classic .header-row2 .nav-link[data-view="daily"] {
+    --school-menu-accent: #2563eb;
+    --school-menu-rgb: 37, 99, 235;
+    --school-menu-strong: #2563eb;
+    --school-menu-hover: #1d4ed8;
+    --school-menu-night-ink: #93c5fd;
+  }
+
+  body.school-interface.school-classic #view-dashboard,
+  body.school-interface.school-classic .header-row2 .nav-link[data-view="dashboard"] {
+    --school-menu-accent: #7c3aed;
+    --school-menu-rgb: 124, 58, 237;
+    --school-menu-strong: #7c3aed;
+    --school-menu-hover: #6d28d9;
+    --school-menu-night-ink: #c4b5fd;
+  }
+
+  body.school-interface.school-classic #view-magic,
+  body.school-interface.school-classic .header-row2 .nav-link[data-view="magic"] {
+    --school-menu-accent: #22c55e;
+    --school-menu-rgb: 34, 197, 94;
+    --school-menu-strong: #15803d;
+    --school-menu-hover: #166534;
+    --school-menu-night-ink: #86efac;
+  }
+
+  body.school-interface.school-classic #view-orange,
+  body.school-interface.school-classic .header-row2 .nav-link[data-view="orange"] {
+    --school-menu-accent: #ea580c;
+    --school-menu-rgb: 234, 88, 12;
+    --school-menu-strong: #c2410c;
+    --school-menu-hover: #9a3412;
+    --school-menu-night-ink: #fdba74;
+  }
+
+  body.school-interface.school-classic :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange),
+  body.school-interface.school-classic .header-row2 .nav-link[data-view] {
+    --school-menu-ink: var(--school-menu-strong);
+    --school-tab-accent: var(--school-menu-accent);
+    --tab-c: var(--school-menu-accent);
+  }
+
+  body.school-interface.school-classic:not(.light) :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange),
+  body.school-interface.school-classic:not(.light) .header-row2 .nav-link[data-view] {
+    --school-menu-ink: var(--school-menu-night-ink);
+  }
+
+  body.school-interface.school-classic .top-header .header-row2 .nav-link[data-view] {
+    color: var(--school-menu-ink) !important;
+    text-shadow: none;
+  }
+
+  body.school-interface.school-classic .top-header .header-row2 .nav-link[data-view]:hover {
+    border-color: rgba(var(--school-menu-rgb), .55);
+    box-shadow: inset 0 0 0 1px rgba(var(--school-menu-rgb), .22);
+  }
+
+  body.school-interface.school-classic .top-header .header-row2 .nav-link[data-view].active {
+    background: #fff !important;
+    color: var(--school-menu-strong) !important;
+    border-color: rgba(var(--school-menu-rgb), .62);
+    box-shadow: 0 0 0 1px rgba(var(--school-menu-rgb), .18),
+      0 0 12px rgba(var(--school-menu-rgb), .34),
+      0 3px 8px rgba(15, 23, 42, .12);
+    text-shadow: none !important;
+  }
+
+  /* Restore a theme-coloured glow without gradients or layout changes. */
+  body.school-interface.school-classic .top-header .header-row2 .nav-link[data-view].active::after {
+    box-shadow: 0 0 5px rgba(var(--school-menu-rgb), .75),
+      0 0 12px rgba(var(--school-menu-rgb), .48) !important;
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard, #view-magic) .school-subnav :is(.magic-index-tab, .stats-period-tab),
+  body.school-interface.school-classic #view-orange > div > .magic-index-tab[data-orange-tab] {
+    background: rgba(var(--school-menu-rgb), .04);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard, #view-magic) .school-subnav :is(.magic-index-tab, .stats-period-tab):hover,
+  body.school-interface.school-classic #view-orange > div > .magic-index-tab[data-orange-tab]:hover {
+    background: rgba(var(--school-menu-rgb), .06);
+    border-color: rgba(var(--school-menu-rgb), .35);
+    box-shadow: 0 -2px 8px rgba(15, 23, 42, .10);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard, #view-magic) .school-subnav :is(.magic-index-tab, .stats-period-tab).active,
+  body.school-interface.school-classic #view-orange > div > .magic-index-tab[data-orange-tab].active {
+    background: rgba(var(--school-menu-rgb), .08);
+    border-color: rgba(var(--school-menu-rgb), .5);
+    border-top-width: 2px;
+    border-top-color: var(--school-tab-accent);
+    padding-top: 9px !important;
+    color: var(--t1);
+    box-shadow: 0 -2px 12px rgba(15, 23, 42, .14);
+  }
+
+  body.school-interface.school-classic :is(#view-daily, #view-dashboard, #view-magic) .school-subnav :is(.magic-index-tab, .stats-period-tab).active::before,
+  body.school-interface.school-classic #view-orange > div > .magic-index-tab[data-orange-tab].active::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  body.school-interface.school-classic :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange) .btn-primary:not(:is(.btn-danger, .btn-delete, .btn-warning, .btn-success)) {
+    background: var(--school-menu-strong) !important;
+    border-color: var(--school-menu-strong);
+    color: #fff !important;
+    text-shadow: none;
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange) .btn-primary:not(:is(.btn-danger, .btn-delete, .btn-warning, .btn-success)):not(:disabled):not([aria-disabled="true"]):hover {
+    background: var(--school-menu-hover) !important;
+    border-color: var(--school-menu-hover);
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange) .btn-add,
+  body.school-interface.school-classic #view-home .school-context-toggle {
+    background: rgba(var(--school-menu-rgb), .08);
+    border-color: rgba(var(--school-menu-rgb), .3);
+    color: var(--school-menu-ink);
+    box-shadow: none;
+  }
+
+  body.school-interface.school-classic :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange) .btn-add:not(:disabled):not([aria-disabled="true"]):hover,
+  body.school-interface.school-classic #view-home .school-context-toggle:hover {
+    background: rgba(var(--school-menu-rgb), .14);
+    border-color: var(--school-menu-accent);
+    color: var(--school-menu-ink);
+  }
+
+  body.school-interface.school-classic :is(#view-home, #view-daily, #view-dashboard, #view-magic, #view-orange) :is(button, a, input, select, textarea, [role="button"]):focus-visible,
+  body.school-interface.school-classic .top-header .header-row2 .nav-link[data-view]:focus-visible {
+    outline: 2px solid var(--school-menu-ink);
+    outline-offset: 2px;
+  }
+}
+
+/* Match the native border thickness without changing Orangefarm tab height. */
+@media screen {
+  body.school-interface.school-classic #view-orange > div > .magic-index-tab[data-orange-tab].active {
+    padding-top: 8px !important;
+  }
+}
+
+/* Purpose-based home sections. Saved widget visibility, groups and order remain authoritative. */
+@media screen {
+  body.school-interface.school-classic #view-home [data-widget-group="col3"] {
+    --school-widget-heading: #eaf2ff;
+    --school-widget-ink: #244c90;
+    --school-widget-divider: #d2e2fb;
+  }
+  body.school-interface.school-classic #view-home [data-widget-group="col4"] {
+    --school-widget-heading: #fff1de;
+    --school-widget-ink: #865013;
+    --school-widget-divider: #f0dcc1;
+  }
+  body.school-interface.school-classic #view-home [data-widget-group="col2"] {
+    --school-widget-heading: #e8f5f1;
+    --school-widget-ink: #236856;
+    --school-widget-divider: #cfe5dd;
+  }
+  body.school-interface.school-classic #view-home [data-widget-group="col5"] {
+    --school-widget-heading: #fff6d9;
+    --school-widget-ink: #765b17;
+    --school-widget-divider: #ecdfb5;
+  }
+  body.school-interface.school-classic #view-home [data-widget-group="col1"] {
+    --school-widget-heading: #eef1f5;
+    --school-widget-ink: #45556c;
+    --school-widget-divider: #dce2ea;
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col3"] {
+    --school-widget-heading: #21314a;
+    --school-widget-ink: #aecbfa;
+    --school-widget-divider: #344969;
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col4"] {
+    --school-widget-heading: #3b2f21;
+    --school-widget-ink: #f4cd91;
+    --school-widget-divider: #594831;
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col2"] {
+    --school-widget-heading: #1d3530;
+    --school-widget-ink: #a4d9c7;
+    --school-widget-divider: #315249;
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col5"] {
+    --school-widget-heading: #39331f;
+    --school-widget-ink: #eddc91;
+    --school-widget-divider: #544a2c;
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col1"] {
+    --school-widget-heading: #2a3040;
+    --school-widget-ink: #bac7db;
+    --school-widget-divider: #424b60;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card[data-widget-group] > :first-child {
+    background: var(--school-widget-heading) !important;
+    border-bottom-color: var(--school-widget-divider);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card[data-widget-group] .school-widget-title {
+    color: var(--school-widget-ink);
+  }
+  body.school-interface.school-classic #view-home .school-home-calendar .school-calendar-toolbar {
+    padding: 10px 12px;
+    border: 1px solid var(--school-widget-divider);
+    border-radius: 9px;
+    background: var(--school-widget-heading);
+    color: var(--school-widget-ink);
+  }
+  body.school-interface.school-classic #view-home .school-home-calendar .school-calendar-toolbar > span:first-child {
+    color: var(--school-widget-ink) !important;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group {
+    min-width: 0;
+    margin-top: 24px;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 0 2px 9px;
+    border-bottom: 1px solid var(--school-widget-divider);
+    color: var(--school-widget-ink);
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-heading h2 {
+    margin: 0;
+    color: inherit;
+    font-size: 16px;
+    line-height: 1.5;
+    font-weight: 750;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-count {
+    padding: 2px 8px;
+    border: 1px solid var(--school-widget-divider);
+    border-radius: 12px;
+    background: var(--school-widget-heading);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--school-group-columns, 3), minmax(0, 1fr));
+    align-items: stretch;
+    gap: 16px;
+    min-width: 0;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-grid > .home-widget-card {
+    min-width: 0;
+    margin: 0 !important;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-grid > [data-widget-id="timetable"] {
+    grid-column: 1 / -1;
+  }
+  body.school-interface.school-classic #view-home .school-widget-group-grid > [data-widget-id="todolist"] > .school-widget-body {
+    max-height: 280px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+  }
+  @container (max-width: 1000px) {
+    body.school-interface.school-classic #view-home .school-widget-group-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    body.school-interface.school-classic #view-home .school-widget-group-grid:has(> .home-widget-card:only-child) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @container (max-width: 660px) {
+    body.school-interface.school-classic #view-home .school-widget-group-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    body.school-interface.school-classic #view-home .school-widget-group {
+      margin-top: 20px;
+    }
+  }
+}
+
+
+/* Translucent home widgets: preserve category colours and opaque text. */
+@media screen {
+  body.school-interface.school-classic #view-home {
+    --school-widget-glass-board:rgba(255,255,255,.38);
+    --school-widget-glass-card:rgba(255,255,255,.78);
+    --school-widget-glass-hero:rgba(255,255,255,.86);
+    --school-widget-glass-empty:rgba(232,236,241,.78);
+    --school-widget-glass-edge:rgba(255,255,255,.66);
+    --school-widget-glass-shine:rgba(255,255,255,.7);
+  }
+  body.school-interface.school-classic:not(.light) #view-home {
+    --school-widget-glass-board:rgba(15,23,42,.38);
+    --school-widget-glass-card:rgba(23,33,53,.82);
+    --school-widget-glass-hero:rgba(23,33,53,.9);
+    --school-widget-glass-empty:rgba(15,23,42,.74);
+    --school-widget-glass-edge:rgba(100,116,139,.5);
+    --school-widget-glass-shine:rgba(203,213,225,.12);
+  }
+
+  body.school-interface.school-classic.light #view-home [data-widget-group="col4"] {
+    --school-widget-heading:rgba(255,241,222,.76);
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col4"] {
+    --school-widget-heading:rgba(59,47,33,.78);
+  }
+
+  body.school-interface.school-classic.light #view-home [data-widget-group="col2"] {
+    --school-widget-heading:rgba(232,245,241,.76);
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col2"] {
+    --school-widget-heading:rgba(29,53,48,.78);
+  }
+
+  body.school-interface.school-classic.light #view-home [data-widget-group="col3"] {
+    --school-widget-heading:rgba(234,242,255,.76);
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col3"] {
+    --school-widget-heading:rgba(33,49,74,.78);
+  }
+
+  body.school-interface.school-classic.light #view-home [data-widget-group="col5"] {
+    --school-widget-heading:rgba(255,246,217,.76);
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col5"] {
+    --school-widget-heading:rgba(57,51,31,.78);
+  }
+
+  body.school-interface.school-classic.light #view-home [data-widget-group="col1"] {
+    --school-widget-heading:rgba(238,241,245,.76);
+  }
+  body.school-interface.school-classic:not(.light) #view-home [data-widget-group="col1"] {
+    --school-widget-heading:rgba(42,48,64,.78);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea {
+    background:var(--school-widget-glass-board) !important;
+    border-color:var(--school-widget-glass-edge) !important;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-hero {
+    display:flex;
+    align-items:center !important;
+    min-height:104px;
+    padding:16px 20px !important;
+    box-sizing:border-box;
+    background:var(--school-widget-glass-hero) !important;
+    border-radius:12px;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-greeting {
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-self:center;
+    gap:4px;
+    margin-block:0;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-greeting > :is(h1,p,.school-home-eyebrow) {
+    margin-block:0;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-calendar-toolbar {
+    display:flex;
+    align-items:center !important;
+    min-height:56px;
+    padding:10px 14px !important;
+    box-sizing:border-box;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-calendar-toolbar > * {
+    align-self:center;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea :is(.home-widget-card,[data-widget-id="calendar"]) {
+    background:var(--school-widget-glass-card) !important;
+    border-color:var(--school-widget-glass-edge) !important;
+    box-shadow:0 5px 18px rgba(15,23,42,.08),inset 0 1px 0 var(--school-widget-glass-shine);
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card > :last-child:not(:first-child) {
+    background-color:transparent !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card[data-widget-group] > :first-child,
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-calendar-toolbar {
+    background:var(--school-widget-heading) !important;
+    box-shadow:inset 0 1px 0 var(--school-widget-glass-shine);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-widget-group-heading {
+    display:flex;
+    align-items:center;
+    min-height:40px;
+    padding:8px 12px;
+    box-sizing:border-box;
+    line-height:1.4;
+    background:var(--school-widget-heading);
+    border-radius:7px;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-widget-group-heading > :is(h2,h3,p) {
+    margin-block:0;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-empty {
+    background:var(--school-widget-glass-empty) !important;
+  }
+}
+
+/* Readable calendar glass: opaque text, quiet surfaces, unchanged event geometry. */
+@media screen {
+  /* The outer widget must not leave a rectangular painted layer behind the card.
+     Keep overflow visible for the existing year/month selection popovers. */
+  body.school-interface.school-classic #view-home #homeWidgetArea [data-widget-id="calendar"]:not(#homeCalWrap) {
+    background:transparent !important;
+    border-color:transparent !important;
+    border-radius:18px !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap {
+    --school-calendar-surface:rgba(247,252,250,.94);
+    --school-calendar-toolbar:rgba(222,241,234,.96);
+    --school-calendar-grid-line:rgba(148,163,184,.24);
+    --school-calendar-frame:rgba(15,118,110,.3);
+    --school-calendar-day-bg:rgba(255,255,255,.88);
+    --school-calendar-empty-bg:#f1f5f7;
+    --school-calendar-sunday-bg:rgba(255,247,248,.94);
+    --school-calendar-saturday-bg:rgba(243,248,255,.94);
+    --school-calendar-today-bg:#e3f4ec;
+    --school-calendar-accent:#0f766e;
+    --school-calendar-accent-ink:#0f766e;
+    --school-calendar-text:#24354a;
+    --school-calendar-muted:#52657a;
+    --school-calendar-sunday-ink:#bd3444;
+    --school-calendar-saturday-ink:#2563b8;
+    --school-calendar-control:rgba(255,255,255,.96);
+    --school-calendar-shine:rgba(255,255,255,.8);
+    background:var(--school-calendar-surface) !important;
+    border:1px solid var(--school-calendar-frame) !important;
+    border-radius:18px !important;
+    background-clip:padding-box;
+    box-shadow:0 10px 24px rgba(15,23,42,.1),inset 0 1px 0 var(--school-calendar-shine) !important;
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+  body.school-interface.school-classic:not(.light) #view-home #homeWidgetArea #homeCalWrap {
+    --school-calendar-surface:rgba(23,33,53,.96);
+    --school-calendar-toolbar:rgba(29,53,48,.97);
+    --school-calendar-grid-line:rgba(148,163,184,.22);
+    --school-calendar-frame:rgba(116,195,179,.28);
+    --school-calendar-day-bg:rgba(23,33,53,.94);
+    --school-calendar-empty-bg:#192235;
+    --school-calendar-sunday-bg:rgba(43,33,49,.97);
+    --school-calendar-saturday-bg:rgba(27,41,64,.97);
+    --school-calendar-today-bg:#203d3b;
+    --school-calendar-accent:#0f766e;
+    --school-calendar-accent-ink:#a4e3d2;
+    --school-calendar-text:#e2eaf5;
+    --school-calendar-muted:#b4c2d4;
+    --school-calendar-sunday-ink:#fca5ae;
+    --school-calendar-saturday-ink:#93c5fd;
+    --school-calendar-control:rgba(39,53,74,.98);
+    --school-calendar-shine:rgba(203,213,225,.12);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-toolbar {
+    background:var(--school-calendar-toolbar) !important;
+    border:1px solid var(--school-calendar-frame) !important;
+    border-radius:10px;
+    color:var(--school-calendar-text);
+    margin-bottom:12px !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-toolbar > span:first-child {
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    padding:0 9px;
+    border-radius:7px;
+    background:var(--school-calendar-accent);
+    color:#fff !important;
+    white-space:nowrap;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-month {
+    min-height:40px;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px !important;
+    margin-bottom:10px !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-month > .mcal-title {
+    min-height:36px;
+    padding:0 12px;
+    box-sizing:border-box;
+    background:var(--school-calendar-control);
+    border:1px solid var(--school-calendar-frame);
+    border-radius:10px;
+    color:var(--school-calendar-text) !important;
+    box-shadow:inset 0 1px 0 var(--school-calendar-shine);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-month > button {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:34px;
+    background:var(--school-calendar-control) !important;
+    border:1px solid var(--school-calendar-frame) !important;
+    border-radius:9px !important;
+    color:var(--school-calendar-accent-ink) !important;
+    box-shadow:inset 0 1px 0 var(--school-calendar-shine);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-month > .school-calendar-today {
+    min-width:48px;
+    padding:5px 12px !important;
+    background:var(--school-calendar-accent) !important;
+    border-color:var(--school-calendar-accent) !important;
+    color:#fff !important;
+    font-size:11px !important;
+    font-weight:700;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-month > button:is(:hover,:focus-visible) {
+    outline:2px solid var(--school-calendar-frame);
+    outline-offset:2px;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-weekdays {
+    align-items:center;
+    min-height:28px;
+    margin-bottom:5px !important;
+    color:var(--school-calendar-muted) !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-weekdays > span {
+    color:var(--school-calendar-muted) !important;
+    font-size:11px;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-weekdays > span:first-child,
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day:is(.is-sunday,.is-holiday) > .school-calendar-date {
+    color:var(--school-calendar-sunday-ink) !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-weekdays > span:last-child,
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day.is-saturday:not(.is-holiday) > .school-calendar-date {
+    color:var(--school-calendar-saturday-ink) !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap #homeCalGrid {
+    background:var(--school-calendar-grid-line);
+    border-color:var(--school-calendar-frame) !important;
+    border-radius:12px !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-empty {
+    background:var(--school-calendar-empty-bg) !important;
+    opacity:1 !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day.is-sunday {
+    --school-calendar-day-bg:var(--school-calendar-sunday-bg);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day.is-saturday {
+    --school-calendar-day-bg:var(--school-calendar-saturday-bg);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day > .school-calendar-date {
+    color:var(--school-calendar-text) !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day.is-today {
+    --school-calendar-day-bg:var(--school-calendar-today-bg);
+    box-shadow:inset 0 0 0 2px var(--school-calendar-accent);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-today-number {
+    background:var(--school-calendar-accent) !important;
+    color:#fff !important;
+    box-shadow:0 0 0 2px rgba(15,118,110,.13),0 0 8px rgba(15,118,110,.2);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day:not(.is-today):hover {
+    box-shadow:inset 0 0 0 1px var(--school-calendar-accent);
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-event {
+    padding-inline:5px !important;
+    border-radius:4px !important;
+    font-weight:600;
+    box-shadow:inset 0 0 0 1px rgba(148,163,184,.12);
+  }
+}
+
+/* Consistent text-only subnavigation with readable, lightly translucent surfaces. */
+@media screen {
+  body.school-interface.school-classic {
+    --school-subtab-bg:rgba(255,255,255,.85);
+    --school-subtab-active-bg:rgba(255,255,255,.95);
+    --school-subtab-hover-bg:rgba(255,255,255,.93);
+    --school-subtab-text:#334155;
+    --school-subtab-edge:rgba(148,163,184,.58);
+    --school-subtab-shine:rgba(255,255,255,.6);
+  }
+  body.school-interface.school-classic:not(.light) {
+    --school-subtab-bg:rgba(23,33,53,.85);
+    --school-subtab-active-bg:rgba(30,41,59,.95);
+    --school-subtab-hover-bg:rgba(30,41,59,.93);
+    --school-subtab-text:#d5dfeb;
+    --school-subtab-edge:rgba(148,163,184,.42);
+    --school-subtab-shine:rgba(203,213,225,.12);
+  }
+  body.school-interface.school-classic #view-daily {
+    --school-subtab-accent:#2563eb;
+    --school-subtab-accent-rgb:37,99,235;
+    --school-subtab-active-text:#2563eb;
+  }
+  body.school-interface.school-classic :is(#view-dashboard,#view-stats) {
+    --school-subtab-accent:#7c3aed;
+    --school-subtab-accent-rgb:124,58,237;
+    --school-subtab-active-text:#7c3aed;
+  }
+  body.school-interface.school-classic #view-orange {
+    --school-subtab-accent:#ea580c;
+    --school-subtab-accent-rgb:234,88,12;
+    --school-subtab-active-text:#c2410c;
+  }
+  body.school-interface.school-classic #view-magic {
+    --school-subtab-accent:#22c55e;
+    --school-subtab-accent-rgb:34,197,94;
+    --school-subtab-active-text:#15803d;
+  }
+  body.school-interface.school-classic:not(.light) #view-daily { --school-subtab-active-text:#93c5fd; }
+  body.school-interface.school-classic:not(.light) :is(#view-dashboard,#view-stats) { --school-subtab-active-text:#c4b5fd; }
+  body.school-interface.school-classic:not(.light) #view-orange { --school-subtab-active-text:#fdba74; }
+  body.school-interface.school-classic:not(.light) #view-magic { --school-subtab-active-text:#86efac; }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav,#dashPeriodTabs,#view-stats .stats-period-tabs,#view-orange .school-orange-subnav,#view-magic .school-magic-subnav) {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    column-gap:8px !important;
+    row-gap:6px !important;
+  }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab) {
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    box-sizing:border-box;
+    min-height:42px;
+    padding:9px 14px !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    background:var(--school-subtab-bg) !important;
+    color:var(--school-subtab-text) !important;
+    border:1px solid var(--school-subtab-edge) !important;
+    border-top:3px solid transparent !important;
+    border-bottom:0 !important;
+    border-radius:10px 10px 0 0 !important;
+    font-weight:700;
+    line-height:1.35;
+    white-space:nowrap;
+    opacity:1 !important;
+    filter:none !important;
+    text-shadow:none !important;
+    -webkit-text-stroke:0 !important;
+    box-shadow:inset 0 1px 0 var(--school-subtab-shine) !important;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    transform:none !important;
+  }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab) :is(span,strong,b,small) {
+    color:inherit !important;
+    text-shadow:none !important;
+    -webkit-text-stroke:0 !important;
+  }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab):not(.active):hover {
+    background:var(--school-subtab-hover-bg) !important;
+    border-top-color:rgba(var(--school-subtab-accent-rgb),.3) !important;
+  }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab).active {
+    background:var(--school-subtab-active-bg) !important;
+    color:var(--school-subtab-active-text) !important;
+    border-top-color:var(--school-subtab-accent) !important;
+    border-left-color:rgba(var(--school-subtab-accent-rgb),.35) !important;
+    border-right-color:rgba(var(--school-subtab-accent-rgb),.35) !important;
+    box-shadow:0 -2px 8px rgba(var(--school-subtab-accent-rgb),.14),inset 0 1px 0 var(--school-subtab-shine) !important;
+  }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab):focus-visible {
+    outline:2px solid var(--school-subtab-accent);
+    outline-offset:2px;
+  }
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab)::before,
+  body.school-interface.school-classic :is(#view-daily > .school-subnav > .magic-index-tab,#view-dashboard .stats-period-tab,#view-stats .stats-period-tab,#view-orange [data-orange-tab],#view-magic .school-magic-subnav > .magic-index-tab)::after {
+    content:none !important;
+    display:none !important;
+  }
+}
+
+/* Widget library mirrors the home category palette without changing saved layout. */
+@media screen {
+  body.school-interface #homeWidgetBoxModal {
+    --school-hwb-surface:#fff;
+    --school-hwb-board:#f7f9fb;
+    --school-hwb-edge:#d4dce6;
+    --school-hwb-text:#1e293b;
+    --school-hwb-muted:#637086;
+    --school-hwb-hidden:#f1f4f7;
+    --school-hwb-header:#e8f5f1;
+    --school-hwb-count-bg:rgba(255,255,255,.65);
+  }
+  body.school-interface:not(.light) #homeWidgetBoxModal {
+    --school-hwb-surface:#172135;
+    --school-hwb-board:#111b2d;
+    --school-hwb-edge:#3a465c;
+    --school-hwb-text:#e2e8f0;
+    --school-hwb-muted:#a8b7cc;
+    --school-hwb-hidden:#202c40;
+    --school-hwb-header:#1d3530;
+    --school-hwb-count-bg:rgba(0,0,0,.16);
+  }
+  body.school-interface #homeWidgetBoxModal [data-widget-group="col4"] { --school-widget-heading:#fff1de; --school-widget-ink:#865013; --school-widget-divider:#f0dcc1; }
+  body.school-interface:not(.light) #homeWidgetBoxModal [data-widget-group="col4"] { --school-widget-heading:#3b2f21; --school-widget-ink:#f4cd91; --school-widget-divider:#594831; }
+  body.school-interface #homeWidgetBoxModal [data-widget-group="col2"] { --school-widget-heading:#e8f5f1; --school-widget-ink:#236856; --school-widget-divider:#cfe5dd; }
+  body.school-interface:not(.light) #homeWidgetBoxModal [data-widget-group="col2"] { --school-widget-heading:#1d3530; --school-widget-ink:#a4d9c7; --school-widget-divider:#315249; }
+  body.school-interface #homeWidgetBoxModal [data-widget-group="col3"] { --school-widget-heading:#eaf2ff; --school-widget-ink:#244c90; --school-widget-divider:#d2e2fb; }
+  body.school-interface:not(.light) #homeWidgetBoxModal [data-widget-group="col3"] { --school-widget-heading:#21314a; --school-widget-ink:#aecbfa; --school-widget-divider:#344969; }
+  body.school-interface #homeWidgetBoxModal [data-widget-group="col5"] { --school-widget-heading:#fff6d9; --school-widget-ink:#765b17; --school-widget-divider:#ecdfb5; }
+  body.school-interface:not(.light) #homeWidgetBoxModal [data-widget-group="col5"] { --school-widget-heading:#39331f; --school-widget-ink:#eddc91; --school-widget-divider:#544a2c; }
+  body.school-interface #homeWidgetBoxModal [data-widget-group="col1"] { --school-widget-heading:#eef1f5; --school-widget-ink:#45556c; --school-widget-divider:#dce2ea; }
+  body.school-interface:not(.light) #homeWidgetBoxModal [data-widget-group="col1"] { --school-widget-heading:#2a3040; --school-widget-ink:#bac7db; --school-widget-divider:#424b60; }
+
+  body.school-interface #homeWidgetBoxModal #hwbCard {
+    width:1240px !important;
+    max-width:96vw !important;
+    max-height:88vh !important;
+    border:1px solid var(--school-hwb-edge);
+    border-radius:16px !important;
+    background:var(--school-hwb-surface) !important;
+    color:var(--school-hwb-text);
+    container-name:school-widget-library;
+    container-type:inline-size;
+  }
+  body.school-interface #homeWidgetBoxModal #hwbCard > div:first-child {
+    padding:18px 20px !important;
+    background:var(--school-hwb-header) !important;
+    border-bottom-color:var(--school-hwb-edge) !important;
+  }
+  body.school-interface #homeWidgetBoxModal #hwbCard > div:first-child > div > div:last-child {
+    margin-top:5px !important;
+    line-height:1.65;
+    color:var(--school-hwb-muted) !important;
+    max-width:1040px;
+  }
+  body.school-interface #homeWidgetBoxModal #hwbBody {
+    display:grid !important;
+    grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+    align-items:stretch;
+    gap:14px !important;
+    padding:18px !important;
+    min-height:0;
+    overflow:auto !important;
+    background:var(--school-hwb-board);
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-group {
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    margin:0;
+    background:var(--school-hwb-surface);
+    border:1px solid var(--school-widget-divider);
+    border-radius:12px;
+    box-shadow:0 2px 8px rgba(15,23,42,.035);
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-group-heading {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:6px;
+    min-height:46px;
+    padding:10px 12px;
+    box-sizing:border-box;
+    background:var(--school-widget-heading);
+    color:var(--school-widget-ink);
+    border-bottom:1px solid var(--school-widget-divider);
+    border-radius:11px 11px 0 0;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-group-heading h3 {
+    margin:0;
+    font-size:13px;
+    font-weight:800;
+    line-height:1.4;
+    color:inherit;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-count {
+    padding:3px 6px;
+    border-radius:6px;
+    background:var(--school-hwb-count-bg);
+    font-size:10px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-list {
+    display:flex;
+    flex-direction:column;
+    flex:1;
+    gap:8px;
+    min-height:66px;
+    padding:10px;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget {
+    display:flex;
+    align-items:center;
+    gap:7px;
+    width:100%;
+    min-width:0;
+    min-height:46px;
+    margin:0;
+    padding:9px 8px;
+    box-sizing:border-box;
+    border:1px solid var(--school-hwb-edge);
+    border-radius:9px;
+    background:var(--school-hwb-surface);
+    color:var(--school-hwb-text);
+    font-family:inherit;
+    font-size:12px;
+    line-height:1.45;
+    text-align:left;
+    text-shadow:none;
+    cursor:pointer;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget:hover {
+    border-color:var(--school-widget-ink);
+    box-shadow:0 2px 6px rgba(15,23,42,.06);
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget:focus-visible {
+    outline:2px solid var(--school-widget-ink);
+    outline-offset:2px;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget.is-hidden {
+    border-style:dashed;
+    background:var(--school-hwb-hidden);
+    color:var(--school-hwb-muted);
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget .hwb-grip {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 16px;
+    align-self:stretch;
+    font-size:15px;
+    color:var(--school-hwb-muted);
+    cursor:grab;
+    user-select:none;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget-icon {
+    flex:0 0 18px;
+    font-size:15px;
+    text-align:center;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget-copy { flex:1; min-width:0; }
+  body.school-interface #homeWidgetBoxModal .school-hwb-widget-name {
+    display:block;
+    font-weight:650;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-fixed {
+    display:block;
+    margin-top:3px;
+    color:var(--school-hwb-muted);
+    font-size:10px;
+    font-weight:400;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-state {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+    gap:4px;
+    padding:3px 5px;
+    border-radius:6px;
+    background:var(--school-widget-heading);
+    color:var(--school-widget-ink);
+    font-size:10px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-state svg { width:13px; height:13px; flex-shrink:0; }
+  body.school-interface #homeWidgetBoxModal .is-hidden .school-hwb-state {
+    background:var(--school-hwb-board);
+    color:var(--school-hwb-muted);
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-calendar {
+    grid-column:1 / -1;
+    min-height:60px;
+    padding:11px 14px;
+    background:var(--school-widget-heading);
+    border-color:var(--school-widget-divider);
+  }
+  body.school-interface #homeWidgetBoxModal .school-hwb-calendar .school-hwb-widget-name { color:var(--school-widget-ink); font-size:13px; }
+  body.school-interface #homeWidgetBoxModal .school-hwb-calendar .school-hwb-state { background:var(--school-hwb-surface); }
+  body.school-interface #homeWidgetBoxModal .school-hwb-empty {
+    margin:0;
+    padding:12px 4px;
+    color:var(--school-hwb-muted);
+    font-size:11px;
+    text-align:center;
+    line-height:1.6;
+  }
+  body.school-interface #homeWidgetBoxModal #hwbCard > div:last-child:not(#hwbBody) {
+    padding:12px 18px !important;
+    background:var(--school-hwb-surface) !important;
+    border-top-color:var(--school-hwb-edge) !important;
+  }
+  @container school-widget-library (max-width:1050px) {
+    body.school-interface #homeWidgetBoxModal #hwbBody { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+  }
+  @container school-widget-library (max-width:720px) {
+    body.school-interface #homeWidgetBoxModal #hwbBody { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  }
+  @container school-widget-library (max-width:460px) {
+    body.school-interface #homeWidgetBoxModal #hwbBody { grid-template-columns:minmax(0,1fr) !important; padding:12px !important; }
+  }
+}
+
+/* Context calendar: match the home palette while retaining date/history behaviour. */
+@media screen {
+  body.school-interface.school-classic #schoolSidebar {
+    --school-context-surface:rgba(255,255,255,.97);
+    --school-context-card:#fff;
+    --school-context-soft:#edf1f8;
+    --school-context-edge:#d5deeb;
+    --school-context-accent:#50658a;
+    --school-context-accent-ink:#3c5278;
+    --school-context-text:#24354a;
+    --school-context-muted:#64748b;
+    --school-context-other:#9aa8b8;
+    --school-context-sunday:#bd3444;
+    --school-context-saturday:#2563b8;
+    --school-context-sunday-bg:#fff7f8;
+    --school-context-saturday-bg:#f3f8ff;
+    --school-context-today-ring:rgba(80,101,138,.2);
+    background:var(--school-context-surface) !important;
+    border-color:var(--school-context-edge) !important;
+    border-radius:16px !important;
+    color:var(--school-context-text);
+    box-shadow:0 6px 20px rgba(15,23,42,.09);
+  }
+  body.school-interface.school-classic:not(.light) #schoolSidebar {
+    --school-context-surface:rgba(23,33,53,.98);
+    --school-context-card:#172135;
+    --school-context-soft:#263148;
+    --school-context-edge:#43536f;
+    --school-context-accent:#50658a;
+    --school-context-accent-ink:#bfcef1;
+    --school-context-text:#e2eaf5;
+    --school-context-muted:#a8b7cc;
+    --school-context-other:#74839b;
+    --school-context-sunday:#fca5ae;
+    --school-context-saturday:#93c5fd;
+    --school-context-sunday-bg:#2b2131;
+    --school-context-saturday-bg:#1b2940;
+    --school-context-today-ring:rgba(191,206,241,.24);
+  }
+  body.school-interface.school-classic #schoolSidebar .school-context-heading {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin:0 0 12px !important;
+    padding:12px !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:10px;
+    background:var(--school-context-soft);
+  }
+  body.school-interface.school-classic #schoolSidebar .school-context-heading h2 {
+    margin:0;
+    color:var(--school-context-accent-ink);
+    font-size:13px;
+    font-weight:800;
+    line-height:1.5;
+  }
+  body.school-interface.school-classic #schoolSidebar .school-context-close {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 28px;
+    width:28px !important;
+    height:28px !important;
+    min-height:28px;
+    padding:0 !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:8px !important;
+    background:var(--school-context-card) !important;
+    color:var(--school-context-accent-ink) !important;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar {
+    margin:0 0 16px !important;
+    padding:0 !important;
+    min-width:0;
+    background:var(--school-context-card) !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:14px !important;
+    box-shadow:0 2px 8px rgba(15,23,42,.035);
+    overflow:visible;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-hdr {
+    display:grid;
+    grid-template-columns:32px minmax(0,1fr) 32px;
+    align-items:center;
+    gap:4px;
+    min-height:48px;
+    margin:0 !important;
+    padding:9px 8px !important;
+    box-sizing:border-box;
+    background:var(--school-context-soft) !important;
+    border-bottom:1px solid var(--school-context-edge);
+    border-radius:13px 13px 0 0;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-nav { display:flex; align-items:center; justify-content:center; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-btn {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:30px !important;
+    height:30px !important;
+    padding:0 !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:8px !important;
+    background:var(--school-context-card) !important;
+    color:var(--school-context-accent-ink) !important;
+    font-size:14px;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-title {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    min-width:0;
+    color:var(--school-context-text) !important;
+    font-size:13px !important;
+    font-weight:800;
+    white-space:nowrap;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar :is(.mcal-year,.mcal-month) { border-radius:5px; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar :is(.mcal-year,.mcal-month):hover { color:var(--school-context-accent-ink); }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-grid {
+    display:grid;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:4px;
+    margin:0 !important;
+    padding:8px 6px !important;
+    background:transparent !important;
+    border:0 !important;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-dow {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:26px;
+    padding:0;
+    background:transparent !important;
+    color:var(--school-context-muted);
+    font-size:11px;
+    font-weight:700;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell {
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+    height:34px !important;
+    min-height:34px;
+    margin:0 !important;
+    padding:0 0 4px !important;
+    box-sizing:border-box;
+    background:transparent !important;
+    border:0 !important;
+    border-radius:8px !important;
+    color:var(--school-context-text);
+    box-shadow:none !important;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell .day-n {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 25px;
+    width:25px !important;
+    height:25px !important;
+    margin:0 !important;
+    padding:0 !important;
+    box-sizing:border-box;
+    border:1.5px solid transparent;
+    border-radius:50%;
+    background:transparent !important;
+    color:inherit !important;
+    font-size:11px;
+    font-weight:600;
+    line-height:1;
+    box-shadow:none;
+    text-shadow:none !important;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar :is(.mcal-dow,.mcal-cell):is(.sun,.holiday) { color:var(--school-context-sunday) !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar :is(.mcal-dow,.mcal-cell).sat { color:var(--school-context-saturday) !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell.sun:not(.other) { background:var(--school-context-sunday-bg) !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell.sat:not(.other) { background:var(--school-context-saturday-bg) !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell.other { color:var(--school-context-other) !important; opacity:1 !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell.today .day-n {
+    border-color:var(--school-context-accent-ink) !important;
+    font-weight:800;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell:is(.selected,.dash-selected) {
+    background:var(--school-context-soft) !important;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell:is(.selected,.dash-selected) .day-n {
+    background:var(--school-context-accent) !important;
+    border-color:var(--school-context-accent) !important;
+    color:#fff !important;
+    font-weight:800;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell.today:is(.selected,.dash-selected) .day-n {
+    box-shadow:0 0 0 2px var(--school-context-today-ring);
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell:not(.other):hover { background:var(--school-context-soft) !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell::before,
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell::after,
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .day-n::before,
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .day-n::after { content:none !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-cell.has-dot::after {
+    content:"" !important;
+    display:block !important;
+    position:absolute;
+    left:50%;
+    bottom:3px;
+    width:4px;
+    height:4px;
+    border:0;
+    border-radius:50%;
+    background:var(--school-context-accent-ink) !important;
+    transform:translateX(-50%);
+    pointer-events:none;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-tooltip {
+    background:var(--school-context-card) !important;
+    color:var(--school-context-text) !important;
+    border:1px solid var(--school-context-edge);
+    border-radius:7px;
+    box-shadow:0 5px 16px rgba(15,23,42,.14);
+    font-size:11px;
+    white-space:nowrap;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-popup {
+    background:var(--school-context-card) !important;
+    color:var(--school-context-text) !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:10px !important;
+    box-shadow:0 10px 24px rgba(15,23,42,.18);
+    padding:5px;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-popup-item { border-radius:6px; color:var(--school-context-text); }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-popup-item:not(.active):hover { background:var(--school-context-soft) !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .mcal-popup-item.active { background:var(--school-context-accent) !important; color:#fff !important; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .school-context-calendar-legend {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:7px 10px;
+    margin:0 8px;
+    padding:9px 0 11px;
+    border-top:1px solid var(--school-context-edge);
+    color:var(--school-context-muted);
+    font-size:10px;
+    line-height:1.4;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .school-context-calendar-legend > span { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .school-context-calendar-legend i {
+    display:inline-block;
+    width:10px;
+    height:10px;
+    box-sizing:border-box;
+    border-radius:50%;
+  }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .legend-today { border:1.5px solid var(--school-context-accent-ink); }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .legend-selected { background:var(--school-context-accent); }
+  body.school-interface.school-classic #schoolSidebar #mainCalendar .school-context-calendar-legend .legend-visit { width:4px; height:4px; margin:0 3px; background:var(--school-context-accent-ink); }
+  body.school-interface.school-classic #schoolSidebar :has(> #sideSearch) {
+    position:relative;
+    width:100%;
+    display:block !important;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+    box-sizing:border-box;
+    margin-top:14px;
+    padding:7px 8px !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:10px !important;
+    background:var(--school-context-card) !important;
+  }
+  body.school-interface.school-classic #schoolSidebar :has(> #sideSearch):focus-within {
+    border-color:var(--school-context-accent-ink) !important;
+    box-shadow:0 0 0 2px var(--school-context-today-ring);
+  }
+  body.school-interface.school-classic #schoolSidebar #sideSearch {
+    display:block !important;
+    box-sizing:border-box;
+    max-width:100%;
+    flex:1 1 auto;
+    min-width:0;
+    width:100% !important;
+    min-height:28px;
+    padding:3px 66px 3px 24px !important;
+    border:0 !important;
+    outline:0;
+    background:transparent !important;
+    color:var(--school-context-text) !important;
+    font-size:12px;
+  }
+  body.school-interface.school-classic #schoolSidebar #sideSearch::placeholder { color:var(--school-context-muted); opacity:1; }
+  body.school-interface.school-classic #schoolSidebar #advSearchSidebarBtn {
+    flex:0 0 auto;
+    min-height:28px;
+    padding:5px 7px !important;
+    border:1px solid var(--school-context-edge) !important;
+    border-radius:7px !important;
+    background:var(--school-context-soft) !important;
+    color:var(--school-context-accent-ink) !important;
+    font-size:10px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  body.school-interface.school-classic #schoolSidebar :is(.school-context-close,.mcal-btn,#advSearchSidebarBtn):focus-visible {
+    outline:2px solid var(--school-context-accent-ink);
+    outline-offset:2px;
+  }
+}
+
+/* Week rows own horizontal separators independently of date-button styling. */
+@media screen {
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap #homeCalGrid.school-calendar-count-grid {
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:0 !important;
+    padding:0 !important;
+    align-items:stretch;
+    justify-items:stretch;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap #homeCalGrid.school-calendar-count-grid > .school-calendar-week {
+    display:grid;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:0;
+    min-width:0;
+    min-height:0;
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    border:0;
+    border-bottom:1px solid var(--school-calendar-grid-line);
+    align-items:stretch;
+    overflow:hidden;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap #homeCalGrid.school-calendar-count-grid > .school-calendar-week:last-child {
+    border-bottom:0;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap #homeCalGrid.school-calendar-count-grid > .school-calendar-week > :is(.school-calendar-day,.school-calendar-empty) {
+    box-sizing:border-box !important;
+    width:auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    margin:0 !important;
+    border:0 !important;
+    border-right:1px solid var(--school-calendar-grid-line) !important;
+    border-radius:0 !important;
+    align-self:stretch;
+    justify-self:stretch;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap #homeCalGrid.school-calendar-count-grid > .school-calendar-week > :last-child {
+    border-right:0 !important;
+  }
+}
+
+/* Calendar counts and full day agenda share the home calendar's readable palette. */
+@media screen {
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-count-grid > .school-calendar-week > .school-calendar-day {
+    display:flex; flex-direction:column; align-items:stretch; justify-content:space-between;
+    width:100%; min-width:0; box-sizing:border-box; padding:3px 6px !important;
+    border:0; border-radius:0; cursor:pointer; font-family:inherit; text-align:left; gap:2px;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-count-grid .school-calendar-date {
+    display:flex; align-items:center; min-height:20px; margin:0 !important; font-size:11px; font-weight:700;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-count-grid .school-calendar-today-number {
+    display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; font-size:10px;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-count {
+    display:inline-flex; align-items:center; gap:2px; align-self:flex-end; max-width:100%;
+    padding:0 6px; border-radius:6px; background:var(--school-calendar-toolbar);
+    color:var(--school-calendar-accent-ink); font-size:11px; font-weight:800; line-height:16px;
+    white-space:nowrap; box-sizing:border-box;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-count > span { font-size:9px; font-weight:600; }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-day:focus-visible { outline:2px solid var(--school-calendar-accent); outline-offset:-2px; }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeCalWrap .school-calendar-count-hint { margin:8px 0 0; color:var(--school-calendar-muted); font-size:10px; line-height:1.5; text-align:center; }
+  body.school-interface #homeCalDayPopup {
+    --hcd-surface:#fff; --hcd-soft:#f4f9f7; --hcd-header:#e8f5f1; --hcd-edge:#d3e3dc;
+    --hcd-text:#24354a; --hcd-muted:#64748b; --hcd-accent:#0f766e; --hcd-accent-ink:#176b5d;
+    --hcd-danger:#b42339; --hcd-badge:#edf2f7;
+  }
+  body.school-interface:not(.light) #homeCalDayPopup {
+    --hcd-surface:#172135; --hcd-soft:#192b31; --hcd-header:#1d3530; --hcd-edge:#36534e;
+    --hcd-text:#e2eaf5; --hcd-muted:#a8b7cc; --hcd-accent-ink:#a4e3d2;
+    --hcd-danger:#fca5ae; --hcd-badge:#26344a;
+  }
+  body.school-interface #homeCalDayPopup .school-calendar-day-dialog {
+    width:900px; max-width:94vw; height:660px; max-height:88vh; min-height:0;
+    display:flex; flex-direction:column; overflow:hidden; background:var(--hcd-surface);
+    color:var(--hcd-text); border:1px solid var(--hcd-edge); border-radius:16px;
+    box-shadow:0 22px 60px rgba(15,23,42,.25); container-name:school-day-agenda; container-type:inline-size;
+  }
+  body.school-interface #homeCalDayPopup :is(h2,h3,p) { margin:0; }
+  body.school-interface #homeCalDayPopup button { font-family:inherit; cursor:pointer; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-header {
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-shrink:0;
+    padding:18px 22px; background:var(--hcd-header); border-bottom:1px solid var(--hcd-edge);
+  }
+  body.school-interface #homeCalDayPopup .school-calendar-day-header p { color:var(--hcd-accent-ink); font-size:11px; font-weight:700; margin-bottom:5px; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-header h2 { font-size:19px; line-height:1.4; font-weight:800; color:var(--hcd-text); }
+  body.school-interface #homeCalDayPopup .school-hcd-holiday { display:block; color:var(--hcd-danger); font-size:11px; margin-top:4px; }
+  body.school-interface #homeCalDayPopup .school-hcd-input-link { flex-shrink:0; padding:8px 11px; border:1px solid var(--hcd-edge); border-radius:8px; background:var(--hcd-surface); color:var(--hcd-accent-ink); font-size:12px; font-weight:700; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-body { display:grid; grid-template-columns:minmax(0,1fr) 290px; flex:1; min-height:0; overflow:hidden; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-list { min-width:0; min-height:0; padding:18px 20px; overflow-y:auto; overscroll-behavior:contain; }
+  body.school-interface #homeCalDayPopup .school-hcd-list-heading { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  body.school-interface #homeCalDayPopup .school-hcd-list-heading h3 { font-size:14px; font-weight:800; }
+  body.school-interface #homeCalDayPopup .school-hcd-list-heading > span { padding:3px 8px; border-radius:7px; background:var(--hcd-header); color:var(--hcd-accent-ink); font-size:11px; font-weight:700; }
+  body.school-interface #homeCalDayPopup .school-hcd-loading { color:var(--hcd-muted); font-size:11px; margin-bottom:10px; }
+  body.school-interface #homeCalDayPopup .school-hcd-empty { padding:40px 16px; border:1px dashed var(--hcd-edge); border-radius:12px; text-align:center; }
+  body.school-interface #homeCalDayPopup .school-hcd-empty strong { display:block; font-size:14px; margin-bottom:8px; }
+  body.school-interface #homeCalDayPopup .school-hcd-empty p { font-size:12px; line-height:1.7; color:var(--hcd-muted); }
+  body.school-interface #homeCalDayPopup .school-hcd-events { list-style:none; display:flex; flex-direction:column; gap:10px; padding:0; margin:0; }
+  body.school-interface #homeCalDayPopup .school-hcd-event { padding:12px 14px; border:1px solid var(--hcd-edge); border-left:3px solid var(--hcd-event-accent); border-radius:10px; background:var(--hcd-surface); }
+  body.school-interface #homeCalDayPopup .school-hcd-event-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px; }
+  body.school-interface #homeCalDayPopup .school-hcd-time { font-size:12px; font-weight:800; color:var(--hcd-accent-ink); font-variant-numeric:tabular-nums; }
+  body.school-interface #homeCalDayPopup .school-hcd-source { padding:2px 6px; border-radius:5px; font-size:10px; color:var(--hcd-muted); background:var(--hcd-badge); }
+  body.school-interface #homeCalDayPopup .school-hcd-done-label { font-size:10px; color:var(--hcd-accent-ink); margin-left:auto; }
+  body.school-interface #homeCalDayPopup .school-hcd-event-main { display:flex; align-items:flex-start; gap:8px; }
+  body.school-interface #homeCalDayPopup .school-todo-check { display:inline-flex; align-items:center; justify-content:center; flex:0 0 25px; width:25px; height:25px; padding:0; border:1px solid var(--hcd-edge); border-radius:7px; background:var(--hcd-soft); color:var(--hcd-accent-ink); }
+  body.school-interface #homeCalDayPopup .school-hcd-event-copy { flex:1; min-width:0; }
+  body.school-interface #homeCalDayPopup .school-hcd-event-title { font-size:13px; line-height:1.65; font-weight:650; overflow-wrap:anywhere; white-space:pre-wrap; }
+  body.school-interface #homeCalDayPopup .is-complete .school-hcd-event-title { text-decoration:line-through; color:var(--hcd-muted); }
+  body.school-interface #homeCalDayPopup :is(.school-hcd-event-memo,.school-hcd-event-period) { margin-top:5px; font-size:11px; line-height:1.65; color:var(--hcd-muted); white-space:pre-wrap; overflow-wrap:anywhere; }
+  body.school-interface #homeCalDayPopup .school-hcd-event-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:9px; }
+  body.school-interface #homeCalDayPopup .school-hcd-event-actions button { padding:4px 8px; border:1px solid var(--hcd-edge); border-radius:6px; background:var(--hcd-surface); color:var(--hcd-muted); font-size:11px; }
+  body.school-interface #homeCalDayPopup .school-hcd-event-actions .is-delete { color:var(--hcd-danger); }
+  body.school-interface #homeCalDayPopup .school-calendar-day-form { min-width:0; min-height:0; overflow-y:auto; padding:18px; background:var(--hcd-soft); border-left:1px solid var(--hcd-edge); }
+  body.school-interface #homeCalDayPopup .school-hcd-form-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  body.school-interface #homeCalDayPopup .school-hcd-form-heading h3 { font-size:14px; font-weight:800; }
+  body.school-interface #homeCalDayPopup .school-hcd-form-heading > span { color:var(--hcd-accent-ink); font-size:10px; }
+  body.school-interface #homeCalDayPopup .school-hcd-form-note { font-size:11px; line-height:1.7; margin-top:9px; color:var(--hcd-muted); }
+  body.school-interface #homeCalDayPopup .school-calendar-day-form label { display:block; margin:16px 0 6px; font-size:12px; font-weight:700; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-form label > span { font-size:10px; margin-left:4px; color:var(--hcd-muted); font-weight:400; }
+  body.school-interface #homeCalDayPopup :is(#hcdTitle,#hcdTime,#hcdMemo) { display:block; width:100%; min-width:0; box-sizing:border-box; padding:9px 10px; border:1px solid var(--hcd-edge); border-radius:8px; background:var(--hcd-surface); color:var(--hcd-text); font:inherit; font-size:12px; line-height:1.6; }
+  body.school-interface #homeCalDayPopup #hcdMemo { resize:vertical; min-height:78px; }
+  body.school-interface #homeCalDayPopup :is(input,textarea)::placeholder { color:var(--hcd-muted); opacity:1; }
+  body.school-interface #homeCalDayPopup .school-hcd-color-label { margin:16px 0 8px; font-size:12px; font-weight:700; }
+  body.school-interface #homeCalDayPopup #hcdColorRow { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+  body.school-interface #homeCalDayPopup .hcd-color-chip { width:21px; height:21px; padding:0; border:2px solid transparent; border-radius:50%; }
+  body.school-interface #homeCalDayPopup .hcd-color-chip.selected { outline:2px solid var(--hcd-text); outline-offset:2px; }
+  body.school-interface #homeCalDayPopup .school-hcd-sync-note { margin-top:16px; color:var(--hcd-muted); font-size:10px; line-height:1.7; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-footer { position:static; inset:auto; height:auto; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-shrink:0; padding:12px 20px; border-top:1px solid var(--hcd-edge); background:var(--hcd-surface); }
+  body.school-interface #homeCalDayPopup .school-calendar-day-footer > span { color:var(--hcd-muted); font-size:10px; line-height:1.5; }
+  body.school-interface #homeCalDayPopup .school-calendar-day-footer button { flex-shrink:0; padding:9px 20px; border:1px solid var(--hcd-accent); border-radius:8px; background:var(--hcd-accent); color:#fff; font-size:12px; font-weight:700; }
+  body.school-interface #homeCalDayPopup :is(button,input,textarea):focus-visible { outline:2px solid var(--hcd-accent-ink); outline-offset:2px; }
+  @container school-day-agenda (max-width:700px) {
+    body.school-interface #homeCalDayPopup .school-calendar-day-body { grid-template-columns:minmax(0,1fr); overflow-y:auto; display:block; }
+    body.school-interface #homeCalDayPopup .school-calendar-day-list { max-height:44vh; min-height:170px; padding:16px; }
+    body.school-interface #homeCalDayPopup .school-calendar-day-form { border-left:0; border-top:1px solid var(--hcd-edge); overflow:visible; padding:16px; }
+    body.school-interface #homeCalDayPopup .school-calendar-day-header { padding:14px 16px; }
+    body.school-interface #homeCalDayPopup .school-calendar-day-header h2 { font-size:16px; }
+    body.school-interface #homeCalDayPopup .school-calendar-day-footer { padding:10px 16px; }
+  }
+}
+
+/* Keep a single calendar-to-search gap when no visitor list is between them. */
+@media screen {
+  body.school-interface.school-classic #schoolSidebar #mainCalendar + :has(#sideSearch) {
+    margin-top:0 !important;
+  }
+}
+
+/* Preserve the daily palette even when the navigation is outside its view. */
+@media screen {
+  body.school-interface.school-classic #view-daily > .school-subnav > .magic-index-tab {
+    --school-subtab-accent:#2563eb;
+    --school-subtab-accent-rgb:37,99,235;
+    --school-subtab-active-text:#2563eb;
+  }
+  body.school-interface.school-classic:not(.light) #view-daily > .school-subnav > .magic-index-tab {
+    --school-subtab-active-text:#93c5fd;
+  }
+}
+
+/* An empty memo widget fits its message instead of stretching to the calendar. */
+@media screen {
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-memo-column:has(#homeMemoList > .school-empty) {
+    contain:none !important;
+    align-self:start;
+    grid-template-rows:auto !important;
+    grid-auto-rows:auto !important;
+    height:auto !important;
+    min-height:0 !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-home-memo-column > .home-widget-card[data-widget-id="memos"]:has(#homeMemoList > .school-empty) {
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    align-self:start;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card[data-widget-id="memos"]:has(#homeMemoList > .school-empty) > .school-widget-body {
+    flex:0 0 auto;
+    min-height:0;
+    max-height:none;
+    overflow:visible;
+    scrollbar-gutter:auto;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea #homeMemoList > .school-empty {
+    min-height:0;
+    padding:16px 12px;
+    gap:8px;
+  }
+}
+
+/* Shared connection states and compact, readable information widgets. */
+@media screen {
+  body.school-interface.school-classic #view-home #homeWidgetArea {
+    --widget-ui-ink:#24354a; --widget-ui-muted:#5e7082; --widget-ui-line:rgba(148,163,184,.26);
+    --widget-ui-panel:rgba(255,255,255,.8); --widget-ui-accent:#45556c; --widget-ui-soft:#edf1f6;
+    --widget-ui-warm:#a54b12; --widget-ui-cool:#245faf; --widget-ui-high:#b52b3e; --widget-ui-normal:#23745d;
+  }
+  body.school-interface.school-classic:not(.light) #view-home #homeWidgetArea {
+    --widget-ui-ink:#e2eaf5; --widget-ui-muted:#afbed0; --widget-ui-line:rgba(148,163,184,.28);
+    --widget-ui-panel:rgba(23,33,53,.88); --widget-ui-accent:#bfcee1; --widget-ui-soft:#2b3548;
+    --widget-ui-warm:#fdba74; --widget-ui-cool:#93c5fd; --widget-ui-high:#fda4af; --widget-ui-normal:#9bddc6;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea [data-widget-group="col2"] { --widget-ui-accent:#236856; --widget-ui-soft:#e8f5f1; }
+  body.school-interface.school-classic #view-home #homeWidgetArea [data-widget-group="col4"] { --widget-ui-accent:#865013; --widget-ui-soft:#fff1de; }
+  body.school-interface.school-classic:not(.light) #view-home #homeWidgetArea [data-widget-group="col2"] { --widget-ui-accent:#a4d9c7; --widget-ui-soft:#1d3530; }
+  body.school-interface.school-classic:not(.light) #view-home #homeWidgetArea [data-widget-group="col4"] { --widget-ui-accent:#f4cd91; --widget-ui-soft:#3b2f21; }
+  body.school-interface.school-classic #view-home #homeWidgetArea .home-widget-card:has(.school-widget-state) {
+    align-self:start; height:auto !important; min-height:0 !important;
+  }
+  body.school-interface.school-classic #view-home #homeWidgetArea .school-widget-body:has(.school-widget-state) {
+    flex:0 0 auto; min-height:0; max-height:none; overflow:visible; scrollbar-gutter:auto;
+  }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-state {
+    display:flex; flex-direction:column; align-items:stretch; gap:13px; min-width:0; box-sizing:border-box;
+    padding:17px; border:1px solid var(--widget-ui-line); border-radius:12px; background:var(--widget-ui-panel);
+  }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-state-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  body.school-interface.school-classic #homeWidgetArea :is(.school-widget-state-icon,.school-profile-icon) {
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 38px; width:38px; height:38px;
+    border-radius:11px; background:var(--widget-ui-soft); color:var(--widget-ui-accent);
+  }
+  body.school-interface.school-classic #homeWidgetArea :is(.school-widget-state-icon,.school-profile-icon) svg { width:23px; height:23px; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-status {
+    display:inline-flex; align-items:center; width:fit-content; padding:4px 8px; border-radius:6px;
+    background:var(--widget-ui-soft); color:var(--widget-ui-accent); font-size:10px; font-weight:700; line-height:1.4;
+  }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-state-copy strong { display:block; color:var(--widget-ui-ink); font-size:14px; line-height:1.6; font-weight:750; word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-state-copy p { margin:6px 0 0; color:var(--widget-ui-muted); font-size:12px; line-height:1.8; word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:4px; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-action {
+    display:inline-flex; align-items:center; justify-content:center; min-height:33px; max-width:100%; box-sizing:border-box;
+    padding:7px 12px !important; border:1px solid var(--widget-ui-accent) !important; border-radius:8px !important;
+    background:var(--widget-ui-accent) !important; color:#fff !important; font-family:inherit; font-size:11px !important;
+    line-height:1.5; font-weight:700; cursor:pointer; white-space:normal; text-align:center;
+  }
+  body.school-interface.school-classic:not(.light) #homeWidgetArea .school-widget-action { color:#172135 !important; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-action.is-secondary { border-color:var(--widget-ui-line) !important; background:var(--widget-ui-panel) !important; color:var(--widget-ui-accent) !important; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-action:hover { filter:brightness(.96); }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-action:focus-visible { outline:2px solid var(--widget-ui-accent); outline-offset:3px; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-dateline { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:13px; color:var(--widget-ui-muted); font-size:11px; line-height:1.6; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-note { margin:10px 0 0; color:var(--widget-ui-muted); font-size:10px; line-height:1.75; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea :is(.school-schedule-list,.school-infect-list,.school-meal-menu) { list-style:none; padding:0; margin:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-list > li { display:flex; align-items:center; gap:12px; min-width:0; padding:10px 12px; border:1px solid var(--widget-ui-line); border-radius:10px; background:var(--widget-ui-panel); }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-period { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:0 0 38px; min-height:42px; border-radius:8px; background:var(--widget-ui-soft); color:var(--widget-ui-accent); }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-period b { font-size:17px; line-height:1.2; font-variant-numeric:tabular-nums; }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-period small { font-size:9px; line-height:1.5; }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-copy { display:flex; flex-direction:column; gap:3px; min-width:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-copy strong { color:var(--widget-ui-ink); font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-schedule-time { color:var(--widget-ui-muted); font-size:11px; font-variant-numeric:tabular-nums; }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-service { padding:12px 14px; border:1px solid var(--widget-ui-line); border-radius:10px; background:var(--widget-ui-panel); }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-service + .school-meal-service { margin-top:10px; }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; padding-bottom:9px; margin-bottom:9px; border-bottom:1px solid var(--widget-ui-line); }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-heading strong { color:var(--widget-ui-accent); font-size:13px; }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-heading > span { color:var(--widget-ui-muted); font-size:10px; }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-menu { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 14px; }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-menu > li { display:flex; align-items:baseline; gap:6px; color:var(--widget-ui-ink); font-size:12px; line-height:1.7; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-meal-menu > li::before { content:''; flex:0 0 3px; width:3px; height:3px; border-radius:50%; background:var(--widget-ui-accent); }
+  body.school-interface.school-classic #homeWidgetArea [data-tone="warm"] { --weather-tone:var(--widget-ui-warm); }
+  body.school-interface.school-classic #homeWidgetArea [data-tone="cool"] { --weather-tone:var(--widget-ui-cool); }
+  body.school-interface.school-classic #homeWidgetArea [data-tone="high"] { --weather-tone:var(--widget-ui-high); }
+  body.school-interface.school-classic #homeWidgetArea [data-tone="normal"] { --weather-tone:var(--widget-ui-normal); }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief { min-width:0; color:var(--widget-ui-ink); }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-region { margin-bottom:10px; color:var(--widget-ui-muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-temperatures { display:flex; flex-wrap:wrap; gap:8px 20px; margin:0 0 12px; padding:0 0 12px; border-bottom:1px solid var(--widget-ui-line); }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-temperatures > div { display:flex; align-items:baseline; gap:7px; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-temperatures dt { color:var(--widget-ui-muted); font-size:11px; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-temperatures dd { margin:0; font-size:18px; font-weight:700; line-height:1.4; font-variant-numeric:tabular-nums; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-details { display:grid; gap:9px; margin:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-details > div { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:5px 12px; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-details dt { color:var(--widget-ui-muted); font-size:11px; line-height:1.6; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-details dd { display:flex; align-items:baseline; flex-wrap:wrap; gap:7px; margin:0; color:var(--weather-tone,var(--widget-ui-ink)); font-size:12px; font-weight:600; line-height:1.6; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-details b { font-size:14px; font-variant-numeric:tabular-nums; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-grade { font-size:11px; font-weight:500; }
+  body.school-interface.school-classic #homeWidgetArea .school-weather-brief-loading { margin:0; color:var(--widget-ui-muted); font-size:12px; line-height:1.7; }
+  body.school-interface.school-classic #homeWidgetArea .home-widget-card:has(.school-weather-brief) { align-self:start; height:auto !important; min-height:0 !important; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-body:has(.school-weather-brief) { flex:0 0 auto; min-height:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-list { overflow:hidden; border:1px solid var(--widget-ui-line); border-radius:11px; background:var(--widget-ui-panel); }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-list li { display:flex; align-items:center; gap:10px; padding:10px 12px; min-width:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-list li + li { border-top:1px solid var(--widget-ui-line); }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-rank { display:inline-flex; align-items:center; justify-content:center; flex:0 0 23px; height:23px; border-radius:7px; background:var(--widget-ui-soft); color:var(--widget-ui-accent); font-size:11px; font-weight:700; }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-name { flex:1; min-width:0; color:var(--widget-ui-ink); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-list strong { flex-shrink:0; color:var(--widget-ui-accent); font-size:15px; font-variant-numeric:tabular-nums; }
+  body.school-interface.school-classic #homeWidgetArea .school-infect-list small { margin-left:3px; color:var(--widget-ui-muted); font-size:10px; font-weight:400; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-heading { display:flex; align-items:center; gap:12px; margin-bottom:15px; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-heading > div { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-heading > div > span { color:var(--widget-ui-muted); font-size:10px; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-heading strong { color:var(--widget-ui-ink); font-size:15px; line-height:1.5; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; padding:0; margin:0; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-metrics > div { min-width:0; padding:11px 4px; border:1px solid var(--widget-ui-line); border-radius:9px; background:var(--widget-ui-panel); text-align:center; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-metrics dt { color:var(--widget-ui-muted); font-size:10px; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-metrics dd { margin:5px 0 0; color:var(--widget-ui-ink); font-size:22px; font-weight:800; line-height:1.4; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile-metrics small { font-size:10px; font-weight:400; margin-left:2px; }
+  body.school-interface.school-classic #homeWidgetArea .school-profile > .school-widget-actions { margin-top:12px; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-connect-note { display:flex; flex-direction:column; align-items:flex-start; gap:9px; padding-top:12px; margin-top:14px; border-top:1px solid var(--widget-ui-line); }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-connect-note > span { display:flex; align-items:center; gap:7px; color:var(--widget-ui-muted); font-size:10px; line-height:1.7; }
+  body.school-interface.school-classic #homeWidgetArea .school-widget-connect-note svg { flex:0 0 15px; width:15px; height:15px; color:var(--widget-ui-accent); }
+}

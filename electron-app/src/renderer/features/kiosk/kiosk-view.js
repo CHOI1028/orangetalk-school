@@ -77,7 +77,7 @@ import { renderSettingsPanel, openSettings, switchSettingsCat } from '../setting
     /* 우측: 미리보기 + 통계 */
     h+='<div style="flex:1"><div class="sv-section-title">키오스크 화면 미리보기</div>';
     h+='<div class="cc" style="padding:0;overflow:hidden;margin-bottom:12px">'
-      +'<div style="background:linear-gradient(135deg,#0e7490,#06b6d4);padding:16px 20px;color:#fff">'
+      +'<div style="background:#0e7490;padding:16px 20px;color:#fff">'
       +'<div style="font-size:16px;font-weight:800;text-align:center;margin-bottom:4px">🏥 '+escHtml(school)+' 보건실</div>'
       +'<div style="font-size:11px;text-align:center;opacity:0.8">방문 학생 자가 입력</div></div>'
       +'<div style="padding:16px 20px;background:var(--card)">'

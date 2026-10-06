@@ -9,7 +9,7 @@
  *  - 2분 주기 자동 동기화
  *  - beforeunload 종료 flush
  */
-import { S } from './app-state.js';
+import { S, refreshSharedKioskSettings } from './app-state.js';
 import { bus } from './event-bus.js';
 import { persistenceOrchestrator } from './persistence-orchestrator.js';
 import { _reloadStudentsFromDB } from './student-utils.js';
@@ -114,7 +114,7 @@ function _confirmSheetsExport(opts){
       +'</div>';
     h+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--bdr);background:var(--bg2)">'
       +'<button id="sheetsConsentCancel" style="padding:7px 18px;font-size:11.5px;font-weight:600;background:var(--card);color:var(--t2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--f)">취소</button>'
-      +'<button id="sheetsConsentOk" style="padding:7px 22px;font-size:11.5px;font-weight:700;background:linear-gradient(135deg,#34a853,#1e8e3e);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">동의합니다</button>'
+      +'<button id="sheetsConsentOk" style="padding:7px 22px;font-size:11.5px;font-weight:700;background:#1e8e3e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--f)">동의합니다</button>'
       +'</div></div>';
     ov.innerHTML=h;
     document.body.appendChild(ov);
@@ -687,6 +687,10 @@ if(typeof window.electronAPI!=='undefined'&&window.electronAPI.jsonLoad){
     /* 헤더 1층 phase 0 (교육청·학교·직위·이름) 즉시 갱신 — DB 로딩 직후 사용자 정보 반영 */
     try{bus.emit('header:refresh-user');}catch(e){}
   }});
+  /* A shared browser must not migrate or write back its old local channel. */
+  if(window.__isWebBrowser){
+    refreshSharedKioskSettings();
+  } else {
   /* 키오스크 채널 정보 보존: _setLs가 localStorage를 덮어쓰기 전에 백업 */
   var _kioskChannelBackup=null;
   (function(){
@@ -736,6 +740,7 @@ if(typeof window.electronAPI!=='undefined'&&window.electronAPI.jsonLoad){
      *  호스트는 이미 연결돼 있어 !_connected 가드로 무해, active=false 면 조용히 정리. */
     try{ bus.emit('kiosk:sidebar-refresh'); }catch(e){}
   }});
+  }
   commonMappings.push({dbKey:'bed_config',lsKey:'ec_bed_config',onLoaded:function(data){
     if(data&&typeof data==='object'){S._bedConfigRaw=data;S._bedConfig=Object.assign({beds:[{id:1}],placement:'left'},data);}
   }});
@@ -979,7 +984,7 @@ export function _syncAllToJson(){
   const commonKeys=[
     ['settings','ec_settings'],['treatmentMap','ec_treatmentMap'],['medicationMap','ec_medicationMap'],
     ['memos','ec_memos'],['vip_tags','ec_vip_tags'],
-    ['user_profile','ec_user'],['kiosk_settings','ec_kiosk'],['bed_config','ec_bed_config'],
+    ['user_profile','ec_user'],['bed_config','ec_bed_config'],
     ['meddb_user','ec_meddb_user'],['sym_meds','ec_sym_meds'],['sym_ointments','ec_sym_ointments'],
     ['sym_patches','ec_sym_patches'],
     ['magic_slides','ec_magic_slides'],['magic_memolist','ec_magic_memolist'],

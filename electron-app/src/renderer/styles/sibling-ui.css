@@ -1,0 +1,1138 @@
+/* School / Industry sibling layout.
+ * Geometry and typography only: keep the school's theme, button skins,
+ * illustrations, animations and all existing preference keys.
+ * Screen-only rules deliberately leave printable forms untouched.
+ */
+@media screen {
+  html:has(> body.school-interface) { overflow: hidden !important; }
+  body.school-interface {
+    --school-shell-width: 1640px;
+    --school-gutter: clamp(16px, 2.2vw, 32px);
+    --school-gap: 20px;
+    --school-sidebar-width: 246px;
+    --school-text: 14px;
+    --school-label: 13px;
+    --school-caption: 12px;
+    --school-heading: 22px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: var(--school-viewport-width, 100vw);
+    height: var(--school-viewport-height, 100dvh);
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0;
+    overflow: hidden !important;
+    font-size: var(--school-text);
+    line-height: 1.6;
+  }
+
+  /* One bounded workspace. The sidebar remains available in its saved position. */
+  body.school-interface .app {
+    display: grid;
+    grid-template-columns: var(--school-sidebar-width) minmax(0, 1fr);
+    align-items: stretch;
+    flex: 1 1 0;
+    width: 100%;
+    max-width: var(--school-shell-width);
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 0 auto;
+    padding: 20px var(--school-gutter);
+    gap: var(--school-gap);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  body.school-interface.sidebar-right .app { grid-template-columns: minmax(0, 1fr) var(--school-sidebar-width); }
+  body.school-interface.sidebar-off .app { grid-template-columns: minmax(0, 1fr); }
+  body.school-interface .app > .sidebar {
+    position: relative;
+    top: auto;
+    width: auto;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 2px 4px 16px 0;
+    overflow: auto;
+    scrollbar-width: thin;
+  }
+  body.school-interface .app > .main {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    padding: 0 5px 16px 0;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+  body.school-interface .main > [data-fragment],
+  body.school-interface .main .view { min-width: 0; max-width: 100%; }
+  body.school-interface .main .magic-chart-body {
+    min-width: 0 !important;
+    width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    box-sizing: border-box;
+  }
+  body.school-interface #view-home { height: auto !important; min-width: 0 !important; }
+  body.school-interface #view-home .magic-chart-body {
+    padding: 0 !important;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible !important;
+  }
+  body.school-interface .sidebar :is(.mcal, .cc) { margin-bottom: 16px; }
+  body.school-interface .sidebar .mcal { padding: 12px; }
+  body.school-interface .sidebar .mcal-title { font-size: 14px; }
+  body.school-interface .sidebar :is(.mcal-dow, .mcal-cell) { font-size: 12px; }
+  body.school-interface #sidebarSearchBox { margin-top: 14px; margin-bottom: 14px; }
+  body.school-interface #sideSearch { min-height: 40px; font-size: 12px !important; }
+  body.school-interface #advSearchSidebarBtn { min-height: 26px; font-size: 11px !important; }
+  body.school-interface #sideBedUsage {
+    position: relative !important;
+    inset: auto !important;
+    width: auto !important;
+    max-width: 100%;
+    margin: 16px 0 0 !important;
+  }
+  body.school-interface > footer {
+    position: relative;
+    inset: auto;
+    flex: 0 0 38px;
+    min-height: 38px;
+    height: 38px;
+    padding: 6px var(--school-gutter);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  body.school-interface #footerText { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Shared page hierarchy, not a new colour theme. */
+  body.school-interface .school-subnav { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: thin; padding-top: 4px; }
+  body.school-interface .school-subnav :is(.magic-index-tab,.stats-period-tab) { flex-shrink: 0; font-size: 14px; line-height: 1.5; white-space: nowrap; padding: 10px 16px; }
+  body.school-interface :is(#view-daily,#view-dashboard) .magic-chart-body { border-radius: 0 12px 12px 12px; }
+  body.school-interface #view-daily > .magic-chart-body { padding: 20px !important; overflow: visible; }
+  body.school-interface .school-record-topline { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+  body.school-interface .school-record-topline > .flip-group { position: relative !important; inset: auto !important; order: 2; flex: 0 1 auto; max-width: 100%; min-width: 0; }
+  body.school-interface .school-record-search { position: relative !important; inset: auto !important; order: 1; display: flex; align-items: center; flex-wrap: wrap; flex: 1 1 500px; min-width: 0; gap: 8px !important; margin: 0 !important; z-index: 100; }
+  body.school-interface .school-record-search > .autocomplete-wrap { width: 300px !important; max-width: 100%; min-width: 0; flex: 1 1 280px; }
+  body.school-interface .school-record-search .form-input { min-height: 40px; font-size: 13px !important; }
+  body.school-interface .school-record-search > button { height: auto !important; min-height: 36px; padding: 7px 10px !important; font-size: 13px !important; line-height: 1.4; }
+  body.school-interface .school-record-search .adv-search-hover-btn { min-height: 26px; font-size: 11px !important; }
+  body.school-interface #dailyToolbarWrap { margin: 0 0 14px !important; padding: 0 0 6px !important; }
+  body.school-interface .school-record-tools,
+  body.school-interface .school-record-actionbar > div { display: flex; flex-wrap: wrap !important; align-items: center; min-width: 0 !important; gap: 8px !important; }
+  body.school-interface :is(.school-record-tools,.school-record-actionbar) button,
+  body.school-interface #dailyDateLabel { min-height: 36px; height: auto !important; padding: 7px 10px !important; font-size: 13px !important; line-height: 1.4; }
+  body.school-interface .school-record-actionbar { margin-bottom: 14px; }
+  body.school-interface :is(#dailyTableOuter,#dailyTableWrap,#ecListCard,#infListCard) { min-width: 0; max-width: 100%; }
+  body.school-interface :is(#dailyTableWrap,#ecListCard,#infListCard) { min-height: 180px; overflow: auto !important; scrollbar-width: thin; }
+
+  body.school-interface :is(#ecListTable,#infListTable) { min-width: 1080px; }
+  body.school-interface :is(#recTable,#ecListTable,#infListTable) th { font-size: 12px; line-height: 1.5; padding-top: 10px; padding-bottom: 10px; white-space: nowrap; }
+  body.school-interface :is(#recTable,#ecListTable,#infListTable) td { font-size: 13px; line-height: 1.6; }
+  body.school-interface #dailyPeriodPanel { font-size: 13px; }
+  body.school-interface #dashContentArea { padding: 20px !important; min-width: 0; }
+  body.school-interface #dashContentArea > div:first-child { flex-wrap: wrap; gap: 12px; }
+  body.school-interface #dashDateRange { flex-wrap: wrap; min-width: 0; }
+  body.school-interface :is(#dashDate,#dashRangeLabel) { font-size: 13px !important; }
+  body.school-interface #dashDateRange button { min-height: 36px; font-size: 13px; }
+  body.school-interface #dashCanvas { min-width: 0 !important; }
+  body.school-interface #dashContentArea .dash-section { margin-bottom: 18px; }
+
+  /* Settings are the same school settings, with room for their text and controls. */
+  body.school-interface #settingsModal .modal-content { width: 1040px !important; max-width: calc(100% - 32px) !important; max-height: calc(var(--school-viewport-height, 100dvh) - 32px); display: flex; flex-direction: column; }
+  body.school-interface #settingsModal .modal-header { flex: 0 0 auto; padding: 14px 20px !important; }
+  body.school-interface #settingsModal .modal-title { font-size: 18px; }
+  body.school-interface #settingsModal .settings-notion { display: grid; grid-template-columns: 222px minmax(0,1fr); height: min(680px, calc(var(--school-viewport-height, 100dvh) - 110px)); min-height: 0; }
+  body.school-interface #settingsSidebar { width: auto; min-width: 0; overflow: auto; }
+  body.school-interface #settingsSidebar .settings-sidebar-item { font-size: 13px !important; line-height: 1.5; min-height: 38px; padding: 9px 14px !important; }
+  body.school-interface #settingsPanel { min-width: 0; min-height: 0; overflow: auto; font-size: 14px; padding: 22px; }
+  body.school-interface #settingsPanel :is(.form-label,.settings-panel-desc) { font-size: 13px; line-height: 1.6; }
+  body.school-interface #settingsPanel .settings-panel-title { font-size: 19px; }
+
+  /* The existing zoom controller still owns zoom and popup positioning. */
+  body.school-interface > :is(.modal-overlay,.qm-overlay,.vp-overlay,.ec-form-overlay,.ems-overlay,.sv-modal-overlay,.nl-overlay,.magic-link-popup-overlay,.memo-popup-overlay,[data-ec-zoom-rebound="overlay"]) {
+    min-height: 0 !important;
+    height: var(--school-viewport-height, 100dvh);
+  }
+}
+
+@media screen and (max-width: 1200px) {
+  body.school-interface { --school-sidebar-width: 218px; --school-gap: 16px; }
+}
+@media screen and (max-width: 900px) {
+  body.school-interface { --school-gutter: 16px; --school-sidebar-width: 194px; --school-gap: 14px; }
+  body.school-interface #settingsModal .settings-notion { grid-template-columns: 185px minmax(0,1fr); }
+}
+@media screen and (max-width: 700px) {
+  body.school-interface { --school-gutter: 12px; --school-heading: 20px; }
+  body.school-interface .app,
+  body.school-interface.sidebar-right .app { display: flex; flex-direction: column; overflow-y: auto; gap: 16px; padding-top: 14px; }
+  body.school-interface .app > .sidebar { flex: 0 0 auto; order: 0; height: auto; max-height: 320px; padding: 0 2px; }
+  body.school-interface .app > .main,
+  body.school-interface.sidebar-right .app > .main { flex: 0 0 auto; order: 1; height: auto; overflow: visible; padding: 0; }
+  body.school-interface.sidebar-right .app > .sidebar { order: 2; }
+  body.school-interface .sidebar .mcal { max-width: 100%; }
+  body.school-interface #sidebarSearchBox { margin-bottom: 0; }
+  body.school-interface #view-daily > .magic-chart-body { padding: 14px !important; }
+  body.school-interface .school-record-search { flex-basis: 100%; }
+  body.school-interface #settingsModal .settings-notion { display: flex; flex-direction: column; }
+  body.school-interface #settingsSidebar { display: flex; flex-wrap: nowrap; flex-shrink: 0; max-height: 74px; overflow-x: auto; }
+  body.school-interface #settingsSidebar > div:not(.settings-sidebar-item) { display: none; }
+  body.school-interface #settingsSidebar .settings-sidebar-item { flex: 0 0 auto; white-space: nowrap; }
+  body.school-interface #settingsPanel { flex: 1 1 auto; padding: 16px; }
+}
+
+
+
+@media screen and (prefers-reduced-motion: reduce) {
+}
+
+/* Workspace remodel: a shared product frame, with the school's own skins. */
+@media screen {
+  body.school-interface { --school-shell-width:1640px; --school-sidebar-width:264px; }
+  body.school-interface .app,
+  body.school-interface.sidebar-right .app,
+  body.school-interface.sidebar-off .app { position:relative; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); padding-top:14px; padding-bottom:14px; gap:20px; }
+  body.school-interface.school-context-open:not(.sidebar-off) .app { grid-template-columns:var(--school-sidebar-width) minmax(0,1fr); }
+  body.school-interface.school-context-open.sidebar-right .app { grid-template-columns:minmax(0,1fr) var(--school-sidebar-width); }
+  body.school-interface .app > .main { order:2; width:100%; height:100%; overflow:auto; padding:0 3px 16px 0; box-sizing:border-box; overscroll-behavior:contain; }
+  body.school-interface.sidebar-right .app > .main { order:1; }
+  body.school-interface .app > .sidebar { display:none; order:1; height:100%; max-height:none; padding:14px; background:var(--card); border:1px solid var(--bdr); border-radius:14px; box-sizing:border-box; }
+  body.school-interface.school-context-open:not(.sidebar-off) .app > .sidebar { display:block !important; }
+  body.school-interface.sidebar-right .app > .sidebar { order:2; }
+  body.school-interface.sidebar-off .school-context-toggle { display:none !important; }
+  body.school-interface .school-context-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 0 12px; margin-bottom:12px; border-bottom:1px solid var(--bdr); }
+  body.school-interface .school-context-heading h2 { margin:0; font-size:14px; color:var(--t1); }
+  body.school-interface .school-context-close { min-width:32px; min-height:32px; padding:4px 8px; background:var(--bg2); border:1px solid var(--bdr); border-radius:7px; color:var(--t2); cursor:pointer; font:inherit; }
+  body.school-interface .school-context-backdrop { display:none; }
+  body.school-interface .sidebar .mcal { margin:0 0 14px; padding:6px 0; box-shadow:none; border:0; width:100%; box-sizing:border-box; }
+  body.school-interface .sidebar #sidebarSearchBox { margin:0 0 14px; }
+  body.school-interface .sidebar #sideSearch { padding-right:58px; }
+  body.school-interface > footer { flex-basis:30px; height:30px; min-height:30px; padding-top:4px; padding-bottom:4px; }
+  body.school-interface .school-context-toggle { min-height:38px; padding:8px 12px; border-radius:8px; font-size:13px; line-height:1.5; white-space:nowrap; cursor:pointer; }
+
+  body.school-interface :is(#view-daily,#view-dashboard) > .school-subnav { background:transparent; border:0; padding:12px 2px 0 !important; gap:6px !important; box-sizing:border-box; }
+  body.school-interface .school-subnav :is(.magic-index-tab,.stats-period-tab) { padding:10px 16px; font-size:14px; }
+  body.school-interface :is(#view-daily,#view-dashboard) .magic-chart-body { border-radius:0 12px 12px 12px; border-width:1px; }
+  body.school-interface #view-daily > .magic-chart-body { padding:20px !important; min-height:280px; }
+  body.school-interface #view-daily .daily-cat-content { width:100%; min-width:0 !important; max-width:100%; overflow:visible; box-sizing:border-box; }
+  body.school-interface .school-record-topline { min-width:0; width:100%; gap:12px; align-items:center; margin-bottom:18px; }
+  body.school-interface .school-record-search { flex:1 1 640px; min-width:0; gap:8px !important; }
+  body.school-interface .school-record-search > .autocomplete-wrap { flex:1 1 260px; max-width:400px; }
+  body.school-interface .school-record-topline > .flip-group { flex:0 1 auto; min-width:0; max-width:100%; overflow:auto; }
+  body.school-interface .school-record-topline .flip-board { max-width:100%; box-sizing:border-box; }
+  body.school-interface #dailyToolbarWrap { overflow:visible !important; padding:14px 0 16px !important; margin:0 0 16px !important; border-top:1px solid var(--bdrl); border-bottom:1px solid var(--bdrl); }
+  body.school-interface #dailyToolbarWrap > .toolbar-hscrollbar-thumb { display:none !important; }
+  body.school-interface .school-record-tools { gap:16px 24px !important; align-items:flex-start; }
+  body.school-interface .school-tool-group { min-width:0; max-width:100%; display:flex; flex-direction:column; gap:7px; }
+  body.school-interface .school-tool-label { font-size:12px; font-weight:700; color:var(--t3); line-height:1.4; }
+  body.school-interface .school-tool-controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; min-width:0; }
+  body.school-interface .school-tool-controls > :is(button,span) { max-width:100%; }
+  body.school-interface .school-tool-controls > button:is(#btnPrevDay,#btnNextDay) { min-width:34px; padding:7px 9px !important; }
+  body.school-interface :is(#dailyTableOuter,#ecListCard,#infListCard) { width:100%; min-width:0 !important; min-height:0; box-sizing:border-box; }
+  body.school-interface #dailyTableWrap { min-height:180px !important; max-height:520px; box-sizing:border-box; border-radius:10px; }
+
+  body.school-interface #recTable[style*="visibility: hidden"] { min-width:0 !important; }
+  body.school-interface #view-daily :is(#ecListCard,#infListCard) { min-height:220px; border-radius:10px; }
+  body.school-interface #view-daily :is(#ecListTable,#infListTable) { min-width:1080px !important; }
+  body.school-interface #view-daily :is(#recTable,#ecListTable,#infListTable) td { font-size:13px; }
+  body.school-interface #dashContentArea { box-sizing:border-box; }
+  body.school-interface #dashContentArea :is(.dash-section,.dash-card) { border-radius:12px; }
+  body.school-interface #dashCanvas { max-width:100%; overflow-x:auto; }
+
+  body.school-interface #settingsModal .modal-header { gap:12px; display:flex; justify-content:space-between; align-items:center; min-height:54px; }
+  body.school-interface #settingsModal .modal-content { border:1px solid var(--bdr); border-radius:16px; }
+  body.school-interface #settingsModal .settings-notion { flex:1 1 auto; }
+  body.school-interface #settingsPanel { box-sizing:border-box; line-height:1.65; }
+  body.school-interface #settingsPanel :is(input,select,button) { max-width:100%; }
+  body.school-interface button:focus-visible,
+  body.school-interface [tabindex="0"]:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+  body.school-interface.school-context-drawer .app,
+  body.school-interface.school-context-drawer.school-context-open .app { grid-template-columns:minmax(0,1fr); gap:0; }
+  body.school-interface.school-context-drawer.school-context-open .app > .sidebar { position:absolute; top:8px; bottom:8px; left:var(--school-gutter); width:min(300px,calc(100% - 32px)); height:auto; z-index:42; box-shadow:0 16px 48px rgba(0,0,0,.25); }
+  body.school-interface.school-context-drawer.school-context-open.sidebar-right .app > .sidebar { left:auto; right:var(--school-gutter); }
+  body.school-interface.school-context-drawer.school-context-open .school-context-backdrop { display:block; position:absolute; inset:0; z-index:41; border:0; background:rgba(15,23,42,.28); cursor:pointer; }
+  body.school-interface.school-narrow #view-daily > .magic-chart-body { padding:14px !important; }
+}
+
+
+
+@media print {
+  .school-context-heading,.school-context-backdrop,.school-context-toggle { display:none !important; }
+}
+
+/* Keep the shell bounded when the existing zoom controller injects its rules. */
+@media screen {
+  html:has(> body.school-interface) { width:var(--school-viewport-width,100vw) !important; height:var(--school-viewport-height,100dvh) !important; min-height:0 !important; }
+  html > body.school-interface,
+  html > body.school-interface.loaded { width:var(--school-viewport-width,100vw) !important; max-width:var(--school-viewport-width,100vw) !important; height:var(--school-viewport-height,100dvh) !important; min-width:0 !important; min-height:0 !important; overflow:hidden !important; }
+  body.school-interface .sidebar .mcal-grid { grid-template-columns:repeat(7,minmax(0,1fr)); width:100%; }
+  body.school-interface .sidebar :is(.mcal-cell,.mcal-dow) { min-width:0; width:auto !important; box-sizing:border-box; }
+  body.school-interface.school-context-drawer.school-context-open .app > .sidebar { position:absolute !important; top:8px !important; }
+}
+
+@media screen {
+  body.school-interface #homeWidgetBoxModal { height:var(--school-viewport-height,100dvh) !important; min-height:0 !important; }
+  body.school-interface #hwbCard { width:1160px; max-width:calc(var(--school-viewport-width,100vw) - 32px) !important; max-height:calc(var(--school-viewport-height,100dvh) - 32px) !important; min-height:0; }
+  body.school-interface #hwbBody { min-height:0; }
+  body.school-interface.school-compact #hwbBody { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+  body.school-interface.school-narrow #hwbBody { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+
+/* A single home board; saved widget columns and each widget's controls stay intact. */
+@media screen {
+  body.school-interface .school-subnav > .school-context-toggle { margin-left:auto; margin-bottom:5px; flex:0 0 auto; align-self:center; }
+  body.school-interface #dashPeriodTabs > div { flex-shrink:0; }
+  body.school-interface #dateVisitorsPanel[data-context-history] { margin:0 0 16px; max-height:none; font-family:var(--f); font-weight:400; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-header { padding:10px; gap:6px; font-size:12px; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-close-btn { min-width:26px; min-height:26px; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-list { max-height:300px; overflow-x:hidden; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-item { grid-template-columns:minmax(0,1fr) auto; gap:2px 8px; height:auto; min-height:64px; max-height:none; padding:9px 10px; font-size:13px; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-time { font-size:11px !important; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-info { grid-column:1 / -1; font-size:11px; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-sym { grid-column:1 / -1; font-size:12px; white-space:normal; overflow-wrap:anywhere; }
+  body.school-interface #dateVisitorsPanel[data-context-history] .dv-empty { padding:20px 12px; margin:0; font-size:12px; line-height:1.7; text-align:center; color:var(--t3); background:var(--bg2); }
+}
+
+
+
+
+/* Opaque individual tabs keep the wallpaper from reducing label contrast. */
+@media screen {
+  body.school-interface :is(#view-daily,#view-dashboard) > .school-subnav :is(.magic-index-tab,.stats-period-tab) {
+    background:var(--card);
+    color:var(--t2);
+    text-shadow:none;
+    opacity:1;
+  }
+  body.school-interface #view-daily > .school-subnav .magic-index-tab.active {
+    background:var(--card);
+    color:var(--t1);
+  }
+  body.school-interface #view-dashboard > .school-subnav .stats-period-tab.active {
+    background:var(--card);
+    color:var(--t1);
+  }
+  body.school-interface .school-subnav > .school-context-toggle { background-color:var(--card); text-shadow:none; }
+}
+
+@media screen {
+}
+
+
+/* Shared product geometry; school colours, wallpaper and button skins remain. */
+@media screen {
+  body.school-interface {
+    --school-shell-width:1640px;
+    --school-gap:20px;
+    --school-heading:22px;
+    --school-text:14px;
+    --school-caption:12px;
+    --school-card-radius:18px;
+    --school-card-title:16px;
+    --school-card-padding:16px;
+    --school-card-header-height:52px;
+    --school-card-border:var(--bdr);
+    --school-card-divider:var(--bdr);
+    --school-card-heading-bg:var(--bg2);
+    --school-card-shadow:0 2px 5px rgba(0,0,0,.10),0 8px 20px rgba(0,0,0,.14);
+  }
+  body.school-interface.light {
+    --school-card-border:#e3e8e2;
+    --school-card-divider:#eceee8;
+    --school-card-heading-bg:#fbfaf7;
+    --school-card-shadow:0 2px 5px rgba(35,50,35,.025),0 8px 20px rgba(35,50,35,.045);
+  }
+  body.school-interface .top-header {
+    position:relative !important; inset:auto !important; width:100% !important;
+    flex:0 0 auto; transform:none; border:0 !important; background:transparent;
+    /* Inline glass preferences must override these neutral fallbacks. */
+    box-shadow:none !important; backdrop-filter:none; -webkit-backdrop-filter:none;
+    isolation:auto;
+  }
+  body.school-interface .top-header::before { display:none !important; }
+  body.school-interface .header-row1 {
+    display:flex; align-items:center; justify-content:space-between;
+    width:100%; max-width:var(--school-shell-width) !important; min-height:96px; height:auto;
+    padding:14px var(--school-gutter); margin:0 auto; gap:24px; box-sizing:border-box;
+    border-radius:0; background:transparent !important; box-shadow:none !important;
+    backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+  }
+  body.school-interface .school-brand-group { display:flex; align-items:center; gap:20px; min-width:0; flex:0 1 auto; }
+  body.school-interface #cyclingBrand {
+    display:block !important; position:relative; flex:0 0 184px;
+    width:184px !important; height:56px !important; max-width:100%; overflow:hidden; transform:none !important;
+  }
+  body.school-interface #cyclingBrand :is(.brand-logo-base,.brand-logo-over) {
+    position:absolute !important; inset:0 !important; display:block; grid-area:auto !important;
+    width:100% !important; height:100% !important; max-width:100%; max-height:100%;
+    margin:0 !important; object-fit:contain; object-position:center;
+  }
+  body.school-interface .school-edition-badge { padding:6px 10px; gap:8px; border-radius:7px; flex-shrink:0; }
+  body.school-interface .school-edition-icon { font-size:18px; }
+  body.school-interface .school-brand-divider { height:24px; }
+  body.school-interface :is(.school-edition-levels,.school-edition-audience) { font-size:10.5px; line-height:1.4; }
+  body.school-interface .header-right-cluster {
+    display:flex; flex:0 1 auto; min-width:0; align-items:center; justify-content:flex-end;
+    gap:14px; transform:none;
+  }
+  body.school-interface .header-meta { min-width:0 !important; max-width:600px; flex:0 1 auto; }
+  body.school-interface #headerUserInfo { max-width:100%; }
+  body.school-interface .header-btn-stack {
+    display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-end;
+    flex:0 1 auto; gap:8px; height:auto; padding:0; margin:0; min-width:0;
+  }
+  body.school-interface .header-btn-stack :is(.theme-btn,.settings-btn) {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    min-height:38px; height:auto; padding:7px 10px; font-size:12px; line-height:1.5; white-space:nowrap;
+  }
+  body.school-interface .school-nav-band { position:relative; background:transparent; border:0; }
+  body.school-interface .header-row2 {
+    display:flex; align-items:stretch; width:100%; max-width:var(--school-shell-width) !important;
+    min-width:0; height:auto; min-height:55px; padding:7px var(--school-gutter);
+    gap:6px; margin:0 auto; box-sizing:border-box; overflow-x:auto; scrollbar-width:thin;
+  }
+  body.school-interface .header-row2 .nav-link {
+    display:inline-flex; align-items:center; justify-content:center; gap:7px; flex:1 1 0;
+    min-width:0; min-height:41px; padding:9px 14px; border-radius:8px;
+    font-size:16px; font-weight:700; line-height:22px; white-space:nowrap;
+  }
+  body.school-interface .school-nav-icon { display:inline-grid; place-items:center; width:20px; flex:0 0 20px; font-size:17px; line-height:20px; }
+  body.school-interface .school-nav-label { min-width:0; }
+  body.school-interface .header-row2 .nav-link::after { display:none !important; content:none !important; }
+  body.school-interface .header-row2 .nav-spacer { display:none !important; }
+
+  body.school-interface #view-home #homeWidgetArea {
+    container-type:inline-size; container-name:school-home; width:100%; min-width:0 !important;
+    height:auto !important; max-height:none !important; padding:20px !important;
+    border:1px solid var(--school-card-border); border-radius:var(--school-card-radius); background:var(--card);
+    box-shadow:var(--sh); overflow:visible !important; box-sizing:border-box;
+  }
+  body.school-interface .school-home-hero {
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    gap:12px 20px; min-height:82px; padding:14px 18px; margin:0 0 18px;
+    border:1px solid var(--bdr); border-radius:12px; box-sizing:border-box;
+    background:rgba(6,182,212,.10);
+    background-color:var(--card); background-size:300% 100%; animation:heroGradientShift 15s ease infinite;
+  }
+  body.school-interface .school-home-greeting { flex:1 1 300px; min-width:0; }
+  body.school-interface .school-home-eyebrow { display:block; color:var(--cyan); font-size:11px; font-weight:700; line-height:1.4; }
+  body.school-interface .school-home-greeting h1 { margin:2px 0 0; font-size:21px; line-height:1.4; font-weight:800; color:var(--t1); overflow-wrap:anywhere; }
+  body.school-interface .school-home-greeting p { margin:3px 0 0; font-size:12px; line-height:1.6; color:var(--t2); }
+  body.school-interface .school-home-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  body.school-interface .school-widget-store-button { min-height:36px; padding:7px 11px !important; font-size:13px !important; }
+  body.school-interface .school-home-start { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; align-items:stretch; min-width:0; margin-bottom:24px; }
+  body.school-interface .school-home-start.has-calendar-and-side { grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr); }
+  body.school-interface .school-home-side { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; min-width:0; min-height:0; }
+  body.school-interface .school-home-side > .home-widget-card { min-height:0; overflow:hidden; }
+  body.school-interface .school-home-side .school-widget-body { min-height:0; max-height:360px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-gutter:stable; }
+  body.school-interface .school-home-side [data-widget-id="todolist"] .school-widget-body > div:last-child { max-height:none; overflow:visible; }
+  body.school-interface .school-home-side #homeMemoList { max-height:none !important; overflow:visible !important; scrollbar-gutter:auto; padding-right:0; }
+  /* Let the fixed calendar determine the row height; both right-hand cards share it. */
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side { contain:size; grid-template-rows:minmax(0,1fr); }
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side.has-two-widgets { grid-template-rows:minmax(0,.85fr) minmax(0,1.15fr); }
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side .school-widget-body { max-height:none; }
+  body.school-interface .school-home-calendar { position:relative; min-width:0; margin:0; }
+  body.school-interface [data-widget-id="todolist"] .school-widget-body > div:last-child { min-height:0; max-height:360px; overflow-y:auto; scrollbar-width:thin; }
+  body.school-interface .school-todo-row { display:flex; align-items:flex-start; gap:7px; padding:9px 0; border-bottom:1px solid var(--school-card-divider); }
+  body.school-interface .school-todo-row:last-child { border-bottom:0; }
+  body.school-interface .school-todo-row button,
+  body.school-interface .school-todo-check { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; min-width:26px; min-height:26px; padding:2px 4px; border:0; border-radius:6px; background:transparent; color:var(--t2); font:inherit; cursor:pointer; }
+  body.school-interface .school-todo-row button:hover { background:var(--bg2); }
+  body.school-interface .school-todo-check[aria-pressed="true"] { color:var(--cyan); }
+  body.school-interface .school-todo-label { flex:1 1 auto; min-width:0; padding-top:2px; font-size:14px; line-height:1.65; overflow-wrap:anywhere; }
+  body.school-interface .school-todo-time { color:var(--cyan); font-size:12px; font-weight:700; white-space:nowrap; }
+  body.school-interface .school-todo-source { display:inline-block; margin-left:6px; color:var(--t3); font-size:10px; }
+  body.school-interface .school-todo-row.is-complete .school-todo-title { text-decoration:line-through; color:var(--t3); }
+  body.school-interface .school-calendar-event.is-complete { text-decoration:line-through; opacity:.65; }
+  body.school-interface .school-todo-loading { padding:14px 0; color:var(--t3); font-size:13px; line-height:1.7; }
+  body.school-interface .school-todo-loading button { display:block; margin-top:10px; }
+  body.school-interface :is(#homeCalDayPopup,#localEditOverlay,#gcalEditOverlay) { box-sizing:border-box; padding:12px; }
+  body.school-interface :is(#homeCalDayPopup,#localEditOverlay,#gcalEditOverlay) > div { display:flex; flex-direction:column; max-width:100% !important; max-height:calc(var(--school-viewport-height,100dvh) - 24px) !important; }
+  body.school-interface :is(#homeCalDayPopup,#localEditOverlay,#gcalEditOverlay) > div > div:first-child { flex:0 0 auto; }
+  body.school-interface :is(#homeCalDayPopup,#localEditOverlay,#gcalEditOverlay) > div > div:last-child { min-height:0; overflow-y:auto; }
+  body.school-interface #homeCalWrap {
+    display:grid; grid-template-columns:minmax(0,1fr); gap:10px;
+    padding:var(--school-card-padding) !important; margin:0; border-radius:var(--school-card-radius) !important; box-sizing:border-box;
+  }
+  body.school-interface #homeCalWrap > .school-calendar-toolbar { gap:8px !important; margin:0 !important; min-width:0; }
+  body.school-interface #homeCalWrap > .school-calendar-month { justify-self:center; margin:0 !important; gap:8px !important; }
+  body.school-interface #homeCalWrap > :not(.school-calendar-toolbar):not(.school-calendar-month) { grid-column:1 / -1; min-width:0; }
+  body.school-interface .school-calendar-toolbar > span:first-child { font-size:14px !important; }
+  body.school-interface #homeCalWrap [data-action="home-cal-today"] { min-height:32px; padding:5px 12px !important; font-size:12px !important; }
+  body.school-interface .school-calendar-month > button { min-width:32px; min-height:32px; padding:4px 8px !important; }
+  body.school-interface #homeCalGrid { grid-template-columns:repeat(7,minmax(0,1fr)) !important; }
+  body.school-interface #homeCalGrid > div:not(.acad-bar) { min-width:0; box-sizing:border-box; }
+  body.school-interface .school-widget-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; align-items:start; min-width:0; }
+  body.school-interface .school-widget-grid > .home-widget-card { min-height:168px; }
+  body.school-interface :is(.home-widget-card,#homeCalWrap) {
+    border:1px solid var(--school-card-border) !important;
+    box-shadow:var(--school-card-shadow); background:var(--card);
+  }
+  body.school-interface .home-widget-card {
+    width:100%; min-width:0; margin:0; padding:0 !important; border-radius:var(--school-card-radius) !important;
+    box-sizing:border-box; font-size:var(--school-text); overflow-wrap:anywhere;
+  }
+  body.school-interface .school-widget-heading {
+    display:flex; align-items:center; gap:8px; min-width:0; min-height:var(--school-card-header-height);
+    padding:11px var(--school-card-padding); margin:0 !important;
+    border-bottom:1px solid var(--school-card-divider);
+    border-radius:calc(var(--school-card-radius) - 1px) calc(var(--school-card-radius) - 1px) 0 0;
+    background:var(--school-card-heading-bg); box-sizing:border-box; flex:0 0 auto;
+  }
+  body.school-interface .school-widget-icon { flex:0 0 19px; width:19px; font-size:18px; line-height:1.2; }
+  body.school-interface .school-widget-title { flex:1 1 auto; min-width:0; font-size:var(--school-card-title); font-weight:750; line-height:1.45; letter-spacing:-.015em; color:var(--t1); word-break:keep-all; }
+  body.school-interface .school-widget-heading > [data-tooltip] { flex-shrink:0; }
+  body.school-interface .school-widget-heading > button { flex:0 0 28px; width:28px !important; height:28px !important; min-height:28px; }
+  body.school-interface .school-widget-body { min-width:0; padding:var(--school-card-padding); flex:1 1 auto; font-size:var(--school-text); line-height:1.65; color:var(--t2); box-sizing:border-box; }
+  body.school-interface .school-widget-body [style*="font-size:11px"]:not(svg,svg *) { font-size:13px !important; }
+  body.school-interface .school-widget-body :is([style*="font-size:9px"],[style*="font-size:10px"]):not(svg,svg *) { font-size:12px !important; }
+  body.school-interface .school-widget-body .home-cap { font-size:var(--school-caption) !important; font-weight:400; line-height:1.7 !important; margin-bottom:12px; color:var(--t3); word-break:keep-all; }
+  body.school-interface [data-widget-id="gradeVisit"] .school-widget-body > div > span:first-child { flex:0 0 auto; min-width:3.5em; white-space:nowrap; }
+  body.school-interface #homeMemoList { min-height:0; max-height:320px !important; overflow-x:hidden !important; overflow-y:auto !important; scrollbar-gutter:stable; padding-right:3px; box-sizing:border-box; }
+  body.school-interface #homeMemoList > * { flex-shrink:0; max-width:100%; box-sizing:border-box; }
+  body.school-interface #homeMemoList [contenteditable] { overflow-wrap:anywhere; font-size:13px !important; line-height:1.7; }
+
+  body.school-interface .school-empty {
+    display:flex; align-items:center; flex-direction:column; gap:10px; width:100%; min-width:0;
+    min-height:114px; padding:16px 12px; border:1px solid var(--school-card-divider); border-radius:12px;
+    background:var(--bg2);
+    box-sizing:border-box; text-align:center;
+  }
+  body.school-interface .school-empty-art {
+    position:relative; display:grid; place-items:center; flex:0 0 auto; width:34px; height:37px;
+    border:1px solid var(--bdr); border-radius:9px 9px 12px 9px; background:var(--card);
+    font-size:20px; line-height:1; transform:rotate(-6deg); box-shadow:3px 3px 0 rgba(251,146,60,.07);
+  }
+  body.school-interface .school-empty-art > i { position:absolute; top:-5px; right:-4px; width:11px; height:8px; border-radius:9px 1px 9px 1px; background:#78a65a; transform:rotate(-25deg); }
+  body.school-interface .school-empty-copy { min-width:0; width:100%; }
+  body.school-interface .school-empty-copy > strong { display:block; font-size:var(--school-text); font-weight:700; line-height:1.55; color:var(--t1); word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface .school-empty-copy > p { margin:6px 0 0; font-size:12px; font-weight:400; line-height:1.65; color:var(--t3); word-break:keep-all; overflow-wrap:anywhere; }
+
+  body.school-interface.school-compact .header-right-cluster { flex-direction:column; align-items:flex-end; gap:7px; }
+  body.school-interface.school-compact .header-meta { max-width:100%; }
+  body.school-interface.school-compact #headerUserInfo { max-width:210px; }
+  body.school-interface.school-compact #cyclingBrand { width:164px !important; flex-basis:164px; height:50px !important; }
+  body.school-interface.school-compact .header-btn-stack { gap:6px; }
+  body.school-interface.school-compact .header-btn-stack :is(.theme-btn,.settings-btn) { min-height:34px; padding:6px 8px; font-size:12px; }
+  body.school-interface.school-narrow .header-row1 { flex-wrap:wrap; gap:10px; padding-top:10px; padding-bottom:10px; min-height:0; }
+  body.school-interface.school-narrow .school-brand-group { flex:1 1 100%; justify-content:flex-start; }
+  body.school-interface.school-narrow .header-right-cluster { flex:1 1 100%; align-items:stretch; gap:7px; }
+  body.school-interface.school-narrow .header-btn-stack { justify-content:flex-start; }
+  body.school-interface.school-narrow .header-row2 .nav-link { flex:1 0 auto; min-height:38px; padding:8px 11px; font-size:14px; }
+  body.school-interface.school-narrow .school-nav-icon { font-size:16px; width:18px; flex-basis:18px; }
+}
+@container school-home (max-width:960px) {
+  body.school-interface .school-home-start,
+  body.school-interface .school-home-side { gap:16px; }
+  body.school-interface .school-home-start.has-calendar-and-side { grid-template-columns:minmax(0,1fr); }
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side,
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side.has-two-widgets { contain:none; grid-template-rows:none; }
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side .school-widget-body { max-height:360px; }
+  body.school-interface .school-widget-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+}
+@container school-home (max-width:820px) {
+  body.school-interface .school-widget-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.school-interface .school-home-greeting { flex-basis:100%; }
+  body.school-interface .school-home-actions { width:100%; }
+}
+@container school-home (max-width:540px) {
+  body.school-interface #view-home #homeWidgetArea { padding:12px !important; }
+  body.school-interface .school-home-hero { padding:12px; }
+  body.school-interface .school-home-greeting h1 { font-size:19px; }
+  body.school-interface .school-widget-grid { grid-template-columns:minmax(0,1fr); }
+  body.school-interface #homeCalWrap { padding:12px !important; }
+}
+@media screen and (prefers-reduced-motion:reduce) {
+  body.school-interface .school-home-hero { animation:none; }
+}
+
+/* Resizable desktop windows: preserve readable content instead of squeezing cards. */
+@media screen {
+  body.school-interface.school-narrow { --school-gutter:12px; }
+  body.school-interface.school-narrow #settingsModal .settings-notion { display:flex; flex-direction:column; }
+  body.school-interface.school-narrow #settingsSidebar { display:flex; flex-wrap:nowrap; flex-shrink:0; max-height:74px; overflow-x:auto; }
+  body.school-interface.school-narrow #settingsSidebar > div:not(.settings-sidebar-item) { display:none; }
+  body.school-interface.school-narrow #settingsSidebar .settings-sidebar-item { flex:0 0 auto; white-space:nowrap; }
+  body.school-interface.school-narrow #settingsPanel { flex:1 1 auto; padding:16px; }
+
+  body.school-interface.school-short .header-row1 { min-height:68px; padding-top:8px; padding-bottom:8px; gap:12px; }
+  body.school-interface.school-short .school-brand-group { gap:12px; }
+  body.school-interface.school-short #cyclingBrand { width:132px !important; flex-basis:132px; height:40px !important; }
+  body.school-interface.school-short .header-row2 { min-height:46px; padding-top:4px; padding-bottom:4px; }
+  body.school-interface.school-short .header-row2 .nav-link { min-height:36px; padding-top:6px; padding-bottom:6px; }
+  body.school-interface.school-short .app { padding-top:8px; padding-bottom:8px; }
+  body.school-interface.school-short .app > .main { padding-bottom:8px; }
+  body.school-interface.school-short > footer { flex-basis:26px; height:26px; min-height:26px; padding-top:2px; padding-bottom:2px; }
+  body.school-interface.school-short.school-narrow .header-row1 { gap:8px; }
+  body.school-interface.school-short.school-narrow .header-right-cluster { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 8px; }
+  body.school-interface.school-short.school-narrow .header-meta { flex:1 1 180px; }
+  body.school-interface.school-short.school-narrow .header-btn-stack { flex:0 1 auto; gap:4px; }
+  body.school-interface.school-short.school-narrow .header-btn-stack :is(.theme-btn,.settings-btn) { min-height:32px; padding:5px 6px; }
+}
+
+/* Shared school welcome shell: authentication, user selection and registration. */
+@media screen {
+  body.school-interface #splash.phase2,
+  body.school-interface #cdkeyGateOverlay {
+    position:fixed; inset:0; width:var(--school-viewport-width,100vw); height:var(--school-viewport-height,100dvh);
+    box-sizing:border-box; padding:clamp(16px,2.4vw,32px); overflow:auto; overscroll-behavior:contain;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+    /* The body is the single source for selected, random, custom and solid backgrounds. */
+    background:inherit; font-family:var(--f); font-size:14px; line-height:1.6;
+  }
+  body.school-interface #cdkeyGateOverlay { z-index:2147483647; }
+  body.school-interface #splash > .school-entry-shell { display:none; }
+  body.school-interface #splash.phase2 > .school-entry-shell,
+  body.school-interface #cdkeyGateOverlay > .school-entry-shell { display:flex; }
+  body.school-interface .school-entry-shell {
+    flex-direction:column; gap:18px; width:100%; max-width:var(--school-shell-width,1640px); min-width:0;
+    margin:0 auto; flex:0 0 auto; border:0; background:transparent; box-shadow:none; box-sizing:border-box;
+  }
+  body.school-interface .school-entry-shell * { box-sizing:border-box; }
+  body.school-interface .school-entry-shell .school-entry-brand {
+    display:flex; align-items:center; min-width:0; padding:8px 12px; border:0; background:transparent; animation:none;
+  }
+  body.school-interface .school-entry-brand::before { content:none; }
+  body.school-interface .school-entry-brand-top { display:flex; align-items:center; flex-wrap:wrap; gap:24px; min-width:0; }
+  body.school-interface .school-entry-logo { display:block; width:184px; max-width:100%; height:64px; object-fit:contain; object-position:left center; }
+  body.school-interface .school-entry-edition { display:inline-flex; align-items:center; gap:10px; padding:7px 11px; border:1px solid #725443; border-radius:7px; background:#172135; color:#efb783; font-size:11px; font-weight:600; line-height:1.5; }
+  body.school-interface .school-entry-edition > span { padding-left:10px; border-left:1px solid #725443; }
+  body.school-interface.light .school-entry-edition { background:#fffaf4; color:#a94e19; border-color:#edc8a6; }
+  body.school-interface.light .school-entry-edition > span { border-color:#edc8a6; }
+  body.school-interface .school-entry-shell svg { flex-shrink:0; vertical-align:middle; }
+  body.school-interface .school-entry-shell .school-entry-panel {
+    display:flex; flex-direction:column; align-items:stretch; min-width:0; padding:24px;
+    border:1px solid var(--school-card-border,var(--bdr)); border-radius:var(--school-card-radius,18px);
+    background:var(--card); box-shadow:0 3px 10px rgba(25,38,33,.05),0 14px 32px rgba(25,38,33,.08); animation:none;
+  }
+  body.school-interface #spLogin { width:100%; align-items:stretch; justify-content:flex-start; }
+  body.school-interface #spSetup { position:static; inset:auto; width:100%; height:auto; max-width:none; padding:0; overflow:visible; align-items:stretch; justify-content:flex-start; background:transparent; z-index:auto; }
+  body.school-interface .school-entry-heading {
+    display:flex; align-items:center; justify-content:space-between; gap:20px; margin:0 0 22px; padding:20px 22px;
+    border:1px solid var(--bdr); border-radius:12px; background:#182f3c;
+  }
+  body.school-interface.light .school-entry-heading { background:#effaff; }
+  body.school-interface .school-entry-heading > div { min-width:0; }
+  body.school-interface .school-entry-kicker { margin:0 0 6px; color:var(--cyan); font-size:12px; font-weight:700; }
+  body.school-interface .school-entry-heading :is(h1,.sp-pin-title,.sp-setup-title) { margin:0 0 7px; color:var(--t1); font-size:24px; font-weight:800; line-height:1.4; letter-spacing:-.4px; overflow-wrap:anywhere; }
+  body.school-interface .school-entry-intro { margin:0; color:var(--t2); font-size:13px; line-height:1.75; word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface .school-entry-welcome-icon { display:flex; align-items:center; justify-content:center; flex:0 0 46px; width:46px; height:46px; border:1px solid rgba(6,182,212,.24); border-radius:13px; background:var(--card); color:var(--cyan); }
+  body.school-interface .school-entry-welcome-icon svg { width:23px; height:23px; }
+  body.school-interface .school-entry-widget { min-width:0; border:1px solid var(--bdr); border-radius:12px; background:var(--card); box-shadow:0 2px 6px rgba(20,35,29,.04); }
+  body.school-interface .school-entry-widget-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; min-height:52px; padding:11px 16px; border-bottom:1px solid var(--bdrl); border-radius:11px 11px 0 0; background:var(--school-card-heading-bg,var(--bg2)); }
+  body.school-interface .school-entry-widget-heading h2 { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; margin:0; color:var(--t1); font-size:15px; font-weight:700; line-height:1.5; }
+  body.school-interface .school-entry-widget-heading h2 > svg { color:var(--cyan); }
+  body.school-interface .school-entry-widget-body { min-width:0; padding:18px; }
+  body.school-interface .school-entry-count { display:inline-flex; align-items:center; padding:2px 8px; border:1px solid var(--bdr); border-radius:20px; background:var(--card); color:var(--t3); font-size:11px; font-weight:500; white-space:nowrap; }
+  body.school-interface .school-entry-count:empty { display:none; }
+  body.school-interface .school-entry-shell :is(button,input,select) { font-family:inherit; }
+  body.school-interface .school-entry-shell :is(button,a,input,select):focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+  body.school-interface .school-entry-shell :is(.school-entry-primary,.school-entry-secondary) { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; padding:9px 16px; border:1px solid var(--bdr); border-radius:7px; font-size:13px; font-weight:700; line-height:1.5; text-align:center; cursor:pointer; margin:0; transition:background .15s,border-color .15s; }
+  body.school-interface .school-entry-shell .school-entry-primary { background:#0891b2; border-color:transparent; color:#fff; box-shadow:0 2px 8px rgba(6,182,212,.20); }
+  body.school-interface .school-entry-shell .school-entry-primary:hover { background:#0891b2; color:#fff; }
+  body.school-interface .school-entry-shell .school-entry-secondary { background:var(--card); color:var(--t2); }
+  body.school-interface .school-entry-shell .school-entry-secondary:hover { background:var(--hover); border-color:var(--cyan); color:var(--cyan); }
+  body.school-interface .school-entry-shell .school-entry-add { min-height:36px; padding:7px 12px; background:var(--cbg); border-color:rgba(6,182,212,.25); color:var(--cyan); font-size:12px; }
+  body.school-interface .school-entry-shell .school-entry-quiet { border-color:transparent; color:var(--t3); }
+  body.school-interface .school-entry-shell button:disabled { opacity:.55; cursor:not-allowed; }
+  body.school-interface .school-entry-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; width:100%; margin-top:18px; padding-top:16px; border-top:1px solid var(--bdrl); }
+  body.school-interface .school-entry-actions > button { flex:0 1 auto; width:auto; }
+  body.school-interface .school-entry-user-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:16px; padding-top:10px; border-top:1px solid var(--bdrl); }
+  body.school-interface .school-entry-footnote { margin:0; color:var(--t3); font-size:12px; line-height:1.75; overflow-wrap:anywhere; }
+  body.school-interface #spPinMsg { margin:12px 0 0; font-size:13px; }
+  body.school-interface #spPinMsg:empty { display:none; }
+  body.school-interface #spUserList { display:flex; flex-direction:column; gap:10px; width:100%; max-width:none; max-height:none; overflow:visible; padding:0; }
+  body.school-interface .sp-user-card { display:flex; align-items:center; gap:14px; min-width:0; padding:14px 16px; border:1px solid var(--bdr); border-radius:11px; background:var(--card); cursor:pointer; transition:background .15s,border-color .15s; }
+  body.school-interface .sp-user-card .sp-avatar { display:flex; align-items:center; justify-content:center; flex:0 0 48px; width:48px; height:48px; padding:0; border:1px solid rgba(6,182,212,.2); border-radius:15px; background:var(--cbg); color:var(--cyan); font-size:20px; font-weight:700; overflow:hidden; cursor:pointer; }
+  body.school-interface .sp-user-card:nth-child(even) .sp-avatar { background:var(--pbg,var(--cbg)); color:var(--ps,var(--cyan)); }
+  body.school-interface .sp-user-card .sp-avatar img { display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; }
+  body.school-interface .school-user-select { display:flex; align-items:center; gap:12px; flex:1 1 auto; min-width:0; min-height:44px; padding:0; border:0; background:transparent; color:var(--t1); text-align:left; cursor:pointer; }
+  body.school-interface .school-user-meta { display:flex; flex-direction:column; flex:1 1 auto; min-width:0; gap:3px; }
+  body.school-interface .school-user-meta strong { font-size:16px; font-weight:700; line-height:1.5; overflow-wrap:anywhere; }
+  body.school-interface .school-user-meta > span { color:var(--t3); font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
+  body.school-interface .school-user-arrow { display:flex; align-items:center; justify-content:center; flex:0 0 28px; width:28px; height:28px; color:var(--t3); font-size:17px; }
+  body.school-interface .school-entry-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; min-height:170px; padding:22px 16px; border:1px solid var(--bdr); border-radius:11px; background:var(--card); text-align:center; }
+  body.school-interface .school-entry-empty-mark { display:flex; align-items:center; justify-content:center; width:42px; height:42px; border:1px solid var(--bdr); border-radius:12px; color:var(--cyan); background:var(--card); font-size:24px; transform:rotate(-6deg); }
+  body.school-interface .school-entry-empty strong { color:var(--t1); font-size:14px; }
+  body.school-interface .school-entry-empty p { margin:0; color:var(--t3); font-size:12px; line-height:1.8; }
+  body.school-interface .school-setup-steps { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 18px; padding:0; list-style:none; }
+  body.school-interface .school-setup-steps li { display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:7px; color:var(--t3); background:var(--bg2); font-size:12px; font-weight:600; }
+  body.school-interface .school-setup-steps li > span { font-size:11px; font-weight:700; }
+  body.school-interface .school-setup-steps .is-current { background:var(--cbg); color:var(--cyan); }
+  body.school-interface .school-setup-steps .is-complete { background:var(--gbg); color:var(--gs); }
+  body.school-interface #spSetup .sp-form { width:100%; max-width:none; gap:16px; }
+  body.school-interface #spSetup .sp-form label,
+  body.school-interface .school-license-form > label { color:var(--t2); font-size:13px; font-weight:700; }
+  body.school-interface #setupSchoolLevelRow { display:flex; flex-wrap:wrap; gap:10px; }
+  body.school-interface #setupSchoolLevelRow .sp-level-btn { flex:1 1 140px; min-height:50px; padding:12px 14px; border:1px solid var(--bdr); border-radius:8px; background:var(--card); color:var(--t2); font-size:14px; white-space:normal; }
+  body.school-interface #setupSchoolLevelRow .sp-level-btn:hover,
+  body.school-interface #setupSchoolLevelRow .sp-level-btn.selected { background:var(--cbg); color:var(--cyan); border-color:var(--cyan); }
+  body.school-interface #setupStep1Back { align-self:flex-start; width:auto; margin-top:4px; }
+  body.school-interface .school-setup-summary { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px; padding:10px 12px; border:1px solid var(--bdr); border-radius:8px; background:var(--cbg); font-size:12px; }
+  body.school-interface .school-setup-summary > span { color:var(--t3); }
+  body.school-interface .school-setup-summary strong { color:var(--t1); font-weight:700; }
+  body.school-interface .school-setup-summary button { margin-left:auto; border:0; border-radius:6px; background:transparent; padding:5px 8px; color:var(--cyan); font-size:12px; font-weight:700; cursor:pointer; }
+  body.school-interface .school-entry-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+  body.school-interface .school-entry-field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  body.school-interface #spSetup .sp-form :is(input,select) { width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--bdr); border-radius:7px; background-color:var(--card); color:var(--t1); font-size:14px; line-height:1.5; }
+  body.school-interface #spSetup .sp-form select { padding-right:32px; }
+  body.school-interface #spSetup .sp-form select.pink { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23818c98'/%3E%3C/svg%3E"); }
+  body.school-interface #spSetup .sp-form :is(input,select):focus { border-color:var(--cyan); }
+  body.school-interface .school-setup-actions { margin-top:4px; }
+  body.school-interface .school-entry-auth-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.12fr); align-items:start; gap:26px; }
+  body.school-interface .school-entry-about { min-width:0; padding:6px 0; }
+  body.school-interface .school-entry-about h2 { margin:0; color:var(--t1); font-size:17px; font-weight:700; line-height:1.55; }
+  body.school-interface .school-entry-about ul { display:flex; flex-direction:column; gap:17px; margin:21px 0 0; padding:0; list-style:none; }
+  body.school-interface .school-entry-about li { display:flex; align-items:flex-start; gap:10px; color:var(--t2); font-size:13px; line-height:1.7; }
+  body.school-interface .school-entry-about li > svg { margin-top:1px; color:var(--cyan); }
+  body.school-interface .school-license-form { display:flex; flex-direction:column; gap:12px; }
+  body.school-interface .school-license-form .school-entry-footnote { margin:-3px 0 3px; }
+  body.school-interface #cdkeyGateInput { width:100%; min-width:0; min-height:48px; padding:12px 14px; border:1px solid var(--bdr); border-radius:8px; background:var(--card); color:var(--t1); font-family:var(--fm); font-size:18px; font-weight:600; letter-spacing:2px; text-align:left; text-transform:uppercase; }
+  body.school-interface #cdkeyGateInput::placeholder { color:var(--t3); opacity:.7; }
+  body.school-interface #cdkeyGateInput:focus { border-color:var(--cyan); }
+  body.school-interface #cdkeyGateBtn { width:100%; }
+  body.school-interface #cdkeyGateMsg { padding:10px 12px; border:1px solid var(--bdr); border-radius:8px; background:var(--bg); font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+  body.school-interface.school-compact #splash.phase2,
+  body.school-interface.school-compact #cdkeyGateOverlay { padding:20px; }
+  body.school-interface.school-compact .school-entry-shell { gap:14px; }
+  body.school-interface.school-compact .school-entry-logo { width:168px; height:56px; }
+  body.school-interface.school-compact .school-entry-heading :is(h1,.sp-pin-title,.sp-setup-title) { font-size:22px; }
+  body.school-interface.school-compact .school-entry-heading { padding:17px 18px; }
+  body.school-interface.school-compact .school-entry-panel { padding:20px; }
+  body.school-interface.school-narrow #splash.phase2,
+  body.school-interface.school-narrow #cdkeyGateOverlay { padding:14px; }
+  body.school-interface.school-narrow .school-entry-shell { gap:12px; }
+  body.school-interface.school-narrow .school-entry-brand { padding:4px 6px; }
+  body.school-interface.school-narrow .school-entry-brand-top { gap:14px; }
+  body.school-interface.school-narrow .school-entry-logo { width:148px; height:48px; }
+  body.school-interface.school-narrow .school-entry-panel { padding:16px; }
+  body.school-interface.school-narrow .school-entry-heading { gap:12px; padding:16px; margin-bottom:16px; }
+  body.school-interface.school-narrow .school-entry-heading :is(h1,.sp-pin-title,.sp-setup-title) { font-size:21px; }
+  body.school-interface.school-narrow .school-entry-welcome-icon { display:none; }
+  body.school-interface.school-narrow .school-entry-auth-grid { grid-template-columns:minmax(0,1fr); gap:18px; }
+  body.school-interface.school-narrow .school-entry-about ul { flex-direction:row; flex-wrap:wrap; gap:8px 18px; margin-top:12px; }
+  body.school-interface.school-narrow .school-entry-field-grid { grid-template-columns:minmax(0,1fr); }
+  body.school-interface.school-narrow .school-entry-widget-body { padding:14px; }
+  body.school-interface.school-short .school-entry-shell { gap:12px; }
+  body.school-interface.school-short .school-entry-brand { padding-top:0; padding-bottom:0; }
+  body.school-interface.school-short .school-entry-logo { height:48px; }
+  body.school-interface.school-short .school-entry-heading { padding-top:14px; padding-bottom:14px; margin-bottom:16px; }
+  body.school-interface.school-short .school-entry-heading h1 { font-size:22px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  body.school-interface #splash :is(.sp-login,.sp-setup) { animation:none; }
+}
+
+/* School welcome: one brand surface and a focused account selector. */
+@media screen {
+  body.school-interface #splash.phase2 > .school-entry-shell:has(#spLogin.show) {
+    max-width:1280px;
+    margin-block:auto;
+    gap:16px;
+  }
+  body.school-interface .school-entry-shell #spRight:has(#spLogin.show) {
+    padding:0;
+    overflow:hidden;
+    border-radius:24px;
+    box-shadow:0 6px 18px rgba(20,40,35,.07),0 24px 58px rgba(20,40,35,.12);
+  }
+  body.school-interface #spLogin.school-choice.show {
+    display:grid;
+    grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr);
+    grid-template-areas:"story access";
+    align-items:stretch;
+    gap:0;
+    width:100%;
+    min-width:0;
+    margin:0;
+    padding:0;
+    animation:none;
+  }
+  body.school-interface .school-choice-access {
+    grid-area:access;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    min-width:0;
+    padding:38px;
+    background:var(--card);
+  }
+  body.school-interface .school-choice-eyebrow {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0 0 14px;
+    color:var(--cyan);
+    font-size:12px;
+    font-weight:700;
+    line-height:1.6;
+    letter-spacing:.15px;
+  }
+  body.school-interface #spLogin .school-choice-welcome #spLoginTitle {
+    margin:0 0 12px;
+    color:var(--t1);
+    font-size:28px;
+    font-weight:800;
+    line-height:1.4;
+    letter-spacing:-.7px;
+    overflow-wrap:anywhere;
+  }
+  body.school-interface .school-choice-welcome .school-entry-intro { margin:0; font-size:13px; }
+  body.school-interface #spLogin .school-entry-users { min-width:0; margin-top:30px; }
+  body.school-interface .school-choice-user-heading {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  body.school-interface .school-choice-user-heading h2 { display:flex; align-items:center; gap:8px; margin:0; color:var(--t2); font-size:14px; font-weight:700; }
+  body.school-interface #spLogin .school-choice-user-actions {
+    display:flex;
+    align-items:center;
+    flex-wrap:nowrap;
+    flex-shrink:0;
+    gap:8px;
+    margin-left:auto;
+  }
+  body.school-interface #spLogin .school-choice-user-actions > button {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+    gap:6px;
+    width:auto;
+    min-width:0;
+    min-height:36px;
+    padding:8px 12px;
+    border-radius:7px;
+    font-size:12px;
+    line-height:1.4;
+    white-space:nowrap;
+    word-break:keep-all;
+  }
+  body.school-interface #spLogin .school-choice-user-actions #btnDeleteUser {
+    color:var(--rd, #dc2626);
+    border:1px solid rgba(239,68,68,.4);
+    background:rgba(239,68,68,.045);
+  }
+  body.school-interface #spLogin .school-choice-user-actions > button > svg {
+    flex:0 0 14px;
+    width:14px;
+    height:14px;
+    pointer-events:none;
+  }
+  body.school-interface #spLogin #spUserList {
+    gap:12px;
+    max-height:clamp(210px,calc(var(--school-viewport-height,100dvh) * .43),440px);
+    padding:4px;
+    overflow-y:auto;
+    scrollbar-width:thin;
+    scrollbar-gutter:stable;
+  }
+  body.school-interface #spLogin .sp-user-card {
+    gap:15px;
+    min-height:90px;
+    padding:17px;
+    border-radius:16px;
+    background:var(--card);
+    box-shadow:0 2px 4px rgba(20,40,35,.025);
+  }
+  body.school-interface #spLogin .sp-user-card .sp-avatar {
+    flex-basis:50px;
+    width:50px;
+    height:50px;
+    border-radius:17px;
+    background:var(--cbg);
+    font-size:21px;
+  }
+  body.school-interface #spLogin .sp-user-card:nth-child(even) .sp-avatar { background:var(--gbg); color:var(--gs); border-color:rgba(52,163,90,.22); }
+  body.school-interface #spLogin .school-user-meta { gap:5px; }
+  body.school-interface #spLogin .school-user-meta strong { font-size:17px; }
+  body.school-interface #spLogin .school-user-arrow { flex-basis:30px; width:30px; height:30px; border-radius:50%; background:var(--card); color:var(--cyan); }
+  body.school-interface #spLogin .school-entry-user-footer { align-items:flex-start; gap:10px; margin-top:19px; padding-top:16px; }
+  body.school-interface #spLogin .school-entry-user-footer .school-entry-footnote { flex:1 1 200px; font-size:11px; }
+  body.school-interface #spLogin .school-entry-user-footer .school-entry-quiet { min-height:32px; padding:5px 0 5px 8px; font-size:12px; }
+  body.school-interface .school-choice-story {
+    grid-area:story;
+    position:relative;
+    isolation:isolate;
+    min-width:0;
+    overflow:hidden;
+    padding:38px 36px 86px;
+    border-right:1px solid var(--bdr);
+    background:var(--bg2);
+  }
+  body.school-interface.light .school-choice-story {
+    background:#f8fbfa;
+  }
+  body.school-interface .school-choice-story-content { position:relative; z-index:1; }
+  body.school-interface .school-choice-leaf { display:inline-block; flex:0 0 10px; width:10px; height:16px; border-radius:12px 1px 12px 1px; background:#71a365; transform:rotate(24deg); }
+  body.school-interface .school-choice-story h2 { margin:20px 0 16px; color:var(--t1); font-size:28px; font-weight:800; line-height:1.55; letter-spacing:-.8px; word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface .school-choice-story h2 em { color:var(--cyan); font-style:normal; }
+  body.school-interface .school-choice-story-copy { margin:0; color:var(--t2); font-size:13px; line-height:1.85; word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface .school-choice-watermark { position:absolute; z-index:0; bottom:18px; left:34px; width:70%; max-width:335px; height:auto; opacity:.12; pointer-events:none; user-select:none; }
+  body.school-interface.light .school-choice-watermark { opacity:.075; }
+
+  /* Keep the welcome artwork decorative and outside the interaction layer. */
+  body.school-interface #spLogin .school-choice-watermark {
+    width:49%;
+    max-width:234.5px;
+  }
+  body.school-interface #spLogin .school-choice-access {
+    position:relative;
+    isolation:isolate;
+  }
+  /* Match the sampled artwork colour without compositing yellow twice. */
+  body.school-interface.light #spLogin .school-choice-access {
+    background:#fffcdf;
+  }
+  body.school-interface.light #spLogin .school-choice-access::before {
+    content:"";
+    position:absolute;
+    z-index:0;
+    left:50%;
+    bottom:12px;
+    width:calc(100% - 40px);
+    max-width:500px;
+    aspect-ratio:16 / 5;
+    transform:translateX(-50%);
+    background:#fff;
+    pointer-events:none;
+    user-select:none;
+  }
+  body.school-interface.light #spLogin .school-choice-access::after {
+    mix-blend-mode:normal;
+  }
+  body.school-interface #spLogin .school-choice-access > * {
+    position:relative;
+    z-index:1;
+  }
+  body.school-interface #spLogin .school-choice-access::after {
+    content:"";
+    position:absolute;
+    z-index:0;
+    left:50%;
+    bottom:12px;
+    width:calc(100% - 40px);
+    max-width:500px;
+    aspect-ratio:16 / 5;
+    transform:translateX(-50%);
+    background-image:url("../../../assets/choice-light.png?v=20260529");
+    background-repeat:no-repeat;
+    background-size:100% auto;
+    background-position:center 84%;
+    filter:none;
+    mix-blend-mode:multiply;
+    opacity:.4;
+    pointer-events:none;
+    user-select:none;
+  }
+  body.school-interface:not(.light) #spLogin .school-choice-access::after {
+    filter:brightness(1.2) contrast(1.4) grayscale(1) invert(1);
+    mix-blend-mode:screen;
+    opacity:.24;
+  }
+  body.school-interface .school-choice-news { min-width:0; margin-top:30px; padding-top:20px; border-top:1px solid var(--bdr); }
+  body.school-interface .school-choice-news-heading { display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:13px; }
+  body.school-interface .school-choice-news-heading h3 { margin:0; color:var(--t1); font-size:13px; font-weight:800; }
+  body.school-interface .school-choice-version { display:inline-flex; align-items:center; padding:2px 8px; border:1px solid var(--bdr); border-radius:6px; color:var(--cyan); background:var(--card); font-size:11px; font-weight:700; line-height:1.7; white-space:nowrap; }
+  body.school-interface .school-choice-version[hidden] { display:none; }
+  body.school-interface .school-choice-release { min-width:0; }
+  body.school-interface .school-choice-release + .school-choice-release { margin-top:13px; padding-top:13px; border-top:1px solid var(--bdr); }
+  body.school-interface .school-choice-release-heading { display:flex; flex-wrap:wrap; align-items:center; min-width:0; gap:6px 9px; }
+  body.school-interface .school-choice-release-heading strong { min-width:0; overflow-wrap:anywhere; word-break:keep-all; }
+  body.school-interface .school-choice-release summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:3px 0; color:var(--t2); font-size:13px; line-height:1.65; list-style:none; cursor:pointer; }
+  body.school-interface .school-choice-release summary::-webkit-details-marker { display:none; }
+  body.school-interface .school-choice-release summary:focus-visible { outline:2px solid var(--cyan); outline-offset:4px; border-radius:4px; }
+  body.school-interface .school-choice-release-toggle { flex:0 0 auto; width:8px; height:8px; margin-right:3px; border-right:1.5px solid var(--t3); border-bottom:1.5px solid var(--t3); transform:rotate(45deg); }
+  body.school-interface .school-choice-release[open] .school-choice-release-toggle { transform:rotate(225deg); }
+  body.school-interface .school-choice-release ul { display:grid; gap:8px; margin:13px 0 0; padding-left:17px; }
+  body.school-interface .school-choice-release li { padding-left:3px; color:var(--t2); font-size:12px; line-height:1.85; word-break:keep-all; overflow-wrap:anywhere; }
+  body.school-interface .school-choice-release li::marker { color:#75a18d; }
+  body.school-interface.school-compact .school-choice-access { padding:28px; }
+  body.school-interface.school-compact .school-choice-story { padding:30px 28px 80px; }
+  body.school-interface.school-compact #spLogin .school-choice-welcome #spLoginTitle,
+  body.school-interface.school-compact .school-choice-story h2 { font-size:25px; }
+  body.school-interface.school-narrow #spLogin.school-choice.show { grid-template-columns:minmax(0,1fr); grid-template-areas:"access" "story"; }
+  body.school-interface.school-narrow .school-entry-shell #spRight:has(#spLogin.show) { border-radius:18px; }
+  body.school-interface.school-narrow .school-choice-access { padding:24px 20px; }
+  body.school-interface.school-narrow .school-choice-story { padding:25px 22px 76px; border-right:0; border-top:1px solid var(--bdr); }
+  body.school-interface.school-narrow #spLogin .school-entry-users { margin-top:24px; }
+  body.school-interface.school-narrow #spLogin .sp-user-card { gap:11px; padding:13px; }
+  body.school-interface.school-narrow .school-choice-story h2 { margin-top:13px; }
+}
+
+/* Soft school checklist cards; existing calendar and routine actions are retained. */
+@media screen {
+  body.school-interface .school-task-row,
+  body.school-interface .school-task-row:last-child {
+    --school-task-accent:var(--cyan);
+    --school-task-soft:var(--cbg);
+    display:grid;
+    grid-template-columns:26px minmax(0,1fr) auto;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+    margin:0 0 8px;
+    padding:9px 10px;
+    border:1px solid var(--bdr);
+    border-radius:13px;
+    background:var(--card);
+    box-sizing:border-box;
+  }
+  body.school-interface .school-task-row:last-child { margin-bottom:0; }
+  body.school-interface .school-task-row.school-routine-row {
+    --school-task-accent:#c97635;
+    --school-task-soft:rgba(237,142,72,.09);
+  }
+  body.school-interface:not(.light) .school-task-row.school-routine-row { --school-task-accent:#efa466; }
+  body.school-interface .school-task-row.is-complete { background:var(--school-task-soft); }
+  body.school-interface .school-task-row .school-task-check {
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:none;
+    width:26px;
+    min-width:26px;
+    height:26px;
+    min-height:26px;
+    padding:0;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    color:var(--school-task-accent);
+    cursor:pointer;
+  }
+  body.school-interface .school-task-row .school-task-check::before {
+    content:'';
+    position:absolute;
+    inset:3px;
+    box-sizing:border-box;
+    border:1.5px solid var(--bdr);
+    border-radius:6px;
+    background:var(--card);
+    pointer-events:none;
+  }
+  body.school-interface .school-task-row .school-task-check:hover { background:transparent; }
+  body.school-interface .school-task-row .school-task-check:hover::before { border-color:var(--school-task-accent); background:var(--school-task-soft); }
+  body.school-interface .school-task-row .school-task-check svg { position:relative; width:14px; height:14px; opacity:0; transform:scale(.65); transition:opacity .14s,transform .14s; pointer-events:none; }
+  body.school-interface .school-task-row .school-task-check[aria-pressed="true"] { background:transparent; color:var(--card); }
+  body.school-interface .school-task-row .school-task-check[aria-pressed="true"]::before { border-color:var(--school-task-accent); background:var(--school-task-accent); }
+  body.school-interface .school-task-row .school-task-check[aria-pressed="true"] svg { opacity:1; transform:scale(1); }
+  body.school-interface .school-task-row .school-task-label {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-start;
+    gap:4px 8px;
+    min-width:0;
+    padding:0;
+    color:var(--t1);
+    font-family:var(--f);
+    font-size:14px;
+    line-height:1.65;
+    text-align:left;
+    overflow-wrap:anywhere;
+  }
+  body.school-interface .school-task-row .school-task-text-toggle { width:100%; min-height:26px; border:0; border-radius:5px; background:transparent; cursor:pointer; }
+  body.school-interface .school-task-row .school-task-text-toggle:hover { background:transparent; }
+  body.school-interface .school-task-row .school-task-title { min-width:0; overflow-wrap:anywhere; }
+  body.school-interface .school-task-row .school-task-title.is-placeholder { color:var(--t3); font-size:12px; }
+  body.school-interface .school-task-row.is-complete .school-task-title { color:var(--t3); text-decoration:line-through; }
+  body.school-interface .school-task-row .school-task-time { display:inline-flex; padding:2px 7px; border-radius:6px; background:var(--school-task-soft); color:var(--school-task-accent); font-size:11px; font-weight:700; }
+  body.school-interface .school-task-actions { display:inline-flex; align-items:center; gap:2px; }
+  body.school-interface .school-task-row .school-task-action {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    min-width:28px;
+    height:28px;
+    min-height:28px;
+    padding:0;
+    border:1px solid transparent;
+    border-radius:8px;
+    background:transparent;
+    color:var(--t3);
+    cursor:pointer;
+  }
+  body.school-interface .school-task-row .school-task-emoji { display:block; font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif; font-size:16px; line-height:1; pointer-events:none; }
+  body.school-interface .school-task-row .school-task-action:hover { background:var(--school-task-soft); color:var(--school-task-accent); }
+  body.school-interface .school-task-row .school-task-delete:hover { background:rgba(239,68,68,.09); color:var(--rd); }
+  body.school-interface .school-task-row button:focus-visible { outline:2px solid var(--school-task-accent); outline-offset:3px; }
+  body.school-interface.school-narrow .school-task-row { gap:7px; padding:9px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  body.school-interface .school-task-row .school-task-check svg { transition:none; }
+}
+
+/* Authentication shares the school welcome identity without changing verification. */
+@media screen {
+  body.school-interface #cdkeyGateOverlay > .school-entry-shell { max-width:1280px; margin-block:auto; gap:16px; }
+  body.school-interface #cdkeyGateOverlay .school-entry-panel.school-auth-panel {
+    display:grid;
+    grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr);
+    grid-template-areas:"story access";
+    align-items:stretch;
+    gap:0;
+    min-width:0;
+    padding:0;
+    overflow:hidden;
+    border-radius:24px;
+    box-shadow:0 6px 18px rgba(20,40,35,.07),0 24px 58px rgba(20,40,35,.12);
+  }
+  body.school-interface #cdkeyGateTitle {
+    margin:0 0 12px;
+    color:var(--t1);
+    font-size:28px;
+    font-weight:800;
+    line-height:1.45;
+    letter-spacing:-.7px;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+  }
+  body.school-interface #cdkeyGateOverlay .school-auth-form { min-width:0; margin-top:30px; padding:0; gap:12px; }
+  body.school-interface #cdkeyGateOverlay #cdkeyGateInput { min-height:54px; border-radius:11px; background:var(--card); font-size:20px; letter-spacing:2px; }
+  body.school-interface #cdkeyGateOverlay #cdkeyGateBtn { min-height:46px; border-radius:11px; font-size:14px; }
+  body.school-interface #cdkeyGateOverlay #cdkeyGateHint { margin:0 0 5px; }
+  body.school-interface #cdkeyGateOverlay #cdkeyGateMsg { margin-top:4px; }
+  body.school-interface.school-compact #cdkeyGateTitle { font-size:25px; }
+  body.school-interface.school-narrow #cdkeyGateOverlay .school-entry-panel.school-auth-panel { grid-template-columns:minmax(0,1fr); grid-template-areas:"access" "story"; border-radius:18px; }
+}
+
+
+/* One gentle backdrop for the topmost open school modal. */
+@media screen {
+  body.school-interface {
+    --school-modal-shade:rgba(15,23,42,.12);
+    --school-modal-blur:3px;
+  }
+  body.school-interface:not(.light) {
+    --school-modal-shade:rgba(0,0,0,.18);
+  }
+  body.school-interface [data-school-modal-layer="top"],
+  body.school-interface #settingsModal[data-school-modal-layer="top"] {
+    background:var(--school-modal-shade) !important;
+    backdrop-filter:blur(var(--school-modal-blur)) !important;
+    -webkit-backdrop-filter:blur(var(--school-modal-blur)) !important;
+  }
+  body.school-interface [data-school-modal-layer="under"],
+  body.school-interface #settingsModal[data-school-modal-layer="under"] {
+    background:transparent !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  body.school-interface dialog:modal::backdrop {
+    background:var(--school-modal-shade);
+    backdrop-filter:blur(var(--school-modal-blur));
+    -webkit-backdrop-filter:blur(var(--school-modal-blur));
+  }
+}

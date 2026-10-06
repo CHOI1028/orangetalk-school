@@ -846,7 +846,7 @@ function _fdOpenSymTreatPicker(secId, optIdx){
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:transparent;z-index:12050;font-family:var(--f)';
   var _boxH=Math.min(window.innerHeight-40,720);
   ov.innerHTML='<div id="fdstBox" style="background:var(--card);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);width:960px;max-width:85vw;height:'+_boxH+'px;display:flex;flex-direction:column;overflow:hidden">'
-    +'<div style="padding:12px 14px 8px;flex-shrink:0;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06))">'
+    +'<div style="padding:12px 14px 8px;flex-shrink:0;background:rgba(6,182,212,0.10)">'
     +'<div style="font-size:13px;font-weight:800;color:var(--t1);margin-bottom:6px">🩺 키오스크용 증상 선택 및 처치 <span style="font-size:11px;color:var(--t3);font-weight:600">— "'+E(opt.label||'')+'" 항목</span></div>'
     +'<div style="font-size:11px;color:var(--t3);line-height:1.5">방문자가 키오스크에서 선택한 것 대로 보건일지에 인적사항과 함께 증상, 처치가 채워지도록 설정합니다. 바깥을 클릭하면 저장됩니다.</div>'
     +'</div>'
@@ -1267,7 +1267,7 @@ function _fdResetToDefault(){
   ov.style.zIndex = '13800'; /* 플로우 디자이너 팝업 위 */
   ov.innerHTML =
     '<div class="modal-content" style="width:420px;max-width:92vw;padding:0;overflow:hidden;border-radius:14px">'
-    + '<div style="padding:16px 22px;background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">'
+    + '<div style="padding:16px 22px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">'
     +   '<span style="font-size:20px">🔄</span>'
     +   '<div style="font-size:14px;font-weight:800;color:var(--t1)">기본 플로우로 초기화</div>'
     + '</div>'

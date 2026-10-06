@@ -1,0 +1,591 @@
+/* School workspaces and dialogs: shared geometry, original school skins.
+ * Screen only. No data, event handlers, preference keys or printed paper changed.
+ */
+@media screen {
+  body.school-interface {
+    --school-ui-radius: 14px;
+    --school-ui-title: 16px;
+    --school-ui-body: 14px;
+    --school-ui-label: 13px;
+    --school-ui-caption: 12px;
+    --school-ui-space: 18px;
+    --school-ui-shadow: 0 3px 14px rgba(25,40,55,.10);
+  }
+  body.school-interface.light {
+    --school-ui-shadow: 0 3px 14px rgba(35,50,65,.055);
+  }
+
+  /* Folder tabs stay school-coloured, without a new navigation band. */
+  body.school-interface :is(#view-daily,#view-dashboard,#view-magic) .school-subnav {
+    display:flex; align-items:flex-end; gap:6px !important;
+    max-width:100%; min-width:0; padding:4px 2px 0 !important;
+    background:transparent; border:0; box-sizing:border-box;
+    overflow-x:auto; scrollbar-width:thin;
+  }
+  body.school-interface .school-subnav :is(.magic-index-tab,.stats-period-tab) {
+    flex:0 0 auto; position:relative; top:0 !important; min-height:42px;
+    padding:10px 15px !important; font-size:14px !important; line-height:1.5;
+    box-sizing:border-box; white-space:nowrap;
+  }
+  body.school-interface .school-magic-subnav .magic-index-tab { background:var(--card); opacity:1; }
+  body.school-interface .school-magic-subnav .magic-index-tab.active {
+    background:var(--card);
+    color:var(--t1);
+  }
+  body.school-interface :is(#view-daily,#view-dashboard,#view-magic) .school-subnav .magic-index-tab::before,
+  body.school-interface :is(#view-daily,#view-dashboard,#view-magic) .school-subnav .magic-index-tab::after {
+    content:none;
+  }
+  body.school-interface :is(#view-daily,#view-dashboard,#view-magic) .magic-chart-body {
+    border:1px solid var(--bdr); box-shadow:var(--school-ui-shadow);
+    border-radius:0 var(--school-ui-radius) var(--school-ui-radius) var(--school-ui-radius);
+  }
+  body.school-interface #view-magic > div > .magic-chart-body { padding:0; overflow:visible; }
+  /* Magic Station already uses a full-width workspace without the history panel. */
+  body.school-interface[data-active-view="magic"] .app > #schoolSidebar { display:none !important; }
+  body.school-interface #view-magic .magic-sub-content { padding:18px !important; min-width:0; box-sizing:border-box; }
+  body.school-interface #view-magic .tr-sub-tab-wrap {
+    display:flex; flex-wrap:wrap; width:fit-content; max-width:100%;
+    gap:4px; padding:4px; box-sizing:border-box;
+  }
+  body.school-interface #view-magic .tr-sub-tab {
+    min-height:36px; padding:8px 14px; font-size:13px; line-height:1.5;
+    white-space:normal; overflow-wrap:anywhere; min-width:0;
+  }
+
+  /* Keep direct-in-table recording. Only group the existing work tools. */
+  body.school-interface #dailyToolbarWrap {
+    border:0; padding:0 0 16px !important; margin:0 0 2px !important;
+  }
+  body.school-interface .school-record-tools {
+    display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr));
+    align-items:stretch !important; gap:10px !important; min-width:0 !important;
+  }
+  body.school-interface .school-tool-group {
+    padding:12px; min-width:0; border:1px solid var(--bdr);
+    border-radius:12px; background:var(--bg2); box-sizing:border-box;
+    gap:9px;
+  }
+  body.school-interface .school-tool-label { color:var(--t2); font-size:12px; letter-spacing:0; }
+  body.school-interface .school-tool-controls { gap:6px; align-content:flex-start; }
+  body.school-interface .school-tool-controls > button {
+    min-width:0 !important; max-width:100%; min-height:36px;
+    white-space:normal !important; overflow-wrap:anywhere;
+  }
+  body.school-interface .school-tool-group:first-child .school-tool-controls {
+    display:grid; grid-template-columns:30px minmax(0,1fr) 30px;
+  }
+  body.school-interface .school-tool-controls :is(#btnPrevDay,#btnNextDay) {
+    min-width:0 !important; width:30px; padding:5px !important;
+  }
+  body.school-interface #dailyDateLabel { min-width:0 !important; padding:6px !important; white-space:normal; text-align:center; }
+  body.school-interface #dailyPeriodSearchBtn { grid-column:1 / -1; }
+  /* Keep column controls readable; scroll instead of squeezing every field into one row. */
+  body.school-interface #colSelectorChips {
+    overflow-x:auto !important; overflow-y:hidden !important;
+    gap:6px !important; padding-bottom:5px; scrollbar-width:thin;
+  }
+  body.school-interface #colSelectorChips > .col-setting-card {
+    flex:0 0 116px !important; min-width:116px !important;
+  }
+  body.school-interface .school-record-search > button { white-space:normal !important; }
+  body.school-interface :is(#recTable,#ecListTable,#infListTable) th { padding:10px 7px; }
+  body.school-interface :is(#recTable,#ecListTable,#infListTable) td { padding-top:5px; padding-bottom:5px; }
+  body.school-interface #dashContentArea { padding:18px !important; }
+  body.school-interface #dashDateRange { gap:8px; }
+  body.school-interface #dashContentArea > div:first-child { align-items:center !important; }
+  body.school-interface :is(#view-daily,#view-dashboard,#view-magic) :is(.form-label,.sv-form-label) {
+    font-size:var(--school-ui-label); line-height:1.5;
+  }
+
+  /* Registration controls and the paper preview remain different surfaces. */
+  body.school-interface #trainingArea .school-training-layout {
+    display:grid !important; grid-template-columns:minmax(260px,330px) minmax(0,1fr);
+    height:clamp(540px,calc(var(--school-viewport-height,100vh) - 270px),780px) !important;
+    gap:16px !important; overflow:visible !important; min-width:0;
+  }
+  body.school-interface #trainingArea .school-training-form {
+    width:auto !important; min-width:0; border:1px solid var(--bdr) !important;
+    border-radius:var(--school-ui-radius); box-shadow:var(--school-ui-shadow);
+    overflow:hidden; box-sizing:border-box;
+  }
+  body.school-interface #trainingArea .school-training-heading {
+    padding:16px 16px 12px !important; background:var(--bg2); border-bottom:1px solid var(--bdr);
+  }
+  body.school-interface #trainingArea .school-training-heading > div:first-child {
+    font-size:16px !important; line-height:1.5;
+  }
+  body.school-interface #trainingArea .school-training-heading > div:last-child {
+    font-size:12px !important; line-height:1.6; margin-bottom:0 !important;
+  }
+  body.school-interface #trainingArea .school-training-fields { padding:16px !important; }
+  body.school-interface #trainingArea .school-training-fields label {
+    font-size:13px !important; line-height:1.5; margin-bottom:5px !important;
+  }
+  body.school-interface #trainingArea .school-training-fields .form-input {
+    min-width:0; min-height:38px; font-size:13px !important; box-sizing:border-box;
+  }
+  body.school-interface #trainingArea .school-training-fields > div { gap:12px !important; }
+  body.school-interface #trainingArea .school-training-fields > div > div > div { min-width:0; }
+  body.school-interface #trainingArea .school-training-actions {
+    padding:12px 16px !important; gap:8px !important; background:var(--bg2);
+  }
+  body.school-interface #trainingArea .school-training-form button {
+    min-height:36px; min-width:0; font-size:12px !important;
+    line-height:1.5; white-space:normal !important; overflow-wrap:anywhere;
+  }
+  body.school-interface #trainingArea .school-training-preview {
+    min-width:0; overflow:hidden; border:1px solid var(--bdr); border-radius:var(--school-ui-radius);
+  }
+  body.school-interface #trainingArea .school-training-preview-scroll { min-width:0; min-height:0; }
+
+  /* Common dialog chrome, not the medical/print document inside it. */
+  body.school-interface > :is(.modal-overlay,.ec-form-overlay,.vp-overlay,.sv-modal-overlay,.qm-overlay) {
+    padding:12px; box-sizing:border-box;
+  }
+  body.school-interface :is(.modal-content,.ec-form-modal,.vp-modal,.sv-modal,.qm-container) {
+    box-sizing:border-box; border:1px solid var(--bdr); border-radius:16px;
+    box-shadow:0 16px 48px rgba(20,35,50,.20);
+  }
+  body.school-interface :is(.modal-content,.qm-container) {
+    max-width:calc((var(--school-viewport-width,100vw) - 24px) / var(--fs-modal,1)) !important;
+    max-height:calc((var(--school-viewport-height,100dvh) - 24px) / var(--fs-modal,1)) !important;
+  }
+  body.school-interface :is(.ec-form-modal,.vp-modal,.sv-modal) {
+    max-width:calc(var(--school-viewport-width,100vw) - 24px) !important;
+    max-height:calc(var(--school-viewport-height,100dvh) - 24px) !important;
+  }
+  body.school-interface .modal-content:not(#settingsModal .modal-content) { overflow:auto; }
+  body.school-interface :is(.modal-header,.ec-form-header,.vp-header,.sv-modal-header,.qm-left-header,.qm-right-header),
+  body.school-interface :is(#trMsgOverlay,#trSheetsOverlay) .modal-content > div:first-child {
+    min-height:54px; box-sizing:border-box; padding:14px 18px !important;
+    gap:10px; flex-shrink:0;
+  }
+  body.school-interface :is(.ec-form-header,.vp-header,.sv-modal-header,.qm-left-header,.qm-right-header) {
+    background:var(--popup-head); border-bottom:1px solid var(--bdr);
+  }
+  body.school-interface :is(.modal-title,.ec-form-header-title,.vp-header-title,.qm-left-title,.qm-right-cat-title) {
+    min-width:0; font-size:16px !important; font-weight:750; line-height:1.5;
+    overflow-wrap:anywhere;
+  }
+  body.school-interface :is(.modal-header,.ec-form-header,.vp-header,.sv-modal-header) :is(.modal-close,.ec-form-close,.vp-close,.school-context-close) {
+    flex:0 0 auto; width:32px; height:32px; min-height:32px; padding:4px;
+    display:inline-flex; align-items:center; justify-content:center; line-height:1; border-radius:8px;
+  }
+  body.school-interface :is(.modal-content,.sv-modal) :is(.form-label,.sv-form-label) {
+    font-size:13px; line-height:1.5;
+  }
+  body.school-interface :is(.modal-content,.sv-modal) .form-group { gap:6px; margin-bottom:14px; }
+  body.school-interface :is(.modal-content,.sv-modal) .form-input {
+    min-width:0; max-width:100%; min-height:38px; font-size:13px; line-height:1.5; box-sizing:border-box;
+  }
+  body.school-interface :is(.modal-content,.sv-modal) textarea.form-input { min-height:84px; resize:vertical; }
+  body.school-interface :is(.ec-btn-bar,.sv-wizard-actions) { flex-wrap:wrap; gap:8px; }
+  body.school-interface :is(.ec-btn-print,.ec-btn-back) {
+    min-height:38px; padding:9px 18px; font-size:13px; line-height:1.5; white-space:normal;
+  }
+  body.school-interface .ec-form-body { min-width:0; overflow:auto; }
+  body.school-interface .sv-modal-body { padding:18px; }
+  body.school-interface .qm-container { min-width:0; }
+  body.school-interface .qm-left { width:220px; min-width:160px; }
+  body.school-interface .qm-right { min-width:0; min-height:0; }
+  body.school-interface .qm-right-header { flex-wrap:wrap; }
+  body.school-interface .qm-right-actions { display:flex; flex-wrap:wrap; gap:6px; }
+  body.school-interface .qm-msg-list { min-width:0; min-height:0; }
+  body.school-interface .qm-left-sub { font-size:12px; line-height:1.5; }
+  /* The preview and its cut-margin controls scroll together, without altering printed paper. */
+  body.school-interface #vpDefScrollArea { overflow:auto !important; scrollbar-width:thin; }
+  body.school-interface.school-compact #vpDefZoomOuter { justify-content:flex-start !important; }
+
+  body.school-interface.school-compact .school-record-tools { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.school-interface.school-narrow .school-record-tools { grid-template-columns:minmax(0,1fr); }
+  body.school-interface.school-narrow #view-magic .magic-sub-content { padding:12px !important; }
+  body.school-interface.school-narrow #trainingArea .school-training-layout {
+    grid-template-columns:minmax(0,1fr); height:auto !important;
+  }
+  body.school-interface.school-narrow #trainingArea .school-training-form { overflow:visible !important; }
+  body.school-interface.school-narrow #trainingArea .school-training-fields { overflow:visible !important; }
+  body.school-interface.school-narrow #trainingArea .school-training-preview { min-height:420px; }
+  body.school-interface.school-narrow #trainingArea .school-training-preview-scroll { max-height:560px; overflow:auto; }
+  body.school-interface.school-narrow .qm-container {
+    flex-direction:column; height:calc((var(--school-viewport-height,100dvh) - 24px) / var(--fs-modal,1));
+  }
+  body.school-interface.school-narrow .qm-left {
+    width:100%; min-width:0; max-height:160px; flex:0 0 auto;
+    border-right:0; border-bottom:1px solid var(--bdr);
+  }
+  body.school-interface.school-narrow .qm-cat-list { max-height:72px; flex:0 1 auto; }
+  body.school-interface.school-narrow .qm-left-header { padding:10px 14px !important; }
+  body.school-interface.school-narrow .qm-left-sub { display:none; }
+  body.school-interface.school-narrow .vp-modal > div:has(> .vp-left-panel) { flex-direction:column; }
+  body.school-interface.school-narrow .vp-left-panel {
+    width:100% !important; min-width:0 !important; max-height:190px; flex:0 0 auto;
+  }
+  body.school-interface.school-narrow :is(.modal-header,.ec-form-header,.vp-header,.sv-modal-header) {
+    padding:10px 14px !important;
+  }
+}
+
+/* Popup audit: logical viewport sizing, readable forms, scrollable previews. */
+@media screen {
+  body.school-interface :is(#addPersonModal > div,#rvBrowserBox,#vlogBox,.vsts-box,#symCatBox,#drugSearchPopup) {
+    box-sizing:border-box; min-width:0; min-height:0;
+    max-width:calc(var(--school-viewport-width,100vw) - 24px) !important;
+    max-height:calc(var(--school-viewport-height,100dvh) - 24px) !important;
+    border-radius:16px; border:1px solid var(--bdr); box-shadow:var(--school-ui-shadow);
+  }
+  body.school-interface :is(#bedManagerOverlay,#diaryPrintOverlay) { padding:12px !important; align-items:center !important; }
+  body.school-interface :is(#rvBrowserBox,#vlogBox) > div { min-width:0; min-height:0; }
+  body.school-interface :is(#rvSearchList,#rvHistArea,#vlogList) { min-height:0; overflow:auto; }
+  body.school-interface #addPersonModal > div { height:580px; }
+  body.school-interface #addPersonModal > div > div:first-child { width:260px !important; min-width:220px !important; min-height:0; }
+  body.school-interface #addPersonModal > div > div:last-child { min-height:0; }
+  body.school-interface #apRightContent { min-height:0; min-width:0; padding:18px !important; }
+  body.school-interface #apRightContent > div { min-width:0; }
+  body.school-interface #apRightContent :is(input,select,textarea) { min-width:0; max-width:100%; box-sizing:border-box; }
+  body.school-interface #apRightContent .form-input { font-size:13px !important; min-height:36px; }
+  body.school-interface #apRightContent button { white-space:normal; overflow-wrap:anywhere; }
+  body.school-interface #apRightContent table { min-width:520px; }
+  body.school-interface #memoOverlay .modal-content { display:flex; flex-direction:column; }
+  body.school-interface #memoOverlay .memo-grid {
+    grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));
+    min-height:0; padding:16px; overflow:auto; flex:1 1 auto;
+  }
+  body.school-interface #memoOverlay .memo-postit { min-width:0; }
+  body.school-interface #memoOverlay .memo-postit textarea { min-width:0; width:100%; box-sizing:border-box; }
+  body.school-interface .vsts-hdr { flex:0 0 auto; flex-wrap:wrap; padding:14px 18px; }
+  body.school-interface .vsts-ttl { min-width:0; font-size:14px; overflow-wrap:anywhere; }
+  body.school-interface .vsts-body { min-height:0; min-width:0; }
+  body.school-interface .vsts-body > div { min-width:0; max-width:100%; overflow-x:auto; }
+  body.school-interface .vsts-tbl { min-width:560px; }
+  body.school-interface #symTreatPanel { min-width:0; }
+  body.school-interface #symCatBox > div:first-child { min-width:0; }
+  body.school-interface #drugSearchPopup > div:not(#drugSearchList) { flex-shrink:0; }
+  body.school-interface #drugSearchList { min-height:70px; }
+  body.school-interface #rlLeftPanel { min-height:0; }
+  body.school-interface #rlPreviewScroll { overflow:auto !important; min-width:0; min-height:0; }
+  body.school-interface #rlPreviewWrap { min-width:900px; }
+  body.school-interface.school-compact .vsts-body { grid-template-columns:minmax(0,1fr); }
+  body.school-interface.school-compact #drugSearchOverlay {
+    padding:12px !important; align-items:center !important; justify-content:center !important;
+  }
+  body.school-interface.school-compact #rentalLedgerOverlay .modal-content > div:last-child {
+    flex-direction:column; overflow:auto !important;
+  }
+  body.school-interface.school-compact #rentalLedgerOverlay .modal-content > div:last-child > div:first-child {
+    width:100% !important; flex:0 0 auto; max-height:400px; border-right:0 !important; border-bottom:1px solid var(--bdr);
+  }
+  body.school-interface.school-compact #rentalLedgerOverlay .modal-content > div:last-child > div:last-child {
+    flex:0 0 340px; min-height:340px;
+  }
+  body.school-interface.school-narrow #addPersonModal > div { flex-direction:column; }
+  body.school-interface.school-narrow #addPersonModal > div > div:first-child {
+    width:100% !important; min-width:0 !important; flex:0 0 auto; border-right:0 !important; border-bottom:1px solid var(--bdr);
+  }
+  body.school-interface.school-narrow #addPersonModal > div > div:first-child > div:first-child { padding:10px 14px !important; }
+  body.school-interface.school-narrow #addPersonModal > div > div:first-child > div:first-child > div:last-child { display:none; }
+  body.school-interface.school-narrow #addPersonModal > div > div:first-child > div:last-child {
+    display:flex; overflow:auto; gap:6px; padding:6px !important; min-height:0;
+  }
+  body.school-interface.school-narrow .ap-menu-item { flex:0 0 190px; margin:0 !important; padding:8px 10px !important; }
+  body.school-interface.school-narrow #apRightContent { padding:14px !important; }
+  body.school-interface.school-narrow #symCatBox { overflow-y:auto !important; }
+  body.school-interface.school-narrow #symCatBox > div:last-child {
+    display:grid !important; grid-template-columns:140px minmax(0,1fr); flex:0 0 auto !important; overflow:visible !important;
+  }
+  body.school-interface.school-narrow :is(#symCatList,#symSymList) { width:auto !important; min-width:0; height:220px; }
+  body.school-interface.school-narrow #symTreatPanel { grid-column:1 / -1; min-height:260px; overflow:visible !important; }
+  body.school-interface.school-narrow .vp-modal > div:has(> .vp-left-panel) { overflow-y:auto !important; }
+  body.school-interface.school-narrow .vp-right-panel { flex:1 0 360px !important; min-height:360px !important; }
+}
+
+/* Remaining nested popup and narrow vitals fixes: screen only. */
+@media screen {
+  body.school-interface #drugSearchOverlay {
+    padding:12px !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+  body.school-interface #symAddOptBox {
+    max-width:calc(var(--school-viewport-width,100vw) - 24px) !important;
+    max-height:calc(var(--school-viewport-height,100vh) - 24px) !important;
+    min-width:0;
+    min-height:0;
+  }
+  body.school-interface #symAddOptBox > :first-child { flex-shrink:0; }
+  body.school-interface #symAddOptBox > :last-child { min-height:0; overflow:auto; }
+  body.school-interface #symAddOptBox button span { overflow-wrap:anywhere; }
+  body.school-interface #ecVitalsBox { min-width:0; max-width:100%; overflow:auto; }
+  body.school-interface #ecVitalsBox > .ec-ftable { min-width:760px; }
+  body.school-interface #ecVitalsBox input[data-vl] { min-width:72px; }
+}
+
+/* Release UI: action hierarchy, accessible small controls and explicit query states. */
+@media screen {
+  body.school-interface { --school-focus:#7186a6; --school-action-primary:#087f9c; }
+  body.school-interface:not(.light) { --school-focus:#a3b5d1; --school-action-primary:#147f97; }
+  body.school-interface :is(button,a,input,select,textarea,[tabindex],[role="button"]):focus-visible {
+    outline:1px solid var(--school-focus) !important; outline-offset:2px !important; box-shadow:none !important;
+  }
+
+  /* Keep search focus rings inside their scroll and clipping boundaries. */
+  body.school-interface .school-record-search .form-input:focus-visible,
+  body.school-interface .sidebar .search-box input:focus-visible {
+    outline:1px solid var(--school-focus) !important;
+    outline-offset:-1px !important;
+  }
+
+  body.school-interface button[data-school-emphasis] {
+    min-height:36px; padding:8px 14px; border-radius:8px; font:inherit;
+    font-size:13px; font-weight:700; line-height:1.45; white-space:normal;
+    overflow-wrap:anywhere; box-sizing:border-box;
+  }
+  body.school-interface button[data-school-emphasis="primary"] {
+    background:var(--school-action-bg,var(--school-action-primary)) !important;
+    border:1px solid var(--school-action-border,var(--school-action-primary)) !important;
+    color:var(--school-action-color,#fff) !important;
+  }
+  body.school-interface button[data-school-emphasis="secondary"] {
+    background:var(--card) !important; border:1px solid var(--bdr) !important;
+    color:var(--t2) !important; box-shadow:none !important;
+  }
+  body.school-interface button[data-school-emphasis="danger"] {
+    background:var(--school-action-bg,rgba(220,38,38,.08)) !important;
+    border:1px solid var(--school-action-border,rgba(220,38,38,.35)) !important;
+    color:var(--school-action-color,#c62828) !important; box-shadow:none !important;
+  }
+  body.school-interface:not(.light) button[data-school-emphasis="danger"] { color:var(--school-action-color,#fda4a4) !important; }
+  body.school-interface button:disabled { cursor:not-allowed; }
+  body.school-interface .school-task-row { grid-template-columns:32px minmax(0,1fr) auto; }
+  body.school-interface .school-task-row .school-task-check { width:32px; min-width:32px; height:32px; min-height:32px; }
+  body.school-interface .school-task-row .school-task-check::before { inset:6px; }
+  body.school-interface .school-task-row .school-task-action { width:32px; min-width:32px; height:32px; min-height:32px; }
+  body.school-interface :is(.modal-close,.ec-form-close,.vp-close,.school-context-close) { min-width:32px; min-height:32px; }
+  body.school-interface .modal-footer { flex-wrap:wrap; gap:8px; flex-shrink:0; }
+  body.school-interface .modal-footer > button { max-width:100%; white-space:normal; }
+  body.school-interface .header-row2 .nav-link { transform:none !important; }
+  body.school-interface.school-narrow .header-row2 {
+    display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px; overflow:visible; box-sizing:border-box;
+  }
+  body.school-interface.school-narrow .header-row2 .nav-link {
+    min-width:0; padding:7px 5px; white-space:normal; font-size:13px; line-height:1.4;
+  }
+  body.school-interface.school-narrow .header-row2 .nav-link img { max-width:100%; object-fit:contain; }
+  body.school-interface.school-short.school-narrow .header-row1 { padding-top:6px; padding-bottom:6px; gap:6px; }
+  body.school-interface.school-short.school-narrow .header-meta { font-size:12px; }
+  body.school-interface .school-confirm-overlay { padding:12px; box-sizing:border-box; }
+  body.school-interface .school-confirm-dialog {
+    max-width:calc(var(--school-viewport-width,100vw) - 24px);
+    max-height:calc(var(--school-viewport-height,100dvh) - 24px);
+    display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden;
+    background:var(--card); color:var(--t1); border:1px solid var(--bdr); border-radius:16px;
+    box-shadow:0 18px 48px rgba(20,35,50,.24); font-family:var(--f); box-sizing:border-box;
+  }
+  body.school-interface .school-confirm-title {
+    flex:0 0 auto; padding:15px 18px; font-size:16px; font-weight:800; line-height:1.5;
+    background:var(--popup-head); border-bottom:1px solid var(--bdr); overflow-wrap:anywhere;
+  }
+  body.school-interface .school-confirm-body { flex:1 1 auto; min-height:0; padding:18px; overflow:auto; font-size:13px; line-height:1.8; overflow-wrap:anywhere; }
+  body.school-interface .school-confirm-actions { flex:0 0 auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; padding:12px 16px; border-top:1px solid var(--bdr); }
+  body.school-interface .school-confirm-actions.is-vertical { flex-direction:column; }
+  body.school-interface .school-confirm-actions button { max-width:100%; min-height:38px; }
+  body.school-interface .school-feedback { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:20px; margin:10px 0; border:1px solid var(--bdr); border-radius:12px; background:var(--bg2); color:var(--t1); }
+  body.school-interface .school-feedback-symbol { flex:0 0 28px; font-size:22px; text-align:center; }
+  body.school-interface .school-feedback-copy { flex:1 1 200px; min-width:0; overflow-wrap:anywhere; }
+  body.school-interface .school-feedback strong { display:block; font-size:14px; line-height:1.5; }
+  body.school-interface .school-feedback p { margin:5px 0 0; color:var(--t2); font-size:13px; line-height:1.7; white-space:pre-line; }
+  body.school-interface .school-feedback[data-ui-state="error"] { border-color:rgba(220,98,65,.4); background:var(--card); }
+  body.school-interface .school-feedback-action { min-height:36px; padding:8px 14px; font-size:13px; white-space:normal; }
+  body.school-interface #schoolDashboardFeedback[hidden],
+  body.school-interface :is(#dashPanelSummary,#dashPanelDeptStats,#dashPanelDeptChart)[hidden] { display:none !important; }
+  body.school-interface #infectBox { max-width:calc(var(--school-viewport-width,100vw) - 24px) !important; max-height:calc(var(--school-viewport-height,100dvh) - 24px) !important; }
+  body.school-interface #infectBody { min-height:0; }
+  body.school-interface .daily-empty-msg { padding:30px 20px !important; font-size:13px !important; line-height:1.8; box-sizing:border-box; }
+}
+
+/* Keep the selected home label readable on the light tab in dark mode. */
+body.school-interface:not(.light) .header-row2 .nav-link.active[data-view="home"] {
+  color: #172033 !important;
+  text-shadow: none !important;
+}
+/* School home refinement: retain saved widgets, school colours and screen-only geometry. */
+@media screen {
+  body.school-interface {
+    --school-ui-radius:16px;
+    --school-ui-space:16px;
+    --school-control-radius:9px;
+    --school-card-radius:16px;
+    --school-card-title:16px;
+    --school-card-header-height:48px;
+    --school-card-padding:16px;
+    --school-card-border:var(--bdr);
+    --school-card-divider:var(--bdr);
+    --school-card-heading-bg:var(--card);
+    --school-card-shadow:0 2px 5px rgba(10,25,35,.10),0 8px 22px rgba(10,25,35,.08);
+    --school-ui-shadow:var(--school-card-shadow);
+  }
+  body.school-interface.light {
+    --school-card-shadow:0 2px 5px rgba(30,55,65,.035),0 8px 22px rgba(30,55,65,.045);
+    --school-card-heading-bg:var(--card);
+    --school-ui-shadow:var(--school-card-shadow);
+  }
+
+  /* Shared surfaces keep their existing content, accent colours and control roles. */
+  body.school-interface :is(.cc,.school-tool-group,.school-feedback) {
+    border-color:var(--school-card-border);
+    border-radius:var(--school-card-radius);
+    box-shadow:var(--school-card-shadow);
+  }
+  body.school-interface :is(.home-widget-card,#homeCalWrap) {
+    border-radius:var(--school-card-radius) !important;
+  }
+  body.school-interface .school-widget-heading {
+    min-height:var(--school-card-header-height);
+    padding:10px var(--school-card-padding);
+    gap:8px;
+  }
+  body.school-interface .school-widget-title { font-size:var(--school-card-title); line-height:1.45; }
+  body.school-interface .school-widget-body { padding:var(--school-card-padding); }
+  body.school-interface :is(.modal-header,.ec-form-header,.vp-header,.sv-modal-header,.qm-left-header,.qm-right-header) {
+    padding:14px 16px !important;
+    gap:10px;
+  }
+  body.school-interface :is(.modal-title,.ec-form-header-title,.vp-header-title,.qm-left-title,.qm-right-cat-title) {
+    font-size:var(--school-card-title) !important;
+    line-height:1.45;
+    letter-spacing:-.015em;
+  }
+  body.school-interface :is(.modal-content,.ec-form-modal,.vp-modal,.sv-modal,.qm-container) {
+    border-radius:var(--school-card-radius);
+  }
+  body.school-interface :is(.btn,.btn-add,.btn-print,.btn-pdf,.btn-print-indigo,.ec-btn-print,.ec-btn-back,.school-widget-store-button,button[data-school-emphasis]):not(.btn-icon):not(.btn-sm) {
+    min-height:36px;
+    height:auto;
+    padding:8px 13px;
+    border-radius:var(--school-control-radius);
+    font-size:13px;
+    font-weight:700;
+    line-height:1.45;
+    box-sizing:border-box;
+  }
+  body.school-interface .btn.btn-sm {
+    min-height:32px;
+    padding:5px 10px;
+    border-radius:8px;
+    font-size:12px;
+    line-height:1.4;
+  }
+  body.school-interface :is(.btn-primary,.btn-print,.btn-pdf,.btn-print-indigo) {
+    box-shadow:0 2px 6px rgba(20,60,75,.14);
+  }
+  body.school-interface .btn-outline { box-shadow:none; }
+  body.school-interface .school-widget-heading > button {
+    flex-basis:32px;
+    width:32px !important;
+    height:32px !important;
+    min-height:32px;
+    border-radius:9px !important;
+  }
+
+  /* A calm greeting and a first row of selected health-room status cards. */
+  body.school-interface #view-home #homeWidgetArea { padding:18px !important; }
+  body.school-interface .school-home-hero {
+    min-height:88px;
+    margin-bottom:16px;
+    padding:16px 18px;
+    border-radius:16px;
+    border-left:3px solid var(--cyan);
+    background:var(--card);
+    background-size:auto;
+    animation:none;
+  }
+  body.school-interface .school-home-eyebrow { font-size:12px; }
+  body.school-interface .school-home-greeting h1 { font-size:23px; letter-spacing:-.035em; }
+  body.school-interface .school-home-greeting p { margin-top:5px; font-size:13px; }
+  body.school-interface .school-home-priority {
+    display:grid;
+    grid-template-columns:repeat(var(--school-priority-columns,3),minmax(0,1fr));
+    align-items:stretch;
+    gap:14px;
+    min-width:0;
+    margin-bottom:18px;
+  }
+  body.school-interface .school-home-priority > .home-widget-card {
+    --school-status-accent:var(--cyan);
+    min-height:144px !important;
+    border-top:3px solid var(--school-status-accent) !important;
+  }
+  body.school-interface .school-home-priority > [data-widget-id="todayVisit"] { --school-status-accent:#6c9a68; }
+  body.school-interface .school-home-priority > [data-widget-id="caution"] { --school-status-accent:#cb9550; }
+  body.school-interface .school-home-priority > [data-widget-id="bed"] { --school-status-accent:#639cac; }
+  body.school-interface .school-home-priority .school-widget-heading { background:var(--card); }
+  body.school-interface .school-home-priority .school-widget-body {
+    min-height:0;
+    max-height:144px;
+    padding:12px 14px;
+    overflow:auto;
+    scrollbar-width:thin;
+    scrollbar-gutter:stable;
+  }
+  body.school-interface .school-home-priority .school-empty {
+    flex-direction:row;
+    min-height:72px;
+    padding:10px 12px;
+    gap:12px;
+    text-align:left;
+  }
+  body.school-interface .school-home-priority .school-empty-art { width:30px; height:33px; font-size:18px; }
+  body.school-interface .school-home-priority .school-empty-copy { text-align:left; }
+  body.school-interface .school-home-priority .school-empty-copy > p { margin-top:3px; }
+
+  /* Calendar geometry is computed by its existing builder, including event overlays. */
+  body.school-interface .school-home-start { gap:16px; margin-bottom:18px; }
+  body.school-interface .school-home-start.has-calendar-and-side {
+    grid-template-columns:minmax(0,1.6fr) minmax(290px,1fr);
+  }
+  body.school-interface .school-home-side { gap:16px; }
+  body.school-interface .school-home-start.has-calendar-and-side > .school-home-side.has-two-widgets {
+    grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  }
+  body.school-interface #homeCalWrap { padding:14px 16px !important; }
+  body.school-interface .school-calendar-toolbar { min-height:36px; gap:8px !important; }
+  body.school-interface .school-calendar-month { gap:12px !important; margin-bottom:10px !important; }
+  body.school-interface .school-calendar-month > button {
+    min-width:32px;
+    min-height:32px;
+    border-radius:8px !important;
+  }
+  body.school-interface .school-widget-grid { gap:16px; }
+  body.school-interface .school-widget-grid > .home-widget-card { min-height:154px; }
+
+  @container school-home (max-width:960px) {
+    body.school-interface .school-home-priority { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    body.school-interface .school-home-priority > .home-widget-card:last-child:nth-child(odd) { grid-column:1 / -1; }
+    body.school-interface .school-home-start.has-calendar-and-side { grid-template-columns:minmax(0,1fr); }
+    body.school-interface .school-home-start.has-calendar-and-side > .school-home-side,
+    body.school-interface .school-home-start.has-calendar-and-side > .school-home-side.has-two-widgets {
+      contain:none;
+      grid-template-rows:none;
+    }
+    body.school-interface .school-home-side.has-two-widgets { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    body.school-interface .school-home-side .school-widget-body { max-height:240px !important; }
+  }
+  @container school-home (max-width:620px) {
+    body.school-interface .school-home-priority,
+    body.school-interface .school-home-side.has-two-widgets { grid-template-columns:minmax(0,1fr); }
+    body.school-interface .school-home-priority > .home-widget-card:last-child:nth-child(odd) { grid-column:auto; }
+    body.school-interface .school-home-hero { padding:14px; }
+    body.school-interface .school-home-greeting h1 { font-size:21px; }
+    body.school-interface .school-home-priority .school-widget-body { max-height:180px; }
+  }
+  body.school-interface.school-narrow #view-home #homeWidgetArea { padding:12px !important; }
+  body.school-interface.school-narrow :is(.modal-header,.ec-form-header,.vp-header,.sv-modal-header) { padding:12px 14px !important; }
+}
+
+/* Keep the relocated status-card headers on the shared widget surface. */
+@media screen {
+  body.school-interface #view-home .school-home-priority .home-widget-card > :first-child {
+    background: var(--school-card-heading-bg) !important;
+  }
+}

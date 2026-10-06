@@ -101,7 +101,7 @@ function _mealBodyHtml(state){
   if(!state.meals||!state.meals.length) return '<div style="font-size:13px;color:var(--t2);text-align:center;padding:12px 0">이 날은 등록된 급식이 없습니다.<br><span style="font-size:11px;color:var(--t3)">(주말·공휴일·방학 등)</span></div>';
   return state.meals.map(function(m){
     return '<div style="margin-bottom:14px">'
-      +'<div style="font-size:12.5px;font-weight:800;color:#0e7490;margin-bottom:6px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:3px;height:13px;background:linear-gradient(180deg,#06b6d4,#0891b2);border-radius:2px"></span>'+_esc(m.type)+(m.cal?' <span style="font-size:10px;font-weight:600;color:var(--t3)">· '+_esc(m.cal)+'</span>':'')+'</div>'
+      +'<div style="font-size:12.5px;font-weight:800;color:#0e7490;margin-bottom:6px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:3px;height:13px;background:#0891b2;border-radius:2px"></span>'+_esc(m.type)+(m.cal?' <span style="font-size:10px;font-weight:600;color:var(--t3)">· '+_esc(m.cal)+'</span>':'')+'</div>'
       +'<div style="font-size:12px;color:var(--t1);line-height:1.9;padding-left:9px">'+m.menu.map(_esc).join('<br>')+'</div>'
       +'</div>';
   }).join('');
@@ -119,7 +119,7 @@ function _renderPopup(state, dateObj, off){
   else if(off===-2) title='그저께 학교 급식 메뉴';
   else if(off===2) title='모레 학교 급식 메뉴';
   else title='학교 급식 메뉴';
-  const headHtml='<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">🍽️</span><div><div style="font-size:14px;font-weight:800;color:var(--t1)">'+_esc(title)+'</div><div style="font-size:10.5px;color:var(--t3)">'+_esc(_school()||'')+' · '+_esc(dateStr)+'</div></div></div>';
+  const headHtml='<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">🍽️</span><div><div style="font-size:14px;font-weight:800;color:var(--t1)">'+_esc(title)+'</div><div style="font-size:10.5px;color:var(--t3)">'+_esc(_school()||'')+' · '+_esc(dateStr)+'</div></div></div>';
   /* 확인 버튼 대신 |전날|오늘|다음날| 네비게이션 (클릭마다 날짜 이동) */
   const navHtml='<div style="display:flex;border-top:1px solid var(--bdr);flex:none">'
     +'<button data-meal-nav="prev" type="button" style="flex:1;padding:11px 0;font-size:12px;font-weight:700;border:none;border-right:1px solid var(--bdr);background:var(--card);color:var(--t2);cursor:pointer;font-family:var(--f)">◂ 1일 전</button>'

@@ -39,6 +39,13 @@ function _closeSvOverlay(ov){if(ov)closeModalGracefully(ov);}
 /* ═══════════════════════════════════════
    CALENDAR (persistent, Req 3-5)
    ═══════════════════════════════════════ */
+// The context calendar only browses history; it does not change the open diary.
+let _contextCalendarDate=null;
+let _calContextFocus=false;
+function _isSchoolContextCalendar(){
+  return document.body.classList.contains('school-interface') && document.body.classList.contains('school-context-open');
+}
+
 export function renderCalendar(){
   const el = document.getElementById('mainCalendar');
   const year=S.calYear, month=S.calMonth;
@@ -58,9 +65,9 @@ export function renderCalendar(){
   monthPopup+='</div>';
 
   let html=`<div class="mcal-hdr">
-    <div class="mcal-nav"><button class="mcal-btn" id="calPrevBtn">◂</button></div>
+    <div class="mcal-nav"><button type="button" class="mcal-btn" id="calPrevBtn" aria-label="이전 달">◂</button></div>
     <div class="mcal-title"><span class="mcal-year">${year}년${yearPopup}</span> <span class="mcal-month">${monthNames[month]}${monthPopup}</span></div>
-    <div class="mcal-nav"><button class="mcal-btn" id="calNextBtn">▸</button></div>
+    <div class="mcal-nav"><button type="button" class="mcal-btn" id="calNextBtn" aria-label="다음 달">▸</button></div>
   </div><div class="mcal-grid">`;
 
   ['일','월','화','수','목','금','토'].forEach((d,i)=>{
@@ -75,8 +82,12 @@ export function renderCalendar(){
     const cellIdx=startDay+(d-1);const weekRow=Math.floor(cellIdx/7);
     let cls='mcal-cell';if(weekRow===0)cls+=' week1';
     if(ds===today)cls+=' today';
-    if(ds===S.selectedDate&&(S.currentView==='daily'||S.currentView==='story'))cls+=' selected';
-    if(ds===S.selectedDate&&S.currentView==='dashboard')cls+=' dash-selected';
+    if(_isSchoolContextCalendar()){
+      if(ds===(_contextCalendarDate||S.selectedDate))cls+=' selected';
+    } else {
+      if(ds===S.selectedDate&&(S.currentView==='daily'||S.currentView==='story'))cls+=' selected';
+      if(ds===S.selectedDate&&S.currentView==='dashboard')cls+=' dash-selected';
+    }
     if(dow===0)cls+=' sun';
     if(dow===6)cls+=' sat';
     const isWkend=dow===0||dow===6;
@@ -91,6 +102,9 @@ export function renderCalendar(){
   const rem=(7-totalCells%7)%7;
   for(let i=1;i<=rem;i++) html+=`<div class="mcal-cell other"><span class="day-n">${i}</span></div>`;
   html+='</div>';
+  if(document.body.classList.contains('school-interface')){
+    html+='<div class="school-context-calendar-legend" aria-label="날짜 표시 안내"><span><i class="legend-today" aria-hidden="true"></i>오늘</span><span><i class="legend-selected" aria-hidden="true"></i>선택일</span><span><i class="legend-visit" aria-hidden="true"></i>방문 기록</span></div>';
+  }
   el.innerHTML=html;
 
   /* ── Calendar event listeners ── */
@@ -105,7 +119,7 @@ export function renderCalendar(){
     btn.addEventListener('click',function(){S.calMonth=parseInt(this.dataset.calMonth);renderCalendar();});
   });
   el.querySelectorAll('[data-cal-date]').forEach(function(btn){
-    btn.addEventListener('click',function(){selectDate(this.dataset.calDate);});
+    btn.addEventListener('click',function(){selectDate(this.dataset.calDate,_isSchoolContextCalendar());});
   });
 
   // Fix month popup display
@@ -113,7 +127,17 @@ export function renderCalendar(){
   // 달력은 항상 표시
 }
 
-export function selectDate(d){
+export function selectDate(d,contextOnly=false){
+  _calContextFocus=contextOnly;
+  if(contextOnly){
+    _contextCalendarDate=d;
+    _calFocusActive=true;
+    renderCalendar();
+    _showDateVisitors(d,'context');
+    const calendar=document.getElementById('mainCalendar');
+    if(calendar){calendar.tabIndex=-1;calendar.focus({preventScroll:true});}
+    return;
+  }
   closeDailyPeriodSearch(false);
   _lastRegisteredRecId=null;
   S.selectedDate=d;
@@ -184,6 +208,7 @@ function _dailyAnimateTransition(){
 let _calFocusActive=false;
 document.addEventListener('keydown',function(e){
   if(!_calFocusActive)return;
+  if(_calContextFocus && (!_isSchoolContextCalendar() || !document.getElementById('mainCalendar')?.contains(document.activeElement)))return;
   /* 입력칸 포커스 중이면 보통 양보. 단, 달력 날짜 클릭 시 자동 포커스되는 '빈' 검색창(dailySearchInput)에선
    * 방향키로 날짜 이동을 계속 허용 — 검색창에 글자를 입력하면(값 있음) 다시 캐럿 이동으로 양보. (2026-06-08) */
   const _ae=document.activeElement;
@@ -198,7 +223,7 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowDown')delta=7;
   else return;
   e.preventDefault();
-  const d=dateObj(S.selectedDate);
+  const d=dateObj(_calContextFocus?(_contextCalendarDate||S.selectedDate):S.selectedDate);
   d.setDate(d.getDate()+delta);
   /* 첫 주 위로 / 마지막 주 아래로 이동 시 표시 월 자동 전환 — S.calYear/calMonth 동기화 */
   const newYr=d.getFullYear(), newMo=d.getMonth();
@@ -206,7 +231,7 @@ document.addEventListener('keydown',function(e){
     S.calYear=newYr;
     S.calMonth=newMo;
   }
-  selectDate(toDateStr(d));
+  selectDate(toDateStr(d),_calContextFocus);
 });
 /* 입력 필드 포커스 시 달력 키보드 비활성화.
  * 단, 검색창(dailySearchInput)은 달력 날짜 클릭 시 자동 포커스되므로 예외 — 빈 검색창에서 방향키 날짜이동을 유지. (2026-06-08) */
@@ -220,9 +245,10 @@ document.addEventListener('focusin',function(e){
 
 /* ── 달력 날짜 클릭 → 사이드바 달력 아래 방문자 드롭다운 ── */
 function _showDateVisitors(dateStr,mode){
-  _closeDateVisitors();
-  const dayRecs=S.records.filter(function(r){return r.date===dateStr;}).sort(function(a,b){return a.timeIn.localeCompare(b.timeIn);});
-  if(!dayRecs.length)return;
+  _closeDateVisitors(true);
+  const isContext=mode==='context';
+  const dayRecs=S.records.filter(function(r){return r.date===dateStr;}).sort(function(a,b){return String(a.timeIn||'').localeCompare(String(b.timeIn||''));});
+  if(!dayRecs.length&&!isContext)return;
   const cal=document.getElementById('mainCalendar');
   const searchBox=document.getElementById('sidebarSearchBox');
   const searchResults=document.getElementById('sideSearchResults');
@@ -231,19 +257,21 @@ function _showDateVisitors(dateStr,mode){
   /* 학교급 여러 개 혼재 시 학반 앞에 학교급(초/중/고/유) 접두어 표시 */
   const _multiLv = hasMultipleSchoolLevels();
   panel.className='date-visitors-panel';panel.id='dateVisitorsPanel';
+  if(isContext){panel.dataset.contextHistory='true';panel.setAttribute('aria-label',dateStr+' 방문 이력');}
   const dow=['일','월','화','수','목','금','토'][dateObj(dateStr).getDay()];
-  let html='<div class="dv-header"><span>'+dateStr+' ('+dow+') 방문 '+dayRecs.length+'명</span><button class="dv-close-btn" style="border:none;background:none;color:var(--t3);cursor:pointer;font-size:14px;padding:0 4px">✕</button></div>';
+  let html='<div class="dv-header"><span>'+escHtml(dateStr)+' ('+dow+') 방문 '+dayRecs.length+(isContext?'건':'명')+'</span><button class="dv-close-btn" style="border:none;background:none;color:var(--t3);cursor:pointer;font-size:14px;padding:0 4px">✕</button></div>';
   html+='<div class="dv-list">';
+  if(!dayRecs.length)html+='<p class="dv-empty">이 날짜에는 방문 기록이 없습니다.</p>';
   dayRecs.forEach(function(r){
-    const s=getStu(r.studentId);
+    const s=getStu(r.studentId)||{};
     const isStf=s.type==='staff';
     const lvShort=(_multiLv&&!isStf)?(getLevelShort(s)||''):'';
     const lvPrefix=lvShort?'<span style="font-weight:700;color:var(--cyan);margin-right:3px">'+escHtml(lvShort)+'</span>':'';
-    const classInfo=isStf?(s.position||'교직원'):(s.grade+'-'+s.cls+' '+s.num+'번');
-    const symptoms=r.symptoms.join(', ')||'-';
+    const classInfo=isStf?(s.position||'교직원'):([s.grade&&s.grade+'학년',s.cls&&s.cls+'반',s.num&&s.num+'번'].filter(Boolean).join(' ')||'학반 정보 없음');
+    const symptoms=(Array.isArray(r.symptoms)?r.symptoms.join(', '):r.symptoms)||'-';
     html+='<div class="dv-item" style="cursor:default">'
-      +'<span class="dv-name">'+escHtml(s.name)+'</span>'
-      +'<span class="dv-time" style="font-family:var(--fm);font-size:10px;color:var(--t3)">'+escHtml(r.timeIn)+'</span>'
+      +'<span class="dv-name">'+escHtml(s.name||'이름 미등록')+'</span>'
+      +'<span class="dv-time" style="font-family:var(--fm);font-size:10px;color:var(--t3)">'+escHtml(r.timeIn||'-')+'</span>'
       +'<span class="dv-info">'+lvPrefix+escHtml(classInfo)+'</span>'
       +'<span class="dv-sym">'+escHtml(symptoms)+'</span>'
       +'</div>';
@@ -252,6 +280,10 @@ function _showDateVisitors(dateStr,mode){
   panel.innerHTML=html;
   const _dvCloseBtn=panel.querySelector('.dv-close-btn');
   if(_dvCloseBtn) _dvCloseBtn.addEventListener('click',function(){_closeDateVisitors();});
+  if(isContext){
+    cal.insertAdjacentElement('afterend',panel);
+    return;
+  }
   /* 이름 검색창(+검색결과) 바로 아래에 삽입 */
   const anchor=searchResults||searchBox;
   if(anchor&&anchor.parentElement){
@@ -296,29 +328,29 @@ function _showDateVisitors(dateStr,mode){
 }
 function _dvOutsideClick(e){
   const panel=document.getElementById('dateVisitorsPanel');
-  if(panel&&!panel.contains(e.target)&&!e.target.closest('.cal-day'))_closeDateVisitors();
+  if(panel&&!panel.dataset.contextHistory&&!panel.contains(e.target)&&!e.target.closest('[data-cal-date],.mcal-btn,.mcal-title'))_closeDateVisitors();
 }
-export function _closeDateVisitors(){
+export function _closeDateVisitors(immediate=false){
   const panel=document.getElementById('dateVisitorsPanel');
-  if(panel){
-    const sidebar=panel.parentElement;
-    /* 닫힘 애니메이션 — 페이드아웃 + 살짝 위로 collapse */
-    panel.style.transformOrigin='top center';
-    panel.style.transition='opacity .18s ease, transform .18s ease, max-height .22s ease, margin .18s ease';
-    panel.style.opacity='0';
-    panel.style.transform='scaleY(0.92) translateY(-4px)';
-    panel.style.maxHeight='0px';
-    panel.style.marginTop='0';
-    panel.style.marginBottom='0';
-    setTimeout(function(){
-      /* 애니메이션 완료 후 실제 제거 + 숨겨둔 사이드바 요소 복원 */
-      Array.from(sidebar.children).forEach(function(ch){
-        if(ch._dvPrevDisplay!==undefined){ch.style.display=ch._dvPrevDisplay;delete ch._dvPrevDisplay;}
-      });
-      panel.remove();
-    },220);
-  }
   document.removeEventListener('mousedown',_dvOutsideClick);
+  if(!panel)return;
+  const sidebar=panel.parentElement;
+  clearTimeout(panel._dvCloseTimer);
+  const removePanel=function(){
+    if(sidebar)Array.from(sidebar.children).forEach(function(ch){
+      if(ch._dvPrevDisplay!==undefined){ch.style.display=ch._dvPrevDisplay;delete ch._dvPrevDisplay;}
+    });
+    panel.remove();
+  };
+  if(immediate||panel.dataset.contextHistory){removePanel();return;}
+  panel.style.transformOrigin='top center';
+  panel.style.transition='opacity .18s ease, transform .18s ease, max-height .22s ease, margin .18s ease';
+  panel.style.opacity='0';
+  panel.style.transform='scaleY(0.92) translateY(-4px)';
+  panel.style.maxHeight='0px';
+  panel.style.marginTop='0';
+  panel.style.marginBottom='0';
+  panel._dvCloseTimer=setTimeout(removePanel,220);
 }
 
 /* ── 응급처치/감염병 리스트 이름 호버 → 방문 이력 표시
@@ -2192,7 +2224,13 @@ export function renderDaily(){
     let _emptyMsg=_emptyWrap&&_emptyWrap.querySelector('.daily-empty-msg');
     if(!_emptyMsg&&_emptyWrap){_emptyMsg=document.createElement('div');_emptyMsg.className='daily-empty-msg';_emptyMsg.style.cssText='text-align:center;padding:56px 0;color:var(--t3);font-size:12px;width:100%';_emptyWrap.appendChild(_emptyMsg);}
     /* 부팅 초기 DB 로딩 중이면 "로딩 중..." 안내, 아니면 기존 "오늘 입력된 데이터가 없습니다." */
-    if(_emptyMsg)_emptyMsg.textContent = S._dailyLoading ? '로딩 중입니다. 잠시만 기다려주세요.' : '오늘 입력된 데이터가 없습니다.';
+    if(_emptyMsg){
+      _emptyMsg.setAttribute('role','status');
+      _emptyMsg.setAttribute('aria-live','polite');
+      _emptyMsg.setAttribute('aria-busy',String(!!S._dailyLoading));
+      _emptyMsg.dataset.uiState=S._dailyLoading?'loading':'empty';
+      _emptyMsg.textContent = S._dailyLoading ? '선택한 날짜의 방문 기록을 불러오는 중입니다. 잠시만 기다려 주세요.' : '선택한 날짜에 등록된 방문 기록이 없습니다. 위 검색창에서 학생을 찾거나 달력에서 다른 날짜를 선택해 주세요.';
+    }
     if(_emptyMsg)_emptyMsg.style.display='block';
     applyDailyColLayout();
     return;
@@ -2901,7 +2939,7 @@ export function openRecentVisitModal(){
   const ov=document.createElement('div'); ov.id='rvBrowserOv';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13060;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="rvBrowserBox" style="background:var(--card);border-radius:14px;width:460px;max-width:94vw;height:80vh;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">📋</span><div style="font-size:14px;font-weight:800;color:var(--t1)">최근 보건실 방문 이력 보기</div></div>'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">📋</span><div style="font-size:14px;font-weight:800;color:var(--t1)">최근 보건실 방문 이력 보기</div></div>'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--bdr)"><input id="rvSearchInput" type="text" placeholder="이름으로 검색 (학생·교직원)" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;font-size:13px;padding:9px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);outline:none"></div>'
     +'<div id="rvSearchList" style="max-height:34vh;overflow:auto;border-bottom:1px solid var(--bdr);scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)"></div>'
     +'<div id="rvHistArea" style="flex:1;overflow:auto;padding:12px 16px;scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)"><div style="color:var(--t3);font-size:11.5px;text-align:center;padding:20px 0">이름을 검색해 인원을 선택하면<br>최근 보건실 방문 이력이 표시됩니다.</div></div>'
@@ -2930,7 +2968,7 @@ export function openRecentVisitModal(){
   listEl.addEventListener('click',function(e){
     const row=e.target.closest('[data-rvid]'); if(!row)return;
     const cap=_captureVisitHistoryHtml(row.dataset.rvid);
-    histEl.innerHTML='<div style="margin:-12px -16px 10px;padding:12px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(139,92,246,0.05))">'+cap.titleHTML+'</div>'+cap.bodyHTML;
+    histEl.innerHTML='<div style="margin:-12px -16px 10px;padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.08)">'+cap.titleHTML+'</div>'+cap.bodyHTML;
     histEl.scrollTop=0;
   });
   inp.addEventListener('input',_renderList);
@@ -2945,7 +2983,7 @@ export function openVisitorLogModal(opts){
   const ov=document.createElement('div'); ov.id='vlogOv';
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13055;opacity:0;transition:opacity 0.15s ease';
   ov.innerHTML='<div id="vlogBox" style="background:var(--card);border-radius:14px;width:440px;max-width:94vw;height:72vh;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.2s cubic-bezier(0.34,1.4,0.64,1)">'
-    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));display:flex;align-items:center;gap:8px"><span style="font-size:18px">📝</span><div style="font-size:14px;font-weight:800;color:var(--t1)">방문자 검색 및 일지 작성</div></div>'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px"><span style="font-size:18px">📝</span><div style="font-size:14px;font-weight:800;color:var(--t1)">방문자 검색 및 일지 작성</div></div>'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--bdr)"><input id="vlogInput" type="text" placeholder="이름으로 검색 (학생·교직원)" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;font-size:13px;padding:9px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);outline:none"></div>'
     +'<div id="vlogList" style="flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--cyan) var(--bg2)"><div style="color:var(--t3);font-size:11.5px;text-align:center;padding:20px 0">이름을 검색해 방문자를 선택하면<br>증상·처치 입력 후 일반 일지에 기록됩니다.</div></div>'
     +'</div>';

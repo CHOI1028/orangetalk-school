@@ -237,14 +237,13 @@ class HealthRecordDBService {
       if (_ej && _ej.fromKiosk && _ej.receptionId) _receptionId = String(_ej.receptionId);
     } catch (_) {}
     if (_receptionId) {
-      const _ridEsc = _receptionId.replace(/[\\%_]/g, '\\$&').replace(/"/g, '\\"');
-      const _likePat = '%"receptionId":"' + _ridEsc + '"%';
       const _sy = r.school_year || this._yr();
       const _findStmt = this._db.db.prepare(
-        "SELECT id, nurse_name FROM daily_records WHERE school_year = ? AND extra_json LIKE ? ESCAPE '\\' LIMIT 1"
+        "SELECT id, nurse_name FROM daily_records WHERE school_year = ? AND " +
+        "CASE WHEN json_valid(extra_json) THEN CAST(json_extract(extra_json, '$.receptionId') AS TEXT) ELSE NULL END = ? LIMIT 1"
       );
       const _txn = this._db.db.transaction(() => {
-        const existing = _findStmt.get(_sy, _likePat);
+        const existing = _findStmt.get(_sy, _receptionId);
         if (existing) return { duplicate: true, id: existing.id, handler: existing.nurse_name || '' };
         return { duplicate: false, id: _doInsert() };
       });
@@ -270,7 +269,7 @@ class HealthRecordDBService {
       time_in: r.time_in || r.timeIn || '',
       time_out: r.time_out || r.timeOut || '',
       symptoms: typeof r.symptoms === 'string' ? r.symptoms : JSON.stringify(r.symptoms || []),
-      treatment: Array.isArray(r.treatment) ? r.treatment.join(',') : (r.treatment || ''),
+      treatment: Array.isArray(r.treatment) ? JSON.stringify(r.treatment) : (r.treatment || ''),
       /* v3+ 증상별 처치 매핑. 빈 객체/없으면 빈 문자열 (옛 record 호환). */
       treatment_by_sym: typeof r.treatment_by_sym === 'string'
         ? r.treatment_by_sym
@@ -453,7 +452,7 @@ class HealthRecordDBService {
   updateEmergency(record) {
     const now = this._db.now();
     const r = record;
-    this._db.stmt.emergencyUpdate.run({
+    const info = this._db.stmt.emergencyUpdate.run({
       id: r.id || r._dbId,
       person_uid: r.person_uid || r.personUid || null,
       person_type: r.person_type || r.personType || 'student',
@@ -482,7 +481,8 @@ class HealthRecordDBService {
       extra_json: r.extra_json || '{}',
       updated_at: now,
     });
-    return { success: true };
+    if (!info.changes) return { success: false, changes: 0, error: 'no_rows_updated' };
+    return { success: true, changes: info.changes };
   }
 
   deleteEmergency(id) {
@@ -610,7 +610,7 @@ class HealthRecordDBService {
   updateInfection(record) {
     const now = this._db.now();
     const r = record;
-    this._db.stmt.infectionUpdate.run({
+    const info = this._db.stmt.infectionUpdate.run({
       id: r.id || r._dbId,
       person_uid: r.person_uid || r.personUid || null,
       person_type: r.person_type || r.personType || 'student',
@@ -645,7 +645,8 @@ class HealthRecordDBService {
       extra_json: r.extra_json || '{}',
       updated_at: now,
     });
-    return { success: true };
+    if (!info.changes) return { success: false, changes: 0, error: 'no_rows_updated' };
+    return { success: true, changes: info.changes };
   }
 
   deleteInfection(id) {

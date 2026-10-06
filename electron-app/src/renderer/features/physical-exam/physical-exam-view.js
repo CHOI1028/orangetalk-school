@@ -231,8 +231,8 @@ function peRenderMain(){
   /* 내보내기 + 가정통신문 */
   if(_peVmHasData(S._peData)){
     h+='<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">';
-    h+='<button class="btn btn-sm" data-action="export-xlsx" style="width:100%;padding:10px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:6px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg> 나이스 양식에 맞춰 엑셀 다운로드</button>';
-    h+='<button class="btn btn-sm" data-action="open-newsletter" style="width:100%;padding:10px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:none;border-radius:6px;cursor:pointer">📄 메일머지 적용 가정통신문 바로 만들기</button>';
+    h+='<button class="btn btn-sm" data-action="export-xlsx" style="width:100%;padding:10px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg> 나이스 양식에 맞춰 엑셀 다운로드</button>';
+    h+='<button class="btn btn-sm" data-action="open-newsletter" style="width:100%;padding:10px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer">📄 메일머지 적용 가정통신문 바로 만들기</button>';
     h+='</div>';
   }
   h+='</div>';
@@ -360,14 +360,14 @@ function _peOpenGradeSelect(){
   _peSelStep='grade';_peSelGrades=[];
   const ov=document.createElement('div');ov.className='modal-overlay show';ov.id='peGradeOverlay';ov.style.background='rgba(0,0,0,0.35)';
   let html='<div class="modal-content" style="width:700px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;padding:0">';
-  html+='<div style="background:linear-gradient(135deg,rgba(6,182,212,0.10),rgba(139,92,246,0.06));padding:14px 18px;border-bottom:1px solid var(--bdr)">';
+  html+='<div style="background:rgba(6,182,212,0.10);padding:14px 18px;border-bottom:1px solid var(--bdr)">';
   html+='<div style="font-size:14px;font-weight:800;color:var(--t1)">📋 검사 시트 생성</div>';
   html+='<div style="font-size:11px;color:var(--t3);margin-top:3px">검사 대상 학년과 반을 선택하세요</div>';
   html+='</div>';
   html+='<div id="peSelBody" style="flex:1;overflow-y:auto;padding:14px 18px;scrollbar-width:thin"></div>';
   html+='<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 18px;border-top:1px solid var(--bdr);background:var(--bg2)">';
   html+='<button class="btn btn-outline btn-sm" id="peSelBackBtn" data-action="sel-back" style="display:none">← 뒤로</button>';
-  html+='<button id="peSelNextBtn" data-action="sel-next" disabled style="opacity:0.5;padding:7px 22px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f)">다음</button>';
+  html+='<button id="peSelNextBtn" data-action="sel-next" disabled style="opacity:0.5;padding:7px 22px;font-size:12px;font-weight:700;background:#0891b2;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:var(--f)">다음</button>';
   html+='</div></div>';
   ov.innerHTML=html;
   ov.addEventListener('click',function(e){
