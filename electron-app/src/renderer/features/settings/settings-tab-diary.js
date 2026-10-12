@@ -95,7 +95,7 @@ export function _renderDiaryTab(){
   const _privacyOn=(localStorage.getItem('ec_privacy_mode')==='1');
   html+='<div class="set-accordion" data-action="accordion"><span>🕶 개인정보 보호 모드 (Private · 화면 블러)</span><span class="set-acc-arrow">▼</span></div>';
   html+='<div class="set-accordion-body">';
-  html+='<div style="font-size:10px;color:var(--t3);margin-bottom:10px;line-height:1.7">일반 일지 표 내용을 블러 처리해 학생/교직원 정보가 노출되지 않도록 보호합니다. 행에 마우스를 올리면 임시로 보입니다.</div>';
+  html+='<div style="font-size:10px;color:var(--t3);margin-bottom:10px;line-height:1.7">일반 일지와 기간검색의 기록을 가립니다. 기록에 마우스를 올리거나 키보드로 선택하면 확인할 수 있습니다. 눈 모양 버튼으로 현재 목록의 표시·가리기를 선택할 수 있습니다. 선택은 날짜나 메뉴를 바꾸거나 프로그램을 다시 실행해도 유지됩니다. 이 보호 모드 설정을 직접 변경하면 목록의 표시 상태도 초기화됩니다.</div>';
   html+='<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:6px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);user-select:none">';
   html+='<input type="checkbox" id="setPrivacyModeToggle" data-action="toggle-privacy-mode" '+(_privacyOn?'checked':'')+' style="width:16px;height:16px;cursor:pointer">';
   html+='<span style="font-size:11.5px;font-weight:700;color:var(--t1)">Private 모드 활성화</span>';

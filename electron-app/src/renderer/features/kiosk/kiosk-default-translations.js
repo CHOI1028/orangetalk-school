@@ -17,7 +17,14 @@ const _ks = S.kioskSettings;
 /* 사용자 저장 번역 조회. 키는 "한국어 원문"(trim) — 원문을 바꾸면 옛 키가 고아가 되어 빈 문자열을 돌려준다. */
 export function kioskGetTrans(langCode, key){
   const k = (key||'').trim();
-  return (_ks.translations && _ks.translations[langCode] && _ks.translations[langCode][k]) || '';
+  const saved=(_ks.translations&&_ks.translations[langCode])||{};
+  const legacy={
+    '얼마나 아픈가요?':'통증 척도 (NRS)',
+    '지금 느끼는 아픔을 숫자로 골라 주세요.':'부위의 통증 정도를 선택하세요',
+    '안 아파요':'통증 없음',
+    '아주 많이 아파요':'극심한 통증'
+  }[k];
+  return saved[k] || (legacy&&saved[legacy]) || '';
 }
 
 /* ── 학교 환경 검출 — 인적사항 조건부 phrase 생성 ── */
@@ -54,6 +61,9 @@ export function kioskBuildTransPhrases(flow, rules){
   const deptNames = hasDept ? _getDepartmentNames() : [];
   const person = [
     {key:'person.heading',   ko:'방문자를 선택해주세요.'},
+    {key:'person.heading.grade', ko:'학년을 선택해 주세요.'},
+    {key:'person.heading.class', ko:'반을 선택해 주세요.'},
+    {key:'person.heading.name', ko:'이름을 선택해 주세요.'},
     {key:'person.tab.stu',   ko:'학생'},
     {key:'person.tab.staff', ko:'교직원'},
   ];
@@ -135,6 +145,8 @@ export function kioskBuildTransPhrases(flow, rules){
   phrases.push({section:'키오스크 고정 문구·버튼', items:[
     {key:'notice.intro',     ko:'보건실은 아픈 친구들을 위한 공간입니다. 서로 배려하며 조용히 이용합시다.'},
     {key:'nav.home',         ko:'처음으로'},
+    {key:'nav.grades',       ko:'학년 다시 선택'},
+    {key:'nav.classes',      ko:'반 목록으로'},
     {key:'done.complete',    ko:'접수가 완료되었습니다.'},
     /* 바디맵 모달 문구 (부위명 제외) */
     {key:'bm.title',  ko:'바디맵 — 통증 부위 선택'},
@@ -144,10 +156,11 @@ export function kioskBuildTransPhrases(flow, rules){
     {key:'bm.left',   ko:'왼쪽'},
     {key:'bm.right',  ko:'오른쪽'},
     /* NRS(통증 척도) 팝업 */
-    {key:'nrs.title',  ko:'통증 척도 (NRS)'},
-    {key:'nrs.sub',    ko:'부위의 통증 정도를 선택하세요'},
-    {key:'nrs.none',   ko:'통증 없음'},
-    {key:'nrs.severe', ko:'극심한 통증'},
+    {key:'nrs.title',  ko:'얼마나 아픈가요?'},
+    {key:'nrs.sub',    ko:'지금 느끼는 아픔을 숫자로 골라 주세요.'},
+    {key:'nrs.none',   ko:'안 아파요'},
+    {key:'nrs.severe', ko:'아주 많이 아파요'},
+    {key:'nrs.level',  ko:'아픈 정도'},
     /* 접수 팝업 (JS 동적 메시지) */
     {key:'done.label',    ko:'완료'},
     {key:'done.thanks',   ko:'감사합니다. 처음 화면으로 돌아갑니다.'},
@@ -185,6 +198,16 @@ export function kioskBuildTransPhrases(flow, rules){
 }
 
 export const KIOSK_DEFAULT_TRANSLATIONS = {
+  "학년을 선택해 주세요.": {"en":"Choose your grade.","zh":"请选择年级。","ja":"学年を選んでください。","vi":"Chọn khối của bạn.","th":"เลือกชั้นเรียนของคุณ","tl":"Piliin ang iyong baitang.","km":"សូមជ្រើសរើសថ្នាក់របស់អ្នក។","mn":"Ангиа сонгоно уу.","ru":"Выберите свою параллель.","ne":"आफ्नो कक्षा छान्नुहोस्।","id":"Pilih tingkat kelasmu.","ar":"اختر صفك الدراسي.","ur":"اپنی جماعت منتخب کریں۔","es":"Elige tu grado."},
+  "반을 선택해 주세요.": {"en":"Choose your class.","zh":"请选择班级。","ja":"組を選んでください。","vi":"Chọn lớp của bạn.","th":"เลือกห้องเรียนของคุณ","tl":"Piliin ang iyong seksyon.","km":"សូមជ្រើសរើសក្រុមថ្នាក់របស់អ្នក។","mn":"Бүлгээ сонгоно уу.","ru":"Выберите свой класс.","ne":"आफ्नो सेक्सन छान्नुहोस्।","id":"Pilih kelasmu.","ar":"اختر فصلك.","ur":"اپنا سیکشن منتخب کریں۔","es":"Elige tu clase."},
+  "이름을 선택해 주세요.": {"en":"Choose your name.","zh":"请选择你的姓名。","ja":"自分の名前を選んでください。","vi":"Chọn tên của bạn.","th":"เลือกชื่อของคุณ","tl":"Piliin ang iyong pangalan.","km":"សូមជ្រើសរើសឈ្មោះរបស់អ្នក។","mn":"Нэрээ сонгоно уу.","ru":"Выберите своё имя.","ne":"आफ्नो नाम छान्नुहोस्।","id":"Pilih namamu.","ar":"اختر اسمك.","ur":"اپنا نام منتخب کریں۔","es":"Elige tu nombre."},
+  "학년 다시 선택": {"en":"Change grade","zh":"重新选择年级","ja":"学年を選び直す","vi":"Chọn lại khối","th":"เลือกชั้นใหม่","tl":"Pumili ulit ng baitang","km":"ជ្រើសថ្នាក់ឡើងវិញ","mn":"Анги дахин сонгох","ru":"Выбрать параллель","ne":"कक्षा फेरि छान्नुहोस्","id":"Pilih tingkat lagi","ar":"تغيير الصف","ur":"جماعت دوبارہ منتخب کریں","es":"Cambiar grado"},
+  "반 목록으로": {"en":"Back to classes","zh":"返回班级列表","ja":"組の一覧へ","vi":"Về danh sách lớp","th":"กลับไปเลือกรายการห้อง","tl":"Bumalik sa mga seksyon","km":"ត្រឡប់ទៅបញ្ជីថ្នាក់","mn":"Бүлгийн жагсаалт руу","ru":"К списку классов","ne":"सेक्सन सूचीमा फर्कनुहोस्","id":"Kembali ke daftar kelas","ar":"العودة إلى قائمة الفصول","ur":"سیکشن کی فہرست پر واپس","es":"Volver a las clases"},
+  "얼마나 아픈가요?": {"en":"How much does it hurt?","zh":"现在有多疼？","ja":"どのくらい痛いですか？","vi":"Em đau đến mức nào?","th":"เจ็บแค่ไหน?","tl":"Gaano kasakit?","km":"ឈឺខ្លាំងប៉ុណ្ណា?","mn":"Хэр их өвдөж байна вэ?","ru":"Насколько тебе больно?","ne":"कति दुखेको छ?","id":"Seberapa sakit?","ar":"كم يؤلمك؟","ur":"کتنا درد ہو رہا ہے؟","es":"¿Cuánto te duele?"},
+  "지금 느끼는 아픔을 숫자로 골라 주세요.": {"en":"Choose a number to show how much it hurts now.","zh":"请选择一个数字，表示你现在有多疼。","ja":"今の痛さを数字で選んでください。","vi":"Chọn một số để cho biết em đang đau đến mức nào.","th":"เลือกตัวเลขเพื่อบอกว่าตอนนี้เจ็บแค่ไหน","tl":"Pumili ng numero para ipakita kung gaano kasakit ngayon.","km":"ជ្រើសលេខដើម្បីបង្ហាញថាឥឡូវនេះឈឺខ្លាំងប៉ុណ្ណា។","mn":"Одоо хэр их өвдөж байгааг тоогоор сонгоорой.","ru":"Выбери число, которое показывает, насколько тебе сейчас больно.","ne":"अहिले कति दुखेको छ भनेर देखाउन एउटा अंक छान्नुहोस्।","id":"Pilih angka untuk menunjukkan seberapa sakit sekarang.","ar":"اختر رقماً يوضح مقدار الألم الذي تشعر به الآن.","ur":"ابھی کتنا درد ہو رہا ہے، یہ بتانے کے لیے ایک عدد منتخب کریں۔","es":"Elige un número para indicar cuánto te duele ahora."},
+  "안 아파요": {"en":"It does not hurt","zh":"不疼","ja":"痛くない","vi":"Không đau","th":"ไม่เจ็บ","tl":"Hindi masakit","km":"មិនឈឺទេ","mn":"Өвдөхгүй байна","ru":"Не больно","ne":"दुखेको छैन","id":"Tidak sakit","ar":"لا يؤلمني","ur":"درد نہیں ہو رہا","es":"No me duele"},
+  "아주 많이 아파요": {"en":"It hurts very much","zh":"非常疼","ja":"とても痛い","vi":"Đau rất nhiều","th":"เจ็บมาก","tl":"Napakasakit","km":"ឈឺខ្លាំងណាស់","mn":"Маш их өвдөж байна","ru":"Очень сильно болит","ne":"धेरै दुखेको छ","id":"Sangat sakit","ar":"يؤلمني كثيراً","ur":"بہت زیادہ درد ہو رہا ہے","es":"Me duele muchísimo"},
+  "아픈 정도": {"en":"Pain level","zh":"疼痛程度","ja":"痛さ","vi":"Mức độ đau","th":"ระดับความเจ็บ","tl":"Antas ng sakit","km":"កម្រិតការឈឺ","mn":"Өвдөлтийн түвшин","ru":"Уровень боли","ne":"दुखाइको स्तर","id":"Tingkat rasa sakit","ar":"مقدار الألم","ur":"درد کی شدت","es":"Nivel de dolor"},
   "방문자를 선택해주세요.": {en:"Please select a visitor.",zh:"请选择访客。",ja:"訪問者を選択してください。",vi:"Vui lòng chọn người đến.",th:"กรุณาเลือกผู้มารับบริการ",tl:"Mangyaring pumili ng bisita.",km:"សូមជ្រើសរើសអ្នកចូល",mn:"Зочноо сонгоно уу.",ru:"Пожалуйста, выберите посетителя.",ne:"कृपया आगन्तुक चयन गर्नुहोस्।",id:"Silakan pilih pengunjung.",ar:"الرجاء اختيار الزائر.",ur:"براہ کرم آنے والے کو منتخب کریں۔",es:"Por favor, seleccione un visitante."},
   "학생": {en:"Student",zh:"学生",ja:"生徒",vi:"Học sinh",th:"นักเรียน",tl:"Mag-aaral",km:"សិស្ស",mn:"Сурагч",ru:"Ученик",ne:"विद्यार्थी",id:"Siswa",ar:"طالب",ur:"طالب علم",es:"Estudiante"},
   "교직원": {en:"Staff",zh:"教职员工",ja:"教職員",vi:"Giáo viên & nhân viên",th:"บุคลากร",tl:"Kawani",km:"បុគ្គលិក",mn:"Багш ажилтан",ru:"Сотрудник",ne:"कर्मचारी",id:"Staf Sekolah",ar:"موظف",ur:"عملہ",es:"Personal del centro"},

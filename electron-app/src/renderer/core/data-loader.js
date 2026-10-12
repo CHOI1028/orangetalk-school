@@ -12,6 +12,7 @@
 import { S, refreshSharedKioskSettings } from './app-state.js';
 import { bus } from './event-bus.js';
 import { persistenceOrchestrator } from './persistence-orchestrator.js';
+import { refreshSharedSettings } from './shared-settings-sync.js';
 import { _reloadStudentsFromDB } from './student-utils.js';
 import { _recToDbRow } from './record-utils.js';
 import { _pushRosterToRelay, _checkKioskRosterStale, _scheduleDailyRosterCheck } from './kiosk-roster.js';
@@ -309,8 +310,8 @@ function _emitConn(type,payload){
 
 function _fetchDataVersion(){
   /* Electron/웹 공통: _activeBaseUrl 사용 (폴백 시 웹 환경에서 다른 포트로 갱신될 수 있음) */
-  return fetch(_activeBaseUrl+'/api/data-version',{cache:'no-store'})
-    .then(function(r){return r.ok?r.json():null;})
+  return fetch(_activeBaseUrl+'/api/data-version',{credentials:'include',cache:'no-store'})
+    .then(function(r){if(r.status===401&&window.__isWebBrowser)window.dispatchEvent(new CustomEvent('shared:auth-required'));return r.ok?r.json():null;})
     .then(function(d){return (d&&d.success)?d.version:null;})
     .catch(function(){return null;});
 }
@@ -334,7 +335,7 @@ async function _tryPortFallback(){
     try{
       const ctrl=new AbortController();
       const t=setTimeout(function(){ctrl.abort();},3000);
-      const res=await fetch(candidate+'/api/data-version',{cache:'no-store',signal:ctrl.signal});
+      const res=await fetch(candidate+'/api/data-version',{credentials:'include',cache:'no-store',signal:ctrl.signal});
       clearTimeout(t);
       if(res.ok){
         const d=await res.json();
@@ -417,7 +418,7 @@ function _doFetchAndHandle(){
   _fetchDataVersion().then(function(v){
     if(v==null){_onFetchFailure();return;}
     _onFetchSuccess();
-    if(_lastKnownVersion===0){_lastKnownVersion=v;return;}
+    /* Bootstrap reads can be older than the first reported version. Refresh it too. */
     if(v!==_lastKnownVersion){
       _lastKnownVersion=v;
       if(typeof _fullRefreshFn==='function')_fullRefreshFn();
@@ -447,7 +448,7 @@ function _onSseData(ev){
   const v=ev&&ev.data!=null?parseInt(ev.data,10):NaN;
   if(isNaN(v)){_doFetchAndHandle();return;}
   _onFetchSuccess();
-  if(_lastKnownVersion===0){_lastKnownVersion=v;return;}
+  /* The initial SSE version must refresh data, not just establish a baseline. */
   if(v!==_lastKnownVersion){
     _lastKnownVersion=v;
     if(typeof _fullRefreshFn==='function')_fullRefreshFn();
@@ -460,7 +461,7 @@ function _startSse(){
     /* sid 를 쿼리로 실어 보낸다 — EventSource 는 헤더를 못 붙이므로 URL 로 전달.
      * 서버가 이 연결 끊김(탭 닫힘)을 세션과 묶어 전광판에서 즉시 내리는 데 사용. (2026-06-07) */
     var _sseSid='';try{_sseSid=sessionStorage.getItem('_webSessionId')||'';}catch(_s){}
-    _sse=new EventSource(_activeBaseUrl+'/api/events'+(_sseSid?('?sid='+encodeURIComponent(_sseSid)):''));
+    _sse=new EventSource(_activeBaseUrl+'/api/events'+(_sseSid?('?sid='+encodeURIComponent(_sseSid)):''),{withCredentials:true});
     _sse.addEventListener('data',_onSseData);
     _sse.onerror=function(){/* 브라우저가 retry 로 자동 재연결. 폴링이 안전망. */};
   }catch(_e){_sse=null;}
@@ -491,9 +492,12 @@ function _peopleSig(){
 }
 function _startRealtimeSync(){
   if(_dbSyncTimer)return;
+  _lastKnownVersion=0; /* Reconcile once on every start, including a server restart. */
   _fullRefreshFn=function(){
     if(!window.electronAPI)return;
     _refreshPublicDataKey();
+    refreshSharedSettings();
+    bus.emit('rental:refresh');
     const yr=String(_academicYear());
     _mergeRecordsFromDB(window.electronAPI.recordsGetDaily,'records',yr);
     _mergeRecordsFromDB(window.electronAPI.recordsGetEmergency,'ecRecords',yr);
@@ -525,6 +529,7 @@ function _startRealtimeSync(){
   _dbSyncTimer=setInterval(_tick,10000);/* 10초 주기 — 버전 조회만 (SSE 끊김 대비 안전망) */
   /* 즉시 알림(SSE) 구독 시작 — 변경 즉시 반영 */
   _startSse();
+  _tick(); /* Also reconcile immediately when SSE is unavailable. */
   /* 탭 복귀 시 즉시 1회 체크 — _stopRealtimeSync 에서 제거 가능하도록 named 등록 */
   if(!_visTickHandler){
     _visTickHandler=function(){if(!document.hidden)_tick();};
@@ -687,60 +692,8 @@ if(typeof window.electronAPI!=='undefined'&&window.electronAPI.jsonLoad){
     /* 헤더 1층 phase 0 (교육청·학교·직위·이름) 즉시 갱신 — DB 로딩 직후 사용자 정보 반영 */
     try{bus.emit('header:refresh-user');}catch(e){}
   }});
-  /* A shared browser must not migrate or write back its old local channel. */
-  if(window.__isWebBrowser){
-    refreshSharedKioskSettings();
-  } else {
-  /* 키오스크 채널 정보 보존: _setLs가 localStorage를 덮어쓰기 전에 백업 */
-  var _kioskChannelBackup=null;
-  (function(){
-    try{
-      var _lsOrig=JSON.parse(localStorage.getItem('ec_kiosk')||'{}');
-      if(_lsOrig.channelId||_lsOrig.authToken||_lsOrig.active){
-        _kioskChannelBackup={channelId:_lsOrig.channelId,authToken:_lsOrig.authToken,nurseToken:_lsOrig.nurseToken,active:_lsOrig.active,relayUrl:_lsOrig.relayUrl};
-      }
-    }catch(e){}
-  })();
-  commonMappings.push({dbKey:'kiosk_settings',lsKey:'ec_kiosk',onLoaded:function(data){
-    if(data&&typeof data==='object'){
-      Object.keys(data).forEach(function(k){ if(data[k]!=null) S.kioskSettings[k]=data[k]; });
-    }
-    /* 백업된 채널 정보 복원 */
-    if(_kioskChannelBackup){
-      if(_kioskChannelBackup.channelId) S.kioskSettings.channelId=_kioskChannelBackup.channelId;
-      if(_kioskChannelBackup.authToken) S.kioskSettings.authToken=_kioskChannelBackup.authToken;
-      if(_kioskChannelBackup.nurseToken) S.kioskSettings.nurseToken=_kioskChannelBackup.nurseToken;
-      if(_kioskChannelBackup.active!=null) S.kioskSettings.active=_kioskChannelBackup.active;
-      if(_kioskChannelBackup.relayUrl) S.kioskSettings.relayUrl=_kioskChannelBackup.relayUrl;
-      /* localStorage에도 복원 */
-      localStorage.setItem('ec_kiosk',JSON.stringify(S.kioskSettings));
-    }
-    /* ★ 옛 릴레이 주소·옛 채널ID 마이그레이션 (사용자 보고 2026-06-15) — 릴레이가 myhealthdiary.duckdns.org → relay.school114.org 로 이전됨.
-     *  옛 주소(relay.school114.org 아님) 이거나 채널ID가 UUID 형식이 아니면(옛 ch_ 형식) → 새 기본 주소로 교정 + 죽은 채널 정리.
-     *  반드시 위 _kioskChannelBackup 복원 '직후'에 실행해야 옛값이 되살아나지 않는다. 다음 [생성] 때 새 채널이 발급된다. */
-    (function(){
-      try{
-        var _k=S.kioskSettings; if(!_k) return;
-        var _UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        var _badRelay = _k.relayUrl && String(_k.relayUrl).indexOf('relay.school114.org')===-1;
-        var _badChan  = _k.channelId && !_UUID.test(String(_k.channelId));
-        if(_badRelay || _badChan){
-          _k.relayUrl='https://relay.school114.org';
-          delete _k.channelId; delete _k.authToken; delete _k.nurseToken; _k.urlReady=false;
-          localStorage.setItem('ec_kiosk',JSON.stringify(_k));
-          if(window.electronAPI&&window.electronAPI.jsonSaveCommon) window.electronAPI.jsonSaveCommon('kiosk_settings',_k);
-          console.log('[KIOSK] 옛 릴레이 주소/채널 마이그레이션 — relay.school114.org 로 교정, 죽은 채널 정리됨');
-        }
-      }catch(_){}
-    })();
-    /* ★ 웹 클라이언트 회귀 수정 (2026-06-14): 웹 브라우저 동료는 localStorage 가 비어 S.kioskSettings 가
-     *  초기엔 {} 라, active·channelId·nurseToken 이 오직 이 비동기 DB 로드로만 채워진다. 그런데 _init(500ms)는
-     *  그 전에 이미 돌아 _connect 를 건너뛰고 다시 트리거할 게 없어 키오스크 수신이 클라이언트엔 안 왔다.
-     *  로드 직후 sidebar-refresh 를 발사 → 수신 패널이 active 면 릴레이에 연결(같은 채널의 모든 nurse 에 브로드캐스트).
-     *  호스트는 이미 연결돼 있어 !_connected 가드로 무해, active=false 면 조용히 정리. */
-    try{ bus.emit('kiosk:sidebar-refresh'); }catch(e){}
-  }});
-  }
+  // Both installed and browser clients use the host's canonical settings.
+  refreshSharedKioskSettings();
   commonMappings.push({dbKey:'bed_config',lsKey:'ec_bed_config',onLoaded:function(data){
     if(data&&typeof data==='object'){S._bedConfigRaw=data;S._bedConfig=Object.assign({beds:[{id:1}],placement:'left'},data);}
   }});
@@ -1084,8 +1037,8 @@ export function _syncAllToJson(){
   commonKeys.forEach(function(pair){
     const raw=localStorage.getItem(pair[1]);
     if(raw!=null){
-      try{const parsed=JSON.parse(raw);_api.jsonSaveCommon(pair[0],parsed);}catch(e){
-        _api.jsonSaveCommon(pair[0],raw);
+      try{const parsed=JSON.parse(raw);_api.jsonSaveCommon(pair[0],parsed,{background:true});}catch(e){
+        _api.jsonSaveCommon(pair[0],raw,{background:true});
       }
     }
   });

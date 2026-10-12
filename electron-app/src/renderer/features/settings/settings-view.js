@@ -2037,7 +2037,8 @@ function _bindWebServerToggle(){
 }
 /* 접속 주소 렌더 — 서버 실행 중일 때만 호출됨 (OFF 상태는 _bindWebServerToggle 에서 직접 렌더).
    activePorts: server-info 가 반환한 모든 활성 포트 배열 (Phase 1-1) */
-function _renderCollabAddressPanel(addr,allAddrs,activePorts){
+function _renderCollabAddressPanel(addr,allAddrs,activePorts,inviteKey){
+  function secureAddress(value){return /^[a-f0-9]{64}$/.test(inviteKey||'')?String(value).replace(/\/$/,'')+'/#ot-share='+inviteKey:'';}
   var area=document.getElementById('collabAddressArea');
   if(!area)return;
   allAddrs=allAddrs||[];
@@ -2076,7 +2077,9 @@ function _renderCollabAddressPanel(addr,allAddrs,activePorts){
 
   var h='';
   /* 주 주소 — 큰 배지 (가장 추천). 위에 "추천하는 접속 주소" 라벨 표시. */
-  h+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;letter-spacing:0.3px">⭐ 추천하는 접속 주소</div>';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">보안 연결 주소</div>';
+  h+='<p style="font-size:12px;color:var(--t2);line-height:1.7">'+(inviteKey?'복사 버튼으로 전달해 주세요. 접속용 키가 포함되므로 보건업무 담당자에게만 공유해 주세요. 브라우저 인증은 최대 30일간 유지됩니다.':'새 기기의 접속 주소는 메인 PC에서 복사해 주세요.')+'</p>';
+  if(inviteKey)h+='<button type="button" class="btn collab-copy-row-btn" data-collab-url="'+escHtml(secureAddress(addr))+'" style="min-height:40px;margin:0 12px 10px 0">보안 연결 주소 복사</button>';
   h+='<div style="font-size:22px;font-weight:800;font-family:var(--fm);color:'+accent.color+';padding:14px 24px;background:'+accent.bg+';border-radius:12px;letter-spacing:1px;user-select:all;display:inline-block;border:2px solid '+accent.bd+';line-height:1.5">'+escHtml(addr)+'</div>';
 
   /* 모든 IP × 포트 조합 — 주소 + 포트 상태 통합 표 */
@@ -2094,8 +2097,8 @@ function _renderCollabAddressPanel(addr,allAddrs,activePorts){
         +'<td style="padding:7px 12px;vertical-align:middle"><code style="font-size:13px;font-family:var(--fm);color:var(--t1);user-select:all">'+escHtml(pair.url)+'</code></td>'
         +'<td class="collab-ext-cell" style="padding:7px 4px;vertical-align:middle;font-size:10.5px;color:var(--t3);text-align:center">검사 중...</td>'
         +'<td style="padding:7px 4px;vertical-align:middle;text-align:center">'
-        +'<button class="btn btn-sm collab-copy-row-btn" data-collab-url="'+escHtml(pair.url)+'" data-collab-tip="주소를 클립보드에 복사합니다." style="background:#16a34a;color:#fff;border:none;padding:5px 10px;font-size:10.5px;font-weight:700;border-radius:5px;cursor:pointer;margin-right:4px">📋</button>'
-        +'<button class="btn btn-sm collab-copy-invite-btn" data-collab-url="'+escHtml(pair.url)+'" data-collab-tip="동료에게 보낼 메시지 내용이 포함된 주소를 클립보드에 복사합니다." style="background:#8b5cf6;color:#fff;border:none;padding:5px 10px;font-size:10.5px;font-weight:700;border-radius:5px;cursor:pointer">✉️</button>'
+        +'<button class="btn btn-sm collab-copy-row-btn" data-collab-url="'+escHtml(secureAddress(pair.url))+'"'+(inviteKey?'':' disabled')+' data-collab-tip="주소를 클립보드에 복사합니다." style="background:#16a34a;color:#fff;border:none;padding:5px 10px;font-size:10.5px;font-weight:700;border-radius:5px;cursor:pointer;margin-right:4px">📋</button>'
+        +'<button class="btn btn-sm collab-copy-invite-btn" data-collab-url="'+escHtml(secureAddress(pair.url))+'"'+(inviteKey?'':' disabled')+' data-collab-tip="동료에게 보낼 메시지 내용이 포함된 주소를 클립보드에 복사합니다." style="background:#8b5cf6;color:#fff;border:none;padding:5px 10px;font-size:10.5px;font-weight:700;border-radius:5px;cursor:pointer">✉️</button>'
         +'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -2109,7 +2112,7 @@ function _renderCollabAddressPanel(addr,allAddrs,activePorts){
   /* 네트워크 안내 — 글자 크기 확대 + 상세 설명 */
   h+='<div style="font-size:12px;color:var(--t2);margin-top:12px;line-height:1.7;max-width:680px">⚠️ <b>접속하는 동료와 호스트 PC 는 반드시 같은 학교 네트워크(같은 유선 LAN 회선·같은 공유기/허브)에</b><br>연결되어 있어야 합니다.<br>서로 다른 와이파이/회선이면 접속되지 않습니다.</div>';
   area.innerHTML=h;
-  _bindCollabCopyButtons(addr);
+  _bindCollabCopyButtons(secureAddress(addr));
 }
 function _loadCollabAddress(isWeb){
   var area=document.getElementById('collabAddressArea');
@@ -2129,7 +2132,7 @@ function _loadCollabAddress(isWeb){
       ips:ips,
       addr:ips[0]?_buildAddr(ips[0],port):('http://localhost:'+(parseInt(port,10)||80)),
       all:ips.map(function(ip){return _buildAddr(ip,port);}),
-      activePorts:info.activePorts||[]
+      activePorts:info.activePorts||[], inviteKey:info.inviteKey||''
     };
   }
   if(isWeb){
@@ -2137,7 +2140,7 @@ function _loadCollabAddress(isWeb){
     fetch('/api/server-info',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(info){
       var x=_fromInfo(info);
       if(!x){area.innerHTML='<div style="font-size:11px;color:var(--t3)">주소를 불러올 수 없습니다.</div>';return;}
-      _renderCollabAddressPanel(x.addr,x.all,x.activePorts);
+      _renderCollabAddressPanel(x.addr,x.all,x.activePorts,x.inviteKey);
     }).catch(function(){ area.innerHTML='<div style="font-size:11px;color:var(--t3)">주소를 불러올 수 없습니다.</div>'; });
     return;
   }
@@ -2152,7 +2155,7 @@ function _loadCollabAddress(isWeb){
     fetch('http://localhost:'+port+'/api/server-info',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(info){
       if(_done)return;
       var x=_fromInfo(info);
-      if(x){_done=true;_renderCollabAddressPanel(x.addr,x.all,x.activePorts);}
+      if(x){_done=true;_renderCollabAddressPanel(x.addr,x.all,x.activePorts,x.inviteKey);}
       else _tryPort(idx+1);
     }).catch(function(){ if(!_done)_tryPort(idx+1); });
   }
@@ -2179,25 +2182,28 @@ function _bindCollabCopyButtons(addr){
       senderLine+
       '아래 주소를 크롬·엣지 등 웹브라우저에 입력해주세요.\n👉 '+targetAddr+'\n\n'+
       '같은 학교 인터넷망에서만 접속됩니다.\n'+
-      '별도 프로그램 설치 없이 브라우저로 바로 사용 가능합니다.';
+      '별도 프로그램 설치 없이 브라우저로 바로 사용 가능합니다.\n이 주소에는 접속용 키가 포함되어 있으므로 보건업무 담당자에게만 전달해 주세요.';
   }
   /* 주 주소 복사 버튼 */
   var addrBtn=document.getElementById('collabCopyAddrBtn');
   if(addrBtn)addrBtn.addEventListener('click',function(){
     var url=this.dataset.collabUrl||addr;
+      if(!url){bus.emit('toast:show',{text:'보안 연결 주소는 메인 PC에서 복사해 주세요.'});return;}
     navigator.clipboard.writeText(url).then(function(){ bus.emit('toast:show',{text:'주소가 복사되었습니다.'}); });
   });
   /* 행마다 [복사] — 보조 주소 */
   document.querySelectorAll('.collab-copy-row-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       var url=this.dataset.collabUrl||addr;
-      navigator.clipboard.writeText(url).then(function(){ bus.emit('toast:show',{text:'주소가 복사되었습니다: '+url}); });
+      if(!url){bus.emit('toast:show',{text:'보안 연결 주소는 메인 PC에서 복사해 주세요.'});return;}
+      navigator.clipboard.writeText(url).then(function(){ bus.emit('toast:show',{text:'보안 연결 주소가 복사되었습니다.'}); });
     });
   });
   /* 행마다 [초대 메시지 복사] */
   document.querySelectorAll('.collab-copy-invite-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       var url=this.dataset.collabUrl||addr;
+      if(!url){bus.emit('toast:show',{text:'보안 연결 주소는 메인 PC에서 복사해 주세요.'});return;}
       navigator.clipboard.writeText(_buildInvite(url)).then(function(){ bus.emit('toast:show',{text:'초대 메시지가 복사되었습니다.'}); });
     });
   });
@@ -2862,7 +2868,7 @@ function _renderFontsizeSection(){
 function _renderVersionTab(){
   const VERSIONS=[
     {ver:'1.0',name:'Roma'},
-    {ver:'1.1',name:'Firenze',release:'1.1.0'},
+    {ver:'1.1',name:'Firenze',release:'1.1.1'},
     {ver:'1.2',name:'Bologna'},
     {ver:'1.3',name:'Venezia'},
     {ver:'1.4',name:'Ljubljana'},
@@ -2917,13 +2923,16 @@ function _renderVersionTab(){
   });
   h+='</div>';
   h+='<section aria-labelledby="rmReleaseTitle" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">';
-  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.0 Firenze · 학교용 UI 리모델링</h3>';
-  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">학교용 오렌지톡의 분위기는 유지하면서 화면 구성과 사용 흐름을 새롭게 정리했습니다.</p>';
+  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.1 Firenze · 공유 연결 및 보건일지·키오스크 개선</h3>';
+  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">공유 연결과 키오스크의 안정성을 보완하고, 보건일지의 확인·편집 흐름을 개선했습니다.</p>';
   h+='<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9">';
-  h+='<li>헤더와 메뉴, 홈의 캘린더·오늘 할 일·메모 배치 개선</li>';
-  h+='<li>인증코드 등록, 사용자 선택·등록 화면 개편 및 설정한 배경화면 연동</li>';
-  h+='<li>메뉴별 글자 크기·탭·여백과 등록·수정·설정 팝업의 표현 통일</li>';
-  h+='<li>작은 창과 확대 화면에서 입력칸·버튼이 잘리는 배치 보완</li>';
+  h+='<li>메인·서브 PC 연동 안정화: 커스텀 양식, 물품 대여 기록, 키오스크 설정과 대기 목록의 동기화 및 재접속 처리를 개선했습니다.</li>';
+  h+='<li>공유 연결 보안 강화: 메인 PC에서 복사한 보안 연결 주소로 서브 PC에 접속하도록 변경했습니다.</li>';
+  h+='<li>키오스크·바디맵 개선: 학년·반·이름 선택 흐름과 가독성을 개선하고, 안내 문구·알림음 설정 반영 및 바디맵의 좌우 표시·부위 선택·통증 입력을 보완했습니다.</li>';
+  h+='<li>개인정보 확인 및 과거 기록 편집 개선: 보호 중인 일지 내용을 잠시 확인한 뒤 다시 가리는 기능과 날짜·방문 이력에서 과거 기록을 편집하는 연결을 개선했습니다.</li>';
+  h+='<li>보건일지 화면 정리: 일반 일지·응급처치·감염병 목록의 검색, 업무 도구, 출력, 정렬 영역을 통일감 있게 정리했습니다.</li>';
+  h+='<li>백업·복원 안정화: 일부 데이터 복원 실패가 완료로 처리되던 문제를 수정하고, 커스텀 설정 백업·복원의 데이터 처리를 보완했습니다.</li>';
+  h+='<li>업데이트 후 서브 PC에서는 메인 PC의 환경설정에서 복사한 새 보안 연결 주소로 한 번 다시 접속해 주세요.</li>';
   h+='</ul></section></div>';
 
   /* ═══ 업데이트 카드 — 기존 _renderUpdateTabInline 통합 ═══ */

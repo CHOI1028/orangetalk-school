@@ -34,7 +34,7 @@ function _myName(){
 export function checkEditLock(recId){
   const rid = String(recId);
   return fetch(_base() + '/api/edit-lock?recordId=' + encodeURIComponent(rid), {
-    headers: { 'X-Session-Id': _sid() }, cache: 'no-store'
+    credentials: 'include', headers: { 'X-Session-Id': _sid() }, cache: 'no-store'
   })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ return (d && d.success) ? { locked: !!d.locked, name: d.name || '' } : { locked: false }; })
@@ -47,7 +47,7 @@ function _hbSend(){
   if(!_heldRecId) return;
   fetch(_base() + '/api/edit-lock', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Session-Id': _sid() },
+    credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-Session-Id': _sid() },
     body: JSON.stringify({ recordId: _heldRecId, name: _myName() })
   }).catch(function(){});
 }
@@ -68,7 +68,7 @@ export function releaseEditLock(){
   if(!rid) return;
   fetch(_base() + '/api/edit-unlock', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Session-Id': _sid() },
+    credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-Session-Id': _sid() },
     body: JSON.stringify({ recordId: rid })
   }).catch(function(){});
 }

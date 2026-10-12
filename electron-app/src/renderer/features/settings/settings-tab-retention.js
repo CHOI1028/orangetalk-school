@@ -4,6 +4,7 @@ import { escHtml, createEmptyState, showLoading, hideLoading } from '../../core/
 import { renderSettingsPanel } from './settings-view.js';
 import { bus } from '../../core/event-bus.js';
 import { S } from '../../core/app-state.js';
+import { refreshRentalShared, deleteSharedRentalRecords } from '../daily/rental-shared-store.js';
 import { makeSlideToDelete } from '../../core/ui-utils.js';
 
 /* ═══════════════════════════════════════
@@ -858,6 +859,7 @@ function _rentalSelectYearChip(yr){
   if(delBtn)delBtn.addEventListener('click',function(){_deleteRentalByYear(parseInt(this.dataset.year,10));});
 }
 async function _deleteRentalByYear(yr){
+  try{await refreshRentalShared();}catch(error){await _appAlert('공용 대여 연결 확인',escHtml(error.message));return;}
   const recs=JSON.parse(localStorage.getItem('ec_rental_records')||'[]');
   const matched=recs.filter(function(r){return _rentalAcademicYear(r.borrowDate)===yr;});
   if(!matched.length){await _appAlert('대여 기록 없음', yr+'학년도 대여 기록이 없습니다.');return;}
@@ -867,22 +869,22 @@ async function _deleteRentalByYear(yr){
     ? '<div style="margin-top:10px;padding:8px 10px;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.3);border-radius:6px;color:#ca8a04;font-size:11.5px">⚠ 현재 학년도 데이터입니다. 정말 삭제하시겠습니까?</div>'
     : '';
   const body='<div style="margin-bottom:8px"><b>'+yr+'</b>학년도 대여 기록 <b>'+matched.length+'</b>건을 삭제합니다.</div>'
-    +'<div style="font-size:11px;color:var(--t2)">삭제 후 되돌릴 수 없습니다.</div>'+warn;
+    +'<div style="font-size:11px;color:var(--t2)">연결된 모든 PC의 공용 대장에서 삭제되며 되돌릴 수 없습니다.</div>'+warn;
   const ok=await _appModal({title:yr+'학년도 대여 기록 삭제', body:body, okText:'삭제하기', cancelText:'취소', danger:true});
   if(!ok)return;
-  const kept=recs.filter(function(r){return _rentalAcademicYear(r.borrowDate)!==yr;});
-  localStorage.setItem('ec_rental_records',JSON.stringify(kept));
+  try{await deleteSharedRentalRecords(matched);}catch(error){await _appAlert('공용 삭제 미완료',escHtml(error.message));return;}
   bus.emit('toast:show',{text:'✅ '+yr+'학년도 대여 기록 '+matched.length+'건 삭제 완료'});
   renderSettingsPanel('retention');
 }
 async function _confirmRentalClearAll(){
+  try{await refreshRentalShared();}catch(error){await _appAlert('공용 대여 연결 확인',escHtml(error.message));return;}
   const recs=JSON.parse(localStorage.getItem('ec_rental_records')||'[]');
   if(!recs.length){await _appAlert('대여 기록 없음', '대여 기록이 없습니다.');return;}
   const body='<div style="margin-bottom:8px">물품 대여 대장의 모든 기록 <b>'+recs.length+'</b>건을 삭제합니다.</div>'
-    +'<div style="font-size:11px;color:var(--t2)">삭제 후 되돌릴 수 없습니다.</div>';
+    +'<div style="font-size:11px;color:var(--t2)">연결된 모든 PC의 공용 대장에서 삭제되며 되돌릴 수 없습니다.</div>';
   const ok=await _appModal({title:'대여 대장 전체 초기화', body:body, okText:'삭제하기', cancelText:'취소', danger:true});
   if(!ok)return;
-  localStorage.setItem('ec_rental_records','[]');
+  try{await deleteSharedRentalRecords(recs);}catch(error){await _appAlert('공용 삭제 미완료',escHtml(error.message));return;}
   bus.emit('toast:show',{text:'✅ 대여 대장 초기화 완료 ('+recs.length+'건 삭제)'});
   renderSettingsPanel('retention');
 }

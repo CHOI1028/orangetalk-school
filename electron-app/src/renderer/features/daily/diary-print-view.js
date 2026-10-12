@@ -10,7 +10,7 @@ import { bus } from '../../core/event-bus.js';
 import { dailyColEyeIcon, openClockPicker, cpCleanHandlers, closeClockPickerAnim, showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
 import { buildDeptStatsCover, buildDeptStatsSections, buildCounselStatsCover, buildCounselSummaryVertical } from './diary-print-cover.js';
 import { openPersonSearch } from '../../core/person-search-ui.js';
-import { openA4PrintDialog } from '../../core/a4-print-dialog.js';
+import { openA4PrintDialog, prepareA4PrintDocument } from '../../core/a4-print-dialog.js';
 import { tmGetPrintBlock, tmEnsureLoaded, tmGetMemoForExport } from './today-memo.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
 
@@ -1517,10 +1517,11 @@ async function _exportDailyExcel(){
 
 /* PDF 저장 — 미리보기 영역 HTML 을 Chromium printToPDF 로 인쇄. 같은 엔진이 렌더해
    셀 간격·폰트·페이지 나눔이 미리보기와 100% 일치 */
-/* 미리보기(#dpPreviewArea) → 인쇄/PDF 공용 A4 가로 문서 HTML 생성 (2026-06-15 추출).
+/* 미리보기(#dpPreviewArea) → 인쇄/PDF 공용 A4 문서 HTML 생성 (2026-06-15 추출).
  *  @page A4 가로·12mm 여백 + 제목 색상바 + 표 테두리 + 11pt 통일 + fit-to-width zoom.
  *  PDF 저장(printToPDF)·인쇄(openA4PrintDialog) 가 동일 HTML 사용 → "미리보기=PDF=인쇄" 일치. */
-function _dpBuildPrintDocHtml(){
+let _dpPrintLandscape=false;
+function _dpBuildPrintDocHtml(landscape=_dpPrintLandscape){
   const area=document.getElementById('dpPreviewArea');
   if(!area||!area.innerHTML.trim())return null;
   /* 상담 내역 개별 양식 — 세로 A4 상담기록지(표준 시트). 가로 표·표지 로직 건너뜀. (사용자 요청 2026-06-25) */
@@ -1536,8 +1537,7 @@ function _dpBuildPrintDocHtml(){
       + parts.globalCss
       + '</style></head><body>'+_coverHtml+parts.bodyHtml+'</body></html>';
   }
-  /* 모든 형식 A4 가로 (사용자 결정 2026-06-11 — 세로는 fit 축소로 글자가 깨알이 됨, 가로+11pt 로 통일) */
-  const landscape=true;
+  /* Default to portrait; regenerate column fitting when the preview orientation changes. */
   /* 제목 위·아래 색상바 블록 (Excel/Sheets 표지와 동일 팔레트)
      상단 파랑 70% + 노랑 30% / 하단 초록 30% + 빨강 70% */
   const _pdfHeadingText=(_dpFormat==='student'||_dpFormat==='counsel')?_dpRowTitleText():'보건일지';
@@ -1596,6 +1596,21 @@ function _dpBuildPrintDocHtml(){
   /* 방문자당 한 행(기본) 출력은 본문 상단에 이미 제목·학교명·기간이 있어 표지가 중복된다 → 표지 생략, 본문이 곧 첫 페이지.
      학생 개인(student)·상담 내역(counsel) 형식만 표지 페이지 유지. (사용자 요청 2026-08-06) */
   const _useCover=(_dpFormat==='student'||_dpFormat==='counsel');
+  /* A visit and its measurements form one native PDF page-break group. */
+  tmp.querySelectorAll('table[data-dp-main],table.dp-daily-detail').forEach(function(table){
+    Array.from(table.tBodies).forEach(function(body){
+      var group=null;
+      Array.from(body.rows).forEach(function(row){
+        if(!group||!row.matches('.dp-vs-subrow,.dp-pa-subrow')){
+          group=document.createElement('tbody');
+          group.className='dp-visit-group';
+          table.insertBefore(group,body);
+        }
+        group.appendChild(row);
+      });
+      body.remove();
+    });
+  });
   const bodyHtml=(_useCover?titleBlock:'')+tmp.innerHTML;
   const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>보건일지</title><style>'
     /* 앱 전역과 동일한 border-box — 미리보기와 PDF 의 열 폭 픽셀 일치의 전제.
@@ -1626,7 +1641,7 @@ function _dpBuildPrintDocHtml(){
     +'tr.dp-vs-subrow,tr.dp-pa-subrow{border-top:none !important}'
     +'tr.dp-vs-subrow>td,tr.dp-pa-subrow>td{border-top:none !important}'
     +'th,td{padding:4pt 6pt}'
-    +'thead{display:table-header-group}tr{page-break-inside:avoid}'
+    +'tbody.dp-visit-group{break-inside:avoid;page-break-inside:avoid}thead{display:table-header-group}tr{page-break-inside:avoid}'
     +'</style></head><body>'+bodyHtml+'</body></html>';
   return html;
 }
@@ -1714,11 +1729,11 @@ function exportDiaryPreviewPDF(){
   const from=document.getElementById('dpFrom').value, to=document.getElementById('dpTo').value;
   const fileName=_dpSaveBaseName(from,to)+'.pdf';   /* 사용자 규칙 파일명 (2026-06-10) */
   _dpShowExportProgress(_dpExportRecCount(),'PDF');
-  const _ls=!_dpIsCounselIndividual();   /* 개별 양식(상담기록지)은 세로 */
+  const _ls=_dpPrintPageOptions().landscape;
   /* ── 2단계 경로 (Electron): 생성 → 카운터 완주(n/n건) → 저장 다이얼로그.
    * 저장 창은 분자가 총건수에 도달한 뒤에만 뜬다 (사용자 요청 2026-08-12). ── */
   if(window.electronAPI.printToPDFGenerate&&window.electronAPI.printToPDFSave){
-    window.electronAPI.printToPDFGenerate(html,{landscape:_ls,marginsType:1}).then(function(res){
+    prepareA4PrintDocument(html,_dpPrintPageOptions()).then(function(doc){return window.electronAPI.printToPDFGenerate(doc.html,{landscape:_ls,preferCSSPageSize:true});}).then(function(res){
       if(!(res&&res.success)){
         _dpHideExportProgress();
         _dpExportFailModal('PDF 저장',(res&&res.error));
@@ -1739,7 +1754,7 @@ function exportDiaryPreviewPDF(){
     return;
   }
   /* ── 단일 호출 폴백 (웹 변형 등 2단계 API 미노출 환경) — 기존 동작 유지 ── */
-  window.electronAPI.printToPDF(html,{fileName:fileName,landscape:_ls,marginsType:1}).then(function(res){
+  prepareA4PrintDocument(html,_dpPrintPageOptions()).then(function(doc){return window.electronAPI.printToPDF(doc.html,{fileName:fileName,landscape:_ls,preferCSSPageSize:true});}).then(function(res){
     _dpHideExportProgress();
     if(res&&res.success){bus.emit('toast:show',{text:'PDF가 저장되었습니다.'});return;}
     if(res&&res.error==='cancelled')return;   /* 저장 다이얼로그에서 사용자가 취소 — 무음 */
@@ -1751,16 +1766,20 @@ function exportDiaryPreviewPDF(){
   });
 }
 
-/* 인쇄 — PDF 와 동일 HTML 을 응급기록지와 동일한 A4 인쇄 미리보기 다이얼로그(가로)로 열어 실제 출력.
+/* 인쇄 — PDF 와 동일 HTML 을 응급기록지와 동일한 A4 인쇄 미리보기 다이얼로그로 열어 실제 출력.
  *  사용자 요청 2026-06-15: 인쇄 버튼 → 미리보기 모달 → 프린터 지정 → 인쇄로 실제 출력. */
+function _dpPrintPageOptions(){
+  return _dpIsCounselIndividual()?{marginsMm:{top:20,bottom:20,left:12,right:12},landscape:false}:{marginsMm:{top:12,bottom:12,left:12,right:12},landscape:_dpPrintLandscape};
+}
 function printDiaryPreview(){
   const html=_dpBuildPrintDocHtml();
   if(!html){bus.emit('toast:show',{text:'먼저 미리보기를 실행하세요.'});return;}
-  if(_dpIsCounselIndividual()){
-    openA4PrintDialog({html:html, title:'상담 기록지', headerLabel:'상담 기록지 인쇄', marginsMm:{top:20,bottom:20,left:12,right:12}, landscape:false});
-    return;
-  }
-  openA4PrintDialog({html:html, title:'보건일지', headerLabel:'보건일지 인쇄', marginsMm:{top:12,bottom:12,left:12,right:12}, landscape:true});
+  const from=document.getElementById('dpFrom').value,to=document.getElementById('dpTo').value;
+  const directionOptions=_dpIsCounselIndividual()?{}:{
+    buildHtml:function(landscape){return _dpBuildPrintDocHtml(landscape);},
+    onOrientationChange:function(landscape){_dpPrintLandscape=landscape;}
+  };
+  openA4PrintDialog(Object.assign(_dpPrintPageOptions(),directionOptions,{html:html,title:_dpSaveBaseName(from,to),headerLabel:(_dpIsCounselIndividual()?'상담 기록지':'보건일지')+' 인쇄 미리보기'}));
 }
 
 function printDiaryDirect(){
@@ -2167,7 +2186,7 @@ export function openDiaryPrint(){
   /* Excel — 미세격자 정렬 빌더 (exportDiaryExcel/_exportDailyExcel + main.js 빌더) */
   h+='<button class="btn btn-sm" id="dpSaveExcel" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer">📊 Excel 저장</button>';
   /* 인쇄 — PDF 와 동일 HTML 을 응급기록지식 A4 인쇄 미리보기 다이얼로그(가로)로 출력 */
-  h+='<button class="btn btn-sm" id="dpPrint" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 인쇄</button>';
+  h+='<button class="btn btn-sm" id="dpPrint" style="padding:8px 16px;font-size:11.5px;font-weight:700;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer">인쇄 미리보기</button>';
   h+='</div>';
   h+='<div id="dpPreviewArea" style="flex:1;min-height:200px;margin:0;border:none;background:var(--bg2);padding:18px 24px;overflow-y:auto;scrollbar-width:thin"></div>';
   h+='</div>';

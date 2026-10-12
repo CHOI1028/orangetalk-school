@@ -87,7 +87,7 @@ function harness(options = {}) {
   nodes.get('dailyACList').innerHTML = '<div>old suggestion</div>';
   for (const id of options.disabled || []) nodes.get(id).disabled = true;
   const records = freeze(options.records || []);
-  const state = freeze({ records, settings:{schoolLevel:'high'}, _vipTags:{}, selectedDate: options.selectedDate || '2026-09-30' });
+  const state = { records, settings:{schoolLevel:'high'}, _vipTags:{}, selectedDate: options.selectedDate || '2026-09-30' };
   const storage = { getItem: key => key === 'ec_privacy_mode' && privacy ? '1' : null,
     setItem() { writes.push('localStorage.setItem'); throw Error('Read-only search must not save preferences'); } };
   const api = new Proxy({ recordsDailyByDateRange(from, to) {
@@ -97,7 +97,9 @@ function harness(options = {}) {
     return () => { writes.push(String(name)); throw Error('Unexpected API write: ' + String(name)); };
   } });
   const window = { electronAPI: api };
-  const context = vm.createContext({ document: { getElementById: id => nodes.get(id) || null },
+  const context = vm.createContext({ document: { body: new Element(), getElementById: id => nodes.get(id) || null },
+    resetDiaryPrivacy() {},
+    syncDailySelectedDate(date) { state.selectedDate = date; },
     window, localStorage: storage, S: state, structuredClone,
     bus: { emit: (...args) => events.push(args) },
     escHtml: value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]),
@@ -111,7 +113,9 @@ function harness(options = {}) {
   const controller = {
     init: context.initDailyPeriodSearch, open: context.openDailyPeriodSearch,
     close: context.closeDailyPeriodSearch, active: context.isDailyPeriodSearchActive,
-    refresh: context.refreshDailyPeriodSearch
+    refresh: context.refreshDailyPeriodSearch,
+    registrationDate: context.getDailyPeriodRegistrationDate,
+    selectDate: context.selectDailyPeriodDate
   };
   return { controller, node, state, records, events, calls, writes, timers, window,
     focused: () => focused,
@@ -174,7 +178,7 @@ test('initialization is idempotent and opening/closing restores editor controls 
   assert.equal(h.focused(), h.node('dailyPeriodFrom'));
   assert.equal(h.node('dailyACList').innerHTML, '');
   assert.equal(h.node('dailyCat-general').classList.contains('daily-period-active'), true);
-  controls.forEach(id => assert.equal(h.node(id).disabled, true));
+  controls.forEach(id => assert.equal(h.node(id).disabled, !['dailySearchInput', 'dailyAdvSearchBtn'].includes(id)));
   h.controller.open(); h.controller.init();
   assert.deepEqual(h.events, [['daily:period-open']]);
   assert.deepEqual(h.calls, []);
@@ -436,4 +440,32 @@ test('search, filtering, refresh, and close never modify the editor array, selec
   assert.deepEqual({ records, rows }, before);
   assert.deepEqual(h.writes, []);
   assert.deepEqual(h.calls, [['2026-09-01', '2026-09-30'], ['2026-09-01', '2026-09-30']]);
+});
+
+test('single-day queries choose their date for registrations without changing records', async () => {
+  const h=harness({rows:[visit(1)]});
+  h.controller.open();await h.submit('2026-09-15','2026-09-15');
+  assert.equal(h.controller.registrationDate(),'2026-09-15');
+  assert.match(h.node('dailyPeriodRegistrationDate').textContent,/2026-09-15/);
+  assert.equal(h.node('dailySearchInput').disabled,false);
+  assert.deepEqual(h.writes,[]);
+});
+test('multi-day queries retain the calendar date and identify dates outside the range', async () => {
+  const h=harness({selectedDate:'2026-08-22'});
+  h.controller.open();await h.submit('2026-09-01','2026-09-30');
+  assert.equal(h.controller.registrationDate(),'2026-08-22');
+  assert.match(h.node('dailyPeriodRegistrationDate').textContent,/조회기간 밖/);
+  h.state.selectedDate='2026-09-15';h.controller.selectDate('2026-09-15');
+  assert.equal(h.controller.registrationDate(),'2026-09-15');
+  assert.equal(h.node('dailyPeriodFrom').value,'2026-09-01');
+  assert.equal(h.node('dailyPeriodTo').value,'2026-09-30');
+  assert.equal(h.controller.active(),true);
+});
+test('calendar selection retargets an active single-day query', async () => {
+  const h=harness();
+  h.controller.open();await h.submit('2026-09-15','2026-09-15');
+  h.state.selectedDate='2026-09-16';h.controller.selectDate('2026-09-16');await settle();
+  assert.equal(h.node('dailyPeriodFrom').value,'2026-09-16');
+  assert.equal(h.node('dailyPeriodTo').value,'2026-09-16');
+  assert.deepEqual(h.calls.at(-1),['2026-09-16','2026-09-16']);
 });

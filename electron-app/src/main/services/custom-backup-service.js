@@ -68,7 +68,9 @@ class CustomBackupService {
     const cdObj = {};
     KEYS.collect('appDataCommonKeys', selectedIds).forEach(key => {
       try {
-        const val = this._store.get('common', key);
+        const stored = this._store.get('common', key);
+        const wrapped = stored && typeof stored === 'object' && typeof stored.exists === 'boolean' && Object.prototype.hasOwnProperty.call(stored, 'data');
+        const val = wrapped ? (stored.exists ? stored.data : undefined) : stored;
         if (key === 'public_data_api_key') {
           /* 공통 키는 미등록/명시적 비움 상태가 다르므로 wrapper 자체를 저장하지 않는다. */
           if (typeof val === 'string') cdObj[key] = val;
@@ -197,6 +199,10 @@ class CustomBackupService {
       Object.keys(cdObj).forEach(key => {
         try {
           let value = cdObj[key];
+          if (value && typeof value === 'object' && typeof value.exists === 'boolean' && Object.prototype.hasOwnProperty.call(value, 'data') && Object.keys(value).every(k => ['exists', 'data', 'updatedAt'].includes(k))) {
+            if (!value.exists) return;
+            value = value.data;
+          }
           if (key === 'public_data_api_key') {
             if (value && typeof value === 'object') {
               if (!value.exists) return;

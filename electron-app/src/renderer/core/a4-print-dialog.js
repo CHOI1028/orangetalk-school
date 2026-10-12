@@ -1,8 +1,8 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
-/* ═══ 공용 A4 세로 인쇄 미리보기 다이얼로그 (a4-print-dialog.js) ═══ */
+/* ═══ 공용 A4 인쇄 미리보기 다이얼로그 (a4-print-dialog.js) ═══ */
 /* ES Module
  *
- * 목적: "미리보기 = 실제 출력물" 한 치 오차 없음 + A4 세로 전용 인쇄 다이얼로그.
+ * 목적: "미리보기 = 실제 출력물" 한 치 오차 없음 + A4 인쇄 다이얼로그.
  *
  * 핵심 원리:
  *  - 실제 인쇄에 쓰는 동일한 HTML 을 격리된 <iframe> 에 그대로 렌더 → 미리보기가 곧 출력물.
@@ -28,14 +28,53 @@ function _isRcPrinter(n){ n=(n||'').toLowerCase(); return /slk|ts-?200|\bpos\b|�
  *   - 표가 페이지를 넘기면 그 표의 thead(섹션 제목줄)를 다음 페이지 상단에 다시 붙임(반복)
  *   - 제목줄만 페이지 끝에 남지 않도록 제목+첫 행이 안 들어가면 통째로 다음 페이지로 내림(고아 방지)
  *  반환: [pageBodyHtml, ...]  (실패 시 null → 단일 시트 폴백) */
-function _paginateWithHeaders(doc, pageH){
+function _freezePrintTableLayout(table) {
+  var win=table.ownerDocument.defaultView;
+  var zoom=parseFloat(win.getComputedStyle(table).zoom)||1;
+  var width=table.getBoundingClientRect().width/zoom;
+  var header=table.tHead&&table.tHead.rows[0];
+  var cols=Array.from(table.querySelectorAll(':scope > colgroup > col'));
+  // Read every width before writing any: each write can reflow all later columns.
+  var widths=header?Array.from(header.cells).map(function(cell){return cell.getBoundingClientRect().width/zoom;}):[];
+  table.style.setProperty('width',width+'px','important');
+  table.style.setProperty('table-layout','fixed','important');
+  if(cols.length===widths.length) cols.forEach(function(col,i){col.style.setProperty('width',widths[i]+'px','important');});
+  var body=table.ownerDocument.body, cs=win.getComputedStyle(body);
+  var available=body.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0)-3;
+  var actual=table.getBoundingClientRect().width;
+  if(available>0&&actual>available) table.style.setProperty('zoom',String(zoom*available/actual),'important');
+}
+function _groupPrintVisitRows(rows) {
+  var grouped=[], owner=null;
+  rows.forEach(function(row){
+    var attachment=row.node&&row.node.matches('.dp-vs-subrow,.dp-pa-subrow');
+    if(attachment&&owner&&owner.wrap) {
+      if(!owner.parts) owner.parts=[Object.assign({},owner)];
+      owner.parts.push(row); owner.html+=row.html; owner.h+=row.h;
+    } else { grouped.push(row); owner=row.wrap?row:null; }
+  });
+  return grouped;
+}
+function _printVisitContinuation(node) {
+  var clone=node.cloneNode(true);
+  clone.classList.add('dp-visit-continuation');
+  Array.from(clone.cells||[]).forEach(function(cell){
+    if(cell.classList.contains('dpx-l')) cell.textContent='(계속)';
+  });
+  return clone.outerHTML;
+}
+function _paginateWithHeaders(doc, pageH, preserveAttributes){
+  if(preserveAttributes==null) preserveAttributes=true;
   if(!doc||!doc.body) return null;
+  /* Body-embedded cell styles must survive every page, not only the first. */
+  Array.from(doc.body.querySelectorAll('style,link[rel="stylesheet"]')).forEach(function(style){ doc.head.appendChild(style); });
   var win=doc.defaultView||window;
   function H(el){ return el.getBoundingClientRect().height; }
   function MB(el){ try{ return parseFloat(win.getComputedStyle(el).marginBottom)||0; }catch(e){ return 0; } }
   var items=[];
   Array.prototype.forEach.call(doc.body.children, function(child){
     if((child.tagName||'').toLowerCase()==='table'){
+      _freezePrintTableLayout(child);
       var thead=child.querySelector(':scope > thead');
       var col=child.querySelector(':scope > colgroup');
       var rows=[];
@@ -46,7 +85,8 @@ function _paginateWithHeaders(doc, pageH){
         else if(stag==='tbody'){ Array.prototype.forEach.call(sec.children, function(tr){ if((tr.tagName||'').toLowerCase()==='tr') rows.push({html:tr.outerHTML, h:H(tr), wrap:true, node:tr}); }); }
         else if(stag==='tr'){ rows.push({html:sec.outerHTML, h:H(sec), wrap:true, node:sec}); }
       });
-      items.push({kind:'table', style:child.getAttribute('style')||'', col:col?col.outerHTML:'', thead:thead?thead.outerHTML:'', theadH:thead?H(thead):0, rows:rows, mb:MB(child)});
+      rows=_groupPrintVisitRows(rows);
+      items.push({kind:'table', attrs:preserveAttributes?Array.from(child.attributes).map(function(a){return ' '+a.name+'="'+escHtml(a.value)+'"';}).join(''):null, style:child.getAttribute('style')||'', col:col?col.outerHTML:'', thead:thead?thead.outerHTML:'', theadH:thead?H(thead):0, rows:rows, mb:MB(child)});
     } else {
       /* 명시적 페이지 브레이크(page-break-after:always / break-after:page) 감지 — 표지(.dp-pdf-cover) 등
        *  "이 블록으로 페이지를 끝내라"는 문서 의도를 재구성 시에도 존중 (사용자 보고 2026-08-27: 인쇄 표지 미분리) */
@@ -61,7 +101,7 @@ function _paginateWithHeaders(doc, pageH){
   var probe=doc.createElement('div');
   probe.style.cssText='position:absolute;left:-99999px;top:0;width:100%;visibility:hidden';
   doc.body.appendChild(probe);
-  function styleAttr(item){ return item.style?(' style="'+item.style.replace(/"/g,'&quot;')+'"'):''; }
+  function styleAttr(item){ if(item.attrs!==null) return item.attrs; return item.style?(' style="'+item.style.replace(/"/g,'&quot;')+'"'):''; }
   function longCellIdx(node){ var idx=0,max=-1; for(var j=0;j<node.children.length;j++){ var t=(node.children[j].textContent||'').length; if(t>max){max=t;idx=j;} } return idx; }
   function rowHtmlWith(node, idx, text){   /* 긴 셀(idx)만 text 로 바꾸고 나머지 셀(라벨 등)은 그대로 → 라벨이 매 페이지 반복 */
     var clone=node.cloneNode(true);
@@ -116,6 +156,31 @@ function _paginateWithHeaders(doc, pageH){
     function pushChunk(){ if(chunkRows.length){ cur.push('<table'+styleAttr(item)+'>'+item.col+item.thead+renderRows(chunkRows)+'</table>'); chunkRows=[]; } }
     while(i<item.rows.length){
       var row=item.rows[i];
+      if(row.parts&&row.h>maxRow){
+        var carry=_printVisitContinuation(row.node);
+        var parts=row.parts.map(function(part,index){ return Object.assign({},part,{attachment:index>0,carry:carry}); });
+        item.rows.splice.apply(item.rows,[i,1].concat(parts));
+        continue;
+      }
+      if(row.attachment&&row.h>maxRow&&row.node.querySelector("table")){
+        var nested=row.node.querySelector("table"), nestedRows=Array.from(nested.rows);
+        if(nestedRows.length>2){
+          var pieces=nestedRows.slice(1).map(function(dataRow){
+            var clone=row.node.cloneNode(true);
+            clone.querySelector("table").innerHTML=nestedRows[0].outerHTML+dataRow.outerHTML;
+            var markup=clone.outerHTML;
+            return {html:markup,h:measureRowHtml(item,markup),wrap:true,node:clone,attachment:true,carry:row.carry};
+          });
+          item.rows.splice.apply(item.rows,[i,1].concat(pieces));
+          continue;
+        }
+      }
+      if(row.attachment&&(used===0||used+row.h+(chunkRows.length?0:item.theadH)>pageH)){
+        pushChunk(); if(used>0) flush();
+        used+=item.theadH;
+        chunkRows.push({html:row.carry,wrap:true});
+        used+=measureRowHtml(item,row.carry);
+      }
       if(row.h<=maxRow){
         /* 일반 행 */
         if(!chunkRows.length){ if(used>0 && used+item.theadH+row.h>pageH) flush(); used+=item.theadH; }   /* 새 표 시작 → 제목 1회(고아 방지) */
@@ -154,22 +219,28 @@ function _ppHeightMm(mm, pageHmm){ var t=(mm&&mm.top)||0, b=(mm&&mm.bottom)||0; 
 
 /* 측정용 iframe 으로 페이지별 본문 HTML 재구성 (폰트 로드 후). 반환 Promise<{headHtml, pages:[bodyHtml]}>. */
 function _measureAndPaginate(html, contentW, packH){
-  return new Promise(function(resolve){
-    var meas=document.createElement('iframe');
+  return new Promise(function(resolve,reject){
+    var meas=document.createElement('iframe'), finished=false;
+    meas.setAttribute('sandbox','allow-same-origin');
     meas.setAttribute('scrolling','no');
-    meas.style.cssText='position:fixed;left:-99999px;top:0;width:'+contentW+'px;height:10px;border:0;visibility:hidden';
-    meas.srcdoc=html;
-    meas.onload=function(){
-      var done=function(){
-        var headHtml='', pages=null;
-        try{ var d=meas.contentDocument; headHtml=d.head?d.head.innerHTML:''; pages=_paginateWithHeaders(d, packH); }catch(e){ pages=null; }
-        try{ meas.remove(); }catch(e){}
-        resolve({headHtml:headHtml, pages:pages});
-      };
-      var fr=null; try{ fr=meas.contentWindow.document.fonts; }catch(e){}
-      if(fr&&fr.ready&&fr.ready.then){ fr.ready.then(done).catch(done); } else { done(); }
+    meas.setAttribute('aria-hidden','true');
+    meas.style.cssText='position:fixed;left:-99999px;top:0;width:'+contentW+'px;height:900px;border:0;visibility:hidden';
+    function finish(error,result){if(finished)return;finished=true;clearTimeout(timer);meas.remove();if(error)reject(error);else resolve(result);}
+    var timer=setTimeout(function(){finish(new Error('인쇄 문서 준비 시간이 초과되었습니다. 다시 시도해 주세요.'));},30000);
+    meas.onload=async function(){
+      try{
+        var d=meas.contentDocument;
+        if(!d||!d.body)throw new Error('인쇄 문서를 불러오지 못했습니다.');
+        d.documentElement.style.overflow='hidden';
+        if(d.fonts)await d.fonts.ready;
+        await Promise.all(Array.from(d.images).map(function(img){return img.complete?Promise.resolve():new Promise(function(r){img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});});}));
+        if(finished)return;
+        var pages=_paginateWithHeaders(d,packH);
+        if(!pages||!pages.length)throw new Error('출력할 내용이 없습니다.');
+        finish(null,{headHtml:d.head.innerHTML,pages:pages});
+      }catch(error){finish(error);}
     };
-    document.body.appendChild(meas);
+    meas.srcdoc=html;document.body.appendChild(meas);
   });
 }
 
@@ -233,12 +304,13 @@ function _doA4Print(html, title, deviceName, cssMargins, landscape){
 /* PDF 저장 — 인쇄와 동일한 html 을 Chromium printToPDF 로 렌더 → 출력물과 동일한 PDF.
  * cssMargins=false(기본): @page margin:0 + 내부 padding 전제 → marginsType:1(none).
  * cssMargins=true: preferCSSPageSize:true 로 html 의 @page size/margin(20mm 등)을 매 페이지에 그대로 적용. */
-function _doA4Pdf(html, title, cssMargins){
+function _doA4Pdf(html, title, cssMargins, landscape){
   if(!(window.electronAPI&&window.electronAPI.printToPDF)){ alert('PDF 저장 기능을 사용할 수 없습니다.'); return; }
   const fileName=(title||'문서').replace(/[\\\/:*?"<>|]/g,'_')+'.pdf';
   const pdfOpts=cssMargins
     ? {fileName:fileName, pageSize:'A4', printBackground:true, preferCSSPageSize:true, marginsType:0}
     : {fileName:fileName, pageSize:'A4', marginsType:1, printBackground:true};
+  if(typeof landscape==='boolean')pdfOpts.landscape=landscape;
   return window.electronAPI.printToPDF(html,pdfOpts)
     .then(function(res){ if(res&&!res.success&&res.error!=='cancelled') alert('PDF 저장 실패: '+(res.error||'')); return res; })
     .catch(function(e){ alert('PDF 저장 오류: '+(e&&e.message||e)); });
@@ -270,98 +342,120 @@ export function saveA4Pdf(opts){
   });
 }
 
-/* 공개 API — A4 세로 인쇄 미리보기 다이얼로그 열기.
+/* 공개 API — A4 인쇄 미리보기 다이얼로그 열기.
  * opts: { html (필수, 완전한 인쇄 HTML), title (인쇄 작업/파일명), headerLabel (다이얼로그 제목) } */
 export function openA4PrintDialog(opts){
-  opts=opts||{};
-  var html=opts.html; if(!html)return;
-  var title=opts.title||'';
-  var headerLabel=opts.headerLabel||'인쇄';
-  var landscape=!!opts.landscape;   /* 가로(A4 297×210) 모드 — 보건일지 출력 등 (2026-06-15) */
-  /* 기존 잔재 제거 */
-  ['a4PvBd','a4PvCard'].forEach(function(id){var e=document.getElementById(id);if(e)e.remove();});
-
-  /* 배경 + 카드를 따로 띄움(방문확인증 다이얼로그와 동일 구조) — 최상위 z-index 로 확실히 표시 */
-  var bd=document.createElement('div');
-  bd.id='a4PvBd';
-  bd.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(15,23,42,0.62);z-index:2147482999';
-
-  var card=document.createElement('div');
-  card.id='a4PvCard';
-  card.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;max-width:92vw;max-height:92vh;overflow:hidden;z-index:2147483000;font-family:"Malgun Gothic","맑은 고딕",sans-serif';
-
-  var _close=function(){ var a=document.getElementById('a4PvBd'); if(a)a.remove(); var b=document.getElementById('a4PvCard'); if(b)b.remove(); };
-  bd.addEventListener('click',_close);
-
-  var hdr=document.createElement('div');
-  hdr.style.cssText='padding:13px 20px;border-bottom:1px solid #e5e7eb;background:#f9fafb;font-size:14px;font-weight:800;color:#111;flex:none';
-  hdr.innerHTML='🖨 '+escHtml(headerLabel)+' <span style="font-size:11px;font-weight:600;color:#64748b">· '+(landscape?'A4 가로':'A4 세로')+'</span>';
-  card.appendChild(hdr);
-
-  var body=document.createElement('div');
-  body.style.cssText='padding:18px;background:#e2e8f0;overflow:auto;display:flex;flex-direction:column;align-items:center;gap:14px;flex:1 1 auto';
-  var pageHmm=landscape?210:297;                   /* 페이지 높이(mm) — 페이지네이션·시트 높이 기준 */
-  var mmToPx=794/210;                              /* px per mm @96dpi (방향 무관 상수) */
-  var A4W=Math.round((landscape?297:210)*mmToPx);  /* 페이지 폭 px (가로 ≈1123 / 세로 794) — 인쇄 콘텐츠 폭과 동일 */
-  var A4H=Math.round((landscape?210:297)*mmToPx);  /* 페이지 높이 px (가로 794 / 세로 ≈1123) */
-  /* @page 여백(mm) — 지정 시 미리보기 시트에 그 여백을 그대로 반영(본문 폭·페이지당 높이 축소).
-   *  미지정(기본 호출자)이면 0 → html 내부 padding 이 여백 역할(기존 동작 유지). */
-  var mm=opts.marginsMm||null;
-  var cssMargins=!!opts.cssMargins||!!mm;
-  var mTop=Math.round(((mm&&mm.top)||0)*mmToPx),    mBottom=Math.round(((mm&&mm.bottom)||0)*mmToPx);
-  var mLeft=Math.round(((mm&&mm.left)||0)*mmToPx),  mRight=Math.round(((mm&&mm.right)||0)*mmToPx);
-  var contentW=A4W-mLeft-mRight;                          /* 실제 본문(인쇄 가능) 폭 → 줄바꿈 일치 */
-  var ppHpx=cssMargins?Math.round(_ppHeightMm(mm, pageHmm)*mmToPx):(A4H-mTop-mBottom);  /* 페이지당 본문(콘텐츠) 높이 */
-  var packH=cssMargins?(ppHpx-18):ppHpx;                  /* 재구성 시 채울 높이(쪽번호 footer 여유 18px) */
-  var dispW=Math.min(landscape?820:560, Math.max(300, window.innerWidth*(landscape?0.68:0.5)));
-  var scale=dispW/A4W;
-  var printDoc=html;  /* 인쇄 버튼이 쓸 문서 — cssMargins 면 쪽번호 페이지 분할 문서로 교체 */
-
-  /* 페이지 1장 = A4 시트. 본문은 여백(mLeft,mTop) 안쪽에 두고, 클립은 시트 우/하단 끝까지 넓혀
-   *  표의 오른쪽·아래쪽 1px 테두리가 잘리지 않게 한다(본문 폭 바깥은 빈 여백). pageHtml 은 완전한 <html> 문서. */
-  function _makeSheet(pageHtml){
-    var sheet=document.createElement('div');
-    sheet.style.cssText='position:relative;width:'+dispW+'px;height:'+Math.round(A4H*scale)+'px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.22);overflow:hidden;flex:none';
-    var clip=document.createElement('div');
-    clip.style.cssText='position:absolute;left:'+Math.round(mLeft*scale)+'px;top:'+Math.round(mTop*scale)+'px;width:'+Math.round((A4W-mLeft)*scale)+'px;height:'+Math.round((A4H-mTop)*scale)+'px;overflow:hidden';
-    var pifr=document.createElement('iframe');
-    pifr.setAttribute('scrolling','no');
-    pifr.style.cssText='width:'+contentW+'px;height:'+(A4H-mTop)+'px;border:0;background:#fff;transform:scale('+scale+');transform-origin:top left;display:block';
-    pifr.srcdoc=pageHtml;
-    clip.appendChild(pifr);
-    sheet.appendChild(clip);
-    return sheet;
+  opts=opts||{};if(!opts.html)return;
+  var existing=document.getElementById('a4PvCard');if(existing&&existing._closePreview)existing._closePreview();
+  ['a4PvBd','a4PvCard'].forEach(function(id){var el=document.getElementById(id);if(el)el.remove();});
+  var previousFocus=document.activeElement, closed=false, busy=false, prepared=null, current=0, loadId=0, prepareId=0;
+  var landscape=opts.landscape===true, canRotate=typeof opts.buildHtml==='function';
+  var bd=document.createElement('div');bd.id='a4PvBd';bd.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2147482999';
+  var card=document.createElement('section');card.id='a4PvCard';card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');card.setAttribute('aria-labelledby','a4PvTitle');card.tabIndex=-1;
+  card.style.cssText='position:fixed;inset:4vh 4vw;border-radius:14px;box-shadow:0 20px 70px #0005;display:flex;flex-direction:column;overflow:hidden;z-index:2147483000;font-family:"Malgun Gothic","맑은 고딕",sans-serif';
+  card.innerHTML='<style>#a4PvCard{background:#fff;color:#172b3a}#a4PvCard .a4-subtitle{color:#64748b}#a4PvCard *{box-sizing:border-box}#a4PvCard button,#a4PvCard select,#a4PvCard input{font:inherit;color:inherit;background:#fff;border:1px solid #cbd5e1;border-radius:7px;padding:7px 11px;min-height:34px}#a4PvCard button{cursor:pointer;font-weight:700}#a4PvCard button:disabled{opacity:.45;cursor:default}#a4PvCard :focus-visible{outline:2px solid #397b9c;outline-offset:2px}#a4PvCard .a4-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:#f5f8fa;border-bottom:1px solid #dbe3e9;font-size:12px;flex:none}#a4PvCard [data-act=go]{background:#156f69;border-color:#156f69;color:white}#a4PvCard [data-act=pdf]{background:#edf7f5;border-color:#a8cec6;color:#185b54}#a4PvCard .a4-stage{min-height:0;flex:1;overflow:auto;background:#dfe6eb;padding:20px;text-align:center}#a4PvCard .a4-sheet{position:relative;display:inline-block;background:white;box-shadow:0 3px 18px #26374733;text-align:left;overflow:hidden}#a4PvCard .a4-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-top:1px solid #dbe3e9;font-size:12px}#a4PvCard [data-role=status]{margin-right:auto;color:#526679}#a4PvCard[data-dark=true]{background:#203039;color:#edf4f6}#a4PvCard[data-dark=true] .a4-tools{background:#263a44;border-color:#47606b}#a4PvCard[data-dark=true] button,#a4PvCard[data-dark=true] select,#a4PvCard[data-dark=true] input{background:#304853;color:#edf4f6;border-color:#607782}#a4PvCard[data-dark=true] .a4-stage{background:#17262d}#a4PvCard[data-dark=true] .a4-subtitle{color:#c5d5df}#a4PvCard[data-dark=true] header,#a4PvCard[data-dark=true] .a4-foot{border-color:#47606b!important}#a4PvCard[data-dark=true] [data-act=go]{background:#247e76;border-color:#489e94;color:#fff}#a4PvCard[data-dark=true] [data-role=status]{color:#cfdae2}@media(max-width:600px){#a4PvCard{inset:8px!important;border-radius:10px!important}#a4PvCard .a4-stage{padding:10px}#a4PvCard .a4-foot{padding:10px}#a4PvCard [data-role=status]{flex-basis:100%}}</style>'
+    +'<header style="display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid #dbe3e9;flex:none"><div style="flex:1"><h2 id="a4PvTitle" style="margin:0;font-size:17px">'+escHtml(opts.headerLabel||'인쇄 미리보기')+'</h2><div class="a4-subtitle" style="margin-top:5px;font-size:12px">페이지 구분과 잘림을 확인한 뒤 저장하거나 인쇄하세요.</div></div><button data-act="close" aria-label="인쇄 미리보기 닫기">닫기</button></header>'
+    +'<nav class="a4-tools" aria-label="미리보기 페이지와 확대"><button data-act="prev" disabled>이전</button><label><input data-role="page" aria-label="페이지 번호" type="number" min="1" value="1" style="width:68px" disabled> / <span data-role="total">-</span> 페이지</label><button data-act="next" disabled>다음</button><span style="flex:1"></span>'+(canRotate?'<label>용지 방향 <select data-role="orientation" aria-label="용지 방향"><option value="portrait">A4 세로</option><option value="landscape">A4 가로</option></select></label>':'<span>'+(landscape?'A4 가로':'A4 세로')+'</span>')+'<select data-role="zoom" aria-label="미리보기 확대" disabled><option value="fit">너비 맞춤</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select></nav>'
+    +'<div class="a4-stage" tabindex="0" aria-label="출력 페이지"><div style="padding:40px;font-size:14px">페이지를 준비하고 있습니다.</div></div>'
+    +'<div class="a4-foot" role="group" aria-label="출력 작업"><span data-role="status" role="status" aria-live="polite">문서를 준비하는 동안 잠시 기다려 주세요.</span><label data-role="printer-label">프린터 <select id="a4PvPrinter" style="max-width:200px"><option value="">인쇄창에서 선택</option></select></label><button data-act="pdf" disabled>PDF 저장</button><button data-act="go" disabled>인쇄</button></div>';
+  card.dataset.dark=String(!document.body.classList.contains('light'));
+  var stage=card.querySelector('.a4-stage'), status=card.querySelector('[data-role=status]'), pageInput=card.querySelector('[data-role=page]'), zoom=card.querySelector('[data-role=zoom]');
+  var orientation=card.querySelector('[data-role=orientation]');
+  if(orientation)orientation.value=landscape?'landscape':'portrait';
+  var observer=null;
+  function close(){if(busy)return;closed=true;loadId++;prepareId++;if(observer)observer.disconnect();document.removeEventListener('keydown',key,true);bd.remove();card.remove();if(previousFocus&&previousFocus.isConnected)previousFocus.focus();}
+  card._closePreview=close;
+  function controls(){
+    card.querySelector('[data-act=prev]').disabled=!prepared||busy||current===0;
+    card.querySelector('[data-act=next]').disabled=!prepared||busy||current===prepared.pages.length-1;
+    pageInput.disabled=zoom.disabled=!prepared||busy;
+    card.querySelector('[data-act=pdf]').disabled=card.querySelector('[data-act=go]').disabled=!prepared||busy;
+    card.querySelector('[data-act=close]').disabled=busy;
+    if(orientation)orientation.disabled=busy;
   }
-
-  /* 측정용 iframe 으로 페이지별 본문 재구성 → 시트 쌓기. cssMargins 면 쪽번호 footer 가 박힌 페이지 문서로 렌더. */
-  _measureAndPaginate(html, contentW, packH).then(function(r){
-    var pages=r.pages, headHtml=r.headHtml;
-    if(!pages||!pages.length){ body.appendChild(_makeSheet(html, ppHpx)); return; }   /* 폴백: 원본 단일 시트 */
-    if(cssMargins){
-      printDoc=_buildPaginatedDoc(headHtml, pages, mm, undefined, undefined, pageHmm);
-      pages.forEach(function(p,idx){ body.appendChild(_makeSheet(_buildPaginatedDoc(headHtml,[p],mm,idx+1,pages.length,pageHmm), ppHpx)); });
-    } else {
-      pages.forEach(function(p){ body.appendChild(_makeSheet('<!DOCTYPE html><html><head>'+headHtml+'</head><body>'+p+'</body></html>', ppHpx)); });
+  function key(e){
+    if(closed)return;
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+    if(e.key==='Tab'){
+      var focusable=Array.from(card.querySelectorAll('button,input,select,[tabindex="0"]')).filter(function(el){return !el.disabled&&el.getClientRects().length;});
+      var first=focusable[0],last=focusable[focusable.length-1];
+      if(e.shiftKey&&(document.activeElement===first||document.activeElement===card)){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
     }
-  });
-  card.appendChild(body);
+    if(prepared&&!busy&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&/^(ArrowLeft|ArrowRight)$/.test(e.key)){e.preventDefault();show(current+(e.key==='ArrowLeft'?-1:1));}
+  }
+  function sizeSheet(){
+    var sheet=stage.querySelector('.a4-sheet');if(!sheet||!prepared)return;
+    var l=prepared.layout, px=96/25.4, scale=zoom.value==='fit'?Math.min(1.25,Math.max(.15,(stage.clientWidth-42)/(l.widthMm*px))):Number(zoom.value);
+    sheet.style.width=(l.widthMm*px*scale)+'px';sheet.style.height=(l.heightMm*px*scale)+'px';
+    var frame=sheet.querySelector('iframe');frame.style.left=((l.marginsMm.left||0)*px*scale)+'px';frame.style.top=((l.marginsMm.top||0)*px*scale)+'px';frame.style.transform='scale('+scale+')';
+  }
+  function show(index){
+    if(!prepared||closed)return;current=Math.max(0,Math.min(prepared.pages.length-1,index));var ticket=++loadId;
+    pageInput.value=current+1;card.dataset.page=String(current+1);controls();
+    var sheet=document.createElement('div');sheet.className='a4-sheet';
+    var frame=document.createElement('iframe');frame.title=(current+1)+'페이지 미리보기';frame.setAttribute('sandbox','allow-same-origin');frame.setAttribute('scrolling','no');
+    frame.style.cssText='position:absolute;border:0;background:white;transform-origin:top left;width:'+prepared.layout.contentW+'px;height:'+prepared.layout.contentH+'px';
+    frame.srcdoc=_buildPaginatedDoc(prepared.headHtml,[prepared.pages[current]],prepared.layout.marginsMm,current+1,prepared.pages.length,prepared.layout.heightMm);
+    frame.onload=function(){if(ticket!==loadId||closed)return;frame.contentDocument.addEventListener('keydown',key,true);status.textContent=(current+1)+' / '+prepared.pages.length+'페이지 · 미리보기와 동일한 문서로 출력합니다.';};
+    sheet.appendChild(frame);stage.replaceChildren(sheet);stage.scrollTop=0;stage.scrollLeft=0;sizeSheet();
+  }
+  async function output(kind){
+    if(!prepared||busy)return;busy=true;controls();status.textContent=kind==='pdf'?'PDF를 저장하고 있습니다.':'인쇄창을 준비하고 있습니다.';
+    try{
+      var res=kind==='pdf'?await _doA4Pdf(prepared.html,opts.title,true,prepared.layout.landscape):await _doA4Print(prepared.html,opts.title,card.querySelector('#a4PvPrinter').value||undefined,true,prepared.layout.landscape);
+      status.textContent=res&&(res.cancelled||res.error==='cancelled')?'출력이 취소되었습니다.':res&&res.success?(kind==='pdf'?'PDF 저장이 완료되었습니다.':'인쇄 요청을 전달했습니다.'):'출력을 완료하지 못했습니다. 다시 시도해 주세요.';
+    }catch(error){status.textContent='출력 실패: '+(error.message||error);}
+    finally{busy=false;controls();}
+  }
+  card.querySelector('[data-act=close]').onclick=close;bd.onclick=close;
+  card.querySelector('[data-act=prev]').onclick=function(){show(current-1);};card.querySelector('[data-act=next]').onclick=function(){show(current+1);};
+  pageInput.onchange=function(){show((Number(pageInput.value)||1)-1);};zoom.onchange=sizeSheet;
+  card.querySelector('[data-act=pdf]').onclick=function(){output('pdf');};card.querySelector('[data-act=go]').onclick=function(){output('print');};
+  document.body.append(bd,card);document.addEventListener('keydown',key,true);card.querySelector('[data-act=close]').focus();
+  if(window.ResizeObserver){observer=new ResizeObserver(sizeSheet);observer.observe(stage);}
+  if(window.electronAPI&&window.electronAPI.listPrinters)_fillA4Printer(card.querySelector('#a4PvPrinter'));else card.querySelector('[data-role=printer-label]').hidden=true;
+  async function prepare(nextLandscape){
+    var ticket=++prepareId;landscape=nextLandscape===true;prepared=null;loadId++;
+    delete card.dataset.pageCount;delete card.dataset.page;delete card.dataset.orientation;
+    pageInput.value=1;card.querySelector('[data-role=total]').textContent='-';
+    stage.textContent='페이지를 준비하고 있습니다.';status.textContent='선택한 용지 방향에 맞춰 페이지를 다시 계산합니다.';controls();
+    try{
+      var html=canRotate?await opts.buildHtml(landscape):opts.html;
+      if(closed||ticket!==prepareId)return;
+      var result=await prepareA4PrintDocument(html,Object.assign({},opts,{landscape:landscape}));
+      if(closed||ticket!==prepareId)return;
+      prepared=result;card.dataset.orientation=result.layout.landscape?'landscape':'portrait';
+      card.dataset.pageCount=String(result.pages.length);card.querySelector('[data-role=total]').textContent=result.pages.length;pageInput.max=result.pages.length;
+      if(typeof opts.onOrientationChange==='function')opts.onOrientationChange(result.layout.landscape);
+      show(0);
+    }catch(error){if(closed||ticket!==prepareId)return;prepared=null;stage.textContent='미리보기를 만들지 못했습니다.';status.textContent=error.message||String(error);controls();}
+  }
+  if(orientation)orientation.onchange=function(){prepare(orientation.value==='landscape');};
+  prepare(landscape);
+}
 
-  var foot=document.createElement('div');
-  foot.style.cssText='display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:13px 20px;border-top:1px solid #e5e7eb;background:#f9fafb;flex-wrap:wrap;flex:none';
-  foot.innerHTML='<span style="font-size:12px;font-weight:700;color:#334155">프린터</span>'
-    +'<select id="a4PvPrinter" style="font-size:12px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;min-width:160px;max-width:240px;flex:0 1 auto"><option value="">기본 프린터</option></select>'
-    +'<span style="flex:1 1 auto"></span>'
-    +'<button class="btn-print" data-act="go">🖨 인쇄</button>';
-  card.appendChild(foot);
+/* Browser PDF capture reuses row-aware pagination without changing desktop output. */
+export function paginatePrintDocument(doc, pageHeight){
+  return _paginateWithHeaders(doc, pageHeight, true);
+}
 
-  document.body.appendChild(bd);
-  document.body.appendChild(card);
-  _fillA4Printer(document.getElementById('a4PvPrinter'));
-  foot.querySelector('[data-act="go"]').addEventListener('click',function(){
-    var sel=document.getElementById('a4PvPrinter');
-    var dev=(sel&&sel.value)||undefined;
-    if(dev){try{window.electronAPI.settingsSet('a4_printer',dev);}catch(_e){}}
-    _close();
-    _doA4Print(printDoc, title, dev, cssMargins, landscape);   /* cssMargins 면 쪽번호 페이지 분할 문서를 인쇄, landscape 면 가로 출력 */
+/* One measured document is shared by the preview, printer and both PDF paths. */
+export function prepareA4PrintDocument(html,opts){
+  opts=opts||{};
+  if(typeof html!=='string'||!html.trim())return Promise.reject(new Error('출력할 내용이 없습니다.'));
+  var landscape=!!opts.landscape, mm=opts.marginsMm||{top:0,right:0,bottom:0,left:0};
+  var widthMm=landscape?297:210, heightMm=landscape?210:297, px=96/25.4;
+  var contentW=Math.floor((widthMm-(mm.left||0)-(mm.right||0))*px);
+  var contentH=Math.floor((heightMm-(mm.top||0)-(mm.bottom||0))*px);
+  var packH=Math.floor(_ppHeightMm(mm,heightMm)*px)-20;
+  if(contentW<75||packH<75)return Promise.reject(new Error('용지 여백이 너무 큽니다.'));
+  return _measureAndPaginate(html,contentW,packH).then(function(r){
+    var layout={landscape:landscape,marginsMm:mm,widthMm:widthMm,heightMm:heightMm,contentW:contentW,contentH:contentH};
+    var pageCss='<style>@page{size:A4 '+(landscape?'landscape':'portrait')+';margin:'+(mm.top||0)+'mm '+(mm.right||0)+'mm '+(mm.bottom||0)+'mm '+(mm.left||0)+'mm}html{overflow:hidden}body{margin:0}.a4pp{width:'+contentW+'px;max-width:100%;}.a4pf{line-height:14px}</style>';
+    var head=r.headHtml+pageCss;
+    var doc=_buildPaginatedDoc(head,r.pages,mm,undefined,undefined,heightMm);
+    doc=doc.replace('<html>','<html data-a4-prepared="1" data-a4-layout="'+escHtml(JSON.stringify(layout))+'">');
+    return {html:doc,headHtml:head,pages:r.pages,layout:layout};
   });
 }

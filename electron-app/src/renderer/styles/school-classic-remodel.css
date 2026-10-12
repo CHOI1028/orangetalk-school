@@ -1347,16 +1347,16 @@
     white-space: nowrap !important;
   }
 
-  body.school-interface.school-classic #view-daily #dailyToolbarWrap {
+  body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) {
     margin: 0 0 14px !important;
     padding: 0 !important;
     border: 0;
     background: transparent;
   }
 
-  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-record-tools {
+  body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-record-tools {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(var(--school-tool-columns,4), minmax(0, 1fr)) !important;
     grid-template-areas: none !important;
     align-items: stretch;
     gap: 10px !important;
@@ -1365,7 +1365,7 @@
     margin: 0;
   }
 
-  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-group {
+  body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-tool-group {
     grid-area: auto !important;
     display: flex !important;
     flex-direction: column !important;
@@ -1382,7 +1382,7 @@
     background: var(--bg2);
   }
 
-  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-label {
+  body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-tool-label {
     display: block;
     flex: 0 0 auto !important;
     width: auto;
@@ -1394,7 +1394,7 @@
     line-height: 1.4;
   }
 
-  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-controls {
+  body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-tool-controls {
     display: flex !important;
     flex: 0 0 auto;
     flex-wrap: wrap;
@@ -1406,7 +1406,7 @@
     padding: 0;
   }
 
-  body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-tool-controls > button {
+  body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-tool-controls > button {
     flex: 0 0 auto !important;
     min-height: 32px;
     height: auto;
@@ -1417,13 +1417,13 @@
   }
 
   @container (max-width: 1100px) {
-    body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-record-tools {
+    body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-record-tools {
       grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
   }
 
   @container (max-width: 620px) {
-    body.school-interface.school-classic #view-daily #dailyToolbarWrap .school-record-tools {
+    body.school-interface.school-classic #view-daily :is(#dailyToolbarWrap,.school-record-toolbar) .school-record-tools {
       grid-template-columns: minmax(0, 1fr) !important;
     }
 
@@ -3019,4 +3019,246 @@
   body.school-interface.school-classic #homeWidgetArea .school-widget-connect-note { display:flex; flex-direction:column; align-items:flex-start; gap:9px; padding-top:12px; margin-top:14px; border-top:1px solid var(--widget-ui-line); }
   body.school-interface.school-classic #homeWidgetArea .school-widget-connect-note > span { display:flex; align-items:center; gap:7px; color:var(--widget-ui-muted); font-size:10px; line-height:1.7; }
   body.school-interface.school-classic #homeWidgetArea .school-widget-connect-note svg { flex:0 0 15px; width:15px; height:15px; color:var(--widget-ui-accent); }
+}
+
+
+/* Shared diary readability: screen only; retain column settings and record behaviour. */
+@media screen {
+  body.school-interface #view-daily.school-record-refined {
+    --record-action: var(--cyan);
+    --record-action-soft: color-mix(in srgb, var(--record-action) 9%, var(--card));
+    --record-action-line: color-mix(in srgb, var(--record-action) 32%, var(--bdr));
+  }
+
+  /* Direct cells only: nested vital-sign tables and empty-state layouts are unchanged. */
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable, #ecListTable, #infListTable) > thead > tr > th[data-col-index]:not(.col-hidden):not(.memo-glyph-hidden) {
+    padding-block: 10px;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.5;
+    color: var(--t2);
+    text-align: center;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable, #ecListTable, #infListTable) > tbody > tr > td[data-col-index]:not(.col-hidden) {
+    padding-block: 10px;
+    font-size: 13px !important;
+    line-height: 1.65;
+    vertical-align: middle;
+    color: var(--t1);
+  }
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable) > tbody > tr > td[data-col-index="4"]:not(.col-hidden),
+  body.school-interface #view-daily.school-record-refined :is(#ecListTable, #infListTable) > tbody > tr > td[data-col-index="5"]:not(.col-hidden) {
+    font-size: 14px !important;
+    font-weight: 700;
+    letter-spacing: -.15px;
+    text-align: center;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable) td[data-col-index="4"] .name-cell {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable) > tbody > tr > :is(td[data-col-index="1"], td[data-col-index="2"], td[data-col-index="10"], td[data-col-index="11"]):not(.col-hidden),
+  body.school-interface #view-daily.school-record-refined :is(#ecListTable, #infListTable) > tbody > tr > :is(td[data-col-index="1"], td[data-col-index="2"], td[data-col-index="3"], td[data-col-index="6"]):not(.col-hidden),
+  body.school-interface #view-daily.school-record-refined #infListTable > tbody > tr > :is(td[data-col-index="10"], td[data-col-index="11"]):not(.col-hidden),
+  body.school-interface #view-daily.school-record-refined #dailyPeriodTable > tbody > tr > td[data-col-index="0"]:not(.col-hidden) {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: center;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable) > tbody > tr > :is(td[data-col-index="6"], td[data-col-index="8"]):not(.col-hidden),
+  body.school-interface #view-daily.school-record-refined #ecListTable > tbody > tr > :is(td[data-col-index="7"], td[data-col-index="8"], td[data-col-index="10"]):not(.col-hidden),
+  body.school-interface #view-daily.school-record-refined #infListTable > tbody > tr > :is(td[data-col-index="7"], td[data-col-index="8"]):not(.col-hidden) {
+    text-align: left;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    color: var(--t1) !important;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#recTable, #dailyPeriodTable) > tbody > tr > :is(td[data-col-index="6"], td[data-col-index="8"]) > .chip-clamp:not(.multi-layer) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  /* Action hierarchy is separate from size and from the existing event bindings. */
+  body.school-interface #view-daily.school-record-refined :is(#dailyToolbarWrap, .school-record-toolbar) .school-tool-controls > button[data-record-tool] {
+    min-height: 36px !important;
+    font-size: 12px !important;
+    font-weight: 600;
+    box-shadow: none;
+    transform: none;
+  }
+  body.school-interface #view-daily.school-record-refined button[data-record-tool="primary"] {
+    background: var(--record-action-soft);
+    border-color: var(--record-action-line);
+    color: var(--record-action);
+    font-weight: 700;
+  }
+  body.school-interface #view-daily.school-record-refined button[data-record-tool="secondary"] {
+    background: var(--card);
+    border-color: var(--bdr);
+    color: var(--t1);
+  }
+  body.school-interface #view-daily.school-record-refined button[data-record-tool="quiet"] {
+    background: transparent;
+    border-color: var(--bdrl, var(--bdr));
+    color: var(--t2);
+  }
+  body.school-interface #view-daily.school-record-refined button[data-record-tool]:not(:disabled):hover {
+    background: var(--bg2);
+    border-color: var(--record-action-line);
+    color: var(--t1);
+    box-shadow: none;
+    transform: none;
+  }
+  body.school-interface #view-daily.school-record-refined button[data-record-tool="primary"]:not(:disabled):hover {
+    background: color-mix(in srgb, var(--record-action) 15%, var(--card));
+    color: var(--record-action);
+  }
+  body.school-interface #view-daily.school-record-refined button[data-record-tool]:focus-visible {
+    outline: 2px solid var(--record-action);
+    outline-offset: -2px;
+  }
+
+  /* Search is the main entry point; the counter stays a secondary summary. */
+  body.school-interface #view-daily.school-record-refined .school-record-topline {
+    gap: 12px 20px !important;
+    align-items: center !important;
+    margin-bottom: 16px !important;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-search {
+    flex: 1 1 440px !important;
+    gap: 8px !important;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-search > .autocomplete-wrap {
+    flex: 1 1 340px !important;
+    width: auto !important;
+    min-width: min(100%, 260px) !important;
+    max-width: 440px;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#dailySearchInput, #ecSearchInput, #infSearchInput) {
+    box-sizing: border-box;
+    height: 44px !important;
+    min-height: 44px;
+    padding: 10px 94px 10px 33px !important;
+    border: 1px solid var(--bdr) !important;
+    border-radius: 9px !important;
+    background: var(--card) !important;
+    color: var(--t1);
+    font-size: 14px !important;
+    line-height: 1.5;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#dailySearchInput, #ecSearchInput, #infSearchInput)::placeholder {
+    color: var(--t2);
+    opacity: 1;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#dailySearchInput, #ecSearchInput, #infSearchInput):focus {
+    border-color: var(--record-action) !important;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-search .adv-search-hover-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 32px;
+    height: 32px;
+    right: 6px !important;
+    padding: 5px 10px !important;
+    border: 1px solid var(--bdr) !important;
+    border-radius: 6px !important;
+    background: var(--bg2) !important;
+    color: var(--t1) !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    box-shadow: none;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-search .adv-search-hover-btn:focus-visible {
+    outline: 2px solid var(--record-action);
+    outline-offset: -2px;
+  }
+  body.school-interface #view-daily.school-record-refined :is(#dailyVisitorCount, #ecVisitorCount, #infVisitorCount) {
+    min-width: 0;
+    max-width: 100%;
+    margin-inline-start: auto;
+    overflow: visible;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-board {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 5px !important;
+    padding: 8px 12px !important;
+    border: 1px solid var(--bdrl, var(--bdr)) !important;
+    border-radius: 8px !important;
+    background: var(--card) !important;
+    box-shadow: none;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-board > div:not(.flip-title-text) {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 6px 14px !important;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-title-text {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.5;
+    letter-spacing: 0 !important;
+    color: var(--t2);
+    text-shadow: none;
+    overflow-wrap: anywhere;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-section {
+    gap: 0;
+    min-height: 24px;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-label {
+    margin-right: 6px;
+    color: var(--t2);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-digit {
+    flex: 0 0 auto;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-digit span {
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    color: var(--t1);
+    text-shadow: none;
+    animation: none;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-digit::before,
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-digit::after {
+    display: none;
+  }
+  body.school-interface #view-daily.school-record-refined .school-record-topline .flip-sep {
+    display: none;
+  }
+
+  @container (max-width: 680px) {
+    body.school-interface #view-daily.school-record-refined .school-record-search > .autocomplete-wrap {
+      flex-basis: 100% !important;
+      max-width: none;
+    }
+    body.school-interface #view-daily.school-record-refined :is(#dailyVisitorCount, #ecVisitorCount, #infVisitorCount) {
+      margin-inline-start: 0;
+    }
+  }
+  @media (pointer: coarse) {
+    body.school-interface #view-daily.school-record-refined :is(#dailyToolbarWrap, .school-record-toolbar) .school-tool-controls > button[data-record-tool] {
+      min-height: 44px !important;
+    }
+  }
 }

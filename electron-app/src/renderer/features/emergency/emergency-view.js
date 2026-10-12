@@ -1,4 +1,5 @@
-﻿/* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
+import { drawBodymapGuides, mountBodymapLayout } from '../../core/bodymap-layout.js';
+/* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { getStu, escHtml, getGuardianContact, getStudentBirth, getCareTooltipHtml, showNameHoverPop, hideNameHoverPop, toDateStr, getStuGradeCol, isKinder, gradeClsLabel, closeModalGracefully, createEmptyState, saveRecordNow } from '../../core/helpers.js';
@@ -2636,8 +2637,10 @@ function _bmRenderMarkers(recId){
     zone.style.zIndex = markers.some(function(m){return m.imgKey===bmKey;}) ? '500' : '';
     const markersDiv=zone.querySelector('.bm-markers');
     if(markersDiv)markersDiv.innerHTML='';
+    if(ov.classList.contains('bm-layout')&&(!zone.offsetWidth||!zone.offsetHeight))return;
     const img=zone.querySelector('img');
     if(!img)return;
+    if(ov.classList.contains('bm-layout')){drawBodymapGuides(zone);}else{
     /* 왼쪽/오른쪽 라벨 동적 렌더 — zone 기준 % 직접 적용 (사용자 결정 2026-05-27 옵션 A).
      *  편집기와 프로그램이 같은 PC window 크기 기반 동일 zone 비율 — letterbox 보정 불필요. */
     const _lrList=_BM_LR_POSITIONS_PROGRAM[bmKey];   /* 프로그램 전용 L/R 위치 (키오스크 불변) */
@@ -2649,6 +2652,7 @@ function _bmRenderMarkers(recId){
         sp.textContent=lb.label;
         markersDiv.appendChild(sp);
       });
+    }
     }
     const _nrsColors=['#22c55e','#4ade80','#a3e635','#facc15','#fbbf24','#f59e0b','#f97316','#ef4444','#dc2626','#991b1b'];
     markers.forEach(function(mk,mi){
@@ -2729,7 +2733,16 @@ function _bmRenderMarkers(recId){
        * leftPct > 65 → 좌측, 그 외 → 우측 / topPct > 80 → 위, < 5 → 아래, 그 외 → 마커와 수직 중앙.
        * 호버 시 ✏️ 펜 아이콘 노출 → 클릭하면 라벨 텍스트가 input 으로 전환되어 인라인 수정.
        * 라벨 클릭으로 마커 삭제 방지: pointer-events:auto + stopPropagation. */
-      if(mk.label){
+      let markerInView=true;
+      if(ov.classList.contains('bm-layout')){
+        const area=ov.querySelector('.bm-body');
+        if(area){
+          const ar=area.getBoundingClientRect(),dr=dot.getBoundingClientRect();
+          const cx=dr.left+dr.width/2,cy=dr.top+dr.height/2;
+          markerInView=cx>=ar.left&&cx<=ar.right&&cy>=ar.top&&cy<=ar.bottom;
+        }
+      }
+      if(mk.label&&markerInView){
         const lblWrap=document.createElement('div');
         lblWrap.className='bm-marker-label';
         lblWrap.dataset.mi=mi;
@@ -2875,15 +2888,15 @@ export function openBodyMap(recId,anchor,opts){
   const bodyFile =kinder?'assets/bodymap/child_body.png' :'assets/bodymap/adult_body.png';
 
   ov.innerHTML='<div class="modal-content" style="width:98vw;max-width:1200px;height:96vh;padding:0;overflow:hidden;display:flex;flex-direction:column">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);flex-shrink:0">'
+    +'<div class="bm-header" style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);flex-shrink:0">'
     +'<div><span style="font-size:14px;font-weight:800;color:var(--t1)">🩺 바디맵 '+(_readOnly?'— 읽기 전용 보기':'— 통증 부위 선택')+'</span><div style="font-size:12px;color:var(--t3);margin-top:3px;line-height:1.5">'+(_readOnly?'이력 조회 모드 · 입력은 해당 일자의 일지를 다시 열어 진행하세요.':'원클릭은 불편한 곳 체크 표시, 더블클릭은 불편한 곳 통증 척도 입력, 체크 또는 척도를 한 번 더 클릭하여 해제할 수 있고 제시된 부위명을 수정버튼을 클릭하여 수정할 수 있습니다.<br>체크, 척도 동그라미를 클릭해서 이동도 가능하고 부위 태그를 클릭하여 360도 회전도 가능합니다.')+'</div></div>'
-    +''/* 확인 버튼 제거 — 바깥 클릭으로 닫힘 */
+    +'<div class="bm-header-right"><button type="button" class="bm-close-btn" data-bm-close>닫기</button></div>'
     +'</div>'
-    +'<div style="display:flex;flex:1;min-height:0;overflow:hidden">'
+    +'<div class="bm-body" style="display:flex;flex:1;min-height:0;overflow:hidden">'
     /* 왼쪽: 얼굴, 구강, 손, 발 */
     /* overflow:hidden 제거 — 부위명 태그가 옆 이미지(전신 등)로 넘어가도 잘리지 않게.
      *  모달 본문(상위 flex div)의 overflow:hidden 이 팝업 경계 역할을 하므로 모달 밖으로는 안 나감. (사용자 요청 2026-06-16) */
-    +'<div style="width:520px;flex-shrink:0;padding:4px;display:flex;flex-direction:column;gap:3px;border-right:1px solid var(--bdr)">'
+    +'<div class="bm-left" style="width:520px;flex-shrink:0;padding:4px;display:flex;flex-direction:column;gap:3px;border-right:1px solid var(--bdr)">'
     +'<div class="bm-pair" style="display:flex;gap:4px;flex:1;min-height:0">'
   +_bmZone('face',faceFile,'flex:1;height:100%')
   +_bmZone('teeth',teethFile,'flex:1;height:100%')
@@ -2899,12 +2912,14 @@ export function openBodyMap(recId,anchor,opts){
     +'</div>'
     /* 오른쪽: 전신 — 다른 zone 과 동일하게 fixed container + object-fit:contain (사용자 결정 2026-05-27).
      *  편집기와 layout 통일을 위해 inline-block 대신 width:100% height:98% 사용. */
-    +'<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 6px 0 0;position:relative">'
+    +'<div class="bm-right" style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 6px 0 0;position:relative">'
   +_bmZone('body',bodyFile,'width:100%;height:98%')
     +'</div>'
     +'</div></div>';
 
   document.body.appendChild(ov);
+  ov.querySelector('[data-bm-close]').addEventListener('click',_bmCloseAndRefresh);
+  mountBodymapLayout(ov,function(){_bmRenderMarkers(recId);});
   /* 바깥 클릭 한 번에 닫기 — mousedown 하나만 등록 (click 중복 제거) */
 
   /* 읽기 전용 모드: 마커만 렌더, 입력 리스너 없음 */

@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
-import { getDailyRecord } from '../../core/daily-record-access.js';
+import { getDailyRecord, preparePeriodRecord } from '../../core/daily-record-access.js';
+import { bindDiaryPrivacy, resetDiaryPrivacy } from './daily-privacy.js';
 /* ES Module */
 import { getStu, escHtml, escJs, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
@@ -13,7 +14,7 @@ import { S, monthNames, dayNames } from '../../core/app-state.js';
 import { closeEmsPopup } from '../kiosk/ems-popup-view.js';
 import { openTimePicker } from './diary-print-view.js';
 import { tmSyncDailyMemo } from './today-memo.js';
-import { isDailyPeriodSearchActive, closeDailyPeriodSearch, refreshDailyPeriodSearch } from './daily-period-view.js';
+import { isDailyPeriodSearchActive, closeDailyPeriodSearch, refreshDailyPeriodSearch, selectDailyPeriodDate } from './daily-period-view.js';
 import { bus } from '../../core/event-bus.js';
 
 let _nameHoverEl=null;
@@ -39,7 +40,7 @@ function _closeSvOverlay(ov){if(ov)closeModalGracefully(ov);}
 /* ═══════════════════════════════════════
    CALENDAR (persistent, Req 3-5)
    ═══════════════════════════════════════ */
-// The context calendar only browses history; it does not change the open diary.
+// The context calendar and diary share the selected registration date.
 let _contextCalendarDate=null;
 let _calContextFocus=false;
 function _isSchoolContextCalendar(){
@@ -127,20 +128,32 @@ export function renderCalendar(){
   // 달력은 항상 표시
 }
 
+export function syncDailySelectedDate(d){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return false;
+  S.selectedDate=d;
+  _contextCalendarDate=d;
+  const parts=d.split('-').map(Number);
+  S.calYear=parts[0];S.calMonth=parts[1]-1;
+  _lastRegisteredRecId=null;
+  updateDailyDateLabel();
+  renderCalendar();
+  return true;
+}
+
 export function selectDate(d,contextOnly=false){
   _calContextFocus=contextOnly;
   if(contextOnly){
-    _contextCalendarDate=d;
+    syncDailySelectedDate(d);
     _calFocusActive=true;
-    renderCalendar();
+    if(!selectDailyPeriodDate(d))renderDaily();
+    renderSidebarRecent();
     _showDateVisitors(d,'context');
     const calendar=document.getElementById('mainCalendar');
     if(calendar){calendar.tabIndex=-1;calendar.focus({preventScroll:true});}
     return;
   }
   closeDailyPeriodSearch(false);
-  _lastRegisteredRecId=null;
-  S.selectedDate=d;
+  syncDailySelectedDate(d);
   /* 달력에서 날짜를 선택하면 방향키(↑↓←→)로 날짜 이동 활성 — 모든 탭(일반/응급/감염/조사/교육/대시보드) 일관.
    * 빈 검색창 자동 포커스 중에도 유지되며, 다른 입력칸 포커스 시 focusin 핸들러가 해제. (2026-06-08) */
   _calFocusActive=true;
@@ -244,10 +257,35 @@ document.addEventListener('focusin',function(e){
 });
 
 /* ── 달력 날짜 클릭 → 사이드바 달력 아래 방문자 드롭다운 ── */
+function _openDateHistoryRecord(identity){
+  if(!identity)return;
+  if(document.getElementById('symCatOverlay')){
+    bus.emit('toast:show',{text:'열려 있는 기록 편집창을 닫은 뒤 선택해 주세요.'});
+    return;
+  }
+  const record=getDailyRecord(identity.id);
+  if(!record||record.date!==identity.date
+    ||String(record.personUid||record.studentId||'')!==identity.person
+    ||String(record._dbId||'')!==String(identity.dbId||'')){
+    bus.emit('toast:show',{text:'방문 기록이 변경되었습니다. 날짜를 다시 선택해 주세요.'});
+    return;
+  }
+  if(S._dailyLoading||!preparePeriodRecord(record)){
+    bus.emit('toast:show',{text:'기록 저장이 끝난 뒤 다시 선택해 주세요.'});
+    return;
+  }
+  // Open this visit, not the student's latest visit. Keep the diary date and draft.
+  openSymptomCategoryPopup(record.id,{preserveEmptyRecord:true});
+}
+
 function _showDateVisitors(dateStr,mode){
+  const previousPanel=document.getElementById('dateVisitorsPanel');
+  const previousList=previousPanel&&previousPanel.querySelector('.dv-list');
+  const previousScroll=previousPanel&&previousPanel.dataset.historyDate===dateStr&&previousList?previousList.scrollTop:0;
+  const keepHistoryPreview=!!(previousPanel&&previousPanel._visitHistoryDisplay);
   _closeDateVisitors(true);
   const isContext=mode==='context';
-  const dayRecs=S.records.filter(function(r){return r.date===dateStr;}).sort(function(a,b){return String(a.timeIn||'').localeCompare(String(b.timeIn||''));});
+  const dayRecs=S.records.filter(function(r){return r.date===dateStr&&!r._deleted&&!r._isDummy;}).sort(function(a,b){return String(a.timeIn||'').localeCompare(String(b.timeIn||''));});
   if(!dayRecs.length&&!isContext)return;
   const cal=document.getElementById('mainCalendar');
   const searchBox=document.getElementById('sidebarSearchBox');
@@ -257,7 +295,7 @@ function _showDateVisitors(dateStr,mode){
   /* 학교급 여러 개 혼재 시 학반 앞에 학교급(초/중/고/유) 접두어 표시 */
   const _multiLv = hasMultipleSchoolLevels();
   panel.className='date-visitors-panel';panel.id='dateVisitorsPanel';
-  if(isContext){panel.dataset.contextHistory='true';panel.setAttribute('aria-label',dateStr+' 방문 이력');}
+  if(isContext){panel.dataset.contextHistory='true';panel.dataset.historyDate=dateStr;panel.setAttribute('aria-label',dateStr+' 방문 이력');}
   const dow=['일','월','화','수','목','금','토'][dateObj(dateStr).getDay()];
   let html='<div class="dv-header"><span>'+escHtml(dateStr)+' ('+dow+') 방문 '+dayRecs.length+(isContext?'건':'명')+'</span><button class="dv-close-btn" style="border:none;background:none;color:var(--t3);cursor:pointer;font-size:14px;padding:0 4px">✕</button></div>';
   html+='<div class="dv-list">';
@@ -269,12 +307,15 @@ function _showDateVisitors(dateStr,mode){
     const lvPrefix=lvShort?'<span style="font-weight:700;color:var(--cyan);margin-right:3px">'+escHtml(lvShort)+'</span>':'';
     const classInfo=isStf?(s.position||'교직원'):([s.grade&&s.grade+'학년',s.cls&&s.cls+'반',s.num&&s.num+'번'].filter(Boolean).join(' ')||'학반 정보 없음');
     const symptoms=(Array.isArray(r.symptoms)?r.symptoms.join(', '):r.symptoms)||'-';
-    html+='<div class="dv-item" style="cursor:default">'
+    const tag=isContext?'button':'div';
+    html+='<'+tag+' class="dv-item'+(isContext?' dv-edit-item':'')+'"'
+      +(isContext?' type="button" data-rec-id="'+escHtml(String(r.id))+'" title="이 방문 기록 보기·수정"':' style="cursor:default"')+'>'
       +'<span class="dv-name">'+escHtml(s.name||'이름 미등록')+'</span>'
       +'<span class="dv-time" style="font-family:var(--fm);font-size:10px;color:var(--t3)">'+escHtml(r.timeIn||'-')+'</span>'
       +'<span class="dv-info">'+lvPrefix+escHtml(classInfo)+'</span>'
       +'<span class="dv-sym">'+escHtml(symptoms)+'</span>'
-      +'</div>';
+      +'</'+tag+'>';
+
   });
   html+='</div>';
   panel.innerHTML=html;
@@ -282,6 +323,17 @@ function _showDateVisitors(dateStr,mode){
   if(_dvCloseBtn) _dvCloseBtn.addEventListener('click',function(){_closeDateVisitors();});
   if(isContext){
     cal.insertAdjacentElement('afterend',panel);
+    const list=panel.querySelector('.dv-list');
+    const identities=new Map(dayRecs.map(function(record){
+      return [String(record.id),{id:record.id,dbId:record._dbId,date:record.date,person:String(record.personUid||record.studentId||'')}];
+    }));
+    list.addEventListener('click',function(event){
+      const item=event.target.closest('.dv-edit-item');
+      if(item&&list.contains(item))_openDateHistoryRecord(identities.get(item.dataset.recId));
+    });
+    bindDiaryPrivacy(list,{key:'history',scope:dateStr,before:list,rowSelector:'.dv-edit-item'});
+    list.scrollTop=previousScroll;
+    if(keepHistoryPreview)_setDateVisitorsHistoryPreview(true);
     return;
   }
   /* 이름 검색창(+검색결과) 바로 아래에 삽입 */
@@ -362,23 +414,23 @@ function _onNameHover(e){
   const tr=e.target.closest('tr[data-stu-id]');
   if(!tr)return;
   const stuId=tr.dataset.stuId;
-  /* 빈 문자열·"undefined"·"null" 문자열은 무효 (EC/INF 임포트 데이터에서 r.studentId 미설정 시 발생) */
-  if(!stuId||stuId==='undefined'||stuId==='null')return;
-  const _vhPanel=document.getElementById('sideVisitHistory');
-  const _vhVisible=!!(_vhPanel && _vhPanel.classList.contains('vh-show'));
-  /* 같은 학생 중복 호출 차단 — 단, 패널이 숨겨진 상태라면 재표시 허용 */
-  if(stuId===_lastHoverStuId && _vhVisible)return;
+  if(!stuId||stuId==='undefined'||stuId==='null'||S._visitHistoryLocked)return;
+  const panel=document.getElementById('sideVisitHistory');
+  if(stuId===_lastHoverStuId&&panel&&panel.classList.contains('vh-show'))return;
   _lastHoverStuId=stuId;
-  /* 달력 방문자 팝업이 열려 있으면 닫기 */
-  if(document.getElementById('dateVisitorsPanel'))_closeDateVisitors();
-  /* 클릭 잠금 상태일 때는 호버로 카드 내용을 바꾸지 않음 — 사용자 요청 2026-05-19:
-     "특정 행이 선택되면 그 사람의 방문 이력이 고정되어 다른 사람 hover 해도 안 바뀌어야 한다."
-     잠금 해제 (행 두 번 클릭 / 빈 영역 클릭 / 증상 팝업 닫힘 후) 상태에서만 호버가 카드를 갱신. */
-  if(S._visitHistoryLocked)return;
+  // Keep the selected-date panel intact while the personal history is previewed.
+  const datePanel=document.getElementById('dateVisitorsPanel');
+  if(datePanel&&!datePanel.dataset.contextHistory)_closeDateVisitors();
   showVisitHistory(stuId);
 }
-function _onTbodyLeave(){
+function _onTbodyLeave(event){
   _lastHoverStuId=null;
+  const datePanel=document.getElementById('dateVisitorsPanel');
+  if(!datePanel||!datePanel._visitHistoryDisplay)return;
+  if(S._visitHistoryLocked||document.getElementById('symCatOverlay'))return;
+  const next=event&&event.relatedTarget;
+  if(next&&typeof next.closest==='function'&&next.closest('#sideVisitHistory,#recBody tr[data-stu-id],#ecListBody tr[data-stu-id],#infListBody tr[data-stu-id]'))return;
+  _hideVisitHistory();
 }
 export function _bindNameHoverVisitHistory(){
   /* idempotent — 동일 tbody 에 중복 등록되지 않도록 _hoverBound 플래그로 가드.
@@ -393,6 +445,11 @@ export function _bindNameHoverVisitHistory(){
   _bindOne(document.getElementById('recBody'));
   _bindOne(document.getElementById('ecListBody'));
   _bindOne(document.getElementById('infListBody'));
+  const history=document.getElementById('sideVisitHistory');
+  if(history&&!history._historyHoverLeaveBound){
+    history._historyHoverLeaveBound=true;
+    history.addEventListener('mouseleave',_onTbodyLeave);
+  }
 }
 
 function _initBounceScroll(){
@@ -859,10 +916,10 @@ export function goToPrevDay(){
   _lastRegisteredRecId=null;
   const d=dateObj(S.selectedDate);
   d.setDate(d.getDate()-1);
-  S.selectedDate=toDateStr(d);
-  updateDailyDateLabel();
+  syncDailySelectedDate(toDateStr(d));
   renderDaily();
-  renderCalendar();
+  const history=document.getElementById('dateVisitorsPanel');
+  if(history&&history.dataset.contextHistory)_showDateVisitors(S.selectedDate,'context');
 }
 export function goToNextDay(){
   const wasPeriod=closeDailyPeriodSearch(false);
@@ -871,10 +928,10 @@ export function goToNextDay(){
   if(S.selectedDate>=today){if(wasPeriod)renderDaily();return;}
   const d=dateObj(S.selectedDate);
   d.setDate(d.getDate()+1);
-  S.selectedDate=toDateStr(d);
-  updateDailyDateLabel();
+  syncDailySelectedDate(toDateStr(d));
   renderDaily();
-  renderCalendar();
+  const history=document.getElementById('dateVisitorsPanel');
+  if(history&&history.dataset.contextHistory)_showDateVisitors(S.selectedDate,'context');
 }
 /* S.dailySelectedRecId, S.dailyLockedStudentId → S 객체 사용 */
 let _dragSelectedRecIds=[];
@@ -1671,15 +1728,12 @@ function _applyPrivacyToRows(){
   const tbody=document.getElementById('recBody');
   if(!tbody)return;
   tbody.style.filter='';tbody.style.userSelect='';tbody.style.pointerEvents='';
-  const rows=tbody.querySelectorAll('tr');
-  rows.forEach(function(tr){
-    if(_privacyOn){
-      tr.style.filter='blur(3px)';tr.style.transition='filter 0.15s ease';
-      tr.onmouseenter=function(){this.style.filter='none';};
-      tr.onmouseleave=function(){this.style.filter='blur(3px)';};
-    } else {
-      tr.style.filter='';tr.style.transition='';
-      tr.onmouseenter=null;tr.onmouseleave=null;
+  bindDiaryPrivacy(tbody,{
+    key:'daily',scope:S.selectedDate,
+    before:document.getElementById('dailyTableWrap'),
+    onOpen:function(row){
+      const record=getDailyRecord(row.dataset.recId);
+      if(record)openSymptomCategoryPopup(record.id);
     }
   });
 }
@@ -1692,6 +1746,7 @@ export function togglePrivacyMode(forced){
   /* 설정 패널의 토글 상태도 동기화 */
   const setToggle=document.getElementById('setPrivacyModeToggle');
   if(setToggle)setToggle.checked=_privacyOn;
+  resetDiaryPrivacy();
   _applyPrivacyToRows();
   if(isDailyPeriodSearchActive())refreshDailyPeriodSearch();
 }
@@ -1744,7 +1799,7 @@ export function bindDailyRecordActions(tbody,beforeAction){
         if(tr){
           const stuId=tr.dataset.stuId;
           const recId=tr.dataset.recId?parseInt(tr.dataset.recId):null;
-          if(beforeAction){if(recId)openSymptomCategoryPopup(recId);return;}
+          if(beforeAction){if(recId)openSymptomCategoryPopup(recId,{preserveEmptyRecord:true});return;}
           /* 기존 선택 해제 + 이 row 만 선택 */
           document.querySelectorAll('#recBody tr.daily-selected').forEach(function(r){r.classList.remove('daily-selected');});
           tr.classList.add('daily-selected');
@@ -1773,10 +1828,10 @@ export function bindDailyRecordActions(tbody,beforeAction){
       case 'openVipEdit': openVipEdit(sid,el); break;
       case 'vipClearAll': _vipClearAll(sid); break;
       case 'openBodyMap': openBodyMap(rid,el); break;
-      case 'openSymptom': openSymptomCategoryPopup(rid); break;
+      case 'openSymptom': openSymptomCategoryPopup(rid,{preserveEmptyRecord:!!beforeAction}); break;
       /* V/S·신체사정 표 클릭 → 증상 팝업 + 해당 입력 팝업 이어서 열기 (사용자 요청 2026-08-06) */
-      case 'openSymptomVs': openSymptomCategoryPopup(rid,{autoOpen:'vs'}); break;
-      case 'openSymptomPa': openSymptomCategoryPopup(rid,{autoOpen:'pa'}); break;
+      case 'openSymptomVs': openSymptomCategoryPopup(rid,{autoOpen:'vs',preserveEmptyRecord:!!beforeAction}); break;
+      case 'openSymptomPa': openSymptomCategoryPopup(rid,{autoOpen:'pa',preserveEmptyRecord:!!beforeAction}); break;
       case 'removeChip': removeChip(rid,el.dataset.field,el.dataset.val); break;
       case 'openCellEdit': openCellEdit(rid,el.dataset.field,el); break;
       case 'openTimePicker': openTimePicker(rid,el.dataset.field,el); break;
@@ -2007,7 +2062,7 @@ export function renderDailyRecordRows(dayRecs,options={}){
 }
 
 /* Reuse the diary header, row renderer, column preferences and click dispatcher. */
-export function renderDailyPeriodTable(container,records,privacy,beforeAction){
+export function renderDailyPeriodTable(container,records,privacy,beforeAction,privacyScope){
   const source=document.querySelector('#recTable thead');
   if(!source)throw new Error('보건일지 표 머리글을 찾을 수 없습니다.');
   const head=source.cloneNode(true);
@@ -2027,9 +2082,6 @@ export function renderDailyPeriodTable(container,records,privacy,beforeAction){
   });
   table.querySelectorAll('th[data-col-index="10"],th[data-col-index="11"]').forEach(node=>{node.style.width=Math.max(52,parseFloat(node.style.width)||0)+'px';});
   table.querySelectorAll('tbody > tr').forEach(tr=>{
-    if(privacy){
-      tr.querySelectorAll('td:not([data-col-index="0"]):not([data-col-index="10"]):not([data-col-index="11"])').forEach(td=>{td.innerHTML='•••';td.removeAttribute('data-htip');});
-    }
     const sym=tr.querySelector('td[data-col-index="6"] .multi-layer');
     const treat=tr.querySelector('td[data-col-index="8"] .multi-layer');
     if(sym&&treat){
@@ -2037,11 +2089,22 @@ export function renderDailyPeriodTable(container,records,privacy,beforeAction){
       if(a.length===b.length)a.forEach((node,i)=>{const height=Math.max(node.offsetHeight,b[i].offsetHeight);node.style.minHeight=b[i].style.minHeight=height+'px';});
     }
   });
-  bindDailyRecordActions(table.querySelector('tbody'),beforeAction);
+  const tbody=table.querySelector('tbody');
+  bindDailyRecordActions(tbody,beforeAction);
+  bindDiaryPrivacy(tbody,{
+    key:'period',scope:privacyScope,
+    toolbarHost:document.querySelector('#dailyPeriodPanel .daily-period-tools'),
+    onOpen:function(row){
+      const target=row.querySelector('td[data-col-index="6"]');
+      if(!target||(beforeAction&&beforeAction({target})===false))return;
+      const record=getDailyRecord(row.dataset.recId);
+      if(record)openSymptomCategoryPopup(record.id,{preserveEmptyRecord:true});
+    }
+  });
 }
 
 export function renderDaily(){
-  if(isDailyPeriodSearchActive()){refreshDailyPeriodSearch();return;}
+  if(isDailyPeriodSearchActive()){updateDailyDateLabel();refreshDailyPeriodSearch();return;}
   /* 렌더링 시작: 테이블 숨김 → applyDailyColLayout()에서 표시 (열 너비 변동 깜빡임 방지) */
   const _tblEl=document.getElementById('recTable');
   if(_tblEl)_tblEl.style.visibility='hidden';
@@ -2262,6 +2325,7 @@ export function renderDaily(){
       : '이 날짜에 기록된 방문이 없습니다.';
     tbody.innerHTML='<tr><td class="daily-empty-cell" colspan="15" style="padding:0;background:transparent">'+_emptyHtml+'</td></tr>';
   }
+  _applyPrivacyToRows();
   /* ── recBody event delegation for [data-action] ── */
   bindDailyRecordActions(tbody);
   applyDailyColLayout();
@@ -2304,8 +2368,6 @@ export function renderDaily(){
         trtL.style.minHeight=h+'px';
       });
     });
-    /* 프라이버시 모드 유지 */
-    if(_privacyOn)_applyPrivacyToRows();
   },150);
 }
 
@@ -2902,18 +2964,48 @@ export function crInsertHandles(){ if(_crInsertHandlesRef)_crInsertHandlesRef();
 /* ═══════════════════════════════════════
    VISIT HISTORY (visit-history-view.js에서 통합)
    ═══════════════════════════════════════ */
+function _setDateVisitorsHistoryPreview(active){
+  const panel=document.getElementById('dateVisitorsPanel');
+  if(!panel||!panel.dataset.contextHistory)return false;
+  if(active){
+    if(!panel._visitHistoryDisplay){
+      panel._visitHistoryDisplay={
+        value:panel.style.getPropertyValue('display'),
+        priority:panel.style.getPropertyPriority('display')
+      };
+    }
+    panel.style.setProperty('display','none','important');
+    return true;
+  }
+  const previous=panel._visitHistoryDisplay;
+  if(!previous)return false;
+  if(previous.value)panel.style.setProperty('display',previous.value,previous.priority);
+  else panel.style.removeProperty('display');
+  delete panel._visitHistoryDisplay;
+  return true;
+}
 function _showVisitHistory(){
   const vh=document.getElementById('sideVisitHistory');if(!vh)return;
+  clearTimeout(vh._historyHideTimer);
+  const showId=(vh._historyDisplayId||0)+1;
+  vh._historyDisplayId=showId;
+  _setDateVisitorsHistoryPreview(true);
   vh.style.display='block';
-  requestAnimationFrame(function(){requestAnimationFrame(function(){vh.classList.add('vh-show');});});
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    if(vh.isConnected&&vh._historyDisplayId===showId)vh.classList.add('vh-show');
+  });});
 }
 export function _hideVisitHistory(){
+  const restored=_setDateVisitorsHistoryPreview(false);
+  _lastHoverStuId=null;
   const vh=document.getElementById('sideVisitHistory');if(!vh)return;
+  clearTimeout(vh._historyHideTimer);
+  const hideId=(vh._historyDisplayId||0)+1;
+  vh._historyDisplayId=hideId;
   vh.classList.remove('vh-show');
-  setTimeout(function(){
-    /* 320ms 사이에 _showVisitHistory 가 다시 vh-show 를 add 한 경우 display:none 으로 덮지 않음 —
-       증상 팝업 닫은 직후 다른 학생 클릭으로 새 카드를 띄울 때 사라지는 버그 fix. */
-    if(!vh.classList.contains('vh-show'))vh.style.display='none';
+  if(restored){vh.style.display='none';return;}
+  vh._historyHideTimer=setTimeout(function(){
+    if(vh._historyDisplayId===hideId&&!vh.classList.contains('vh-show'))vh.style.display='none';
   },320);
 }
 /* 사이드바 방문이력 렌더를 그대로 재사용해 {titleHTML, bodyHTML} 캡처 (바디맵·V/S·상담·플래그 포함).
@@ -2926,9 +3018,10 @@ function _captureVisitHistoryHtml(studentId){
   const bodyEl=document.getElementById('visitHistoryBody');
   const titleHTML=titleEl?titleEl.innerHTML:('<div style="font-size:13px;font-weight:800;color:var(--t1)">'+escHtml(stu.name)+'</div>');
   const bodyHTML=bodyEl?bodyEl.innerHTML:'<div style="padding:12px;text-align:center;color:var(--t3);font-size:11px">방문 이력 없음</div>';
-  const _hideSide=function(){ const v=document.getElementById('sideVisitHistory'); if(v){ v.classList.remove('vh-show'); v.style.display='none'; } };
-  _hideSide();
-  requestAnimationFrame(function(){ requestAnimationFrame(_hideSide); });   /* _showVisitHistory 의 double-rAF 뒤 한 번 더 숨김 */
+  // Cancel pending show callbacks and restore the selected-date panel as well.
+  _hideVisitHistory();
+  const sidebarHistory=document.getElementById('sideVisitHistory');
+  if(sidebarHistory)sidebarHistory.style.display='none';
   S._visitHistoryLocked=prevLock;
   return {titleHTML:titleHTML, bodyHTML:bodyHTML};
 }
@@ -3968,6 +4061,10 @@ bus.on('daily:period-open', function(){
   _hideVisitHistory();
 });
 bus.on('render:daily', function(){
+  const historyPanel=document.getElementById('dateVisitorsPanel');
+  if(historyPanel&&historyPanel.dataset.contextHistory&&_contextCalendarDate){
+    _showDateVisitors(_contextCalendarDate,'context');
+  }
   renderDaily();
   /* 보건일지 표 변경 시 최근 보건실 방문 이력 카드도 함께 갱신.
      · 잠금(클릭) 학생 또는 현재 카드의 마지막 학생(panel._lastStuId) 둘 다 즉시 재렌더.

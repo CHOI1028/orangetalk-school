@@ -265,11 +265,17 @@ export function saveKioskSettings() {
   _kioskSettingsWriteQueue=_kioskSettingsWriteQueue.then(async function(){
     try{
       const result=await api.jsonSaveCommon('kiosk_settings',data);
-      if(result && result.success===false) throw new Error('Kiosk settings save failed');
+      if(!result || result.success!==true) throw new Error('Kiosk settings save failed');
+      if(version===_kioskSettingsVersion && result.data && typeof result.data==='object'){
+        Object.keys(_state.kioskSettings).forEach(k=>delete _state.kioskSettings[k]);
+        Object.assign(_state.kioskSettings,result.data);
+        localStorage.setItem('ec_kiosk',JSON.stringify(result.data));
+      }
       if(version===_kioskSettingsVersion) _kioskSettingsDirty=false;
       bus.emit('kiosk:sidebar-refresh');
       return true;
     }catch(_){
+      if(version===_kioskSettingsVersion)_kioskSettingsDirty=false;
       bus.emit('toast:show',{text:'키오스크 설정을 저장하지 못했습니다. 연결을 확인한 뒤 다시 저장해 주세요.'});
       return false;
     }finally{ _kioskSettingsWrites--; }
@@ -280,7 +286,7 @@ export function saveKioskSettings() {
 /* Shared browsers read the host's settings, never restore stale local channels.
  * Preserve object identity: the kiosk editor/builder retain a reference to it. */
 export function refreshSharedKioskSettings(){
-  if(!window.__isWebBrowser || _kioskSettingsWrites || _kioskSettingsDirty) return Promise.resolve(false);
+  if(_kioskSettingsWrites || _kioskSettingsDirty) return Promise.resolve(false);
   if(_kioskSettingsLoad) return _kioskSettingsLoad;
   const api=window.electronAPI;
   if(!api || (!api.dbGet && !api.jsonLoadCommon)) return Promise.resolve(false);
@@ -288,8 +294,12 @@ export function refreshSharedKioskSettings(){
   const before=JSON.stringify(_state.kioskSettings);
   _kioskSettingsLoad=Promise.resolve().then(function(){
     return api.dbGet ? api.dbGet('common','kiosk_settings') : api.jsonLoadCommon('kiosk_settings');
-  }).then(function(result){
+  }).then(async function(result){
     if(!result || result.success!==true) return false;
+    if(!window.__isWebBrowser && result.exists===false && Object.keys(_state.kioskSettings).length){
+      result=await api.jsonSaveCommon('kiosk_settings',JSON.parse(before));
+      if(!result || !result.success)return false;
+    }
     const data=result.exists===false ? {} : result.data;
     if(!data || typeof data!=='object' || Array.isArray(data)) return false;
     if(_kioskSettingsWrites || _kioskSettingsDirty || version!==_kioskSettingsVersion ||
