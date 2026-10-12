@@ -5,6 +5,7 @@ import { S } from './app-state.js';
  * 앱 종료 시 일괄 저장 조율
  */
 import { appData } from './app-data-bridge.js';
+import { registerSharedSettingsMappings } from './shared-settings-sync.js';
 
 /* 연도별 데이터(보건일지 등)의 연도는 언제나 '학년도' — 3월 1일 시작(달력 연도 아님). 폴백 방어용. (사용자 지시 2026-06-20) */
 function _academicYear(){
@@ -69,6 +70,7 @@ PersistenceOrchestrator.prototype.loadMappings = function(options){
   const commonMappings = (options && options.commonMappings) || [];
   const yearMappings = (options && options.yearMappings) || [];
   const editorSlots = (options && options.editorSlots) || [];
+  registerSharedSettingsMappings(commonMappings);
 
   commonMappings.forEach(function(mapping){
     if(self.appData && self.appData.canUseBackend()){
@@ -151,10 +153,10 @@ PersistenceOrchestrator.prototype.syncAll = function(options){
         if(!_isSafeForIpc(parsed)){
           console.warn('[DB] 동기화 skip — 비정상 객체(깊이/circular):', pair[0]);
         } else {
-          window.electronAPI.jsonSaveCommon(pair[0], parsed);
+          window.electronAPI.jsonSaveCommon(pair[0], parsed, {background:true});
         }
       }
-      catch(e) { window.electronAPI.jsonSaveCommon(pair[0], raw); }
+      catch(e) { window.electronAPI.jsonSaveCommon(pair[0], raw, {background:true}); }
     }
   });
 
@@ -226,8 +228,8 @@ PersistenceOrchestrator.prototype.syncAll = function(options){
       const value = localStorage.getItem(key);
       if(value != null){
         const jsonKey = 'vp_editor_' + key.replace(editorPrefix, '');
-        try { window.electronAPI.jsonSaveCommon(jsonKey, JSON.parse(value)); }
-        catch(e) { window.electronAPI.jsonSaveCommon(jsonKey, value); }
+        try { window.electronAPI.jsonSaveCommon(jsonKey, JSON.parse(value), {background:true}); }
+        catch(e) { window.electronAPI.jsonSaveCommon(jsonKey, value, {background:true}); }
       }
     }
   }

@@ -344,7 +344,7 @@ class JsonFileService {
   saveCommon(key, data) {
     if (!fs.existsSync(this._dataDir)) fs.mkdirSync(this._dataDir, { recursive: true });
     const filePath = this.commonPath(key);
-    this.atomicWrite(filePath, data);
+    if(!this.atomicWrite(filePath, data))throw new Error('Common JSON write failed');
     return filePath;
   }
 

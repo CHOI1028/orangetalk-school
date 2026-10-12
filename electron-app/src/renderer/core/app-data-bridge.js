@@ -39,6 +39,13 @@ MyAppDataBridge.prototype._parseLsForStorage = function(lsKey){
 
 MyAppDataBridge.prototype.loadCommon = async function(opts){
   const dbRes = await this.api.dbGet('common', opts.dbKey);
+  if(this.api.sharedSettingsKeys?.().includes(opts.dbKey)){
+    if(!dbRes?.success)throw new Error('Shared settings load failed');
+    if(dbRes.exists){this._setLs(opts.lsKey,dbRes.data);if(opts.onLoaded)opts.onLoaded(dbRes.data);}
+    else if(!window.__isWebBrowser){const local=this._parseLsForStorage(opts.lsKey);if(local!==null)await this.api.dbSet('common',opts.dbKey,local);}
+    else localStorage.removeItem(opts.lsKey);
+    return;
+  }
   if(dbRes && dbRes.success && dbRes.exists){
     if(!this._isNonEmpty(dbRes.data)){
       const existing = localStorage.getItem(opts.lsKey);

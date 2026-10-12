@@ -26,6 +26,7 @@ import { buildRosterReply } from '../../core/kiosk-roster-source.js';
 
 function _toast(text){ bus.emit('toast:show',{text}); }
 let _kioskLanListenerSet=false;
+let _queueSyncState='waiting';
 
 /* 온디맨드 명단 — 파생 키 캐시 (rosterSecret+channelId 가 바뀌면 재파생) */
 let _rosterKey=null, _rosterKeySig='';
@@ -144,6 +145,7 @@ function _replaceRelayQueue(rows){
   const ids=new Set(_receptions.map(function(r){return String(r.id);}));
   Object.keys(_callCounts).forEach(function(id){if(!ids.has(id)) delete _callCounts[id];});
   _queueRevision++;
+  _queueSyncState='ready';
   _syncToSidebar();_render();
   return true;
 }
@@ -165,12 +167,12 @@ async function _pollRelayQueue(){
           signal:controller.signal,cache:'no-store'})
       : await fetch(cfg.relayUrl+'/api/v1/nurse/receptions/'+encodeURIComponent(cfg.channelId),{
           headers:{'Authorization':'Bearer '+cfg.nurseToken},signal:controller.signal,cache:'no-store'});
-    if(!response.ok) return;
+    if(!response.ok)throw new Error('Queue fetch failed');
     const result=await response.json();
     if(controller.signal.aborted || generation!==_connectionGeneration || revision!==_queueRevision ||
        key!==_cfgKey(_getCfg()) || !S.kioskSettings.active) return;
-    if(result && result.success===true && Array.isArray(result.receptions)) _replaceRelayQueue(result.receptions);
-  }catch(_){ /* Keep the last known queue while offline. */ }
+    if(!result || result.success!==true || !_replaceRelayQueue(result.receptions))throw new Error('Queue response failed');
+  }catch(_){ if(generation===_connectionGeneration && key===_cfgKey(_getCfg())){_queueSyncState='failed';_render();} /* Keep the last known queue while offline. */ }
   finally{
     clearTimeout(timeout);
     if(_queueRequest===controller) _queueRequest=null;
@@ -178,7 +180,7 @@ async function _pollRelayQueue(){
 }
 
 async function _reconcileKiosk(){
-  if(window.__isWebBrowser) await refreshSharedKioskSettings();
+  await refreshSharedKioskSettings();
   if(!S.kioskSettings.active){_disconnectQuiet();_render();return;}
   _connect();
   await _pollRelayQueue();
@@ -188,7 +190,7 @@ function _getCfg(){
   const ks = S.kioskSettings || {};
   return {
     relayUrl: ks.relayUrl || DEFAULT_RELAY_URL,
-    nurseToken: ks.nurseToken || ks.authToken || '',
+    nurseToken: ks.authToken || ks.nurseToken || '',
     channelId: ks.channelId || '',
     rosterSecret: ks.rosterSecret || ''   /* 온디맨드 명단 암호화 키 — URL #rk= fragment 로 키오스크와 공유 (2026-06-14) */
   };
@@ -282,6 +284,7 @@ function _ensurePanel(){
 }
 
 function _connStatusHtml(){
+  if(_connected && _queueSyncState!=='ready')return '<span style="font-size:9px;color:var(--t2)">'+(_queueSyncState==='failed'?'대기 목록 확인 실패 · 재시도 중':'대기 목록 확인 중')+'</span>';
   /* "연결됨" = 서버 연결 + 키오스크 HTML 이 실제 접속 중일 때만. 키오스크를 끄거나 지우면 "키오스크 미연결". (사용자 결정 2026-06-11) */
   if(_connected && _kioskClientCount>0) return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;color:#16a34a"><span style="width:6px;height:6px;border-radius:50%;background:#16a34a"></span>연결됨</span>';
   if(_connected) return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;color:#d97706"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b"></span>키오스크 미연결</span>';
@@ -726,7 +729,9 @@ function _kioskReturnDays(rec){
   return 0;
 }
 /* 물품 대여(반납 필요) → 보건실 물품 대여 대장에 INSERT (반납 예정일 = 평일 N일 후 12:00) */
-function _registerRental(receptionId){
+const _rentalReceptionSaving=new Set();
+async function _registerRental(receptionId){
+  if(_rentalReceptionSaving.has(String(receptionId)))return;
   const rec=_receptions.find(function(r){return r.id===receptionId;});
   if(!rec){_toast('접수 데이터를 찾을 수 없습니다');return;}
   const p=rec.person||{};
@@ -734,24 +739,29 @@ function _registerRental(receptionId){
   const item=_kioskItemLabel(rec);
   const days=_kioskReturnDays(rec);
   try{
-    rentalAddFromKiosk(p.uid, item, days);
+    _rentalReceptionSaving.add(String(receptionId));
+    await rentalAddFromKiosk(p.uid,item,days,String(_getCfg().channelId||'lan')+':'+String(receptionId));
     _toast('🛒 물품 대여 대장에 등록되었습니다'+(item?' — '+item:''));
     _complete(receptionId);
   }catch(err){ _toast('대여 등록 오류: '+err.message); }
+  finally{_rentalReceptionSaving.delete(String(receptionId));}
 }
 /* 물품 반납 → 대장에서 이 방문자의 미반납 기록을 반납 완료로 표시 */
-function _registerReturn(receptionId){
+async function _registerReturn(receptionId){
+  if(_rentalReceptionSaving.has(String(receptionId)))return;
   const rec=_receptions.find(function(r){return r.id===receptionId;});
   if(!rec){_toast('접수 데이터를 찾을 수 없습니다');return;}
   const p=rec.person||{};
   if(!p.uid){_toast('방문자 인적사항이 없어 반납 처리 불가');return;}
   const item=_kioskItemLabel(rec);
   try{
-    const ok=rentalMarkReturnedFromKiosk(p.uid, item);
+    _rentalReceptionSaving.add(String(receptionId));
+    const ok=await rentalMarkReturnedFromKiosk(p.uid,item,String(_getCfg().channelId||'lan')+':'+String(receptionId));
     if(ok){ _toast('📦 반납 처리되었습니다'+(item?' — '+item:'')); }
-    else { _toast('⚠ 대여 대장에 이 방문자의 미반납 기록이 없습니다'); }
+    else { _toast('대여 대장에 해당 방문자와 물품의 미반납 기록이 없습니다'); return; }
     _complete(receptionId);
   }catch(err){ _toast('반납 처리 오류: '+err.message); }
+  finally{_rentalReceptionSaving.delete(String(receptionId));}
 }
 /* 물품 대여(반납 불필요)·기타 → 기록 없이 접수 완료 */
 function _ack(receptionId){
@@ -850,18 +860,9 @@ function _connect(){
     _render();
     if(ev.code===4001){
       _rejectedConnectionKey=key;
-      if(window.__isWebBrowser){
-        // A stale browser token must not disable the host's shared kiosk.
-        refreshSharedKioskSettings();
-        return;
-      }
-      S.kioskSettings.channelId='';
-      S.kioskSettings.authToken='';
-      S.kioskSettings.nurseToken='';
-      S.kioskSettings.active=false;
-      saveKioskSettings();
-      _toast('릴레이 채널이 만료되었습니다. 키오스크를 다시 활성화해 주세요.');
-      bus.emit('kiosk:sidebar-refresh');
+      // A stale connection cannot erase newer host credentials.
+      refreshSharedKioskSettings();
+      _toast('키오스크 연결 정보를 다시 확인하고 있습니다.');
       return;
     }
     if(_reconnectTimer) clearTimeout(_reconnectTimer);
@@ -871,6 +872,7 @@ function _connect(){
 }
 
 function _disconnectQuiet(){
+  _queueSyncState='waiting';
   if(_reconnectTimer){clearTimeout(_reconnectTimer);_reconnectTimer=null;}
   _connectionGeneration++;
   if(_queueRequest){_queueRequest.abort();_queueRequest=null;}

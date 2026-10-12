@@ -561,18 +561,18 @@ if(typeof window!=='undefined' && !window._symFocusGuardBound){
  *    ① 확인 → openNameDupMatcher (focusUid) — 종료 후 본 팝업 재진입
  *    ② 취소 → 본 팝업 그대로 진행 (skip 플래그로 무한 재귀 차단)
  *  분기 진입 시 _symOpening 을 false 로 풀어 재진입 시 dedup guard 가 막지 않게 함. */
-function _symCheckNameDupAndProceed(rec, recId){
+function _symCheckNameDupAndProceed(rec, recId, opts){
   _symOpening = false;
   import('../person-manager/name-dup-matcher.js').then(function(mod){
     if(!mod || typeof mod.isPersonInNameDupGroup !== 'function'){
       S._symSkipNameDupCheck = true;
-      openSymptomCategoryPopup(recId);
+      openSymptomCategoryPopup(recId, opts);
       return;
     }
     mod.isPersonInNameDupGroup(rec.studentId).then(function(isDup){
       if(!isDup){
         S._symSkipNameDupCheck = true;
-        openSymptomCategoryPopup(recId);
+        openSymptomCategoryPopup(recId, opts);
         return;
       }
       const stu = (S.people||[]).find(function(p){ return p.uid===rec.studentId || p.id===rec.studentId; });
@@ -585,24 +585,61 @@ function _symCheckNameDupAndProceed(rec, recId){
             /* 매칭 종료 — 증상 팝업 재진입. recId 가 가리키던 학생 uid 가 바뀌었을 수 있으나
              *  records 재로드는 _resolveMatch 안에서 처리되어 rec.studentId 가 최신화됨. */
             S._symSkipNameDupCheck = true;
-            setTimeout(function(){ openSymptomCategoryPopup(recId); }, 50);
+            setTimeout(function(){ openSymptomCategoryPopup(recId, opts); }, 50);
           },
         });
       } else {
         /* 사용자 취소 — 그대로 증상 팝업 진행 */
         S._symSkipNameDupCheck = true;
-        openSymptomCategoryPopup(recId);
+        openSymptomCategoryPopup(recId, opts);
       }
     }).catch(function(e){
       console.error('[name-dup symptom-trigger]', e);
       S._symSkipNameDupCheck = true;
-      openSymptomCategoryPopup(recId);
+      openSymptomCategoryPopup(recId, opts);
     });
   }).catch(function(e){
     console.error('[name-dup matcher load]', e);
     S._symSkipNameDupCheck = true;
-    openSymptomCategoryPopup(recId);
+    openSymptomCategoryPopup(recId, opts);
   });
+}
+
+/* Presentation only: retain existing record actions and persistence paths. */
+function _installSymptomHeaderStyles(){
+  if(document.getElementById('symEditorHeaderStyles'))return;
+  const style=document.createElement('style');
+  style.id='symEditorHeaderStyles';
+  style.textContent=`
+    #symCatBox .sym-editor-header{padding:12px 18px;border-bottom:1px solid var(--bdr);background:var(--card);flex-shrink:0;color:var(--t1);font-family:var(--f)}
+    #symCatBox .sym-editor-topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 14px;margin-bottom:9px}
+    #symCatBox .sym-editor-title{font-size:13px;font-weight:700;line-height:1.5;color:var(--t2)}
+    #symCatBox .sym-editor-date{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1.5;color:var(--t2);font-variant-numeric:tabular-nums}
+    #symCatBox .sym-editor-date strong{font-weight:700;color:var(--t1)}
+    #symCatBox .sym-editor-person-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:10px}
+    #symCatBox .sym-editor-person{display:flex;flex:1 1 220px;min-width:0;flex-direction:column;gap:2px}
+    #symCatBox .sym-editor-name-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+    #symCatBox .sym-editor-name{font-size:20px;line-height:1.3;font-weight:800;letter-spacing:-.3px;overflow-wrap:anywhere;color:var(--t1)}
+    #symCatBox .sym-editor-gender{font-size:12px;line-height:1.5;color:var(--t2)}
+    #symCatBox .sym-editor-affiliation{font-size:13px;line-height:1.45;color:var(--t2);overflow-wrap:anywhere}
+    #symCatBox .sym-editor-meta{font-size:12px;line-height:1.5;color:var(--t2);overflow-wrap:anywhere}
+    #symCatBox .sym-editor-header .sym-time-chip{display:inline-flex;align-items:center;min-height:30px;box-sizing:border-box;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--t1);font:600 12px/1.5 var(--f);font-variant-numeric:tabular-nums;cursor:pointer}
+    #symCatBox .sym-editor-group{display:grid;grid-template-columns:62px minmax(0,1fr);align-items:start;gap:8px;padding-top:7px;margin-top:7px;border-top:1px solid var(--bdr)}
+    #symCatBox .sym-editor-group-label{padding-top:7px;font-size:12px;line-height:1.5;font-weight:700;color:var(--t2)}
+    #symCatBox .sym-editor-group-items{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+    /* Live counters still write legacy inline colors; keep one header-only palette. */
+    #symCatBox .sym-editor-header .sym-hdr-chip{--sym-chip-fg:var(--t2);--sym-chip-bg:var(--bg2);--sym-chip-border:var(--bdr);display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;min-height:32px;max-width:100%;margin:0;padding:5px 9px;border:1px solid;border-radius:6px;font:600 12px/1.45 var(--f);text-align:left;white-space:normal;overflow-wrap:anywhere;vertical-align:middle;box-shadow:none;color:var(--sym-chip-fg)!important;background:var(--sym-chip-bg)!important;border-color:var(--sym-chip-border)!important}
+    #symCatBox .sym-editor-header .sym-hdr-chip[data-action]{cursor:pointer}
+    #symCatBox .sym-editor-header .sym-hdr-chip.is-caution{--sym-chip-fg:color-mix(in srgb,#b87916 70%,var(--t1));--sym-chip-bg:color-mix(in srgb,#c98b25 10%,var(--card));--sym-chip-border:color-mix(in srgb,#c98b25 42%,var(--bdr))}
+    #symCatBox .sym-editor-header .sym-hdr-chip.is-danger{--sym-chip-fg:color-mix(in srgb,#d1473d 70%,var(--t1));--sym-chip-bg:color-mix(in srgb,#d1473d 9%,var(--card));--sym-chip-border:color-mix(in srgb,#d1473d 42%,var(--bdr));font-weight:700}
+    #symCatBox .sym-editor-header .sym-hdr-chip.is-note{--sym-chip-fg:var(--cyan);--sym-chip-bg:color-mix(in srgb,var(--cyan) 7%,var(--card));--sym-chip-border:color-mix(in srgb,var(--cyan) 30%,var(--bdr))}
+    #symCatBox .sym-editor-header .sym-hdr-chip:focus-visible,#symCatBox .sym-editor-header .sym-time-chip:focus-visible,#symCatBox .sym-editor-header #symQuickSearchInput:focus-visible{outline:2px solid var(--cyan)!important;outline-offset:2px}
+    #symCatBox .sym-editor-header #symQuickSearchInput{font-size:13px!important;line-height:1.5;padding:8px 11px!important}
+    @media(hover:hover){#symCatBox .sym-editor-header .sym-hdr-chip[data-action]:hover{box-shadow:inset 0 0 0 1px var(--sym-chip-border)}#symCatBox .sym-editor-header .sym-hdr-chip:not(.is-caution):not(.is-danger):not(.is-note):hover{--sym-chip-fg:var(--cyan)}#symCatBox .sym-editor-header .sym-time-chip:hover{border-color:var(--cyan)}}
+    @media(max-width:760px){#symCatBox .sym-editor-header{padding:10px 12px}#symCatBox .sym-editor-person{flex-basis:100%}#symCatBox .sym-editor-group{grid-template-columns:56px minmax(0,1fr);gap:6px}}
+    @media(max-height:640px){#symCatBox .sym-editor-header{padding-top:8px;padding-bottom:8px}#symCatBox .sym-editor-topline{margin-bottom:5px}#symCatBox .sym-editor-person-row{margin-bottom:6px}#symCatBox .sym-editor-name{font-size:18px}#symCatBox .sym-editor-group{padding-top:4px;margin-top:4px}#symCatBox .sym-editor-header .sym-hdr-chip{min-height:28px;padding-top:3px;padding-bottom:3px}}
+  `;
+  document.head.appendChild(style);
 }
 
 export function openSymptomCategoryPopup(recId, opts){
@@ -643,7 +680,7 @@ export function openSymptomCategoryPopup(recId, opts){
    *  확인 → 매칭 모달 진입 후 종료 시 본 팝업 재진입
    *  취소 → 본 팝업 그대로 진행 (선택 학생이 동명이인 중 한 명일 수 있음) */
   if(rec.studentId && !S._symSkipNameDupCheck){
-    _symCheckNameDupAndProceed(rec, recId);
+    _symCheckNameDupAndProceed(rec, recId, opts);
     return; /* 비동기 분기 — 실제 팝업 열기는 _symCheckNameDupAndProceed 안에서 재호출 */
   }
   S._symSkipNameDupCheck = false;
@@ -790,7 +827,9 @@ export function openSymptomCategoryPopup(recId, opts){
   /* 협업 편집 잠금 획득 + heartbeat 시작 — 이 레코드를 "수정 중"으로 서버에 알림.
    * 학생 교체(팝업 replace)면 acquireEditLock 이 이전 레코드 잠금을 먼저 해제한다. (2026-06-07) */
   try{ acquireEditLock(recId); }catch(_lk){}
+  _installSymptomHeaderStyles();
   const ov=document.createElement('div');ov.id='symCatOverlay';
+  ov.dataset.preserveEmptyRecord=String(!!(opts&&opts.preserveEmptyRecord));
   /* 사용자 요청 (2026-05-18) — 팝업 주변 어두워지는 backdrop 제거. 단순 투명 오버레이. */
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:transparent;z-index:9500';
   /* 상담 상분류 추가(15개)로 세로 여유 확대 720→780 (사용자 요청 2026-06-12) */
@@ -827,15 +866,15 @@ export function openSymptomCategoryPopup(recId, opts){
     const m={'M':'남','F':'여','남':'남','여':'여'};
     return (g&&m[g])?(' ('+m[g]+')'):'';
   })();
-  const stuInfo=stu?(
-    (stu.type==='staff'
-      ? ((stu.position||'교직원')+' '+stu.name)
+  const _stuAffiliation=stu?(
+    stu.type==='staff'
+      ? (stu.position||'교직원')
       : (_stuLv==='유'
-          ? (_stuLvPrefix+stu.grade+'세 '+(stu.cls||'')+' '+(stu.num?stu.num+'번 ':'')+stu.name)
-          : (_stuLvPrefix+(_stuDept?_stuDept+' ':'')+stu.grade+'학년 '+stu.cls+'반 '+stu.num+'번 '+stu.name)
+          ? (_stuLvPrefix+stu.grade+'세 '+(stu.cls||'')+' '+(stu.num?stu.num+'번':''))
+          : (_stuLvPrefix+(_stuDept?_stuDept+' ':'')+stu.grade+'학년 '+stu.cls+'반 '+stu.num+'번')
         )
-    )+_stuGenderSfx
   ):'';
+  const stuInfo=stu?(_stuAffiliation+' '+stu.name+_stuGenderSfx):'';
   /* 보호자 연락처 + 생년월일 — 별도 칩으로 표시할 데이터 수집 */
   let _gContact='', _birth='';
   if(stu){
@@ -852,7 +891,7 @@ export function openSymptomCategoryPopup(recId, opts){
       if(/^\d{8}$/.test(_bd))_birth=_bd.slice(0,4)+'. '+parseInt(_bd.slice(4,6),10)+'. '+parseInt(_bd.slice(6,8),10)+'.';
     }
   }
-  h+='<div style="padding:8px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);flex-shrink:0">';
+  h+='<div class="sym-editor-header">';
   const _isCare=stu&&((stu.status==='caution'||stu.status==='watch')||stu.is_care===1||stu.is_care==='1')&&!!(stu.condition||stu.care_reason||(stu.careMemo&&stu.careMemo.trim&&stu.careMemo.trim())||(stu.care_memo&&stu.care_memo.trim&&stu.care_memo.trim()));
   const _isMedN=stu&&(stu.med_consent==='N'||stu.medConsent==='N');
   /* 칩 데이터 수집 */
@@ -911,7 +950,9 @@ export function openSymptomCategoryPopup(recId, opts){
   const _vsSummary=_hasVs?_vsArr.join(' / '):'활력징후가 입력되지 않았습니다. 클릭하여 입력하세요.';
 
   /* 1행: 제목 */
-  h+='<div style="font-size:13px;font-weight:800;color:var(--t1);margin-bottom:6px">🩺 증상 선택 및 처치</div>';
+  h+='<div class="sym-editor-topline"><div class="sym-editor-title">증상 선택 및 처치</div>'
+    +(rec.date?'<span class="sym-editor-date">기록일 <strong>'+escHtml(rec.date)+'</strong></span>':'')
+    +'</div>';
   /* 2행: 학년반(소속) + 이름 / 주 보호자 연락처 / 생년월일 — 칩 3개로 분리 */
   /* 미입력 표시 헬퍼 — 빈 값/'-' 면 기울임체 "(미입력)", 아니면 escHtml 그대로 */
   const _emptyMark='<span style="font-style:italic;opacity:0.7;font-weight:500">(미입력)</span>';
@@ -919,19 +960,23 @@ export function openSymptomCategoryPopup(recId, opts){
     const t=String(v||'').trim();
     return (!t||t==='-')?_emptyMark:escHtml(v);
   }
-  h+='<div id="symStuRow" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:6px">'
-    +'<span style="font-size:11px;font-weight:700;color:var(--cyan);padding:2px 8px;border-radius:6px;background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.15)">'+escHtml(stuInfo)+'</span>';
+  h+='<div id="symStuRow" class="sym-editor-person-row">'
+    +'<div class="sym-editor-person" aria-label="'+escHtml(stuInfo)+'">'
+    +'<div class="sym-editor-name-line"><strong class="sym-editor-name">'+escHtml(stu&&stu.name?stu.name:'방문자 정보 없음')+'</strong>'
+    +(_stuGenderSfx?'<span class="sym-editor-gender">'+escHtml(_stuGenderSfx.trim())+'</span>':'')+'</div>'
+    +(_stuAffiliation?'<div class="sym-editor-affiliation">'+escHtml(_stuAffiliation)+'</div>':'')
+    +'</div>';
   /* 보호자 연락처 — 값이 있을 때만 칩 표시 (사용자 요청 2026-05-19, 미입력 칩 제거). */
   {
     const _gcT=String(_gContact||'').trim();
     if(_gcT && _gcT!=='-'){
-      h+='<span style="font-size:10px;font-weight:600;color:var(--t2);padding:2px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--bdr)">📞 주 보호자 '+escHtml(_gContact)+'</span>';
+      h+='<span class="sym-editor-meta">📞 주 보호자 '+escHtml(_gContact)+'</span>';
     }
   }
   /* 생년월일 — 값이 있을 때만 칩 표시 (사용자 요청 2026-05-19, 미입력 칩 제거). */
   if(_birth&&String(_birth).trim()&&String(_birth).trim()!=='-'){
     let _birthFmt=_birth;try{const _bd=new Date(_birth);if(!isNaN(_bd.getTime()))_birthFmt=_bd.getFullYear()+'년 '+(_bd.getMonth()+1)+'월 '+_bd.getDate()+'일';}catch(e){}
-    h+='<span data-birth-tip="'+escHtml(_birthFmt)+'" data-tooltip="생년월일입니다. '+escHtml(_birthFmt)+'" data-tooltip-instant="1" style="font-size:10px;font-weight:600;color:var(--t2);padding:2px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--bdr);cursor:default">🎂 '+escHtml(_birth)+'</span>';
+    h+='<span class="sym-editor-meta" data-birth-tip="'+escHtml(_birthFmt)+'" data-tooltip="생년월일입니다. '+escHtml(_birthFmt)+'" data-tooltip-instant="1">🎂 '+escHtml(_birth)+'</span>';
   }
   /* 입실·퇴실 시간 칩 — 생년월일 오른편 (생년월일 없으면 그 자리). 클릭 시 시계 픽커 열림.
    * 입실 변경 시 퇴실 자동 재계산 (openTimePicker 안에서 처리), 사용자가 퇴실 수동 수정도 가능.
@@ -947,50 +992,50 @@ export function openSymptomCategoryPopup(recId, opts){
       +'style="font-size:10px;font-weight:700;color:var(--t2);padding:2px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--bdr);cursor:pointer;font-family:\'맑은 고딕\',\'Malgun Gothic\',sans-serif;letter-spacing:0.3px">🕓 퇴실 '+escHtml(_tOut)+'</span>';
   }
   h+='</div>';
-  /* 3행: 정보 칩들. 순서 (사용자 지정 2026-06-12 — 3층 구조 개편):
-   *   바디맵 이력 | 과거 방문 이력 | V/S 측정 이력 | 상담 이력 | 요보호 | 미세먼지 기저질환
-   *   | 일반의약품 동의 | 응급처치 동의 | (VIP) */
-  h+='<div id="symChipRow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">'
+  /* Keep the existing row IDs and delegated actions; only regroup presentation. */
+  h+='<div id="symChipRow">'
+    +'<div class="sym-editor-group" role="group" aria-label="주의 및 동의 사항"><span class="sym-editor-group-label">주의·동의</span><div class="sym-editor-group-items">'
+    /* 주의사항(메모) */
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="'+(_memoCnt>0?_memoCnt+'건의 주의사항(메모)가 있습니다.':'클릭하면 주의사항 메모를 작성할 수 있습니다.')+'" data-tooltip-instant="1" data-action="openMemo" data-stu-id="'+rec.studentId+'">📝 주의사항(메모)'+(_memoCnt>0?' ('+_memoCnt+')':'')+'</button>'
+    /* 요보호 */
+    +'<span class="sym-hdr-chip'+(_isCare?' is-caution':'')+'" data-action="showCareInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_isCare?escHtml(_yrPfx+(stu.condition||stu.careMemo||'요보호 등록됨')):'요보호 대상자가 아닙니다.')+'" data-tooltip-instant="1">🛡 요보호</span>'
+    /* 미세먼지 기저질환 */
+    +'<span class="sym-hdr-chip'+(_isDustBase?' is-caution':'')+'" data-action="showDustInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_isDustBase?escHtml(_yrPfx+_dustBaseVal):'미세먼지 기저질환 미등록')+'" data-tooltip-instant="1">🌫 미세먼지 기저질환</span>'
+    /* 일반의약품 동의/비동의 */
+    +'<span class="sym-hdr-chip'+(_isMedN?' is-danger':'')+'" data-action="showMedConsentInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_yrPfx+(_isMedN?'비동의':'동의'))+'" data-tooltip-instant="1">💊 일반의약품 '+(_isMedN?'비동의':'동의')+'</span>'
+    /* 응급처치 동의/비동의 */
+    +'<span class="sym-hdr-chip'+(_isEcN?' is-danger':'')+'" data-action="showEcConsentInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_yrPfx+(_isEcN?'비동의':'동의'))+'" data-tooltip-instant="1">🚑 응급처치 '+(_isEcN?'비동의':'동의')+'</span>'
+    /* VIP — 조건부 (있을 때만) */
+    +(_hasVip?'<span class="sym-hdr-chip is-note" data-tooltip="'+escHtml(S._vipTags.map(function(v){return '★ '+v.text;}).join(', '))+'" data-tooltip-instant="1">★ VIP</span>':'')
+    +'</div></div>'
+    +'<div class="sym-editor-group" role="group" aria-label="학생 이력"><span class="sym-editor-group-label">이력</span><div class="sym-editor-group-items">'
     /* 바디맵 이력 — 신규 입력은 중분류 증상 칩의 🧍 에서. 여기는 조회 전용.
      * 툴팁은 부위명 나열 대신 건수 안내로 통일 — 과거 방문 이력 칩과 동일 문구 패턴 (사용자 요청 2026-06-12). */
     +(function(){
       const _hdrBmTip=_bmHistCount>0
         ? '과거 '+_bmHistCount+'건의 바디맵 입력 내역이 있습니다.'
         : '과거 바디맵 입력 이력을 봅니다. 신규 입력은 중분류 증상 칩의 🧍에서 진행하세요.';
-      return '<button class="sym-hdr-chip" data-tooltip="'+escHtml(_hdrBmTip)+'" data-tooltip-instant="1" data-action="openBmHistory" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'" style="padding:2px 8px;font-size:10px;font-weight:700;color:'+(_bmHistCount>0?'var(--cyan)':'#a855f7')+';background:'+(_bmHistCount>0?'rgba(6,182,212,0.08)':'rgba(168,85,247,0.08)')+';border:1px solid '+(_bmHistCount>0?'rgba(6,182,212,0.3)':'rgba(168,85,247,0.15)')+';border-radius:6px;cursor:pointer;font-family:var(--f)">📚 바디맵 이력'+(_bmHistCount>0?' ('+_bmHistCount+')':'')+'</button>';
+      return '<button type="button" class="sym-hdr-chip" data-tooltip="'+escHtml(_hdrBmTip)+'" data-tooltip-instant="1" data-action="openBmHistory" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'">📚 바디맵 이력'+(_bmHistCount>0?' ('+_bmHistCount+')':'')+'</button>';
     })()
     /* 과거 방문 이력 */
-    +'<button class="sym-hdr-chip" data-tooltip="과거 '+_visitCnt+'건의 방문 내역이 있습니다." data-tooltip-instant="1" data-action="showHistory" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_visitCnt>0?'rgba(34,197,94,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_visitCnt>0?'rgba(34,197,94,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_visitCnt>0?'#22c55e':'#94a3b8')+';cursor:pointer;font-family:var(--f)">📅 과거 방문 이력'+(_visitCnt>0?' ('+_visitCnt+')':'')+'</button>'
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="과거 '+_visitCnt+'건의 방문 내역이 있습니다." data-tooltip-instant="1" data-action="showHistory" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'">📅 과거 방문 이력'+(_visitCnt>0?' ('+_visitCnt+')':'')+'</button>'
     /* V/S 측정 이력 (구 V/S 이력) — 체온·맥박·혈압·호흡·SpO₂·혈당 시간순 꺾은선 그래프 */
-    +'<button class="sym-hdr-chip" data-tooltip="과거 '+_vsHistCount+'건의 V/S 측정 이력 그래프(체온·맥박·혈압·호흡·SpO₂·혈당)" data-tooltip-instant="1" data-action="showVsTimeline" data-stu-id="'+rec.studentId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_vsHistCount>0?'rgba(59,130,246,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_vsHistCount>0?'rgba(59,130,246,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_vsHistCount>0?'#3b82f6':'#94a3b8')+';cursor:pointer;font-family:var(--f)">📈 V/S 측정 이력'+(_vsHistCount>0?' ('+_vsHistCount+')':'')+'</button>'
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="과거 '+_vsHistCount+'건의 V/S 측정 이력 그래프(체온·맥박·혈압·호흡·SpO₂·혈당)" data-tooltip-instant="1" data-action="showVsTimeline" data-stu-id="'+rec.studentId+'">📈 V/S 측정 이력'+(_vsHistCount>0?' ('+_vsHistCount+')':'')+'</button>'
     /* 상담 이력 — counselLog 가 기록된 과거 방문 수. 이력 있으면 연분홍, 없으면 회색 (사용자 요청 2026-06-12) */
     +(function(){
       const _clCnt=_symCounselCount(rec.studentId);
-      return '<button class="sym-hdr-chip" data-tooltip="'+(_clCnt>0?('과거 '+_clCnt+'건의 상담 내역이 있습니다. 클릭하면 주제별로 열람할 수 있습니다.'):'상담 내역이 없습니다.')+'" data-tooltip-instant="1" data-action="openCounselHist" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_clCnt>0?'rgba(244,114,182,0.35)':'rgba(148,163,184,0.2)')+';background:'+(_clCnt>0?'rgba(244,114,182,0.10)':'rgba(148,163,184,0.06)')+';color:'+(_clCnt>0?'#f472b6':'#94a3b8')+';cursor:pointer;font-family:var(--f)">💬 상담 이력'+(_clCnt>0?' ('+_clCnt+')':'')+'</button>';
+      return '<button type="button" class="sym-hdr-chip" data-tooltip="'+(_clCnt>0?('과거 '+_clCnt+'건의 상담 내역이 있습니다. 클릭하면 주제별로 열람할 수 있습니다.'):'상담 내역이 없습니다.')+'" data-tooltip-instant="1" data-action="openCounselHist" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'">💬 상담 이력'+(_clCnt>0?' ('+_clCnt+')':'')+'</button>';
     })()
-    /* 요보호 */
-    +'<span class="sym-hdr-chip" data-action="showCareInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_isCare?escHtml(_yrPfx+(stu.condition||stu.careMemo||'요보호 등록됨')):'요보호 대상자가 아닙니다.')+'" data-tooltip-instant="1" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_isCare?'rgba(202,138,4,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_isCare?'rgba(202,138,4,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_isCare?'#ca8a04':'#94a3b8')+';cursor:pointer">🛡 요보호</span>'
-    /* 미세먼지 기저질환 */
-    +'<span class="sym-hdr-chip" data-action="showDustInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_isDustBase?escHtml(_yrPfx+_dustBaseVal):'미세먼지 기저질환 미등록')+'" data-tooltip-instant="1" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_isDustBase?'rgba(249,115,22,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_isDustBase?'rgba(249,115,22,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_isDustBase?'#f97316':'#94a3b8')+';cursor:pointer">🌫 미세먼지 기저질환</span>'
-    /* 일반의약품 동의/비동의 */
-    +'<span class="sym-hdr-chip" data-action="showMedConsentInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_yrPfx+(_isMedN?'비동의':'동의'))+'" data-tooltip-instant="1" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_isMedN?'rgba(239,68,68,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_isMedN?'rgba(239,68,68,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_isMedN?'#ef4444':'#94a3b8')+';cursor:pointer">💊 일반의약품 '+(_isMedN?'비동의':'동의')+'</span>'
-    /* 응급처치 동의/비동의 */
-    +'<span class="sym-hdr-chip" data-action="showEcConsentInfo" data-stu-id="'+rec.studentId+'" data-tooltip="'+(_yrPfx+(_isEcN?'비동의':'동의'))+'" data-tooltip-instant="1" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_isEcN?'rgba(239,68,68,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_isEcN?'rgba(239,68,68,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_isEcN?'#ef4444':'#94a3b8')+';cursor:pointer">🚑 응급처치 '+(_isEcN?'비동의':'동의')+'</span>'
-    /* VIP — 조건부 (있을 때만) */
-    +(_hasVip?'<span class="sym-hdr-chip" data-tooltip="'+escHtml(S._vipTags.map(function(v){return '★ '+v.text;}).join(', '))+'" data-tooltip-instant="1" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(234,179,8,0.3);background:rgba(234,179,8,0.08);color:#eab308">★ VIP</span>':'')
-    +'</div>';
-  /* 4행 (사용자 요청 2026-06-12 — 3층 구조): 주의사항(메모) | 물품 대여 | 커스텀 양식 | 병원 찾기 | 구급대 메시지 */
-  h+='<div id="symChipRow2" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">'
-    /* 주의사항(메모) */
-    +'<button class="sym-hdr-chip" data-tooltip="'+(_memoCnt>0?_memoCnt+'건의 주의사항(메모)가 있습니다.':'클릭하면 주의사항 메모를 작성할 수 있습니다.')+'" data-tooltip-instant="1" data-action="openMemo" data-stu-id="'+rec.studentId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_memoCnt>0?'rgba(6,182,212,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_memoCnt>0?'rgba(6,182,212,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_memoCnt>0?'var(--cyan)':'#94a3b8')+';cursor:pointer;font-family:var(--f)">📝 주의사항(메모)'+(_memoCnt>0?' ('+_memoCnt+')':'')+'</button>'
+    +'</div></div></div>';
+  h+='<div id="symChipRow2" class="sym-editor-group" role="group" aria-label="업무 도구"><span class="sym-editor-group-label">업무 도구</span><div class="sym-editor-group-items">'
     /* 물품 대여 — 클릭 시 물품 대여 대장 팝업 (대여자 자동 입력) */
-    +'<button class="sym-hdr-chip" data-tooltip="'+(_rentalCnt>0?_rentalCnt+'건의 미반납 대여 물품이 있습니다.':'클릭하면 보건실 물품을 대여 등록할 수 있습니다.')+'" data-tooltip-instant="1" data-action="openRentalFromSymptom" data-stu-id="'+rec.studentId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid '+(_rentalCnt>0?'rgba(6,182,212,0.3)':'rgba(148,163,184,0.2)')+';background:'+(_rentalCnt>0?'rgba(6,182,212,0.08)':'rgba(148,163,184,0.06)')+';color:'+(_rentalCnt>0?'var(--cyan)':'#94a3b8')+';cursor:pointer;font-family:var(--f)">📦 물품 대여'+(_rentalCnt>0?' ('+_rentalCnt+')':'')+'</button>'
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="'+(_rentalCnt>0?_rentalCnt+'건의 미반납 대여 물품이 있습니다.':'클릭하면 보건실 물품을 대여 등록할 수 있습니다.')+'" data-tooltip-instant="1" data-action="openRentalFromSymptom" data-stu-id="'+rec.studentId+'">📦 물품 대여'+(_rentalCnt>0?' ('+_rentalCnt+')':'')+'</button>'
     /* 커스텀 양식 — 이 방문자를 선택한 상태로 커스텀 양식 출력 팝업을 증상 팝업 위에 띄움 (2026-06-12) */
-    +'<button class="sym-hdr-chip" data-tooltip="이 방문자를 선택한 상태로 커스텀 양식 출력(방문확인증 등)을 엽니다." data-tooltip-instant="1" data-action="openVpFromSymptom" data-rec-id="'+recId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(99,102,241,0.3);background:rgba(99,102,241,0.08);color:#6366f1;cursor:pointer;font-family:var(--f)">🖨 커스텀 양식</button>'
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="이 방문자를 선택한 상태로 커스텀 양식 출력(방문확인증 등)을 엽니다." data-tooltip-instant="1" data-action="openVpFromSymptom" data-rec-id="'+recId+'">🖨 커스텀 양식</button>'
     /* 병원 찾기 + 구급대 메시지 — 커스텀 양식 오른편 (2행에서 이동, 2026-06-12) */
-    +'<button class="sym-hdr-chip" data-tooltip="학교 인근 병원, 약국, 응급실을 검색합니다." data-tooltip-instant="1" data-action="openMedFacility" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);color:#d97706;cursor:pointer;font-family:var(--f)">🗺️ 병원 찾기</button>'
-    +'<button class="sym-hdr-chip" data-tooltip="구급대에게 보낼 메시지를 작성합니다." data-tooltip-instant="1" data-action="openEmsMsg" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'" style="padding:2px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#dc2626;cursor:pointer;font-family:var(--f)">🚑 구급대 메시지</button>'
-    +'</div>';
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="학교 인근 병원, 약국, 응급실을 검색합니다." data-tooltip-instant="1" data-action="openMedFacility">🗺️ 병원 찾기</button>'
+    +'<button type="button" class="sym-hdr-chip" data-tooltip="구급대에게 보낼 메시지를 작성합니다." data-tooltip-instant="1" data-action="openEmsMsg" data-stu-id="'+rec.studentId+'" data-rec-id="'+recId+'">🚑 구급대 메시지</button>'
+    +'</div></div>';
   /* 증상 빠른 검색 — 중분류 증상 초성/부분일치 검색 → 선택 시 상분류·중분류 즉시 이동 (사용자 요청 2026-08-06) */
   h+='<div id="symQuickSearchRow" style="position:relative;margin-top:8px">'
     +'<input id="symQuickSearchInput" type="text" autocomplete="off" spellcheck="false" placeholder="증상을 입력해 등록된 증상을 찾습니다" style="width:100%;box-sizing:border-box;font-size:12px;padding:7px 11px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--t1);font-family:var(--f);outline:none">'
@@ -4951,7 +4996,8 @@ function _symComplete(){
   /* 빈 레코드 정리 — 신규/기존 무관, 닫는 시점에 _symRecordIsEmpty 면 삭제 (위 함수 주석 참고). */
   const _emptyRecId=_symPopupRecId;
   const _emptyRec=_emptyRecId ? getDailyRecord(_emptyRecId) : null;
-  if(_emptyRec && _symRecordIsEmpty(_emptyRec)){
+  const _preserveEmpty=document.getElementById('symCatOverlay')?.dataset.preserveEmptyRecord==='true';
+  if(_emptyRec && !_preserveEmpty && _symRecordIsEmpty(_emptyRec)){
     const _delId=_emptyRec._dbId || _emptyRec.id;
     _emptyRec._deleted=true;
     S.records=S.records.filter(function(r){return r.id!==_emptyRec.id;});

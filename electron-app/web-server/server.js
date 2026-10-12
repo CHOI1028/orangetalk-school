@@ -25,6 +25,8 @@ const { exec } = require('child_process');
 
 const { createHealthDiaryDB } = require('../src/main/services/database');
 const { ServiceContainer } = require('../src/main/services/service-container');
+const _sharedSettingsKeys=require('../src/shared/shared-settings');
+const _sharedSettingsRequest=require('../src/main/services/shared-settings-service').sharedSettingsRequest;
 const { resolveStoredPublicDataApiKey, preparePublicDataProxyRequest } = require('../src/main/services/public-data-key-store');
 const { scopeKey: _scopePersonalKey, isPersonalKey: _isPersonalKey, migrateLegacyPersonalKeys: _migrateLegacyPersonalKeys } = require('../src/main/services/personal-keys');
 const { readSheet, writeSheet, getSheetMetadata, createSpreadsheet, batchUpdateSpreadsheet,
@@ -73,23 +75,36 @@ function _isLoopbackIp(ip){
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.indexOf('127.') === 0;
 }
 
+const userDataBase = process.env.USER_DATA_PATH || (() => {
+  /* Electron 앱의 userData 폴더가 있으면 공유 모드로 사용
+     (DB 파일이 아직 없어도 폴더만 있으면 공유 — Electron 먼저 설치 후 웹 서버 시작한 경우 대비) */
+  const electronUserData = (process.platform === 'darwin')
+    ? path.join(os.homedir(), 'Library', 'Application Support', 'my-health-diary')
+    : path.join(os.homedir(), 'AppData', 'Roaming', 'my-health-diary');
+  if (fs.existsSync(electronUserData)) {
+    /* .health-diary-web 경로가 있으면 경고 — 이전에 독립 모드로 생성된 레거시 */
+    const legacyWebPath = path.join(os.homedir(), '.health-diary-web');
+    if (fs.existsSync(path.join(legacyWebPath, 'data', 'my_health_diary.sqlite3'))) {
+      console.log('  ⚠  [DB] 레거시 웹 전용 DB 감지: ' + legacyWebPath);
+      console.log('  ⚠  Electron 앱 데이터 폴더를 공유 모드로 사용합니다. 레거시 파일은 필요 시 수동 삭제하세요.');
+    } else {
+      console.log('  [DB] Electron 앱 데이터 감지 → 공유 모드');
+    }
+    return electronUserData;
+  }
+  console.log('  [DB] Electron 앱 데이터 없음 → 웹 전용 모드');
+  return path.join(os.homedir(), '.health-diary-web');
+})();
+
 const app = express();
+const _sharedAccess = require('../src/main/services/shared-web-access').createSharedWebAccess({ userDataPath: userDataBase, hostToken: process.env.ORANGETALK_SHARED_HOST_TOKEN });
 
 /* ── gzip 압축 — JS/CSS/HTML/JSON 응답을 1/3~1/4 로 줄여 웹 첫 로딩을 빠르게 한다.
  *  이미 압축된 woff2/이미지 등은 compression 이 content-type 보고 알아서 건너뜀. (2026-06-07) ── */
 app.use(require('compression')());
 
-/* ── CORS 헤더 — 클라이언트 포트 폴백 지원
- *  학교 방화벽으로 활성 포트가 끊기면 클라이언트는 같은 호스트의 다른 포트로 fetch 시도.
- *  브라우저는 다른 포트를 별도 origin 으로 보아 cross-origin 으로 처리하므로 ACAO 필요.
- *  학교 내부망 신뢰 모델이라 와일드카드(*) 허용. cookie 미사용이라 credentials 불필요. */
-app.use(function(req, res, next){
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Session-Id');
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  next();
-});
+/* Shared pages and APIs require a host-issued connection address. */
+app.use(_sharedAccess.middleware);
 
 /* ── JSON body 파싱 (50MB 제한 — 대용량 import 대비) ── */
 app.use(express.json({ limit: '50mb' }));
@@ -104,13 +119,17 @@ function _nocache(req, res, next){
   res.setHeader('Cache-Control', 'no-cache');
   next();
 }
-app.use('/src', _nocache, express.static(path.join(electronRoot, 'src')));
+app.use('/src/renderer', _nocache, express.static(path.join(electronRoot, 'src/renderer')));
+app.use('/src/shared', _nocache, express.static(path.join(electronRoot, 'src/shared')));
 app.use('/templates', _nocache, express.static(path.join(electronRoot, 'templates')));
 app.use('/kiosk', express.static(path.join(electronRoot, 'kiosk')));
 app.use('/assets', express.static(path.join(electronRoot, 'assets')));
 app.use('/node_modules', express.static(path.join(electronRoot, 'node_modules')));
 /* web-api-bridge.js 서빙 */
-app.use('/web-server', _nocache, express.static(__dirname));
+app.get('/web-server/web-api-bridge.js', _nocache, (req,res)=>{
+  res.type('application/javascript').send(fs.readFileSync(path.join(electronRoot,'src/shared/shared-settings.js'),'utf8')+'\n'+fs.readFileSync(path.join(__dirname,'web-api-bridge.js'),'utf8'));
+});
+/* Server implementation and access configuration are never static assets. */
 
 /* 메인 HTML */
 app.get('/', (req, res) => {
@@ -132,26 +151,6 @@ app.use((req, res, next) => {
 
 /* ── DB & 서비스 초기화 ── */
 /* --db-path 또는 DB_PATH 환경변수로 Electron 앱의 DB를 직접 사용 가능 */
-const userDataBase = process.env.USER_DATA_PATH || (() => {
-  /* Electron 앱의 userData 폴더가 있으면 공유 모드로 사용
-     (DB 파일이 아직 없어도 폴더만 있으면 공유 — Electron 먼저 설치 후 웹 서버 시작한 경우 대비) */
-  const electronUserData = (process.platform === 'darwin')
-    ? path.join(os.homedir(), 'Library', 'Application Support', 'my-health-diary')
-    : path.join(os.homedir(), 'AppData', 'Roaming', 'my-health-diary');
-  if (fs.existsSync(electronUserData)) {
-    /* .health-diary-web 경로가 있으면 경고 — 이전에 독립 모드로 생성된 레거시 */
-    const legacyWebPath = path.join(os.homedir(), '.health-diary-web');
-    if (fs.existsSync(path.join(legacyWebPath, 'data', 'my_health_diary.sqlite3'))) {
-      console.log('  ⚠  [DB] 레거시 웹 전용 DB 감지: ' + legacyWebPath);
-      console.log('  ⚠  Electron 앱 데이터 폴더를 공유 모드로 사용합니다. 레거시 파일은 필요 시 수동 삭제하세요.');
-    } else {
-      console.log('  [DB] Electron 앱 데이터 감지 → 공유 모드');
-    }
-    return electronUserData;
-  }
-  console.log('  [DB] Electron 앱 데이터 없음 → 웹 전용 모드');
-  return path.join(os.homedir(), '.health-diary-web');
-})();
 
 const dataDir = path.join(userDataBase, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -789,6 +788,7 @@ const handlers = {
         return { success: false, error: 'login_required_for_personal_key' };
       }
       const realKey = _scopePersonalKey('common', p.key, userId);
+      if(_sharedSettingsKeys.isShared(realKey))return {success:false,error:'shared_settings_refresh_required'};
       return services.jsonFile().saveCommon(realKey, p.data);
     } catch(e) { return { success: false, error: e.message }; }
   },
@@ -799,10 +799,11 @@ const handlers = {
         return { success: true, exists: false, data: null };
       }
       const realKey = _scopePersonalKey('common', p.key, userId);
+      if(_sharedSettingsKeys.isShared(realKey))return _sharedSettingsRequest(services,{action:'read',key:realKey});
       return services.jsonFile().loadCommon(realKey);
     } catch(e) { return { success: true, data: null }; }
   },
-  'json-flush': (p) => { try { return services.jsonFile().flush(p.items); } catch(e) { return { success: false, error: e.message }; } },
+  'json-flush': (p) => { try { if((p.items||[]).some(x=>x.common&&_sharedSettingsKeys.isShared(x.key)))return {success:false,error:'shared_settings_refresh_required'};return services.jsonFile().flush(p.items); } catch(e) { return { success: false, error: e.message }; } },
 
   /* ── 오늘의 메모 (today_memos, DB v4) — main.js 핸들러와 패리티. 일지처럼 학교 공유 데이터라 사용자 격리 없음 (2026-06-10) ── */
   'today-memo-get-all': () => { try { return { success: true, data: healthDB.getTodayMemosAll() }; } catch(e) { return { success: false, error: e.message }; } },
@@ -848,6 +849,16 @@ const handlers = {
      주의: ServiceContainer 의 메서드 이름은 store() / 응답 shape 는 {exists, data}.
      main.js 의 ipcMain.handle('db-get') 과 동일하게 ...spread 로 풀어 넣어야
      렌더러 측 app-data-bridge 가 dbRes.exists 로 분기 가능. */
+  'shared-settings': (p) => {
+    const result=require('../src/main/services/shared-settings-service').sharedSettingsRequest(services,p);
+    if(result.success && p.action==='write')_bumpDataVersion();
+    return result;
+  },
+  'rental-ledger': (p) => {
+    const result = require('../src/main/services/rental-ledger-service').rentalLedgerRequest(services.store(), p);
+    if (result.success && p.action !== 'read') _bumpDataVersion();
+    return result;
+  },
   'db-get': (p, ctx) => {
     try {
       /* 개인 키 격리 — common scope 의 vp_stamps 등은 사용자별로 분리.
@@ -857,6 +868,7 @@ const handlers = {
         return { success: true, exists: false, data: null };
       }
       const realKey = _scopePersonalKey(p.scope, p.key, userId);
+      if(p.scope==='common' && _sharedSettingsKeys.isShared(realKey))return _sharedSettingsRequest(services,{action:'read',key:realKey});
       return { success: true, ...services.store().get(p.scope, realKey, p.year) };
     } catch(e) { return { success: false, error: e.message, exists: false, data: null }; }
   },
@@ -868,6 +880,7 @@ const handlers = {
         return { success: false, error: 'login_required_for_personal_key' };
       }
       const realKey = _scopePersonalKey(p.scope, p.key, userId);
+      if(p.scope==='common' && _sharedSettingsKeys.isShared(realKey))return {success:false,error:'shared_settings_refresh_required'};
       return { success: true, ...services.store().set(p.scope, realKey, p.value, p.year) };
     } catch(e) { return { success: false, error: e.message }; }
   },
@@ -880,6 +893,7 @@ const handlers = {
         return true;
       });
       const mapped = filtered.map(it => Object.assign({}, it, { key: _scopePersonalKey(it.scope, it.key, userId) }));
+      if(mapped.some(x=>x.scope==='common' && _sharedSettingsKeys.isShared(x.key)))return {success:false,error:'shared_settings_refresh_required'};
       return { success: true, ...services.store().batchSet(mapped) };
     } catch(e) { return { success: false, error: e.message }; }
   },
@@ -2851,7 +2865,7 @@ function _cleanupOldPendingAmbSrv(currentYr) {
 /* ══════════════════════════════════════════════════════════
  *  접속자 추적 (세션 기반)
  * ══════════════════════════════════════════════════════════ */
-const _sessions = {}; /* sessionId → { ip, userAgent, lastSeen, userName, userSchool, userPosition } */
+const _sessions = Object.create(null); /* sessionId → { ip, userAgent, lastSeen, userName, userSchool, userPosition } */
 
 /* ══════════════════════════════════════════════════════════
  *  실시간 동기화용 데이터 버전 카운터
@@ -2997,7 +3011,7 @@ app.get('/api/events', (req, res) => {
   if (typeof res.flush === 'function') res.flush();
   /* SSE 연결을 세션과 묶는다 — 브라우저(탭)가 닫히면 이 연결이 즉시 끊기므로(백그라운드 전환으론
    * 안 끊김) 그 시점에 해당 세션을 정리해 호스트 전광판에서 곧바로 사라지게 한다. (2026-06-07) */
-  const _sseSid = (req.query && req.query.sid) ? String(req.query.sid) : '';
+  const _sseSid = req.headers['x-session-id'] || ((req.query && req.query.sid) ? String(req.query.sid) : '');
   res._collabSid = _sseSid;
   _sseClients.add(res);
   /* 25초마다 keep-alive 주석 — 프록시/브라우저 타임아웃 방지 */
@@ -3098,7 +3112,8 @@ app.get('/api/server-info', (req, res) => {
     ips: ips,
     address: ips.length ? ('http://' + ips[0] + _addrPort) : ('http://localhost' + _addrPort),
     platform: process.platform,
-    dbPath: healthDB.dbPath,
+    dbPath: req.sharedAccess.host ? healthDB.dbPath : undefined,
+    inviteKey: _sharedAccess.inviteKeyFor(req),
   });
 });
 
@@ -3255,6 +3270,7 @@ function _addListenPort(port){
       _activeServers.push(server);
       _activePorts.push(port);
       console.log('  [WEB] ✅ port', port, 'added');
+      if (process.send) process.send({ type: 'shared-listening', port: port });
       resolve({ success: true, port: port });
     });
     server.once('error', function(err){
@@ -3278,6 +3294,7 @@ function _removeListenPort(port){
     return Promise.resolve({ success: false, error: 'last_port', port: port });
   }
   const server = _activeServers[idx];
+  if (process.send) process.send({ type: 'shared-port-closed', port: port });
   return new Promise(function(resolve){
     let resolved = false;
     /* 5초 timeout — close 가 끝나지 않아도 사용자 응답 막지 않음 */
@@ -3374,7 +3391,7 @@ app.get('/api/port-scan', async function(req, res){
 /* ── 범용 IPC 라우트 ── */
 app.post('/api/ipc/:channel', async (req, res) => {
   const channel = req.params.channel;
-  const handler = handlers[channel];
+  const handler = Object.prototype.hasOwnProperty.call(handlers, channel) ? handlers[channel] : null;
   if (!handler) {
     console.warn('[WEB] Unknown IPC channel:', channel);
     return res.status(404).json({ success: false, error: 'Unknown channel: ' + channel });
@@ -3417,6 +3434,7 @@ function _tryListenPort(port){
       _activeServers.push(server);
       _activePorts.push(port);
       console.log('  [WEB] ✅ listening on port', port);
+      if (process.send) process.send({ type: 'shared-listening', port: server.address().port });
       resolve(true);
     });
     server.once('error', function(err){
@@ -3464,23 +3482,14 @@ function _tryListenPort(port){
 const medApp = express();
 /* iframe 로드 차단 해제 — localhost:3000 에서 localhost:7700 을 iframe 으로 embed 허용
    + CORS — 메인 서버 포트 폴백 시 7700 으로 fetch 가 cross-origin 처리되지 않도록 */
-medApp.use((req, res, next) => {
-  res.removeHeader('X-Frame-Options');
-  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' http://localhost:* http://127.0.0.1:*");
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Session-Id');
-  res.setHeader('Cache-Control', 'no-cache');
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  next();
-});
+medApp.use(_sharedAccess.middleware);
 /* /api/ipc/* 프록시 — med-facility iframe 은 localhost:7700 컨텍스트인데
    web-api-bridge.js 가 상대 URL(/api/ipc/*) 로 fetch 하므로 7700 서버가 3000 의 핸들러를 공유해야 함.
    Express 의 handlers 객체(메인 IPC 라우트에서 쓰는) 를 동일하게 사용 */
 medApp.use(express.json({ limit: '50mb' }));
 medApp.post('/api/ipc/:channel', async (req, res) => {
   const channel = req.params.channel;
-  const handler = handlers[channel];
+  const handler = Object.prototype.hasOwnProperty.call(handlers, channel) ? handlers[channel] : null;
   if (!handler) return res.status(404).json({ success: false, error: 'Unknown channel: ' + channel });
   try {
     const ctx = { sessionId: req.headers['x-session-id'] || null, sessions: _sessions };
@@ -3491,7 +3500,11 @@ medApp.post('/api/ipc/:channel', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-medApp.use(express.static(electronRoot));
+medApp.use('/assets', express.static(path.join(electronRoot, 'assets')));
+medApp.use('/src/renderer', _nocache, express.static(path.join(electronRoot, 'src/renderer')));
+medApp.use('/src/shared', _nocache, express.static(path.join(electronRoot, 'src/shared')));
+medApp.get('/web-server/web-api-bridge.js', (req, res) => res.type('application/javascript').send(fs.readFileSync(path.join(electronRoot, 'src/shared/shared-settings.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, 'web-api-bridge.js'), 'utf8')));
+medApp.get(['/med-facility.html', '/med-facility-list.html'], (req, res) => res.sendFile(path.join(electronRoot, req.path)));
 medApp.get('/', (req, res) => { res.redirect('/med-facility.html'); });
 medApp.listen(7700, '127.0.0.1', () => {
   console.log('  [MedFac] http://localhost:7700/med-facility.html (카카오맵 전용)');

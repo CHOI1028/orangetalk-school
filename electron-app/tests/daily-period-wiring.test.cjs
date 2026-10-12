@@ -26,8 +26,12 @@ function harness(extra = {}) {
   const context = vm.createContext({
     S: { selectedDate: '2026-09-20', currentView: 'daily', nextId: 1, settings: {} },
     isDailyPeriodSearchActive: () => state.active,
+    getDailyPeriodRegistrationDate: () => state.active ? context.S.selectedDate : null,
+    syncDailySelectedDate(date) { context.S.selectedDate=date; },
+    selectDailyPeriodDate() { return state.active; },
     closeDailyPeriodSearch(notify) { events.push(['close', notify]); const old = state.active; state.active = false; return old; },
     refreshDailyPeriodSearch() { state.refreshes++; },
+    resetDiaryPrivacy() { state.privacyResets = (state.privacyResets || 0) + 1; },
     renderDaily() { state.renders++; },
     renderCalendar() {}, renderSidebarRecent() {}, updateDailyDateLabel() {},
     _dailyAnimateTransition() { state.renders++; }, _focusDailySearch() {},
@@ -136,11 +140,16 @@ for(const [cat, view] of [['emergency', 'daily'], ['infection', 'daily'], ['gene
   });
 }
 
-test('range mode suppresses stale autocomplete and its registration keys', () => {
-  const h = harness({ document: { getElementById() { throw Error('Autocomplete accessed'); }, querySelectorAll() { throw Error('Autocomplete keys accessed'); } } });
+test('range mode allows autocomplete and registration keyboard handling', () => {
+  let cleared=false,prevented=false;
+  const h = harness({ _normName:value=>value, document: {
+    getElementById:id=>id==='dailySearchInput'?{value:''}:{classList:{remove(){cleared=true;}}},
+    querySelectorAll:()=>[]
+  } });
   vm.runInContext(named(autocomplete, 'dailyAutoComplete') + named(autocomplete, 'dailySearchKeydown'), h.context);
   h.context.dailyAutoComplete();
-  h.context.dailySearchKeydown({ key: 'Enter' });
+  h.context.dailySearchKeydown({key:'Enter',preventDefault(){prevented=true;}});
+  assert.equal(cleared,true);assert.equal(prevented,true);
 });
 
 test('range results allow normal text selection without starting hidden-table drag selection', () => {
@@ -185,7 +194,7 @@ test('opening range mode cancels pending drag and clears stale daily selections'
 });
 
 for(const cancel of [true, false]) {
-  test('direct registration ' + (cancel ? 'preserves range mode when cancelled' : 'exits range mode before adding a record'), async () => {
+  test('ordinary registration ' + (cancel ? 'does not add a record when cancelled' : 'adds the selected date'), async () => {
     const h = harness({
       _dailyDateGuard: async () => cancel ? 'cancel' : 'selected',
       getStu: () => ({ name: 'Synthetic student' }),
@@ -193,9 +202,10 @@ for(const cancel of [true, false]) {
       saveData() {}, isBirthdayToday: () => false, setTimeout() {},
       addRecord() { assert.equal(h.state.active, false); h.state.registered++; }
     });
+    h.state.active=false;
     vm.runInContext(named(autocomplete, 'selectStudent', true), h.context);
     await h.context.selectStudent('synthetic-1');
-    assert.equal(h.state.active, cancel);
+    assert.equal(h.state.active, false);
     assert.equal(h.state.registered, cancel ? 0 : 1);
   });
 }
@@ -279,4 +289,97 @@ test('reselecting the daily main menu preserves the current range search', () =>
   assert.equal(h.context.S.currentView, 'daily');
   assert.deepEqual(h.events, []);
   assert.deepEqual(h.dailyRenderModes, [true]);
+});
+
+
+for(const scenario of [
+  { name: 'Yes uses the selected past date', selected: '2026-09-20', choice: 'selected', expected: '2026-09-20' },
+  { name: 'No explicitly uses today', selected: '2026-09-20', choice: 'today', expected: '2026-10-12' },
+  { name: 'cancel leaves the selected date and query unchanged', selected: '2026-09-20', choice: 'cancel', expected: null },
+  { name: 'future dates also require confirmation', selected: '2026-10-20', choice: 'selected', expected: '2026-10-20' },
+  { name: 'today does not require a date confirmation', selected: '2026-10-12', choice: 'selected', expected: '2026-10-12' }
+]) {
+  test('period registration confirmation: ' + scenario.name, async () => {
+    const prompts = [], added = [], payloads = [];
+    let saves = 0;
+    const today = '2026-10-12';
+    const h = harness({
+      _todayLocalStr: () => today,
+      _showDateGuardModal: async (selected, actualToday) => {
+        prompts.push([selected, actualToday]);
+        return scenario.choice;
+      },
+      getStu: () => ({ name: 'Synthetic student' }),
+      localStorage: { getItem: () => null },
+      window: { electronAPI: { recordsDailyInsert: async row => {
+        payloads.push(row);
+        return { success: true, id: 77 };
+      } } },
+      saveData() { saves++; }, isBirthdayToday: () => false, setTimeout() {},
+      addRecord(record) { assert.equal(h.state.active, true); added.push(record); }
+    });
+    h.context.S.selectedDate = scenario.selected;
+    vm.runInContext(named(autocomplete, '_dailyDateGuard') + named(autocomplete, 'selectStudent', true), h.context);
+    await h.context.selectStudent('synthetic-1', '2026-01-01');
+    assert.deepEqual(prompts, scenario.selected === today ? [] : [[scenario.selected, today]]);
+    assert.equal(h.state.active, true);
+    assert.deepEqual(h.events, []);
+    assert.equal(h.context.S.selectedDate, scenario.expected || scenario.selected);
+    assert.equal(added.length, scenario.expected ? 1 : 0);
+    assert.equal(payloads.length, scenario.expected ? 1 : 0);
+    assert.equal(saves, scenario.expected ? 1 : 0);
+    if(scenario.expected) {
+      assert.equal(added[0].date, scenario.expected);
+      assert.equal(payloads[0].visit_date, scenario.expected);
+    } else {
+      assert.equal(h.context.S.nextId, 1);
+    }
+  });
+}
+
+for(const [action, expected] of [['yes', 'selected'], ['no', 'today'], ['escape', 'cancel'], ['outside', 'cancel']]) {
+  test('existing date confirmation window retains sound and action: ' + action, async () => {
+    const buttons = {}, listeners = {}, keys = {};
+    let attached = 0, removed = 0, sounds = 0;
+    const overlay = {
+      style: {}, innerHTML: '',
+      querySelector(selector) {
+        return { addEventListener(event, callback) { buttons[selector] = callback; } };
+      },
+      addEventListener(event, callback) { listeners[event] = callback; },
+      remove() { removed++; }
+    };
+    const context = vm.createContext({
+      _formatKoreanDate: value => value, _formatKoreanDateShort: value => value,
+      escHtml: value => String(value), playCautionSound() { sounds++; },
+      document: {
+        createElement() { return overlay; },
+        body: { appendChild(node) { assert.equal(node, overlay); attached++; } },
+        addEventListener(event, callback) { keys[event] = callback; },
+        removeEventListener(event, callback) { if(keys[event] === callback)delete keys[event]; }
+      }
+    });
+    vm.runInContext(named(autocomplete, '_showDateGuardModal'), context);
+    const pending = context._showDateGuardModal('2026-09-20', '2026-10-12');
+    assert.equal(attached, 1);
+    assert.equal(sounds, 1);
+    assert.match(overlay.innerHTML, /날짜 확인/);
+    assert.match(overlay.innerHTML, /2026-09-20/);
+    assert.match(overlay.innerHTML, /2026-10-12/);
+    if(action === 'escape')keys.keydown({ key: 'Escape', preventDefault() {} });
+    else if(action === 'outside')listeners.click({ target: overlay });
+    else buttons['[data-act="' + action + '"]']();
+    assert.equal(await pending, expected);
+    assert.equal(removed, 1);
+    assert.equal(keys.keydown, undefined);
+  });
+}
+
+test('context calendar selects the registration date without closing a period', () => {
+  const h=harness({_showDateVisitors(){},document:{getElementById:()=>null}});
+  vm.runInContext(named(daily,'selectDate'),h.context);
+  h.context.selectDate('2026-08-22',true);
+  assert.equal(h.context.S.selectedDate,'2026-08-22');
+  assert.equal(h.state.active,true);
+  assert.deepEqual(h.events,[]);
 });

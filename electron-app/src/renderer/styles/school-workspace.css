@@ -54,13 +54,15 @@
   }
 
   /* Keep direct-in-table recording. Only group the existing work tools. */
-  body.school-interface #dailyToolbarWrap {
+  body.school-interface :is(#dailyToolbarWrap,.school-record-toolbar) {
+    display:block !important; width:100%; max-width:100%; min-width:0; box-sizing:border-box;
     border:0; padding:0 0 16px !important; margin:0 0 2px !important;
   }
   body.school-interface .school-record-tools {
-    display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr));
+    display:grid !important; grid-template-columns:repeat(var(--school-tool-columns,4),minmax(0,1fr));
     align-items:stretch !important; gap:10px !important; min-width:0 !important;
   }
+  body.school-interface .school-record-tools-secondary { --school-tool-columns:3; }
   body.school-interface .school-tool-group {
     padding:12px; min-width:0; border:1px solid var(--bdr);
     border-radius:12px; background:var(--bg2); box-sizing:border-box;
@@ -72,7 +74,7 @@
     min-width:0 !important; max-width:100%; min-height:36px;
     white-space:normal !important; overflow-wrap:anywhere;
   }
-  body.school-interface .school-tool-group:first-child .school-tool-controls {
+  body.school-interface .school-tool-group.school-classic-period .school-tool-controls {
     display:grid; grid-template-columns:30px minmax(0,1fr) 30px;
   }
   body.school-interface .school-tool-controls :is(#btnPrevDay,#btnNextDay) {

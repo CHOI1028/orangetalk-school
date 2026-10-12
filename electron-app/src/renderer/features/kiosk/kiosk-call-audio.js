@@ -40,6 +40,31 @@ const KIOSK_CHIME_OPTIONS=[
   }
 ];
 
+const KIOSK_DEFAULT_CALL_MESSAGE='보건실로 들어오세요.';
+const KIOSK_CALL_SAMPLE={test:true,person:{name:'홍길동',type:'student',grade:3,cls:1,num:1},nurse:{name:'김보건'}};
+
+function normalizeKioskCallMessage(value){
+  return typeof value==='string'?value.replace(/[\r\n\t]+/g,' ').trim().slice(0,120):KIOSK_DEFAULT_CALL_MESSAGE;
+}
+
+/* Shared by the settings preview and the serialized tablet runtime. */
+export function composeKioskCallMessage(config,person={},payload={}){
+  person=person||{};payload=payload||{};
+  const name=String(person.name||payload.person_name||'방문자');
+  const group=[];
+  if(person.type!=='staff'){
+    if(person.grade)group.push(person.grade+'학년');
+    if(person.cls)group.push(person.cls+'반');
+  }
+  const greeting=(group.length?group.join(' ')+' ':'')+name+(person.type==='staff'?'님':' 학생');
+  const parts=[];
+  if(config.message)parts.push(config.message);
+  const nurse=payload.nurse&&payload.nurse.name;
+  if(config.includeNurseName!==false&&nurse)parts.push(String(nurse)+' 선생님께 가 주세요.');
+  const instruction=parts.join(' ');
+  return {instruction,spokenText:greeting+(instruction?', '+instruction:'.')};
+}
+
 function kioskSettingsVoiceKey(voice){return JSON.stringify([voice.voiceURI||'',voice.name||'',voice.lang||'']);}
 function refreshKioskSettingsVoices(container,settings){
   let voices=[];
@@ -68,6 +93,8 @@ export function normalizeKioskCallAudio(settings={}) {
     mode,
     chime:KIOSK_CHIME_OPTIONS.some(option=>option.key===value.chime)?value.chime:'classic',
     rate,
+    message:normalizeKioskCallMessage(value.message),
+    includeNurseName:value.includeNurseName!==false,
     chimeVolume,
     voiceVolume,
     // Retain a derived value for callers that still inspect the legacy field.
@@ -76,8 +103,12 @@ export function normalizeKioskCallAudio(settings={}) {
   };
 }
 
+export function kioskCallSettingsSignature(settings){return JSON.stringify({version:1,audio:normalizeKioskCallAudio(settings)});}
+
 export function kioskCallSettingsHtml(settings) {
   const config=normalizeKioskCallAudio(settings);
+  const escape=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+  const sample=composeKioskCallMessage(config,KIOSK_CALL_SAMPLE.person,KIOSK_CALL_SAMPLE).spokenText;
   const options=(items,current)=>items.map(([value,label])=>'<option value="'+value+'"'+(String(value)===String(current)?' selected':'')+'>'+label+'</option>').join('');
   const select=(key,label,items,hint='')=>'<label class="ka-settings-field"><span class="ka-settings-label">'+label+'</span><select data-kiosk-audio="'+key+'">'+options(items,config[key])+'</select>'+hint+'</label>';
   const volumeControl=(key,label,hint)=>'<label class="ka-volume-box"><span class="ka-volume-heading"><span class="ka-settings-label">'+label+'</span><span data-kiosk-audio-volume="'+key+'" class="ka-volume-value">'+Math.round(config[key]*100)+'%</span></span><input type="range" aria-label="'+label+'" data-kiosk-audio="'+key+'" min="0" max="100" step="5" value="'+Math.round(config[key]*100)+'"><span class="ka-field-hint">'+hint+'</span></label>';
@@ -103,6 +134,12 @@ export function kioskCallSettingsHtml(settings) {
     .ka-volume-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
     .ka-volume-value{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:3px 9px;border-radius:999px;background:rgba(6,182,212,.1);color:var(--cyan,#0e7490);font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
     .kiosk-audio-settings input[type=range]{display:block;width:100%;max-width:100%;min-width:0;min-height:32px;margin:3px 0;accent-color:var(--cyan,#0891b2);cursor:pointer;padding:0;box-shadow:none}
+    .ka-message-box{display:grid;gap:10px;margin-top:16px;padding:14px;border:1px solid var(--bdr,#d3dfe5);border-radius:12px;background:var(--card,#fff);min-width:0}
+    .ka-message-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .ka-message-reset{min-height:36px;padding:6px 10px;border:1px solid var(--bdr,#d3dfe5);border-radius:8px;background:var(--card,#fff);color:var(--t2,#526675);font:inherit;font-size:11.5px;cursor:pointer}
+    .kiosk-audio-settings .ka-message-input{display:block;width:100%;min-width:0;min-height:76px;padding:10px 12px;border:1px solid var(--bdr,#d3dfe5);border-radius:9px;background:var(--card,#fff);color:var(--t1,#213747);font:inherit;font-size:13px;line-height:1.7;resize:vertical}
+    .ka-nurse-toggle{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.7;color:var(--t1,#213747);cursor:pointer}
+    .ka-nurse-toggle input{width:16px;height:16px;flex:0 0 16px;margin:3px 0 0;accent-color:var(--cyan,#0891b2)}
     .ka-preview-box{display:grid;gap:12px;margin-top:16px;padding:15px;border:1px solid rgba(6,182,212,.3);border-radius:13px;background:var(--card,#fff)}
     .ka-preview-heading{display:flex;align-items:center;gap:8px;color:var(--cyan,#0e7490);font-size:13px;font-weight:800;line-height:1.5}
     .ka-preview-heading>span:first-child{font-size:18px}
@@ -127,7 +164,7 @@ export function kioskCallSettingsHtml(settings) {
     .kiosk-call-guide-copy p{margin:4px 0 0;font-size:11.5px;line-height:1.8;color:var(--t2,#526675);overflow-wrap:anywhere}
     .kiosk-call-card .kiosk-call-guide-toggle{min-height:42px;max-width:100%;padding:9px 14px;border-radius:10px;font-family:inherit;font-size:12px;line-height:1.6;font-weight:700;white-space:normal}
     .kiosk-call-card .kiosk-call-guide-toggle[aria-pressed=true]{border-color:rgba(6,182,212,.35);background:rgba(6,182,212,.08);color:var(--cyan,#0e7490)}
-    .kiosk-call-card :is(button,select,input,summary):focus-visible,.kiosk-audio-settings :is(button,select,input,summary):focus-visible{outline:2px solid var(--cyan,#0891b2);outline-offset:3px}
+    .kiosk-call-card :is(button,select,input,textarea,summary):focus-visible,.kiosk-audio-settings :is(button,select,input,textarea,summary):focus-visible{outline:2px solid var(--cyan,#0891b2);outline-offset:3px}
     @media(max-width:480px){.kiosk-call-heading{padding:15px}.kiosk-audio-settings{padding:15px}.ka-preview-box{padding:12px}.kiosk-call-guide{padding:14px 15px}.ka-preview-actions .ka-preview-stop{flex-grow:1}}
   `;
   return '<style>'+styles+'</style><div data-kiosk-audio-form class="kiosk-audio-settings">'
@@ -140,12 +177,18 @@ export function kioskCallSettingsHtml(settings) {
     +volumeControl('chimeVolume','알림음 음량','알림음이 목소리보다 크게 들리면 낮춰 주세요. 0%에서는 알림음이 나오지 않습니다.')
     +volumeControl('voiceVolume','안내 목소리 음량','이름 안내의 음량입니다. 0%에서는 목소리가 나오지 않습니다. 기기의 시스템 음량도 함께 확인해 주세요.')
     +'</div>'
+    +'<section class="ka-message-box" aria-label="이름 호출 문구"><div class="ka-message-topline"><span class="ka-settings-label">이름 뒤 안내 문구</span><button type="button" class="ka-message-reset" data-kiosk-audio-reset>기본 문구로</button></div>'
+    +'<label class="ka-settings-field"><span class="ka-field-hint">학생 이름은 자동으로 붙습니다. 이름 뒤에 안내할 내용을 입력해 주세요. (최대 120자)</span><textarea class="ka-message-input" data-kiosk-audio="message" aria-label="이름 뒤 안내 문구" maxlength="120" rows="2">'+escape(config.message)+'</textarea></label>'
+    +'<label class="ka-nurse-toggle"><input type="checkbox" data-kiosk-audio="includeNurseName"'+(config.includeNurseName?' checked':'')+'><span><strong>담당 선생님 안내 덧붙이기</strong><br><span class="ka-field-hint">호출한 선생님의 이름이 있으면 "○○ 선생님께 가 주세요."를 덧붙입니다. 끄면 이 문장은 안내하지 않습니다.</span></span></label>'
+    +'<p class="ka-field-hint" style="margin:0">문구를 비우고 담당 선생님 안내도 끄면 이름만 호출합니다. 변경한 문구는 화면과 음성에 함께 적용됩니다.</p></section>'
     +'<section class="ka-preview-box" aria-label="소리 미리 듣기"><div class="ka-preview-heading"><span aria-hidden="true">🎧</span><span>설정한 소리 미리 듣기</span></div>'
-    +'<div data-kiosk-audio-sample class="ka-sample"><span class="ka-sample-caption">가상 학생 안내 샘플</span><span class="ka-sample-message">3학년 1반 홍길동 학생, 보건실로 들어오세요.</span></div>'
+    +'<div data-kiosk-audio-sample class="ka-sample"><span class="ka-sample-caption">가상 학생 안내 샘플</span><span class="ka-sample-message">'+escape(sample)+'</span></div>'
     +'<div class="ka-preview-actions"><button type="button" class="btn btn-primary ka-preview-primary" data-kiosk-audio-preview="all"><span aria-hidden="true">🔊</span>선택한 설정으로 미리 듣기</button><button type="button" class="btn btn-outline ka-preview-stop" data-kiosk-audio-preview="stop" disabled>중지</button></div>'
     +'<p data-kiosk-audio-preview-status role="status" aria-live="polite" class="ka-preview-status">위에서 설정한 호출 방식·알림음·읽기 속도·음량을 한 번에 들어보세요.</p></section>'
     +'<p data-kiosk-audio-save role="status" aria-live="polite" class="ka-save-status">'+(config.volume===0?'현재 호출 방식의 음량이 0%로, 화면 안내만 표시됩니다.':'설정은 변경할 때 자동으로 저장됩니다. 기기의 시스템 음량도 함께 확인해 주세요.')+'</p>'
-    +'<details class="ka-apply-help"><summary>적용 방법과 기기별 목소리 안내</summary><p><strong>설정 변경 → 키오스크 다시 생성 → 기기에서 새로고침</strong> 순서로 적용해 주세요.</p><p>목소리는 각 기기의 기본 한국어 음성을 자동으로 사용합니다. 기기의 <strong>관리 → 호출 소리 확인</strong>에서 전체 호출을 들어볼 수 있습니다. 한국어 음성을 사용할 수 없으면 화면으로 안내하며, 알림음은 설정한 음량에 따라 재생됩니다.</p></details></div>';
+    +'<div class="ka-preview-actions"><button type="button" class="btn btn-outline" data-action="kiosk-apply-call-settings">모바일 적용용 화면 다시 생성</button></div>'
+    +'<p data-kiosk-audio-apply-status role="status" class="ka-field-hint">'+(settings.genCallAudioSignature===kioskCallSettingsSignature(settings)?'이 설정으로 화면을 생성했습니다. 모바일에서 새로고침해 주세요.':'호출 설정은 PC에 저장되며, 모바일에 적용하려면 화면을 다시 생성해야 합니다.')+'</p>'
+    +'<details class="ka-apply-help"><summary>적용 방법과 기기별 목소리 안내</summary><p><strong>설정 저장 → 화면 다시 생성 → 키오스크 활성화 → 모바일 새로고침</strong> 순서로 적용해 주세요.</p><p>목소리는 각 기기의 기본 한국어 음성을 자동으로 사용합니다. 기기의 <strong>관리 → 호출 소리 확인</strong>에서 전체 호출을 들어볼 수 있습니다. 한국어 음성을 사용할 수 없으면 화면으로 안내하며, 알림음은 설정한 음량에 따라 재생됩니다.</p></details></div>';
 }
 
 export function bindKioskCallSettings(container,settings,save) {
@@ -160,29 +203,73 @@ export function bindKioskCallSettings(container,settings,save) {
     };
     window.speechSynthesis.addEventListener('voiceschanged',refresh);
   }
+  const form=()=>container.querySelector('[data-kiosk-audio-form]');
+  function showSample(config){
+    const sample=form()?.querySelector('.ka-sample-message');
+    if(sample)sample.textContent=composeKioskCallMessage(config,KIOSK_CALL_SAMPLE.person,KIOSK_CALL_SAMPLE).spokenText;
+  }
+  function syncForm(){
+    const config=normalizeKioskCallAudio(settings);
+    form()?.querySelectorAll('[data-kiosk-audio]').forEach(input=>{
+      const key=input.dataset.kioskAudio;
+      if(key==='includeNurseName')input.checked=config[key];
+      else input.value=String(key==='chimeVolume'||key==='voiceVolume'?Math.round(config[key]*100):config[key]);
+    });
+    for(const key of ['chimeVolume','voiceVolume']){
+      const label=form()?.querySelector('[data-kiosk-audio-volume="'+key+'"]');
+      if(label)label.textContent=Math.round(config[key]*100)+'%';
+    }
+    showSample(config);
+  }
+  let commitVersion=0;
+  function commit(next){
+    const version=++commitVersion;
+    const previous=settings.callAudio,previousEnabled=settings.callNameEnabled;
+    settings.callAudio=normalizeKioskCallAudio({callAudio:next});
+    settings.callNameEnabled=settings.callAudio.mode!=='chime';
+    const notice=form()?.querySelector('[data-kiosk-audio-save]');
+    syncForm();
+    if(notice)notice.textContent='호출 설정을 저장하는 중입니다.';
+    const applyStatus=form()?.querySelector('[data-kiosk-audio-apply-status]');
+    if(applyStatus)applyStatus.textContent='변경한 설정은 모바일에 아직 적용되지 않았습니다. 저장 후 화면을 다시 생성해 주세요.';
+    const pending=Promise.resolve().then(()=>save()).then(result=>{
+      if(result===false||result?.success===false)throw new Error('Settings save failed');
+      if(version===commitVersion&&notice)notice.textContent='PC에 저장했습니다. 모바일 적용용 화면을 다시 생성하고, 키오스크 활성화 후 모바일에서 새로고침해 주세요.';
+      return true;
+    }).catch(()=>{
+      if(version===commitVersion&&notice)notice.textContent='설정을 저장하지 못했습니다. 연결을 확인하고 다시 시도해 주세요. 모바일에는 아직 적용되지 않았습니다.';
+      return false;
+    });
+    container._kioskCallSavePromise=pending;
+    return pending;
+  }
   container.addEventListener('input',event=>{
-    const input=event.target.closest('[data-kiosk-audio="chimeVolume"],[data-kiosk-audio="voiceVolume"]');if(!input)return;
-    const label=input.closest('[data-kiosk-audio-form]')?.querySelector('[data-kiosk-audio-volume="'+input.dataset.kioskAudio+'"]');
-    if(label)label.textContent=input.value+'%';
+    const input=event.target.closest('[data-kiosk-audio]');if(!input)return;
+    const key=input.dataset.kioskAudio;
+    if(key==='chimeVolume'||key==='voiceVolume'){
+      const label=form()?.querySelector('[data-kiosk-audio-volume="'+key+'"]');
+      if(label)label.textContent=input.value+'%';
+    }
+    if(key==='message'){
+      const config=normalizeKioskCallAudio(settings);
+      showSample({...config,message:normalizeKioskCallMessage(input.value)});
+      const notice=form()?.querySelector('[data-kiosk-audio-save]');
+      if(notice)notice.textContent='입력 후 다른 곳을 누르면 자동으로 저장됩니다.';
+    }
   });
   container.addEventListener('change',event=>{
     const input=event.target.closest('[data-kiosk-audio]');if(!input)return;
-    const key=input.dataset.kioskAudio;if(!['mode','chime','rate','chimeVolume','voiceVolume'].includes(key))return;
+    const key=input.dataset.kioskAudio;
+    if(!['mode','chime','rate','chimeVolume','voiceVolume','message','includeNurseName'].includes(key))return;
     const isVolume=key==='chimeVolume'||key==='voiceVolume';
-    const previous=settings.callAudio,previousEnabled=settings.callNameEnabled;
-    const value=isVolume?Number(input.value)/100:key==='rate'?Number(input.value):input.value;
-    settings.callAudio=normalizeKioskCallAudio({callAudio:{...normalizeKioskCallAudio(settings),[key]:value}});
-    settings.callNameEnabled=settings.callAudio.mode!=='chime';
-    const notice=input.closest('[data-kiosk-audio-form]')?.querySelector('[data-kiosk-audio-save]');
-    try {
-      save();
-      if(notice)notice.textContent=(settings.callAudio.volume===0?'현재 호출 방식의 음량 0%: 화면 안내만 표시됩니다. ':'')+'저장했습니다. 키오스크를 다시 생성하고 기기에서 새로고침하면 적용됩니다.';
-    } catch(_) {
-      settings.callAudio=previous;settings.callNameEnabled=previousEnabled;
-      const old=normalizeKioskCallAudio(settings);input.value=String(isVolume?Math.round(old[key]*100):old[key]);
-      if(isVolume){const label=input.closest('[data-kiosk-audio-form]')?.querySelector('[data-kiosk-audio-volume="'+key+'"]');if(label)label.textContent=Math.round(old[key]*100)+'%';}
-      if(notice)notice.textContent='소리 설정을 저장하지 못했습니다. 다시 선택해 주세요.';
-    }
+    const value=key==='includeNurseName'?input.checked:isVolume?Number(input.value)/100:key==='rate'?Number(input.value):input.value;
+    commit({...normalizeKioskCallAudio(settings),[key]:value});
+  });
+  container.addEventListener('click',event=>{
+    if(!event.target.closest('[data-kiosk-audio-reset]'))return;
+    const input=form()?.querySelector('[data-kiosk-audio="message"]');
+    if(input){input.value=KIOSK_DEFAULT_CALL_MESSAGE;input.dispatchEvent(new Event('input',{bubbles:true}));}
+    commit({...normalizeKioskCallAudio(settings),message:KIOSK_DEFAULT_CALL_MESSAGE,includeNurseName:true});
   });
 }
 
@@ -267,7 +354,7 @@ function createKioskSettingsPreview(settings,onStatus,onDone){
     if(result)message+=' 이름 읽기 '+result.seconds.toFixed(2)+'초 · '+(config.rate<1?'느리게':config.rate>1?'빠르게':'보통')+' · '+result.voice;
     onDone({message,timing:result});
   }
-  installKioskCallAudio(config,scope);
+  installKioskCallAudio(config,scope,composeKioskCallMessage);
   return {stop,start(){
     watchdog=setTimeout(()=>{if(stopped)return;stop();onDone({message:'재생이 지연되어 중지했습니다. 기기의 소리 설정을 확인해 주세요.',timing:null});},65000);
     const hasChime=config.mode!=='voice'&&config.chimeVolume>0;
@@ -276,7 +363,7 @@ function createKioskSettingsPreview(settings,onStatus,onDone){
     scope._fdCallChime(()=>{
       if(stopped)return;
       if(hasVoice)onStatus(hasChime?'알림음 재생이 끝났습니다. 이름 안내를 준비하고 있습니다.':'이름 안내를 준비하고 있습니다.');
-      scope._fdSpeakName('3학년 1반 홍길동 학생, 보건실로 들어오세요.',status,()=>{
+      scope._fdSpeakName(scope._fdBuildCallMessage(config.sampleCall.person,config.sampleCall).spokenText,status,()=>{
         if(stopped)return;
         finish(status.textContent||'미리 듣기를 마쳤습니다.');
       });
@@ -287,17 +374,18 @@ function createKioskSettingsPreview(settings,onStatus,onDone){
 function kioskCallRuntimeConfig(settings) {
   const normalized=normalizeKioskCallAudio(settings);
   const chime=KIOSK_CHIME_OPTIONS.find(option=>option.key===normalized.chime);
-  return {...normalized,namespace:String(settings.channelId||'preview'),chimeLabel:chime.label,chimeRecording:KIOSK_CHIME_RECORDINGS[normalized.chime]||null};
+  return {...normalized,sampleCall:KIOSK_CALL_SAMPLE,namespace:String(settings.channelId||'preview'),chimeLabel:chime.label,chimeRecording:KIOSK_CHIME_RECORDINGS[normalized.chime]||null};
 }
 
 export function kioskCallRuntimeSource(settings) {
   const config=kioskCallRuntimeConfig(settings);
-  return '\n('+installKioskCallAudio.toString()+')('+JSON.stringify(config).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+');\n';
+  return '\n('+installKioskCallAudio.toString()+')('+JSON.stringify(config).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+',undefined,('+composeKioskCallMessage.toString()+'));\n';
 }
 
 /* Serialized into the standalone kiosk; do not reference module imports here. */
-function installKioskCallAudio(config,previewScope) {
+function installKioskCallAudio(config,previewScope,composeMessage) {
   var window=previewScope||globalThis.window,document=window.document,SpeechSynthesisUtterance=window.SpeechSynthesisUtterance;
+  window._fdBuildCallMessage=function(person,payload){return composeMessage(config,person,payload);};
   var voiceKey=config.voice||'',activeVoiceKey='',chimeStop=null,speechStop=null,disposed=false;
   var originalChimeUrl=window._fdCallAudio?(window._fdCallAudio.currentSrc||window._fdCallAudio.src):'';
   activeVoiceKey=voiceKey;
@@ -429,13 +517,14 @@ function installKioskCallAudio(config,previewScope) {
     var previous=document.activeElement,overlay=document.createElement('div');overlay.id='kioskCallAudioOverlay';
     overlay.style.cssText='position:fixed;inset:0;z-index:50000;padding:12px;display:flex;align-items:center;justify-content:center;background:rgba(25,45,55,.4)';
     overlay.innerHTML='<style>#kioskCallAudioOverlay *{box-sizing:border-box}#kioskCallAudioDialog{width:540px;max-width:100%;max-height:100%;display:flex;flex-direction:column;border:1px solid #cbdde2;border-radius:20px;background:#fff;color:#243746;font-family:inherit;box-shadow:0 16px 45px #163c4f33;overflow:hidden}#kioskCallAudioDialog h2{font-size:21px;margin:0}#kioskCallAudioDialog p{font-size:14px;line-height:1.7;margin:10px 0}#kioskCallAudioDialog button{font:inherit;min-height:44px;border:1px solid #bfd6df;border-radius:10px;background:white;color:#244552;padding:9px 14px;max-width:100%;cursor:pointer}#kioskCallAudioDialog button:disabled{opacity:.5;cursor:default}#kioskCallAudioDialog :focus-visible{outline:3px solid #12a2c2;outline-offset:2px}#kioskCallAudioDialog .ka-body{padding:16px 20px;overflow:auto;min-height:0}#kioskCallAudioDialog .ka-actions{padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid #dfebef}#kioskCallAudioDialog .ka-primary{background:#0c839e;color:white;border-color:#0c839e}</style>'
-      +'<section id="kioskCallAudioDialog" role="dialog" aria-modal="true" aria-labelledby="kioskCallAudioTitle"><header style="padding:18px 20px;background:#f1fbfd"><h2 id="kioskCallAudioTitle">호출 소리 확인</h2></header><div class="ka-body"><p data-ka-summary></p><p data-ka-voices></p><p>호출 방식·알림음·속도·음량은 오렌지톡의 키오스크 설정에서 변경합니다. 이름 안내는 이 기기의 기본 한국어 음성을 자동으로 사용합니다.</p><p>가상 학생으로 미리 듣습니다.<br><strong>3학년 1반 홍길동 학생, 보건실로 들어오세요.</strong></p><p data-ka-status role="status" aria-live="polite"></p></div><footer class="ka-actions"><button type="button" data-ka-test class="ka-primary">선택한 설정으로 미리 듣기</button><button type="button" data-ka-close>닫기</button></footer></section>';
+      +'<section id="kioskCallAudioDialog" role="dialog" aria-modal="true" aria-labelledby="kioskCallAudioTitle"><header style="padding:18px 20px;background:#f1fbfd"><h2 id="kioskCallAudioTitle">호출 소리 확인</h2></header><div class="ka-body"><p data-ka-summary></p><p data-ka-voices></p><p>호출 방식·알림음·속도·음량은 오렌지톡의 키오스크 설정에서 변경합니다. 이름 안내는 이 기기의 기본 한국어 음성을 자동으로 사용합니다.</p><p>가상 학생으로 미리 듣습니다.<br><strong data-ka-sample></strong></p><p data-ka-status role="status" aria-live="polite"></p></div><footer class="ka-actions"><button type="button" data-ka-test class="ka-primary">선택한 설정으로 미리 듣기</button><button type="button" data-ka-close>닫기</button></footer></section>';
     document.body.appendChild(overlay);
     var notice=overlay.querySelector('[data-ka-status]'),test=overlay.querySelector('[data-ka-test]');
+    overlay.querySelector('[data-ka-sample]').textContent=window._fdBuildCallMessage(config.sampleCall.person,config.sampleCall).spokenText;
     var modes={both:'이름 + 알림음',voice:'이름만',chime:'알림음만'};
     overlay.querySelector('[data-ka-summary]').textContent='현재 설정: '+modes[config.mode]+' / '+(config.chimeLabel||'기존 알림음')+' / '+(config.rate<1?'느리게':config.rate>1?'빠르게':'보통')+' / 알림음 '+Math.round(config.chimeVolume*100)+'% / 안내 목소리 '+Math.round(config.voiceVolume*100)+'%';
     function refresh(){var voice=chooseVoice('');overlay.querySelector('[data-ka-voices]').textContent=voice?'사용 음성: '+voice.name:'한국어 음성이 준비되지 않으면 화면과 설정한 음량의 알림음으로 안내합니다.';test.disabled=window._fdCallBusy;}
-    test.addEventListener('click',function(){if(window._fdCallBusy)return;primeAudio();notice.textContent=config.volume===0?'현재 호출 방식의 음량이 0%여서 소리는 재생하지 않습니다.':'선택한 설정으로 가상 학생을 호출합니다.';window.fdShowNurseCall({test:true,person:{name:'홍길동',type:'student',grade:3,cls:1,num:1}});refresh();});
+    test.addEventListener('click',function(){if(window._fdCallBusy)return;primeAudio();notice.textContent=config.volume===0?'현재 호출 방식의 음량이 0%여서 소리는 재생하지 않습니다.':'선택한 설정으로 가상 학생을 호출합니다.';window.fdShowNurseCall(config.sampleCall);refresh();});
     var interval=setInterval(refresh,400);
     function close(){clearInterval(interval);document.removeEventListener('keydown',keys,true);overlay.remove();if(previous&&previous.isConnected)previous.focus();}
     function keys(event){if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();return;}if(event.key!=='Tab')return;var buttons=Array.prototype.slice.call(overlay.querySelectorAll('button:not(:disabled)')),first=buttons[0],last=buttons[buttons.length-1];if(event.shiftKey&&(document.activeElement===first||!overlay.contains(document.activeElement))){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}

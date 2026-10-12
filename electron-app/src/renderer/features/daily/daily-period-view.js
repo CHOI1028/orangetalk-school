@@ -3,18 +3,35 @@
 import { S } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
 import { escHtml, toDateStr } from '../../core/format-utils.js';
-import { renderDailyPeriodTable } from './daily-view.js';
+import { renderDailyPeriodTable, syncDailySelectedDate } from './daily-view.js';
 import { preparePeriodRecord, getPeriodEditRecords } from '../../core/daily-record-access.js';
 import { validatePeriodRange, reconcilePeriodRecords, summarizePeriodRecords, periodRecordText } from './daily-period-data.js';
 
 const PAGE_SIZE=100;
-const EDIT_CONTROLS=['dailySearchInput','dailyAdvSearchBtn','dailyColSelectorBtn','dailySortAscBtn','dailySortDescBtn','dailyDiaryPrintBtn','dailyVisitPassBtn','dailyTodayMemoBtn'];
+const EDIT_CONTROLS=['dailyColSelectorBtn','dailySortAscBtn','dailySortDescBtn','dailyDiaryPrintBtn','dailyVisitPassBtn','dailyTodayMemoBtn'];
 let _active=false, _panel=null, _request=0, _range=null, _rows=[], _loading=false, _error='', _page=0, _kind='all';
 let _refreshTimer=null, _refreshAfterLoad=false;
 const _disabled=new Map();
 const el=id=>document.getElementById(id);
 
 export function isDailyPeriodSearchActive(){return _active;}
+
+export function getDailyPeriodRegistrationDate(){
+  return _active&&!validatePeriodRange(S.selectedDate,S.selectedDate)?S.selectedDate:null;
+}
+
+export function selectDailyPeriodDate(date){
+  if(!_active||validatePeriodRange(date,date))return false;
+  if(_range&&_range.from===_range.to){
+    el('dailyPeriodFrom').value=date;
+    el('dailyPeriodTo').value=date;
+    _range={from:date,to:date};_page=0;_rows=[];
+    _loadRange();
+  }else{
+    _renderResults();
+  }
+  return true;
+}
 
 export function initDailyPeriodSearch(){
   const panel=el('dailyPeriodPanel'), button=el('dailyPeriodSearchBtn');
@@ -32,6 +49,7 @@ export function initDailyPeriodSearch(){
     +'<button type="button" data-period-action="year" class="btn">이번 학년도</button>'
     +'<button type="button" data-period-action="close" class="btn daily-period-close">기간검색 해제</button>'
     +'</form>'
+    +'<div id="dailyPeriodRegistrationDate" class="daily-period-status" role="status" aria-live="polite"></div>'
     +'<div id="dailyPeriodStatus" class="daily-period-status" role="status" aria-live="polite"></div>'
     +'<div id="dailyPeriodSummary" class="daily-period-summary"></div>'
     +'<div class="daily-period-tools"><label>표시할 기록 <select id="dailyPeriodKind" data-no-auto-save>'
@@ -66,6 +84,7 @@ export function openDailyPeriodSearch(){
   if(!_panel||_active)return;
   _active=true;_rows=[];_range=null;_error='';_page=0;_kind='all';
   const selected=validatePeriodRange(S.selectedDate,S.selectedDate)?toDateStr(new Date()):S.selectedDate;
+  syncDailySelectedDate(selected);
   el('dailyPeriodFrom').value=selected.slice(0,7)+'-01';
   el('dailyPeriodTo').value=selected;
   el('dailyPeriodKind').value='all';
@@ -98,6 +117,7 @@ function _submitRange(){
     /* 잘못된 새 입력을 이전 기간 결과인 것처럼 표시하지 않는다. */
     _request++;_loading=false;_range=null;_rows=[];_error=error;_renderResults();return;
   }
+  if(from===to)syncDailySelectedDate(from);
   _range={from,to};_page=0;_rows=[];_loadRange();
 }
 
@@ -140,8 +160,7 @@ function _beforeRecordAction(event){
   if(!event.target.closest('[data-action],td[data-col-index="6"],td[data-col-index="8"]'))return false;
   const row=event.target.closest('tr[data-rec-id]');
   if(!row)return false;
-  let privacy=false;try{privacy=localStorage.getItem('ec_privacy_mode')==='1';}catch(_){}
-  if(privacy)return false;
+
   const record=_rows.find(item=>String(item.id)===row.dataset.recId);
   if(!record||!preparePeriodRecord(record)){
     bus.emit('toast:show',{text:'기록을 편집할 수 없습니다. 저장이 끝난 뒤 다시 조회해 주세요.'});
@@ -153,6 +172,12 @@ function _beforeRecordAction(event){
 function _renderResults(){
   if(!_active||!_panel)return;
   const status=el('dailyPeriodStatus'), summary=el('dailyPeriodSummary'), results=el('dailyPeriodResults'), pages=el('dailyPeriodPages');
+  const registration=el('dailyPeriodRegistrationDate');
+  const registrationDate=getDailyPeriodRegistrationDate();
+  if(registration){
+    const outside=_range&&(registrationDate<_range.from||registrationDate>_range.to);
+    registration.textContent=registrationDate?'새 일지 등록일: '+registrationDate+' · 달력 선택일'+(outside?' (현재 조회기간 밖 날짜)':''):'등록할 날짜를 달력에서 선택해 주세요.';
+  }
   const submit=_panel.querySelector('button[type="submit"]');
   submit.textContent=_loading?'다시 조회':'조회';
   _panel.setAttribute('aria-busy',String(_loading));
@@ -169,12 +194,12 @@ function _renderResults(){
     return _kind==='counsel'?!!texts.counsel:!!(texts.treatment||texts.medication);
   });
   let privacy=false;try{privacy=localStorage.getItem('ec_privacy_mode')==='1';}catch(_){}
-  if(privacy)status.textContent+=' · 개인정보 보호 모드: 이름과 상세 내용 숨김';
+  if(privacy)status.textContent+=' · 개인정보 보호 모드 사용 중';
   if(!rows.length){results.innerHTML='<div class="daily-period-empty">선택한 기간과 조건에 해당하는 기록이 없습니다.</div>';pages.innerHTML='';return;}
   const pageCount=Math.ceil(rows.length/PAGE_SIZE);
   _page=Math.max(0,Math.min(_page,pageCount-1));
   const start=_page*PAGE_SIZE, shown=rows.slice(start,start+PAGE_SIZE);
-  renderDailyPeriodTable(results,shown,privacy,_beforeRecordAction);
+  renderDailyPeriodTable(results,shown,privacy,_beforeRecordAction,[_range.from,_range.to,_kind,_page].join(':'));
   pages.innerHTML='<span>'+rows.length+'건 중 '+(start+1)+'–'+(start+shown.length)+'건 · 최신 날짜순</span>'
     +'<button type="button" class="btn" data-period-action="prev" '+(_page===0?'disabled':'')+'>이전</button>'
     +'<span>'+(_page+1)+' / '+pageCount+'</span>'

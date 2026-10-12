@@ -12,17 +12,13 @@ import { trOpenCal } from '../training/training-view.js';
 import { openA4PrintDialog } from '../../core/a4-print-dialog.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
 import { bus } from '../../core/event-bus.js';
+import { rentalLocalSnapshot, rentalSharedStatus, subscribeRentalShared, saveRentalShared, refreshRentalShared, commitKioskRental, newRentalRecordId } from './rental-shared-store.js';
 'use strict';
 
 /* ── State ── */
-const _rlItems = JSON.parse(localStorage.getItem('ec_rental_items') || 'null') || [
-  '핫팩','아이스팩','얼음팩','목발','휠체어','체온계','혈압계'
-];
-/* 핫팩·아이스팩은 기본 보장 — 키오스크 기본 흐름(대여/반납)이 참조하므로 기존 사용자 목록에 없으면 1회 보충 (사용자 지시 2026-06-13) */
-['핫팩','아이스팩'].forEach(function(_must){
-  if(_rlItems.indexOf(_must)===-1){ _rlItems.push(_must); try{ localStorage.setItem('ec_rental_items', JSON.stringify(_rlItems)); }catch(_){} }
-});
-let _rlRecords = JSON.parse(localStorage.getItem('ec_rental_records') || '[]');
+const _rlInitial = rentalLocalSnapshot();
+const _rlItems = _rlInitial.items;
+let _rlRecords = _rlInitial.records;
 let _rlSelected = null; /* 선택된 사람 {id,name,type,grade,cls,num,position} */
 let _rlSelectedItem = '';
 let _rlBorrowDate = '';
@@ -50,10 +46,10 @@ function _rlSaveHeaders(){
   localStorage.setItem('ec_rental_headers',JSON.stringify(_rlHeaders));
 }
 
-function _rlSave(){
-  localStorage.setItem('ec_rental_records', JSON.stringify(_rlRecords));
-  localStorage.setItem('ec_rental_items', JSON.stringify(_rlItems));
+async function _rlSave(){
   rentalRefreshLedgerBtn();
+  try {await saveRentalShared(_rlRecords,_rlItems);return true;}
+  catch(error){dailyShowToast('공용 저장 미완료: '+error.message);_rlShowSharedStatus({...rentalSharedStatus(),error:error.message});return false;}
 }
 
 /* ── 반납 기간 경과(연체) 물품 존재 여부 ── */
@@ -148,19 +144,7 @@ function _rlFmtDt(date,time){
 /* 선택 인원 해제 */
 function _rlClearSelected(){_rlSelected=null;_rlRenderLeft();}
 
-/* ── 매년 3월 1일 초기화 ── */
-/* _rlYearlyReset */
-{
-  const now = new Date();
-  const resetKey = 'ec_rental_reset_' + now.getFullYear();
-  if(now.getMonth() >= 2 && !localStorage.getItem(resetKey)){
-    /* 3월 이후인데 올해 리셋 안됐으면 리셋 */
-    const prev = _rlRecords.length;
-    _rlRecords = [];
-    _rlSave();
-    localStorage.setItem(resetKey, '1');
-  }
-}
+/* 대여 기록은 자동 초기화하지 않습니다. 공용 DB에서 학년도별로 보존합니다. */
 
 /* ── 미반납 물품 체크 (프로그램 시작 시) ── */
 function checkUnreturnedItems(){
@@ -218,10 +202,12 @@ function _goToRentalLedgerFromAlert(btn){
  *  opts.prefilledVisitor : 학생/교직원 객체 — 팝업 열림과 동시에 _rlSelected 채움 (증상 모달에서 호출 시 사용).
  *  opts.onClose          : 팝업 닫힘(외부 클릭 등) 후 호출되는 콜백 — chip 카운트 갱신 등.
  */
-export function openRentalLedger(opts){
+export async function openRentalLedger(opts){
   opts = opts || {};
   const existing = document.getElementById('rentalLedgerOverlay');
   if(existing){closeModalWithAnim(existing);return;}
+  try{await refreshRentalShared();}catch(error){dailyShowToast(error.message);return;}
+  if(document.getElementById('rentalLedgerOverlay'))return;
 
   const now = new Date();
   /* prefilledVisitor 있으면 _rlSelected 미리 채움 — 검색창에 이름 자동 표시.
@@ -251,6 +237,7 @@ export function openRentalLedger(opts){
 
   ov.innerHTML = '<div class="modal-content" style="width:96vw;max-width:1400px;height:90vh;padding:0;overflow:hidden;display:flex;flex-direction:column">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--glass-border);background:var(--popup-head);cursor:grab;flex-shrink:0"><span style="font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:8px">📦 보건실 물품 대여 대장</span></div>'
+    +'<div style="display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--bdr);background:var(--bg2);color:var(--t2);font-size:12px;flex-shrink:0"><span id="rlSharedStatus" role="status" aria-live="polite" style="flex:1"></span><button type="button" id="rlSharedRetry" class="btn btn-sm">다시 연결</button></div>'
     +'<div style="display:flex;flex:1;min-height:0;overflow:hidden">'
     /* 왼쪽 패널: 입력 */
     +'<div style="width:360px;flex-shrink:0;background:var(--card);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden">'
@@ -276,6 +263,8 @@ export function openRentalLedger(opts){
   });
   document.body.appendChild(ov);
   _makeDraggable(ov.querySelector('.modal-content'));
+  ov.querySelector('#rlSharedRetry').addEventListener('click',()=>refreshRentalShared().catch(error=>dailyShowToast(error.message)));
+  _rlShowSharedStatus(rentalSharedStatus());
   /* 미리보기 영역 바깥 클릭 시 행 선택 해제 */
   const scrollArea=ov.querySelector('#rlPreviewScroll');
   if(scrollArea)scrollArea.addEventListener('click',function(e){
@@ -430,7 +419,7 @@ function _rlSelectPerson(id){
   const list = document.getElementById('rlACList');
   if(list) list.classList.remove('show');
   /* 즉시 레코드 생성 → 미리보기에 표시 (대여일시=현재, 반납예정=+1시간) */
-  const newRec={id:Date.now(),personId:s.id,item:'',borrowDate:_rlBorrowDate,borrowTime:_rlBorrowTime,returnDate:_rlReturnDate,returnTime:_rlReturnTime,returned:false,returnedAt:''};
+  const newRec={id:newRentalRecordId(),personId:s.id,item:'',borrowDate:_rlBorrowDate,borrowTime:_rlBorrowTime,returnDate:_rlReturnDate,returnTime:_rlReturnTime,returned:false,returnedAt:''};
   _rlRecords.push(newRec);
   _rlActiveRecId=newRec.id;
   _rlSave();
@@ -452,7 +441,7 @@ function _rlSelectItem(item){
      * 소속·이름·물품·대여일시·반납예정·반납완료가 우측 대여 기록에 바로 표시 (사용자 제보 2026-06-12).
      * 옛 설계 주석은 "명시적 등록 버튼" 전제였으나 등록 버튼이 존재하지 않아
      * prefilled 흐름이 어디에도 기록되지 않은 채 끝나던 버그. */
-    const newRec={id:Date.now(),personId:_rlSelected.id,item:_rlSelectedItem,borrowDate:_rlBorrowDate,borrowTime:_rlBorrowTime,returnDate:_rlReturnDate,returnTime:_rlReturnTime,returned:false,returnedAt:''};
+    const newRec={id:newRentalRecordId(),personId:_rlSelected.id,item:_rlSelectedItem,borrowDate:_rlBorrowDate,borrowTime:_rlBorrowTime,returnDate:_rlReturnDate,returnTime:_rlReturnTime,returned:false,returnedAt:''};
     _rlRecords.push(newRec);
     _rlActiveRecId=newRec.id;
     _rlSave();
@@ -757,14 +746,18 @@ let _rlSaveTimer=null;
 function _rlShowSaveToast(){
   let ind=document.getElementById('rlSaveIndicator');
   if(!ind){ind=document.createElement('div');ind.id='rlSaveIndicator';ind.className='ec-save-indicator';ind.style.zIndex='12000';document.body.appendChild(ind);}
-  ind.textContent='저장 중…';
-  ind.className='ec-save-indicator saving';ind.style.zIndex='12000';
+  ind.textContent='공용 대장에 저장 중입니다.';ind.className='ec-save-indicator saving';
   if(_rlSaveTimer)clearTimeout(_rlSaveTimer);
-  _rlSaveTimer=setTimeout(function(){
-    ind.textContent='모든 내용이 저장되었습니다.';
-    ind.className='ec-save-indicator saved';ind.style.zIndex='12000';
-    setTimeout(function(){ind.className='ec-save-indicator hide';},3000);
-  },300);
+}
+function _rlShowSharedStatus(state){
+  const label=document.getElementById('rlSharedStatus');
+  if(label){label.textContent=state.error?state.message+' ('+state.error+')':state.message;label.style.fontWeight=state.error?'700':'400';}
+  const retry=document.getElementById('rlSharedRetry');if(retry)retry.hidden=!state.error;
+  const ind=document.getElementById('rlSaveIndicator');if(!ind)return;
+  if(_rlSaveTimer)clearTimeout(_rlSaveTimer);
+  ind.textContent=state.error?'공용 저장 미완료. 연결 상태를 확인해 주세요.':state.message;
+  ind.className='ec-save-indicator '+(state.pending||state.error?'saving':'saved');
+  if(!state.pending&&!state.error)_rlSaveTimer=setTimeout(()=>{ind.className='ec-save-indicator hide';},3000);
 }
 
 /* ── 반납 체크 ── */
@@ -789,12 +782,10 @@ function _rlToggleReturn(id){
  *  localStorage 직접 조작 금지 — 이 모듈의 _rlRecords 가 단일 출처이므로 반드시 이 함수로만 변경. */
 /* 대여 대장 등록 물품 목록 — 키오스크 편집기의 물품 지정 드롭다운용 (2026-06-13).
  *  localStorage(대장 단일 출처) 최신값 우선 — 대장에서 물품을 추가/수정해도 즉시 반영 (사용자 요청 2026-06-13). */
-export function rentalGetItems(){
-  try{ const v=JSON.parse(localStorage.getItem('ec_rental_items')||'null'); if(Array.isArray(v)&&v.length){ return v.slice(); } }catch(_){}
-  return _rlItems.slice();
-}
+export function rentalGetItems(){return _rlItems.slice();}
 /* 물품 신규 등록 — 키오스크 편집기의 [+ 추가]와 실시간 연동 (2026-06-13). 중복이면 추가 안 함. */
 export function rentalAddItem(name){
+  if(!rentalSharedStatus().ready){dailyShowToast('공용 대여 자료를 불러온 뒤 다시 시도해 주세요.');return false;}
   const n=String(name||'').trim();
   if(!n) return false;
   if(_rlItems.indexOf(n)!==-1) return true;   /* 이미 있음 — 성공 취급 */
@@ -810,7 +801,7 @@ function _rlAddBusinessDays(date, n){
   return d;
 }
 /* 키오스크 대여 등록 — returnDays(평일) 가 있으면 반납 예정일시를 그 날짜 12:00 으로 기록 (사용자 결정 2026-06-13) */
-export function rentalAddFromKiosk(personId, item, returnDays){
+export async function rentalAddFromKiosk(personId, item, returnDays, sourceKey){
   const now=new Date();
   let retDate, retTime;
   const nd=parseInt(returnDays,10);
@@ -822,32 +813,17 @@ export function rentalAddFromKiosk(personId, item, returnDays){
     retDate=toDateStr(now); retTime=String(_retH).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   }
   const rec={
-    id:Date.now(), personId:String(personId||''), item:String(item||''),
+    id:newRentalRecordId(), personId:String(personId||''), item:String(item||''),
     borrowDate:toDateStr(now), borrowTime:String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
     returnDate:retDate, returnTime:retTime,
     returned:false, returnedAt:''
   };
-  _rlRecords.push(rec);
-  _rlSave();
-  /* 대장 모달이 열려 있으면 즉시 재렌더 */
-  try{ if(document.getElementById('rlPreviewWrap')){_rlRenderPreview();_rlRenderLeft();} }catch(_){}
-  return rec.id;
+  return commitKioskRental('kiosk-borrow',{sourceKey:sourceKey||('manual_'+newRentalRecordId()),record:rec});
 }
-export function rentalMarkReturnedFromKiosk(personId, item){
-  /* 같은 인물의 미반납 레코드 — 물품명 일치 우선, 없으면 가장 최근 미반납 1건 */
-  const mine=_rlRecords.filter(function(r){return !r.returned && String(r.personId)===String(personId);});
-  if(!mine.length) return false;
-  let target=null;
-  if(item){
-    const norm=String(item).trim();
-    target=mine.slice().reverse().find(function(r){return String(r.item||'').trim()===norm;});
-  }
-  if(!target) target=mine[mine.length-1];
-  target.returned=true;
+export async function rentalMarkReturnedFromKiosk(personId,item,sourceKey){
   const now=new Date();
-  target.returnedAt=toDateStr(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  _rlSave();
-  try{ if(document.getElementById('rlPreviewWrap')){_rlRenderPreview();_rlRenderLeft();} }catch(_){}
+  const returnedAt=toDateStr(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  await commitKioskRental('kiosk-return',{sourceKey:sourceKey||('manual_'+newRentalRecordId()),personId:String(personId),item:String(item||''),returnedAt});
   return true;
 }
 
@@ -1406,7 +1382,7 @@ function _rlNewFromPreview(tdEl){
         const now=new Date();
         const _retH=Math.min(now.getHours()+1,23);
         const newRec={
-          id:Date.now(),personId:el.dataset.sid,item:'',
+          id:newRentalRecordId(),personId:el.dataset.sid,item:'',
           borrowDate:toDateStr(now),borrowTime:String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
           returnDate:toDateStr(now),returnTime:String(_retH).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
           returned:false,returnedAt:''
@@ -1671,7 +1647,16 @@ function _rlHideRowX(){
   _rlRowXHideTimer=setTimeout(function(){if(_rlRowXEl)_rlRowXEl.style.display='none';_rlRowXHideTimer=null;},2000);
 }
 
-/* 물품 대여 대장: localStorage only (매년 3/1 초기화 대상, DB 저장 안 함) */
+/* 공용 대장 변경은 편집 중인 입력을 보호한 뒤 적용합니다. */
+subscribeRentalShared({
+  change(data){
+    _rlRecords=data.records;_rlItems.splice(0,_rlItems.length,...data.items);
+    if(_rlActiveRecId&&!_rlRecords.some(r=>r.id===_rlActiveRecId))_rlActiveRecId=null;
+    if(_rlSelectedRecId&&!_rlRecords.some(r=>r.id===_rlSelectedRecId))_rlSelectedRecId=null;
+    rentalRefreshLedgerBtn();
+    if(document.getElementById('rentalLedgerOverlay')){_rlRenderPreview();_rlRenderLeft();}
+  },status:_rlShowSharedStatus
+});
 
 /* ── 상세 검색 래퍼 ── */
 function _rlOpenAdvSearch(){

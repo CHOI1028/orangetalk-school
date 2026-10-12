@@ -1,5 +1,5 @@
 import { normalizeKioskTextScale, kioskTextSizeSettingsHtml } from './kiosk-text-size.js';
-import { kioskCallSettingsHtml, bindKioskCallSettings } from './kiosk-call-audio.js';
+import { kioskCallSettingsHtml, bindKioskCallSettings, kioskCallSettingsSignature } from './kiosk-call-audio.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ═══════════════════════════════════════
    KIOSK CMS — Settings Tab + Customization
@@ -124,9 +124,9 @@ setTimeout(function(){
     if(!k.genOrient || !k.genType) return true;
     const curOrient=(k.kioskOrientation==='portrait')?'portrait':'landscape';
     const curType=k.kioskType||'basic';
-    return (k.genOrient!==curOrient) || (k.genType!==curType) || normalizeKioskTextScale(k.genTextScale)!==normalizeKioskTextScale(k.textScale);
+    return (k.genOrient!==curOrient) || (k.genType!==curType) || normalizeKioskTextScale(k.genTextScale)!==normalizeKioskTextScale(k.textScale) || k.genCallAudioSignature!==kioskCallSettingsSignature(k);
   }
-  function _save(){ saveKioskSettings(); }
+  function _save(){ return saveKioskSettings(); }
 
   /* ═══════════════════════════════════════
      플로우 헬퍼
@@ -1595,7 +1595,13 @@ setTimeout(function(){
       const action=el.dataset.action;
       /* 팝업 안에서 클릭 시 뒤쪽 스크롤 방지 */
       if(container.classList.contains('modal-overlay'))e.stopPropagation();
-      if(action==='kiosk-open-setup'){
+      if(action==='kiosk-apply-call-settings'){
+        if(el.disabled)return;el.disabled=true;
+        Promise.resolve(container._kioskCallSavePromise).then(async saved=>{
+          if(saved===false || !await _save())throw new Error('Settings save failed');
+          _kioskEnsureChannelThen(function(){generateKioskUrl(_kioskGetFlow);});
+        }).catch(()=>bus.emit('toast:show',{text:'호출 설정을 저장하지 못해 화면 생성을 중단했습니다. 연결을 확인해 주세요.'})).finally(()=>{el.disabled=false;});
+      } else if(action==='kiosk-open-setup'){
         /* [🎨 키오스크 작동 플로우 설계] — 방향·유형 선택 모달 먼저 띄우고, [설계 시작] 시 편집기 오픈 (사용자 결정 2026-06-15) */
         _kioskOpenSetupModal();
       } else if(action==='open-basic-kiosk-editor' || action==='open-kiosk-editor'){

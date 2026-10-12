@@ -3,12 +3,38 @@
  * web-api-bridge.js — Electron preload.js의 웹 브라우저 대체
  *
  * window.electronAPI 인터페이스를 그대로 제공하되,
- * ipcRenderer.invoke() 대신 fetch('/api/ipc/:channel') 사용.
+ * ipcRenderer.invoke() 대신 _sharedFetch('/api/ipc/:channel') 사용.
  *
  * 렌더러 코드는 수정 없이 동일하게 동작합니다.
  */
 'use strict';
 (function(){
+  function _sharedFetch(url, options) {
+    var internal = typeof url === 'string' && url.indexOf('/api/') === 0;
+    if (internal) {
+      options = Object.assign({}, options, {credentials:'include'});
+      try {
+        var base = typeof window._getActiveBaseUrl === 'function' ? window._getActiveBaseUrl() : '';
+        if (base) { var parsed = new URL(base, location.href); if (parsed.hostname === location.hostname && parsed.protocol === location.protocol) url = parsed.origin + url; }
+      } catch (_) {}
+    }
+    return window.fetch(url, options).then(function(response) {
+      if (internal && response.status === 401) window.dispatchEvent(new CustomEvent('shared:auth-required'));
+      return response;
+    });
+  }
+  window.addEventListener('shared:auth-required', function() {
+    if (document.getElementById('sharedAccessNotice')) return;
+    if (!document.body) { document.addEventListener('DOMContentLoaded', function(){window.dispatchEvent(new CustomEvent('shared:auth-required'));}, {once:true}); return; }
+    var notice=document.createElement('div'); notice.id='sharedAccessNotice'; notice.setAttribute('role','alert');
+    notice.style.cssText='position:fixed;inset:16px 16px auto;z-index:2147483647;max-width:650px;margin:auto;padding:16px 20px;border:1px solid #d5a76c;border-radius:12px;background:#fff6e8;color:#342b20;box-shadow:0 6px 24px #0002;font-size:14px;line-height:1.7';
+    var text=document.createElement('span'); text.textContent='공유 연결 인증이 만료되었습니다. 작성 중인 내용을 확인한 뒤 보안 연결 주소로 다시 접속해 주세요. 미전송 내용은 자동으로 지우지 않습니다. ';
+    var button=document.createElement('button');button.type='button';button.textContent='다시 연결';button.style.cssText='min-height:40px;padding:6px 14px;border:1px solid #c18c4f;border-radius:7px;background:#fff;color:#342b20;font:inherit;cursor:pointer';
+    button.addEventListener('click',function(){if(window.confirm('아직 저장하지 못한 입력 내용이 있는지 확인해 주세요. 연결 화면으로 이동할까요?'))window.location.reload();});
+    notice.appendChild(text);notice.appendChild(button);document.body.appendChild(notice);
+  });
+  if (location.hash.indexOf('#ot-share=') === 0) history.replaceState(null, '', location.pathname + location.search);
+
   /* 세션 ID 생성 (접속자 추적용) */
   var _sessionId = sessionStorage.getItem('_webSessionId');
   if (!_sessionId) {
@@ -52,7 +78,7 @@
   }
 
   function _doFetch(channel, params){
-    return fetch('/api/ipc/' + channel, {
+    return _sharedFetch('/api/ipc/' + channel, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Session-Id': _sessionId },
       body: JSON.stringify(params || {})
@@ -86,6 +112,7 @@
         item.tries++;
         try {
           var json = await _doFetch(item.channel, item.params);
+          if (json && json.authRequired) { item.tries--; break; }
           /* 성공 — 큐에서 제거 + resolve */
           _retryQueue.shift();
           _saveQueueLS();
@@ -222,7 +249,7 @@
   function _uploadFile(file) {
     var fd = new FormData();
     fd.append('file', file);
-    return fetch('/api/upload', { method: 'POST', body: fd })
+    return _sharedFetch('/api/upload', { method: 'POST', body: fd })
       .then(function(r) { return r.json(); });
   }
 
@@ -247,35 +274,57 @@
   }
 
   /* HTML → PDF (클라이언트 사이드: html2canvas + jspdf) */
-  function _htmlToPdf(html, options) {
-    return new Promise(function(resolve) {
-      var iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;border:none';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(html);
-      iframe.contentDocument.close();
-      setTimeout(function() {
-        if (typeof html2canvas !== 'undefined' && typeof jspdf !== 'undefined') {
-          html2canvas(iframe.contentDocument.body, { scale: 2, useCORS: true }).then(function(canvas) {
-            var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-            var imgData = canvas.toDataURL('image/jpeg', 0.95);
-            var w = pdf.internal.pageSize.getWidth();
-            var h = (canvas.height * w) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
-            pdf.save((options && options.fileName) || 'document.pdf');
-            document.body.removeChild(iframe);
-            resolve({ success: true });
-          });
-        } else {
-          /* fallback: 새 창에서 인쇄 */
-          var win = window.open('', '_blank');
-          if (win) { win.document.write(html); win.document.close(); setTimeout(function(){ win.print(); }, 500); }
-          document.body.removeChild(iframe);
-          resolve({ success: true });
-        }
-      }, 500);
-    });
+  /* Render bounded, row-aware pages rather than one potentially enormous canvas. */
+  async function _htmlToPdf(html,options){
+    options=options||{};var iframe;
+    function bounded(promise,ms,message){return new Promise(function(resolve,reject){var timer=setTimeout(function(){reject(new Error(message));},ms);Promise.resolve(promise).then(function(value){clearTimeout(timer);resolve(value);},function(e){clearTimeout(timer);reject(e);});});}
+    async function load(markup,width,height){
+      iframe.style.width=width+'px';iframe.style.height=height+'px';
+      await bounded(new Promise(function(resolve,reject){iframe.onload=resolve;iframe.onerror=function(){reject(new Error('문서를 불러오지 못했습니다.'));};iframe.srcdoc=markup;}),20000,'문서 불러오기 시간이 초과되었습니다.');
+      var d=iframe.contentDocument;if(!d||!d.body)throw new Error('출력 문서가 없습니다.');
+      if(d.fonts)await bounded(d.fonts.ready,15000,'글꼴 준비 시간이 초과되었습니다.');
+      await bounded(Promise.all(Array.from(d.images).map(function(img){return img.complete?Promise.resolve():new Promise(function(r){img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});});})),15000,'이미지 준비 시간이 초과되었습니다.');
+      return d;
+    }
+    function mm(value){var m=String(value||'0').trim().match(/^([\d.]+)(mm|cm|in|pt|px)?$/i);if(!m)throw new Error('지원하지 않는 용지 여백입니다.');return Number(m[1])*({mm:1,cm:10,in:25.4,pt:25.4/72,px:25.4/96}[String(m[2]||'px').toLowerCase()]);}
+    try{
+      if(typeof html2canvas!=='function'||typeof jspdf==='undefined'||!jspdf.jsPDF)throw new Error('PDF 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+      if(typeof html!=='string'||!html.trim())throw new Error('출력할 내용이 없습니다.');
+      iframe=document.createElement('iframe');iframe.setAttribute('sandbox','allow-same-origin');iframe.setAttribute('scrolling','no');iframe.setAttribute('aria-hidden','true');iframe.style.cssText='position:fixed;left:-99999px;top:0;border:0;pointer-events:none';document.body.appendChild(iframe);
+      var d=await load(html,options.landscape?1123:794,1123),layout;
+      if(d.documentElement.dataset.a4Prepared!=='1'){
+        var margins={top:0,right:0,bottom:0,left:0},size='';
+        Array.from(d.styleSheets).forEach(function(sheet){var rules;try{rules=sheet.cssRules;}catch(_){return;}Array.from(rules||[]).forEach(function(rule){if(rule.type!==6||rule.selectorText)return;size=rule.style.getPropertyValue('size')||size;Object.keys(margins).forEach(function(side){var v=rule.style.getPropertyValue('margin-'+side);if(v)margins[side]=mm(v);});});});
+        var paginate=await bounded(import('/src/renderer/core/a4-print-dialog.js'),15000,'페이지 분할 기능을 불러오지 못했습니다.');
+        var prepared=await paginate.prepareA4PrintDocument(html,{landscape:typeof options.landscape==='boolean'?options.landscape:/landscape/i.test(size),marginsMm:margins});
+        d=await load(prepared.html,prepared.layout.contentW,prepared.layout.contentH);
+      }
+      layout=JSON.parse(d.documentElement.dataset.a4Layout);
+      var head=d.head.innerHTML,pages=Array.from(d.body.querySelectorAll(':scope > .a4pp')).map(function(p){return p.outerHTML;});
+      if(!pages.length)throw new Error('출력할 페이지가 없습니다.');
+      var pdf=new jspdf.jsPDF(layout.landscape?'l':'p','mm','a4');
+      for(var i=0;i<pages.length;i++){
+        d=await load('<!doctype html><html><head>'+head+'</head><body>'+pages[i]+'</body></html>',layout.contentW,layout.contentH);
+        // html2canvas supports transforms, not CSS zoom. Preserve the measured
+        // footprint while replacing zoom on top-level tables with a transform.
+        Array.from(d.querySelectorAll('.a4pp > table')).forEach(function(table){
+          var z=parseFloat(iframe.contentWindow.getComputedStyle(table).zoom)||1;if(z===1)return;
+          var rect=table.getBoundingClientRect(),wrap=d.createElement('div');wrap.style.cssText='position:relative;width:'+rect.width+'px;height:'+rect.height+'px;';
+          table.before(wrap);wrap.appendChild(table);table.style.setProperty('zoom','1','important');table.style.transform='scale('+z+')';table.style.transformOrigin='top left';
+        });
+        var canvas=await bounded(html2canvas(d.body,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:layout.contentW,height:layout.contentH,windowWidth:layout.contentW,windowHeight:layout.contentH,scrollX:0,scrollY:0}),60000,'PDF 페이지 생성 시간이 초과되었습니다.');
+        if(!canvas.width||!canvas.height)throw new Error('PDF 페이지를 그리지 못했습니다.');
+        var pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data,ink=false;
+        for(var p=0;p<pixels.length;p+=4){if(pixels[p+3]&&Math.min(pixels[p],pixels[p+1],pixels[p+2])<245){ink=true;break;}}
+        if(!ink)throw new Error('빈 PDF 페이지가 생성되어 저장을 중단했습니다. 다시 시도해 주세요.');
+        var image=canvas.toDataURL('image/jpeg',.95);if(image==='data:,')throw new Error('PDF 이미지 변환에 실패했습니다.');
+        if(i)pdf.addPage('a4',layout.landscape?'l':'p');
+        pdf.addImage(image,'JPEG',layout.marginsMm.left||0,layout.marginsMm.top||0,layout.contentW*25.4/96,layout.contentH*25.4/96);
+        canvas.width=canvas.height=0;pixels=null;
+      }
+      pdf.save(options.fileName||'document.pdf');return {success:true,pages:pages.length};
+    }catch(error){return {success:false,error:'PDF 저장에 실패했습니다. '+(error.message||String(error))};}
+    finally{if(iframe)iframe.remove();}
   }
 
   window.electronAPI = {
@@ -494,6 +543,19 @@
     templatesLoadMedSymMatching: function() { return _ipc('templates-load-med-sym-matching', {}); },
 
     /* ── DB key-value ── */
+    rentalLedger: async function(request){
+      // Rental mutations have their own durable, idempotent queue. Do not enqueue twice.
+      var controller=new AbortController();
+      var timer=setTimeout(function(){controller.abort();},8000);
+      try {
+        var response=await _sharedFetch('/api/ipc/rental-ledger',{
+          method:'POST',headers:{'Content-Type':'application/json','X-Session-Id':_sessionId},
+          body:JSON.stringify(request),signal:controller.signal
+        });
+        if(!response.ok)throw new Error('공용 대여 서버에 연결하지 못했습니다. ('+response.status+')');
+        return await response.json();
+      } finally {clearTimeout(timer);}
+    },
     dbGet: function(scope, key, year) { return _ipc('db-get', { scope, key, year }); },
     dbSet: function(scope, key, value, year) { return _ipc('db-set', { scope, key, value, year }); },
     dbBatchSet: function(items) { return _ipc('db-batch-set', { items }); },
@@ -895,6 +957,12 @@
   };
 
   /* 웹 브라우저 환경 표시 */
+  window.OrangeSharedSettings.wrap(window.electronAPI, async function(request){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+    try{const response=await _sharedFetch('/api/ipc/shared-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Session-Id':_sessionId},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
+      if(!response.ok)throw Error('Shared settings request failed');return await response.json();
+    }finally{clearTimeout(timer);}
+  },()=>window.localStorage,detail=>window.dispatchEvent(new CustomEvent('shared-settings:error',{detail})));
   window.__isWebBrowser = true;
   console.log('[WEB] web-api-bridge 로드됨 — electronAPI 대체 완료');
 })();

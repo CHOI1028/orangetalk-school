@@ -66,6 +66,7 @@ const MAIN_JS_FILES = [
 ];
 
 const STANDALONE_RUNTIME_MODULES = new Set([
+  'src/renderer/core/bodymap-layout.js',
   'src/renderer/features/kiosk/kiosk-reception-runtime.js',
   'src/renderer/features/kiosk/kiosk-call-audio.js',
 ]);
@@ -82,7 +83,12 @@ function obfuscateJs(code, filename) {
       ...obfuscationOptions(filename),
       sourceMapFileName: filename + '.map',
     });
-    return result.getObfuscatedCode();
+    const output = result.getObfuscatedCode();
+    // A classic browser script must not leak generated string-decoder globals.
+    if (String(filename).replace(/\\/g, '/') === 'src/shared/shared-settings.js') {
+      return ';(function(){\n' + output + '\n}).call(globalThis);';
+    }
+    return output;
   } catch (err) {
     /* 난독화 실패 = 소스에 문법 오류가 있다는 뜻 — 조용히 원본을 포함하고 계속 가면
      *  고장난 파일이 그대로 배포본에 실린다 (2026-07-06 diary-print-view 중복선언 흰화면 사고).

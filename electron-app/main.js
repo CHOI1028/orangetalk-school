@@ -293,7 +293,15 @@ app.whenReady().then(() => {
 
   /* ── 0b. 카카오맵 Referer 설정 (모든 창에 적용) ── */
   const { session } = require('electron');
+  const _sharedHostState = { token: '', ports: new Set() };
+  const _attachSharedHostAuthorization = require('./src/main/services/shared-web-access').attachHostAuthorization;
+  function _authorizeSharedHostRequest(details) {
+    const ready = mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed();
+    _attachSharedHostAuthorization(details, { token: _sharedHostState.token, ports: _sharedHostState.ports,
+      webContentsId: ready ? mainWindow.webContents.id : -1, pageUrl: ready ? mainWindow.webContents.getURL() : '' });
+  }
   session.defaultSession.webRequest.onBeforeSendHeaders(function(details, callback) {
+    _authorizeSharedHostRequest(details);
     if (details.url.includes('kakao.com') || details.url.includes('daumcdn.net')) {
       details.requestHeaders['Referer'] = 'http://localhost/';
       details.requestHeaders['Origin'] = 'http://localhost';
@@ -1132,6 +1140,7 @@ app.whenReady().then(() => {
       });
       /* 카카오맵 Referer 강제 설정 */
       medWin.webContents.session.webRequest.onBeforeSendHeaders(function(details,callback){
+        _authorizeSharedHostRequest(details);
         if(details.url.includes('kakao.com')||details.url.includes('daumcdn.net')){
           details.requestHeaders['Referer']='http://localhost:7700/';
           details.requestHeaders['Origin']='http://localhost:7700';
@@ -1772,8 +1781,13 @@ app.whenReady().then(() => {
     catch (err) { return { success: false, error: err.message }; }
   });
 
+  ipcMain.handle('shared-settings', (event, request) => require('./src/main/services/shared-settings-service').sharedSettingsRequest(services, request));
+
+  ipcMain.handle('rental-ledger', (event, request) => require('./src/main/services/rental-ledger-service').rentalLedgerRequest(services.store(), request));
+
   ipcMain.handle('db-get', (event, { scope, key, year }) => {
     try {
+      if(scope==='common' && require('./src/shared/shared-settings').isShared(key))return require('./src/main/services/shared-settings-service').sharedSettingsRequest(services,{action:'read',key});
       return { success: true, ...services.store().get(scope, key, year) };
     } catch (err) {
       return { success: false, error: err.message, exists: false, data: null };
@@ -1782,6 +1796,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('db-set', (event, { scope, key, value, year }) => {
     try {
+      if(scope==='common' && require('./src/shared/shared-settings').isShared(key))return {success:false,error:'shared_settings_refresh_required'};
       return { success: true, ...services.store().set(scope, key, value, year) };
     } catch (err) {
       return { success: false, error: err.message };
@@ -1790,6 +1805,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('db-batch-set', (event, { items }) => {
     try {
+      if((items||[]).some(x=>x.scope==='common' && require('./src/shared/shared-settings').isShared(x.key)))return {success:false,error:'shared_settings_refresh_required'};
       return { success: true, ...services.store().batchSet(items || []) };
     } catch (err) {
       return { success: false, error: err.message };
@@ -1864,6 +1880,10 @@ app.whenReady().then(() => {
         filters: [{ name: 'SQLite Database', extensions: ['sqlite3'] }],
       });
       if (result.canceled || !result.filePath) return { success: false, canceled: true };
+      const backupTarget = fs.existsSync(result.filePath) ? fs.realpathSync(result.filePath) : path.resolve(result.filePath);
+      if (backupTarget.toLowerCase() === fs.realpathSync(dbPath).toLowerCase()) {
+        return { success: false, error: '현재 사용 중인 데이터 파일과 다른 위치에 백업해 주세요.' };
+      }
       /* WAL 체크포인트 + VACUUM INTO 로 빈 페이지 제거된 최소 크기 백업 생성
        * (기존 fs.copyFileSync 는 빈 페이지·WAL 여유공간까지 복사해서 크기 부풀림) */
       try { healthDB.db.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) {}
@@ -1874,6 +1894,8 @@ app.whenReady().then(() => {
       } catch (vacErr) {
         /* VACUUM INTO 실패 시 기존 방식(raw copy)으로 폴백 */
         console.warn('[DB] VACUUM INTO 실패, raw copy 로 폴백:', vacErr.message);
+        const checkpoint = healthDB.db.pragma('wal_checkpoint(TRUNCATE)');
+        if (checkpoint.some(row => row.busy)) throw new Error('데이터 사용 중으로 안전한 백업을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
         fs.copyFileSync(dbPath, result.filePath);
       }
       return { success: true, filePath: result.filePath };
@@ -1988,7 +2010,7 @@ app.whenReady().then(() => {
           try { healthDB.db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e1) { console.warn('[DB] step1 WARN:', e1.message); }
 
           console.log('[DB] step2 pre-restore safety backup', dbPath, '→', preRestoreBackup);
-          try { fs.copyFileSync(dbPath, preRestoreBackup); } catch (e2) { console.warn('[DB] step2 WARN:', e2.message); }
+          fs.copyFileSync(dbPath, preRestoreBackup);
 
           /* step3: USB 백업을 로컬 임시로 복사 + WAL 정합성 정리. USB 분리 대비 + ATTACH 안전. */
           tmpAttachSrc = dbPath + '.attach-src.' + Date.now() + '.tmp';
@@ -2014,6 +2036,7 @@ app.whenReady().then(() => {
           healthDB.db.exec(`ATTACH DATABASE '${_attachPathEsc}' AS src`);
           let _copiedTables = 0;
           let _skippedTables = 0;
+          const _restoreForeignKeys = healthDB.db.pragma('foreign_keys', { simple: true });
           try {
             healthDB.db.pragma('foreign_keys = OFF');
             const srcTables = healthDB.db.prepare(
@@ -2029,29 +2052,28 @@ app.whenReady().then(() => {
                   const ddlRow = healthDB.db.prepare(`SELECT sql FROM src.sqlite_master WHERE type='table' AND name=?`).get(table);
                   if (ddlRow && ddlRow.sql) {
                     console.log('[DB] step4 새 테이블 생성:', table);
-                    try { healthDB.db.exec(ddlRow.sql); } catch (ddlErr) { console.warn('[DB] step4 DDL 실패 skip:', table, ddlErr.message); _skippedTables++; continue; }
-                  } else { _skippedTables++; continue; }
+                    healthDB.db.exec(ddlRow.sql);
+                  } else { throw new Error('백업 테이블 구조를 확인할 수 없습니다: ' + table); }
                 }
                 /* 공통 컬럼만 복사 — 스키마 차이가 있어도 안전 */
                 const mainCols = healthDB.db.prepare(`PRAGMA main.table_info("${table}")`).all().map(c => c.name);
                 const srcCols = healthDB.db.prepare(`PRAGMA src.table_info("${table}")`).all().map(c => c.name);
                 const commonCols = mainCols.filter(c => srcCols.includes(c));
-                if (commonCols.length === 0) { _skippedTables++; console.warn('[DB] step4 공통 컬럼 없음 skip:', table); continue; }
+                if (commonCols.length === 0) throw new Error('복원할 공통 항목이 없습니다: ' + table);
                 const colList = commonCols.map(c => `"${c}"`).join(', ');
                 try {
                   healthDB.db.prepare(`DELETE FROM main."${table}"`).run();
                   healthDB.db.prepare(`INSERT INTO main."${table}" (${colList}) SELECT ${colList} FROM src."${table}"`).run();
                   _copiedTables++;
                 } catch (copyErr) {
-                  console.warn('[DB] step4 테이블 카피 실패 skip:', table, copyErr.message);
-                  _skippedTables++;
+                  throw new Error('테이블 복원 실패 (' + table + '): ' + copyErr.message);
                 }
               }
             });
             tx();
-            healthDB.db.pragma('foreign_keys = ON');
             console.log('[DB] step4 복사 완료 — 성공', _copiedTables, '개 / skip', _skippedTables, '개');
           } finally {
+            healthDB.db.pragma('foreign_keys = ' + (_restoreForeignKeys ? 'ON' : 'OFF'));
             try { healthDB.db.exec('DETACH DATABASE src'); } catch (_) {}
           }
           try { fs.unlinkSync(tmpAttachSrc); } catch (_) {}
@@ -2213,6 +2235,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('json-save-common', (event, { key, data }) => {
     try {
+      if(require('./src/shared/shared-settings').isShared(key))return {success:false,error:'shared_settings_refresh_required'};
       const filePath = services.jsonFile().saveCommon(key, data);
       return { success: true, path: filePath };
     } catch (err) { return { success: false, error: err.message }; }
@@ -2280,6 +2303,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('json-load-common', (event, { key }) => {
     try {
+      if(require('./src/shared/shared-settings').isShared(key))return require('./src/main/services/shared-settings-service').sharedSettingsRequest(services,{action:'read',key});
       const result = services.jsonFile().loadCommon(key);
       return { success: true, ...result };
     } catch (err) { return { success: false, error: err.message }; }
@@ -2297,6 +2321,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('json-flush', (event, { items }) => {
     try {
+      if((items||[]).some(x=>x.common && require('./src/shared/shared-settings').isShared(x.key)))return {success:false,error:'shared_settings_refresh_required'};
       services.jsonFile().flush(items);
       return { success: true };
     } catch (err) { return { success: false, error: err.message }; }
@@ -5168,6 +5193,7 @@ app.whenReady().then(() => {
    *  잠금이 풀리기 전에 설치가 시작될 수 있다. 그래서 설치 직전엔 taskkill /F /T 를 spawnSync 로
    *  "프로세스 트리가 사라질 때까지 블로킹" 한 뒤 진행한다. (자동 업데이트 루프 대응 2026-06-25) */
   function _killWebServerChildSync() {
+    _sharedHostState.token = ''; _sharedHostState.ports.clear();
     const child = _webServerChild;
     _webServerChild = null;
     global._collabWebOn = false;
@@ -5199,14 +5225,23 @@ app.whenReady().then(() => {
       _webServerLogStream.write(`\n===== [WEB] 시작 시각: ${new Date().toISOString()} =====\n`);
       _webServerStartedEmitted = false; /* 새 자식 시작 시 플래그 리셋 */
 
+      _sharedHostState.token = require('crypto').randomBytes(32).toString('hex');
+      _sharedHostState.ports.clear();
       _webServerChild = fork(serverScript, [], {
         env: {
           ...process.env,
           USER_DATA_PATH: userDataPath,
+          ORANGETALK_SHARED_HOST_TOKEN: _sharedHostState.token,
           ELECTRON_RUN_AS_NODE: '1',
           NODE_ENV: 'production'
         },
         silent: true
+      });
+      const startedChild = _webServerChild;
+      startedChild.on('message', message => {
+        if (_webServerChild !== startedChild || !message || !Number.isInteger(message.port) || message.port < 1 || message.port > 65535) return;
+        if (message.type === 'shared-listening') _sharedHostState.ports.add(message.port);
+        if (message.type === 'shared-port-closed') _sharedHostState.ports.delete(message.port);
       });
       if (_webServerChild.stdout) _webServerChild.stdout.on('data', d => {
         const s = d.toString();
@@ -5225,6 +5260,8 @@ app.whenReady().then(() => {
         console.error('[WEB ERR]', s.trim());
       });
       _webServerChild.on('exit', (code, signal) => {
+        if (_webServerChild !== startedChild) return;
+        _sharedHostState.token = ''; _sharedHostState.ports.clear();
         if (_webServerLogStream) _webServerLogStream.write(`[exit] code=${code} signal=${signal}\n`);
         console.log(`[WEB] 웹 서버 종료 code=${code} signal=${signal}`);
         _webServerChild = null;
@@ -5252,6 +5289,8 @@ app.whenReady().then(() => {
   }
 
   function _webServerStop() {
+    _sharedHostState.token = ''; _sharedHostState.ports.clear();
+    if (_webServerStartedEmitted) { _webServerStartedEmitted = false; _emitWebServerStopped(); }
     if (!_webServerChild || _webServerChild.killed) {
       /* 자식은 없어도 설정은 꺼줌 */
       try { fs.writeFileSync(_webServerPrefsPath, '0'); } catch (_) {}
