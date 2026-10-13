@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ui-utils.js — 공유 DOM 유틸리티 */
 import { escHtml } from './format-utils.js';
+import { playSoundMedia, soundCategoryForFile } from './sound-preferences.js';
 import { getStu, getGuardianType, getGuardianContact, getStudentBirth } from './student-utils.js';
 
 /* ── 미니 팝업 효과음 (assets/sounds/*) — 파일별 Audio 캐시 재사용 ── */
@@ -10,7 +11,7 @@ export function playUiSound(file, vol){
     let a=_uiSndCache[file];
     if(!a){ a=new Audio('./assets/sounds/'+file); a.volume=(vol==null?0.6:vol); _uiSndCache[file]=a; }
     a.currentTime=0;
-    const p=a.play(); if(p&&p.catch)p.catch(function(){});
+    const p=playSoundMedia(a,soundCategoryForFile(file)); if(p&&p.catch)p.catch(function(){});
   }catch(_){}
 }
 export function playQuickMenuSound(){ playUiSound('quickmenu.wav',0.6); }   /* 빠른 작업·이름 클릭·드래그 선택 팝업 */
@@ -55,10 +56,32 @@ export function showNameHoverPop(anchor,stuId){
 export function hideNameHoverPop(){
   if(_nameHoverPopEl){_nameHoverPopEl.remove();_nameHoverPopEl=null;}
 }
+export function findTopOpenModal(){
+  const nodes = Array.from(document.querySelectorAll(
+    '.modal-overlay.show, .sv-modal-overlay, [id$="Overlay"], .school-confirm-overlay, #vpExportPopupOv, #vpPrintPreviewOv'
+  )).filter(function(node){
+    if(!node || !node.isConnected) return false;
+    for(let current=node; current; current=current.parentElement){
+      const style=getComputedStyle(current);
+      if(style.display==='none' || style.visibility==='hidden' || style.visibility==='collapse' || style.opacity==='0') return false;
+      if(current===node && style.pointerEvents==='none') return false;
+    }
+    return true;
+  });
+  return nodes.reduce(function(top,node){
+    if(!top) return node;
+    return (parseInt(getComputedStyle(node).zIndex)||0)>=(parseInt(getComputedStyle(top).zIndex)||0) ? node : top;
+  },null);
+}
 export function closeModalGracefully(elOrId){
   const el = (typeof elOrId === 'string') ? document.getElementById(elOrId) : elOrId;
   if(!el || !el.isConnected) return;
   if(typeof el._onModalClose === 'function'){ el._onModalClose(); return; }
+  // These roots are declared in health_diary.html and reused, never recreated.
+  if(['qmOverlay','settingsModal','emsOverlay','vpOverlay','ecFormOverlay','infFormOverlay'].includes(el.id)){
+    el.classList.remove('show','active','hiding');
+    return;
+  }
   if(el.classList.contains('modal-closing')) return;
   el.classList.add('modal-closing');
   /* Windows 에서도 애니메이션이 확실히 재생되도록:
@@ -225,6 +248,7 @@ export function appConfirmModal(msg, title, opts){
       if(previousFocus && previousFocus.isConnected)previousFocus.focus({preventScroll:true});
       resolve(result);
     };
+    ov._onModalClose=function(){close(false);};
     const focusable=()=>Array.from(box.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')).filter(node=>node.getClientRects().length);
     const onKey=function(event){
       if(Array.from(document.querySelectorAll('.school-confirm-overlay')).at(-1)!==ov)return;

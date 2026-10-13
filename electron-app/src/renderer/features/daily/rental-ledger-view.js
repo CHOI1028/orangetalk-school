@@ -252,14 +252,13 @@ export async function openRentalLedger(opts){
     +'</div></div>'
     +'</div></div>';
 
+  ov._onModalClose=function(){
+    closeModalWithAnim(ov,function(){
+      if(typeof opts.onClose==='function')try{opts.onClose();}catch(_){}
+    });
+  };
   ov.addEventListener('mousedown',function(e){
-    if(e.target===ov){
-      /* opts.onClose — 팝업 부드럽게 fade-out 끝난 후 호출. 증상 모달 chip 카운트 갱신 등에 사용.
-       *  여기서 외부 모달(증상 팝업) DOM 은 절대 안 건드림 — 부모 모달 깜빡임 방지. */
-      closeModalWithAnim(ov, function(){
-        if(typeof opts.onClose === 'function') try { opts.onClose(); } catch(_){}
-      });
-    }
+    if(e.target===ov)ov._onModalClose();
   });
   document.body.appendChild(ov);
   _makeDraggable(ov.querySelector('.modal-content'));

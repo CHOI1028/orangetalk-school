@@ -16,11 +16,12 @@ function section(text, startMarker, endMarker, includeEnd = false) {
   return text.slice(start, end + (includeEnd ? endMarker.length : 0));
 }
 
+const finderSource = section(source('core/ui-utils.js'), 'export function findTopOpenModal(', 'export function closeModalGracefully(').replace(/^export /, '');
 const closeSource = section(source('core/ui-utils.js'),
   'export function closeModalGracefully(', 'export function createEmptyState(').replace(/^export /, '');
 const commands = source('core/command-palette.js');
 const shortcutSource = section(commands, 'function _gsFindTopModal(){', 'function _gsFindPrimaryBtn(')
-  + section(commands, "document.addEventListener('keydown',function(e){\n  const mod=e.metaKey||e.ctrlKey;", '\n});', true);
+  + section(commands, "document.addEventListener('keydown',function(e){\n  if(e.defaultPrevented)return;\n  const mod=e.metaKey||e.ctrlKey;", '\n});', true);
 const escapeSource = section(source('core/event-bindings.js'),
   "  document.addEventListener('keydown', function(e){\n    if(e.key !== 'Escape') return;", '  }, false);', true);
 const visitPassSource = section(source('features/visit-pass/visit-pass-editor.js'),
@@ -32,7 +33,7 @@ function modal(id, options = {}) {
   return {
     id, isConnected: options.isConnected !== false, parentNode: {}, removes: 0,
     style: { display: 'flex', visibility: 'visible', zIndex: '1', ...options.style },
-    classList: { contains: name => classes.has(name), add: name => classes.add(name), remove: name => classes.delete(name) },
+    classList: { contains: name => classes.has(name), add: name => classes.add(name), remove: (...names) => names.forEach(name => classes.delete(name)) },
     querySelector() { return this.content || null; },
     contains(el) { return el && el.parentNode === this; },
     addEventListener(type, fn) { events.set(type, fn); },
@@ -58,7 +59,7 @@ function harness(handlerSource = '', modals = [], activeElement = null) {
     closeEmsMsg() { state.emsCloses++; },
     closeVisitPass() { state.visitCloses++; }
   });
-  vm.runInContext(closeSource + '\n' + handlerSource, context);
+  vm.runInContext(finderSource + '\n' + closeSource + '\nconst findKeyboardModal=findTopOpenModal; const closeKeyboardModal=closeModalGracefully;\n' + handlerSource, context);
   function key(options = {}) {
     const event = {
       key: 'Escape', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false,
@@ -156,11 +157,13 @@ for(const route of routes) {
       const el = modal('ordinaryOverlay', { classes, style: { zIndex: '100' } });
       const h = harness(route.source, [lower, el]);
       assert.equal(h.key(route.event).defaultPrevented, true);
-      assert.equal(el.classList.contains('show'), false);
-      assert.equal(el.removes, classes.includes('show') ? 0 : 1);
+      assert.equal(el.classList.contains('modal-closing'), true);
+      assert.equal(el.removes, 0);
       assert.equal(lower.classList.contains('show'), true);
       assert.equal(lower.removes, 0);
-      assert.equal(h.timers.length, 0);
+      assert.equal(h.timers.length, 1);
+      h.timers[0].fn();
+      assert.equal(el.removes, 1);
     });
   }
 }
@@ -181,7 +184,7 @@ test('global Escape keeps the existing focused-input blur behavior for unhooked 
   let blurs = 0;
   const input = { tagName: 'INPUT', parentNode: el, blur() { blurs++; } };
   const h = harness(escapeSource, [el], input);
-  assert.equal(h.key().defaultPrevented, false);
+  assert.equal(h.key().defaultPrevented, true);
   assert.equal(blurs, 1);
   assert.equal(el.classList.contains('show'), true);
   assert.equal(el.removes, 0);

@@ -1,3 +1,4 @@
+import { findTopOpenModal as findKeyboardModal, closeModalGracefully as closeKeyboardModal } from './ui-utils.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 'use strict';
 /**
@@ -460,11 +461,7 @@ function _gsFindAddButton(){
   for(let i=0;i<candidates.length;i++){const els=scope.querySelectorAll(candidates[i]);for(let j=0;j<els.length;j++){const el=els[j];if(!el.offsetParent)continue;const text=(el.textContent||'').trim();if(text.indexOf('추가')!==-1||text.indexOf('+')===0||text.indexOf('신규')!==-1||text.indexOf('등록')!==-1)return el;}}
   return null;
 }
-function _gsFindTopModal(){
-  const modals=Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.show, .sv-modal-overlay, [id$="Overlay"]')).filter(function(m){if(!m||!m.isConnected)return false;const st=getComputedStyle(m);return st.display!=='none'&&st.visibility!=='hidden';});
-  if(!modals.length)return null;
-  return modals.reduce(function(a,b){return(parseInt(getComputedStyle(b).zIndex)||0)>(parseInt(getComputedStyle(a).zIndex)||0)?b:a;});
-}
+function _gsFindTopModal(){return findKeyboardModal();}
 function _gsFindPrimaryBtn(modal){
   if(!modal)return null;
   let el=modal.querySelector('.btn-primary:not([disabled])');if(el&&el.offsetParent)return el;
@@ -480,6 +477,7 @@ function _gsTriggerSave(){
   else{bus.emit('toast:show',{text:'💾 저장됨'});}
 }
 document.addEventListener('keydown',function(e){
+  if(e.defaultPrevented)return;
   const mod=e.metaKey||e.ctrlKey;
   if(!mod&&e.key!=='F1')return;
   const ae=document.activeElement;
@@ -488,7 +486,7 @@ document.addEventListener('keydown',function(e){
   if(e.key==='F1'){e.preventDefault();showShortcutCheatsheet();return;}
   if(mod&&!e.shiftKey&&!e.altKey&&key==='f'){const inp=_gsFindSearchInput();if(inp){e.preventDefault();inp.focus();if(inp.select)try{inp.select();}catch(_){}return;}}
   if(mod&&!e.shiftKey&&!e.altKey&&key==='n'&&!inInput){const btn=_gsFindAddButton();if(btn){e.preventDefault();btn.click();return;}}
-  if(mod&&!e.shiftKey&&!e.altKey&&key==='w'){const topM=_gsFindTopModal();if(topM){e.preventDefault();if(typeof topM._onModalClose==='function'){topM._onModalClose();return;}if(topM.classList.contains('show')&&topM.classList.contains('modal-overlay'))topM.classList.remove('show');else topM.remove();return;}}
+  if(mod&&!e.shiftKey&&!e.altKey&&key==='w'){const topM=_gsFindTopModal();if(topM){e.preventDefault();closeKeyboardModal(topM);return;}}
   if(mod&&!e.shiftKey&&!e.altKey&&key==='s'){e.preventDefault();_gsTriggerSave();return;}
   if(mod&&e.key==='Enter'){const topM2=_gsFindTopModal();if(topM2){const primary=_gsFindPrimaryBtn(topM2);if(primary){e.preventDefault();primary.click();return;}}}
   if(mod&&e.key==='/'){if(inInput)return;e.preventDefault();showShortcutCheatsheet();return;}

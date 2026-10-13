@@ -67,6 +67,7 @@ const MAIN_JS_FILES = [
 
 const STANDALONE_RUNTIME_MODULES = new Set([
   'src/renderer/core/bodymap-layout.js',
+  'src/renderer/core/sound-preferences.js',
   'src/renderer/features/kiosk/kiosk-reception-runtime.js',
   'src/renderer/features/kiosk/kiosk-call-audio.js',
 ]);

@@ -830,6 +830,7 @@ export function openSymptomCategoryPopup(recId, opts){
   _installSymptomHeaderStyles();
   const ov=document.createElement('div');ov.id='symCatOverlay';
   ov.dataset.preserveEmptyRecord=String(!!(opts&&opts.preserveEmptyRecord));
+  ov._onModalClose=_symComplete;
   /* 사용자 요청 (2026-05-18) — 팝업 주변 어두워지는 backdrop 제거. 단순 투명 오버레이. */
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:transparent;z-index:9500';
   /* 상담 상분류 추가(15개)로 세로 여유 확대 720→780 (사용자 요청 2026-06-12) */
@@ -1352,6 +1353,7 @@ export function openSymptomCategoryPopup(recId, opts){
     }
   }
   const _symKeyNav=function(e){
+    if(e.key==='Escape' && e.defaultPrevented)return;
     /* 텍스트 입력창(input/textarea/contenteditable) 안에서 좌·우 방향키는 캐럿 이동이 우선되어야 함.
      * 사용자 보고 2026-05-21 — 자유 기술 dock·증상 자유 기술 dock·메모 dock·투약 검색 input 등에서
      * ArrowLeft/Right 가 전역 핸들러의 preventDefault 로 캐럿이 안 움직이던 회귀 fix.
@@ -1473,6 +1475,7 @@ export function openSymptomCategoryPopup(recId, opts){
     }
   };
   document.addEventListener('keydown',_symKeyNav);
+  ov._disposeKeyNav=function(){document.removeEventListener('keydown',_symKeyNav);};
   /* 초기에는 키보드 포커스 하이라이트 없음 — 사용자가 ↓↑를 누르면 나타남 */
   /* 드래그 이동 */
   const box=document.getElementById('symCatBox');
@@ -4982,6 +4985,15 @@ function _symRecordIsEmpty(rec){
   if(!_arrEmpty(rec.treatment))return false;
   if(rec.medication && String(rec.medication).trim())return false;
   if(rec.memo && String(rec.memo).trim())return false;
+  // Structured entries and legacy free-text notes are records, not empty visits.
+  const _hasContent=function(value){
+    if(value==null || value===false)return false;
+    if(typeof value==='string')return value.trim().length>0;
+    if(Array.isArray(value))return value.some(_hasContent);
+    if(typeof value==='object')return Object.values(value).some(_hasContent);
+    return true;
+  };
+  if([rec.treatmentMemo,rec.physicalAssessment,rec.vsHistory,rec.counselLog].some(_hasContent))return false;
   if(rec.dept && String(rec.dept).trim())return false;
   if(rec.bodymapData && Array.isArray(rec.bodymapData) && rec.bodymapData.length>0)return false;
   if(rec.temp || rec.bp || rec.pulse || rec.respiration || rec.resp || rec.spo2 || rec.bst)return false;
@@ -4990,6 +5002,10 @@ function _symRecordIsEmpty(rec){
 }
 
 function _symComplete(){
+  const ov=document.getElementById('symCatOverlay');
+  if(!ov || ov._completing)return;
+  ov._completing=true;
+  if(typeof ov._disposeKeyNav==='function')ov._disposeKeyNav();
   /* 입력은 모두 실시간으로 _symAutoSave() 가 처리되므로, 팝업 닫힘 시 호출되는 마지막 저장은 토스트 없이 조용히.
    * 이렇게 해야 사용자 관점에서 "닫기 = 저장" 이 아니라 "입력 중 자동 저장 + 닫기는 그냥 닫는 동작" 으로 자연스러움. */
   _symAutoSave(true);
@@ -5016,7 +5032,6 @@ function _symComplete(){
     S.dailyLockedStudentId = null;
     S._visitHistoryLocked = false;
   } catch(_e){ /* 상태 정리 실패해도 팝업 닫힘은 정상 진행 */ }
-  const ov=document.getElementById('symCatOverlay');
   if(ov){
     const box=document.getElementById('symCatBox');
     if(box){box.style.transition='opacity 0.2s ease, transform 0.2s ease';box.style.opacity='0';box.style.transform='scale(0.96)';}

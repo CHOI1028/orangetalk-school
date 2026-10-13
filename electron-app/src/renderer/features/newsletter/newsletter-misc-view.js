@@ -2231,6 +2231,7 @@ function qmSave(data){localStorage.setItem(QM_STORAGE_KEY,JSON.stringify(data));
 
 export function openQuickMsg(){
   const ov=document.getElementById('qmOverlay');
+  ov._onModalClose=closeQuickMsg;
   /* 이전 닫기 애니메이션이 320ms 안에 다시 클릭되면, 예약된 setTimeout 이 'active' 를 도로 떼서
    * 모달이 사라져 보이는(버튼 무반응) race 가 있었음. 진입 즉시 pending 닫기 취소. */
   cancelCloseAnimIfPending(ov);

@@ -12,6 +12,7 @@
 import { getStu, escHtml, closeModalGracefully } from '../../core/helpers.js';
 import { compareClass } from '../../core/student-utils.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
+import { playSoundMedia } from '../../core/sound-preferences.js';
 import { S, ensureHolidayYear } from '../../core/app-state.js';
 import { _statMedicationStr, _statHasBed } from '../../core/record-utils.js';
 import { getGreeting } from './home-greetings.js';
@@ -2405,7 +2406,7 @@ function _checkEventAlarms(){
 }
 function _showEventAlarm(ev){
   /* 짧은 비프음 (data URI) — 외부 파일 의존 X */
-  try{ new Audio('data:audio/wav;base64,UklGRiQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQADAACAgIB/f3+AgIB/f4CAgH9/gIB/gIB/gIB/f4CAf4CAgH9/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gICAf4CAf4CAf4CAf4CAgH+AgH+AgH+Af4CAf4CAf4CAf4CAf4CAf4CAgH+AgIB/gICAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CA').play(); }catch(e){}
+  try{ playSoundMedia(new Audio('data:audio/wav;base64,UklGRiQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQADAACAgIB/f3+AgIB/f4CAgH9/gIB/gIB/gIB/f4CAf4CAgH9/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gIB/gICAf4CAf4CAf4CAf4CAgH+AgH+AgH+Af4CAf4CAf4CAf4CAf4CAf4CAgH+AgIB/gICAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CAf4CA'),'schedule').catch(function(){}); }catch(e){}
   if(document.getElementById('eventAlarmModal')) document.getElementById('eventAlarmModal').remove();
   const ov = document.createElement('div');
   ov.id = 'eventAlarmModal';

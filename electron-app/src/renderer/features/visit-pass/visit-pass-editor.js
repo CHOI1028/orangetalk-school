@@ -1,3 +1,4 @@
+import { findTopOpenModal as findKeyboardModal } from '../../core/ui-utils.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 import { S } from '../../core/app-state.js';
 'use strict';
@@ -4763,21 +4764,24 @@ document.addEventListener('paste', function(e){
 const _vpOvEl=document.getElementById('vpOverlay');
 if(_vpOvEl){_vpOvEl.addEventListener('click', function(e){if(e.target === this) closeVisitPass();});}
 else{document.addEventListener('DOMContentLoaded',function(){const el=document.getElementById('vpOverlay');if(el)el.addEventListener('click', function(e){if(e.target === this) closeVisitPass();});});}
+// Persistent editors keep their own close routines for all keyboard routes.
+const _vpModalRoot=document.getElementById('vpOverlay');
+if(_vpModalRoot)_vpModalRoot._onModalClose=closeVisitPass;
+const _emsModalRoot=document.getElementById('emsOverlay');
+if(_emsModalRoot)_emsModalRoot._onModalClose=closeEmsMsg;
 document.addEventListener('keydown', function(e){
   if(e.key==='Escape'){
     /* 침상 관련 팝업 우선 */
-    const bedAlm=document.getElementById('bedAlarmOverlay');if(bedAlm){closeModalGracefully(bedAlm);return;}
-    const bedCfg=document.getElementById('bedConfigOverlay');if(bedCfg){closeModalGracefully(bedCfg);return;}
-    const bedMgr=document.getElementById('bedManagerOverlay');if(bedMgr){closeModalGracefully(bedMgr);return;}
-    const ems=document.getElementById('emsOverlay');if(ems&&ems.classList.contains('show')){closeEmsMsg();return;}
-    const vp=document.getElementById('vpOverlay');if(vp&&vp.classList.contains('show')){
-      const bgRm=document.getElementById('bgRmOverlay');if(bgRm){closeModalGracefully(bgRm);return;}
-      const crop=document.getElementById('cropOverlay');if(crop){closeModalGracefully(crop);if(typeof _cropState!=='undefined')_cropState.origImg=null;return;}
-      const bgStr=document.getElementById('bgStretchOverlay');if(bgStr){closeModalGracefully(bgStr);return;}
-      const expPop=document.getElementById('vpExportPopupOv');if(expPop){closeModalGracefully(expPop);return;}
-      const ppOv=document.getElementById('vpPrintPreviewOv');if(ppOv){closeModalGracefully(ppOv);return;}
-      closeVisitPass();
-    }
+    if(e.defaultPrevented)return;
+    const top=findKeyboardModal();
+    if(!top)return;
+    const owned=['bedAlarmOverlay','bedConfigOverlay','bedManagerOverlay','emsOverlay','vpOverlay','bgRmOverlay','cropOverlay','bgStretchOverlay','vpExportPopupOv','vpPrintPreviewOv'];
+    if(!owned.includes(top.id))return;
+    e.preventDefault();
+    if(top.id==='emsOverlay'){closeEmsMsg();return;}
+    if(top.id==='vpOverlay'){closeVisitPass();return;}
+    closeModalGracefully(top);
+    if(top.id==='cropOverlay' && typeof _cropState!=='undefined')_cropState.origImg=null;
   }
 });
 

@@ -4,6 +4,7 @@ import { getStu, escHtml, toDateStr, getGrades, saveStudents, isKinder, closeMod
 import { bus } from '../../core/event-bus.js';
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { S } from '../../core/app-state.js';
+import { renderSoundSettings, bindSoundSettings } from './settings-sound.js';
 import { magicCalendarManager, googleSheetsManager, driveSyncManager } from './drive-sync-manager.js';
 import { getTopMenuVisibility, initTopMenuDnD } from './settings-menu-dnd.js';
 import { _renderAccountTab, _bindAccountTab } from './settings-tab-account.js';
@@ -1423,6 +1424,8 @@ export function renderSettingsPanel(cat){
 
   if(cat==='version'){
     html=_renderVersionTab();
+  } else if(cat==='sound'){
+    html=renderSoundSettings();
   } else if(cat==='cdkey'){
     html=_renderCdkeyTab();
   } else if(cat==='copyright'){
@@ -1525,6 +1528,7 @@ export function renderSettingsPanel(cat){
   if(cat==='sidebarpos')setTimeout(bindSidebarPosPanel,0);
   if(cat==='mealacad')setTimeout(bindMealAcadPanel,0);
   if(cat==='schoolyear')setTimeout(bindSchoolYearPanel,0);
+  if(cat==='sound')bindSoundSettings(p);
   if(cat==='kiosk')_bindKioskCmsEvents(p);
   if(cat==='themeinfo')_bindThemeInfoEvents(p);
 }
@@ -2868,7 +2872,7 @@ function _renderFontsizeSection(){
 function _renderVersionTab(){
   const VERSIONS=[
     {ver:'1.0',name:'Roma'},
-    {ver:'1.1',name:'Firenze',release:'1.1.1'},
+    {ver:'1.1',name:'Firenze',release:'1.1.12'},
     {ver:'1.2',name:'Bologna'},
     {ver:'1.3',name:'Venezia'},
     {ver:'1.4',name:'Ljubljana'},
@@ -2923,16 +2927,14 @@ function _renderVersionTab(){
   });
   h+='</div>';
   h+='<section aria-labelledby="rmReleaseTitle" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">';
-  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.1 Firenze · 공유 연결 및 보건일지·키오스크 개선</h3>';
-  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">공유 연결과 키오스크의 안정성을 보완하고, 보건일지의 확인·편집 흐름을 개선했습니다.</p>';
+  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.12 Firenze · 소리 설정 추가 및 보건일지 사용성 개선</h3>';
+  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">알림음 설정을 추가하고, 날짜 선택·일지 등록·방문 이력과 팝업 사용 중의 불편함을 개선했습니다.</p>';
   h+='<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9">';
-  h+='<li>메인·서브 PC 연동 안정화: 커스텀 양식, 물품 대여 기록, 키오스크 설정과 대기 목록의 동기화 및 재접속 처리를 개선했습니다.</li>';
-  h+='<li>공유 연결 보안 강화: 메인 PC에서 복사한 보안 연결 주소로 서브 PC에 접속하도록 변경했습니다.</li>';
-  h+='<li>키오스크·바디맵 개선: 학년·반·이름 선택 흐름과 가독성을 개선하고, 안내 문구·알림음 설정 반영 및 바디맵의 좌우 표시·부위 선택·통증 입력을 보완했습니다.</li>';
-  h+='<li>개인정보 확인 및 과거 기록 편집 개선: 보호 중인 일지 내용을 잠시 확인한 뒤 다시 가리는 기능과 날짜·방문 이력에서 과거 기록을 편집하는 연결을 개선했습니다.</li>';
-  h+='<li>보건일지 화면 정리: 일반 일지·응급처치·감염병 목록의 검색, 업무 도구, 출력, 정렬 영역을 통일감 있게 정리했습니다.</li>';
-  h+='<li>백업·복원 안정화: 일부 데이터 복원 실패가 완료로 처리되던 문제를 수정하고, 커스텀 설정 백업·복원의 데이터 처리를 보완했습니다.</li>';
-  h+='<li>업데이트 후 서브 PC에서는 메인 PC의 환경설정에서 복사한 새 보안 연결 주소로 한 번 다시 접속해 주세요.</li>';
+  h+='<li>환경설정에 전체 또는 알림 종류별로 소리를 켜고 끌 수 있는 소리 설정 기능을 추가했습니다.</li>';
+  h+='<li>날짜·방문 이력 달력에서 선택한 날짜가 일반일지 조회 날짜와 연동되도록 개선했습니다.</li>';
+  h+='<li>기간검색 중에도 선택한 날짜로 일지를 등록할 수 있도록 수정하고, 오늘이 아닌 날짜에는 등록 날짜를 확인하도록 보완했습니다.</li>';
+  h+='<li>학생 방문 이력을 확인한 뒤 마우스를 이동하면 날짜별 방문 목록이 비어 보이던 오류를 수정했습니다.</li>';
+  h+='<li>상용 메시지·물품 대여 대장·열 필드 설정 창이 다시 열리지 않거나 두 번 클릭해야 열리던 오류를 수정했습니다.</li>';
   h+='</ul></section></div>';
 
   /* ═══ 업데이트 카드 — 기존 _renderUpdateTabInline 통합 ═══ */

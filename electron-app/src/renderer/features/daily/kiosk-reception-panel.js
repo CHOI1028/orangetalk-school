@@ -20,11 +20,20 @@ import { openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
 import { S, DEFAULT_RELAY_URL, addRecord, saveKioskSettings, refreshSharedKioskSettings } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
+import { playSoundMedia } from '../../core/sound-preferences.js';
 import { rentalAddFromKiosk, rentalMarkReturnedFromKiosk } from './rental-ledger-view.js';
 import { deriveRosterKey, encryptJson } from '../../core/kiosk-roster-crypto.js';
 import { buildRosterReply } from '../../core/kiosk-roster-source.js';
 
 function _toast(text){ bus.emit('toast:show',{text}); }
+
+function _playReceptionSound(){
+  try{
+    const audio=new Audio('./assets/sounds/quickmenu.wav');
+    audio.volume=0.6;
+    playSoundMedia(audio,'reception').catch(function(){});
+  }catch(_){}
+}
 let _kioskLanListenerSet=false;
 let _queueSyncState='waiting';
 
@@ -833,7 +842,7 @@ function _connect(){
         if(index<0) _receptions.push(rec); else _receptions[index]=rec;
         _queueRevision++;_syncToSidebar();
         if(index<0){
-          try{new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play();}catch(_){}
+          _playReceptionSound();
           _toast('키오스크 접수: '+((rec.person && rec.person.name)||'방문자'));
         }
         _render();
@@ -924,7 +933,7 @@ function _init(){
           created_at:payload.time||new Date().toISOString(),
           _fromLan:true
         });
-        try{new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play();}catch(e){}
+        _playReceptionSound();
         const nm=(payload.personal&&payload.personal.name)||'방문자';
         _toast('🏥 LAN 키오스크 접수: '+nm);
         _connected=true;

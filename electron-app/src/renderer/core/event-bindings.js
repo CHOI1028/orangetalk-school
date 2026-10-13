@@ -1,3 +1,4 @@
+import { findTopOpenModal as findKeyboardModal, closeModalGracefully as closeKeyboardModal } from './ui-utils.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 'use strict';
 /**
@@ -484,40 +485,18 @@ document.addEventListener('DOMContentLoaded', function(){
    * 입력창 포커스 중이어도 Esc는 모달 닫기를 우선 (단, contenteditable에 내용 있으면 블러만) */
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
-    /* 모든 가시 모달 수집 (z-index 내림차순) */
-    let modals = Array.prototype.slice.call(document.querySelectorAll(
-      '.modal-overlay.show, .sv-modal-overlay, [id$="Overlay"]:not([style*="display: none"]):not([style*="display:none"])'
-    ));
-    /* display:none 필터 */
-    modals = modals.filter(function(m){
-      if(!m||!m.isConnected)return false;
-      const st = getComputedStyle(m);
-      return st.display !== 'none' && st.visibility !== 'hidden';
-    });
-    if(!modals.length) return;
-    /* z-index가 가장 높은 것을 선택 */
-    const top = modals.reduce(function(a,b){
-      const zA = parseInt(getComputedStyle(a).zIndex)||0;
-      const zB = parseInt(getComputedStyle(b).zIndex)||0;
-      return zB > zA ? b : a;
-    });
+    if(e.defaultPrevented) return;
+    const top=findKeyboardModal();
     if(!top) return;
-    /* 입력 중이면 블러만, 모달은 그대로 */
-    const ae = document.activeElement;
-    if(ae && (ae.tagName==='INPUT' || ae.tagName==='TEXTAREA' || ae.contentEditable==='true')){
-      if(top.contains(ae)){
-        ae.blur();
-        return;
-      }
+    // Preserve the existing first-Escape blur, but consume this key once.
+    const ae=document.activeElement;
+    if(ae && (ae.tagName==='INPUT' || ae.tagName==='TEXTAREA' || ae.contentEditable==='true') && top.contains(ae)){
+      e.preventDefault();
+      ae.blur();
+      return;
     }
     e.preventDefault();
-    /* 모달별 닫기 방법 — show 클래스 제거 또는 remove */
-    if(typeof top._onModalClose === 'function'){ top._onModalClose(); return; }
-    if(top.classList.contains('show') && top.classList.contains('modal-overlay')){
-      top.classList.remove('show');
-    } else {
-      top.remove();
-    }
+    closeKeyboardModal(top);
   }, false);
 
   /* ═══════════════════════════════════════

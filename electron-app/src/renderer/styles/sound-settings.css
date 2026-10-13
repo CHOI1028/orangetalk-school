@@ -1,0 +1,24 @@
+/* Copyright (c) 2026 OrangeFarm. All rights reserved. */
+/* Header sizing comes from the same settings-btn rules as adjacent controls. */
+#headerSoundBtn{position:relative}
+#headerSoundBtn svg{display:block;flex:none;width:20px;height:20px}
+#headerSoundBtn svg [hidden]{display:none}
+#headerSoundBtn[data-sound-state="muted"]{color:var(--orange,#dc7925)}
+#headerSoundBtn[data-sound-state="partial"]::after{content:"";position:absolute;right:4px;bottom:4px;width:5px;height:5px;border-radius:50%;background:var(--orange,#dc7925)}
+.sound-settings{color:var(--t1);min-width:0}
+.sound-settings,.sound-settings *{box-sizing:border-box}
+.sound-master,.sound-option{display:flex;align-items:flex-start;gap:10px;cursor:pointer;color:var(--t1)}
+.sound-master{margin:0 0 10px}
+.sound-master>span,.sound-option-copy{min-width:0;flex:1}
+.sound-master strong,.sound-option strong{display:block;font-size:12px;line-height:1.7;font-weight:700}
+.sound-master small,.sound-option small{display:block;font-size:11.5px;color:var(--t3);line-height:1.7;margin-top:2px}
+.sound-settings input[role="switch"]{position:static;display:block;flex:0 0 18px;width:18px;height:18px;margin:2px 0 0;padding:0;opacity:1;pointer-events:auto;cursor:pointer;accent-color:var(--cyan)}
+.sound-settings input:focus-visible,#headerSoundBtn:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.sound-notice{font-size:11.5px;line-height:1.7;color:var(--t3);margin:0 0 16px}
+.sound-notice-warning{color:var(--orange,#b96521)}
+.sound-group{border-top:1px dashed var(--bdr);margin-top:18px;padding-top:14px}
+.sound-group h3{font-size:12px;font-weight:700;color:var(--t2);line-height:1.7;margin:0 0 12px}
+.sound-option{margin:0 0 13px}
+.sound-option:last-child{margin-bottom:0}
+.sound-scope{border-top:1px dashed var(--bdr);padding-top:12px;margin:18px 0 0;color:var(--t3);font-size:11.5px;line-height:1.8}
+.sound-save-status{min-height:20px;margin:8px 0 0;color:var(--cyan);font-size:11.5px;line-height:1.7}

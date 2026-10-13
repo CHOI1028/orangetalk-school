@@ -37,6 +37,7 @@ if(!window.electronAPI){
 <link rel="stylesheet" href="src/renderer/styles/sibling-ui.css">
 <link rel="stylesheet" href="src/renderer/styles/school-workspace.css">
 <link rel="stylesheet" href="src/renderer/styles/school-classic-remodel.css">
+<link rel="stylesheet" href="src/renderer/styles/sound-settings.css">
 <script type="module" src="src/renderer/features/shell/sibling-layout.js"></script>
 <script src="./node_modules/html2canvas/dist/html2canvas.min.js"></script>
 <script src="./node_modules/jspdf/dist/jspdf.umd.min.js"></script>
@@ -209,6 +210,7 @@ if(!window.electronAPI){
       <div class="header-btn-stack">
         <button class="settings-btn" id="headerLockBtn">🏠 처음화면</button>
         <button class="theme-btn" id="themeBtn">🌙 다크모드</button>
+        <button type="button" class="settings-btn" id="headerSoundBtn" aria-label="전체 음소거" aria-pressed="false" title="전체 음소거"></button>
         <button class="settings-btn" id="headerSettingsBtn">⚙ 환경설정</button>
       </div>
     </div>
@@ -377,6 +379,7 @@ if(!window.electronAPI){
         <div class="settings-sidebar-item" data-cat="copyright" style="padding-left:28px;font-size:11px">📜 저작권</div>
         <div style="height:1px;background:var(--bdr);margin:6px 12px;opacity:0.5"></div>
         <div style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;user-select:none">시스템 설정</div>
+        <div class="settings-sidebar-item" data-cat="sound" style="padding-left:28px;font-size:11px">🔊 소리 설정</div>
         <div class="settings-sidebar-item" data-cat="background" style="padding-left:28px;font-size:11px">🖼 배경 이미지</div>
         <div class="settings-sidebar-item" data-cat="glass" style="padding-left:28px;font-size:11px">🪟 글래스모피즘</div>
 <!-- 상단 회전문구 사이드바 항목 제거 (오렌지팜 요청 2026-05-27) — 회전 자체를 없애므로 편집 탭도 함께 숨김 -->

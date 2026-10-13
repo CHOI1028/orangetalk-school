@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
 import { S } from '../../core/app-state.js';
+import { soundPreferences, isSoundEnabled, playSoundMedia, registerSoundStop } from '../../core/sound-preferences.js';
 import { getStu, escHtml, closeModalGracefully, createEmptyState, saveRecordNow, toDateStr } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
 import { _makeDraggable, _symRenderTreatPanel } from '../symptom/symptom-view.js';
@@ -251,13 +252,13 @@ function _bedShowAlarm(usage){
     audio.loop=true;
     audio.volume=1.0;
     alarm.audio=audio;
-    audio.play().catch(function(error){
+    playSoundMedia(audio,'bed').catch(function(error){
       /* pause()로 취소된 play()도 reject된다. 닫힌 알림/취소에는 대체음을 시작하지 않는다. */
-      if(!_bedAlarmIsVisible(alarm)||(error&&error.name==='AbortError'))return;
+      if(!isSoundEnabled('bed')||!_bedAlarmIsVisible(alarm)||(error&&error.name==='AbortError'))return;
       _bedStartSyntheticLoop(alarm,idx);
     });
   }catch(e){
-    if(_bedAlarmIsVisible(alarm)&&(!e||e.name!=='AbortError'))_bedStartSyntheticLoop(alarm,idx);
+    if(isSoundEnabled('bed')&&_bedAlarmIsVisible(alarm)&&(!e||e.name!=='AbortError'))_bedStartSyntheticLoop(alarm,idx);
   }
   /* Auto-remove usage */
   S._bedUsage=S._bedUsage.filter(function(u){ return u.bedId!==usage.bedId||u.endTime!==usage.endTime; });
@@ -285,11 +286,11 @@ function _bedAlarmIsVisible(alarm){
 function _bedStartSyntheticLoop(alarm,idx){
   function playLoop(){
     alarm.retryTimer=null;
-    if(!_bedAlarmIsVisible(alarm))return;
+    if(!isSoundEnabled('bed')||!_bedAlarmIsVisible(alarm))return;
     /* 미리 듣기의 공유 stop 함수를 사용하지 않고 이 알림의 합성음만 소유한다. */
     alarm.stopSynthetic=_bedPlaySyntheticAlarm(String(idx),function(){
       alarm.stopSynthetic=null;
-      if(_bedAlarmIsVisible(alarm))alarm.retryTimer=setTimeout(playLoop,500);
+      if(isSoundEnabled('bed')&&_bedAlarmIsVisible(alarm))alarm.retryTimer=setTimeout(playLoop,500);
     },false);
   }
   playLoop();
@@ -755,6 +756,7 @@ function _bedAlarmSrc(idx){ const n=String(idx); return './assets/sounds/alarm_'
 let _bedAudioCtx=null;
 let _bedAudioStopFn=null;
 function _bedPlaySyntheticAlarm(preset,onEnd,trackPreview){
+  if(!isSoundEnabled('bed')){if(onEnd)onEnd();return null;}
   try{
     if(!_bedAudioCtx){_bedAudioCtx=new (window.AudioContext||window.webkitAudioContext)();}
     const ctx=_bedAudioCtx;
@@ -788,8 +790,9 @@ function _bedPlaySyntheticAlarm(preset,onEnd,trackPreview){
     osc.start(now);
     osc.stop(t+0.05);
     const stop=function(){try{osc.stop(ctx.currentTime);}catch(e){}};
+    const releaseSound=registerSoundStop('bed',stop);
     if(trackPreview!==false)_bedAudioStopFn=stop;
-    osc.onended=function(){if(_bedAudioStopFn===stop)_bedAudioStopFn=null;if(onEnd)onEnd();};
+    osc.onended=function(){releaseSound();if(_bedAudioStopFn===stop)_bedAudioStopFn=null;if(onEnd)onEnd();};
     return stop;
   }catch(e){
     bus.emit('toast:show', {text: '오디오 재생을 지원하지 않는 환경입니다.'});
@@ -803,6 +806,7 @@ function _bedTogglePreview(num,btn){
     return;
   }
   _bedStopPreview();
+  if(!isSoundEnabled('bed')){bus.emit('toast:show',{text:'소리 설정에서 침상 알림 또는 전체 음소거를 확인해 주세요.'});return;}
   /* 미리보기 클릭 시 해당 알람음을 자동 선택 (라디오도 같이 갱신) */
   _bedPickerAlarmSound=String(num);
   const radios=document.querySelectorAll('input[name="bedAlarmSound"]');
@@ -820,7 +824,8 @@ function _bedTogglePreview(num,btn){
     _bedPreviewPlaying=null;
     _bedPreviewAudio=null;
   });
-  audio.play().catch(function(){
+  playSoundMedia(audio,'bed').catch(function(error){
+    if(!isSoundEnabled('bed')||_bedPreviewAudio!==audio||(error&&error.name==='AbortError'))return;
     /* mp3 실패 시 합성음 폴백 */
     _bedPreviewAudio=null;
     _bedPlaySyntheticAlarm(preset,function(){
@@ -840,6 +845,15 @@ function _bedStopPreview(){
   }
   _bedPreviewAudio=null;_bedPreviewPlaying=null;
 }
+soundPreferences.subscribe(function(){
+  if(isSoundEnabled('bed'))return;
+  _bedStopPreview();
+  const alarm=_bedAlarmSession;
+  if(!alarm)return;
+  if(alarm.retryTimer!==null){clearTimeout(alarm.retryTimer);alarm.retryTimer=null;}
+  if(alarm.stopSynthetic){try{alarm.stopSynthetic();}catch(_){}alarm.stopSynthetic=null;}
+});
+
 function _bedResetPreviewBtn(btn,num){
   btn.textContent=num==='random'?'🎲 랜덤':'▶ '+num;
   btn.style.background='var(--bg)';btn.style.color='var(--t2)';btn.style.borderColor='var(--bdr)';

@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 OrangeFarm. All rights reserved. */
 
 import { KIOSK_CHIME_RECORDINGS } from './kiosk-chime-recordings-v2.js';
+import { installSoundPreferences, soundPreferences } from '../../core/sound-preferences.js';
 
 const KIOSK_CHIME_OPTIONS=[
   {
@@ -321,6 +322,7 @@ function createKioskSettingsPreview(settings,onStatus,onDone){
   const status={value:'',get textContent(){return this.value;},set textContent(value){this.value=String(value||'');if(!stopped&&this.value)onStatus(this.value);}};
   function listen(target,type,handler,options){target.addEventListener(type,handler,options);listeners.push({target,type,handler,options});}
   const scope={
+    OrangeTalkSound:soundPreferences,
     document:{
       addEventListener:(type,handler,options)=>listen(document,type,handler,options),
       removeEventListener:(type,handler,options)=>document.removeEventListener(type,handler,options),
@@ -357,8 +359,8 @@ function createKioskSettingsPreview(settings,onStatus,onDone){
   installKioskCallAudio(config,scope,composeKioskCallMessage);
   return {stop,start(){
     watchdog=setTimeout(()=>{if(stopped)return;stop();onDone({message:'재생이 지연되어 중지했습니다. 기기의 소리 설정을 확인해 주세요.',timing:null});},65000);
-    const hasChime=config.mode!=='voice'&&config.chimeVolume>0;
-    const hasVoice=config.mode!=='chime'&&config.voiceVolume>0;
+    const hasChime=config.mode!=='voice'&&config.chimeVolume>0&&soundPreferences.isEnabled('kioskChime');
+    const hasVoice=config.mode!=='chime'&&config.voiceVolume>0&&soundPreferences.isEnabled('kioskVoice');
     onStatus(hasChime?'선택한 알림음을 재생합니다.':hasVoice?'이름 안내를 준비하고 있습니다.':'설정한 호출 음량이 0%입니다.');
     scope._fdCallChime(()=>{
       if(stopped)return;
@@ -379,12 +381,15 @@ function kioskCallRuntimeConfig(settings) {
 
 export function kioskCallRuntimeSource(settings) {
   const config=kioskCallRuntimeConfig(settings);
-  return '\n('+installKioskCallAudio.toString()+')('+JSON.stringify(config).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+',undefined,('+composeKioskCallMessage.toString()+'));\n';
+  return '\n('+installSoundPreferences.toString()+')(window);\n('+installKioskCallAudio.toString()+')('+JSON.stringify(config).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+',undefined,('+composeKioskCallMessage.toString()+'));\n';
 }
 
 /* Serialized into the standalone kiosk; do not reference module imports here. */
 function installKioskCallAudio(config,previewScope,composeMessage) {
   var window=previewScope||globalThis.window,document=window.document,SpeechSynthesisUtterance=window.SpeechSynthesisUtterance;
+  var sound=window.OrangeTalkSound;
+  function enabled(key){return !sound||sound.isEnabled(key);}
+  function track(key,stop){return sound?sound.registerStop(key,stop):function(){};}
   window._fdBuildCallMessage=function(person,payload){return composeMessage(config,person,payload);};
   var voiceKey=config.voice||'',activeVoiceKey='',chimeStop=null,speechStop=null,disposed=false;
   var originalChimeUrl=window._fdCallAudio?(window._fdCallAudio.currentSrc||window._fdCallAudio.src):'';
@@ -428,10 +433,11 @@ function installKioskCallAudio(config,previewScope,composeMessage) {
 
   function playRecording(url,isFallback,done){
     if(disposed)return;
+    if(!enabled('kioskChime')){done();return;}
     if(chimeStop)chimeStop();
-    var audio=window._fdCallAudio,finished=false,timer;
+    var audio=window._fdCallAudio,finished=false,timer,releaseSound=function(){};
     function finish(reason){
-      if(finished)return;finished=true;clearTimeout(timer);
+      if(finished)return;finished=true;clearTimeout(timer);releaseSound();
       if(audio){audio.removeEventListener('ended',ended);audio.removeEventListener('error',failed);try{audio.pause();}catch(_){}}
       if(chimeStop===cancel)chimeStop=null;
       if(reason==='cancel'||disposed)return;
@@ -446,6 +452,7 @@ function installKioskCallAudio(config,previewScope,composeMessage) {
     function failed(){finish('error');}
     function cancel(){finish('cancel');}
     chimeStop=cancel;
+    releaseSound=track('kioskChime',function(){finish('muted');});
     if(!audio||!url){failed();return;}
     var duration=!isFallback&&config.chimeRecording?config.chimeRecording.duration:2.5;
     timer=setTimeout(failed,Math.max(5000,Math.ceil(duration*1000)+2500));
@@ -458,6 +465,7 @@ function installKioskCallAudio(config,previewScope,composeMessage) {
   }
   window.fdStopCallChime=function(){if(chimeStop)chimeStop();};
   function playChime(done){
+    if(!enabled('kioskChime')){callStatus('이 기기의 호출 알림음이 꺼져 있습니다.');done();return;}
     if(config.chimeVolume===0){if(config.volume===0)callStatus('현재 호출 방식의 음량이 0%로 설정되어 화면으로만 안내합니다.');done();return;}
     if(config.chime==='classic'){playRecording(originalChimeUrl,true,done);return;}
     playRecording(config.chimeRecording&&config.chimeRecording.data,false,done);
@@ -467,11 +475,12 @@ function installKioskCallAudio(config,previewScope,composeMessage) {
     if(disposed)return;
     if(speechStop)speechStop();
     if(config.mode==='chime'){done();return;}
+    if(!enabled('kioskVoice')){status.textContent='이 기기의 이름 안내 소리가 꺼져 있습니다.';done();return;}
     if(config.voiceVolume===0){status.textContent=config.volume===0?'현재 호출 방식의 음량이 0%로 설정되어 화면으로만 안내합니다.':'안내 목소리 음량이 0%여서 알림음과 화면으로 안내합니다.';done();return;}
-    var utterance=null,finished=false,failing=false,timer,cancelVoiceWait=null;
-    function finish(){if(finished)return;finished=true;clearTimeout(timer);if(cancelVoiceWait)cancelVoiceWait();if(speechStop===cancelSpeech)speechStop=null;done();}
+    var utterance=null,finished=false,failing=false,timer,cancelVoiceWait=null,releaseSound=function(){};
+    function finish(){if(finished)return;finished=true;clearTimeout(timer);releaseSound();if(cancelVoiceWait)cancelVoiceWait();if(speechStop===cancelSpeech)speechStop=null;done();}
     function cancelSpeech(){
-      if(finished)return;finished=true;failing=true;clearTimeout(timer);
+      if(finished)return;finished=true;failing=true;clearTimeout(timer);releaseSound();
       if(cancelVoiceWait)cancelVoiceWait();
       if(utterance){utterance.onend=null;utterance.onerror=null;try{window.speechSynthesis.cancel();}catch(_){}}
       if(speechStop===cancelSpeech)speechStop=null;
@@ -484,6 +493,7 @@ function installKioskCallAudio(config,previewScope,composeMessage) {
     }
     function speak(voice){
       if(disposed||finished||failing)return;
+      if(!enabled('kioskVoice')){finish();return;}
       if(!voice||!window.SpeechSynthesisUtterance){failed('한국어 목소리를 확인하지 못해 '+(config.chimeVolume>0?'알림음과 화면':'화면')+'으로 안내합니다. 잠시 후 다시 듣기를 누르거나 기기의 한국어 음성 설정을 확인해 주세요.');return;}
       if(activeVoiceKey&&keyOf(voice)!==activeVoiceKey)status.textContent='선택했던 목소리를 사용할 수 없어 기기의 기본 한국어 음성으로 안내합니다.';
       utterance=new SpeechSynthesisUtterance(String(text));
@@ -504,6 +514,12 @@ function installKioskCallAudio(config,previewScope,composeMessage) {
       try{window.speechSynthesis.speak(utterance);}catch(_){failed('음성을 재생하지 못했습니다. 키오스크 관리에서 호출 소리를 확인해 주세요.');}
     }
     speechStop=cancelSpeech;
+    releaseSound=track('kioskVoice',function(){
+      if(finished)return;
+      if(utterance){utterance.onend=null;utterance.onerror=null;try{window.speechSynthesis.cancel();}catch(_){}}
+      status.textContent='이 기기의 이름 안내 소리가 꺼져 있습니다.';
+      finish();
+    });
     cancelVoiceWait=waitForVoice(status,speak);
   };
   var present=window._fdPresentCall;
