@@ -4935,7 +4935,7 @@ function _crkOpenPdfPopup(mode){
   const ov=document.createElement('div');
   ov.id='crkPdfOverlay';
   /* 앱 표준 다이얼로그(appConfirmModal)와 동일 박스 구조 — 배경 블러·var(--card)·선호 헤더 그라데이션 (사용자 요청 2026-06-13) */
-  ov.style.cssText='position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+  ov.style.cssText='position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
   const _isP=mode==='print';
   const _title=_isP?'🖨 상담 내역 인쇄':'📄 상담 내역 PDF 저장';
   const _btn=_isP?'<button id="crkPdfSave" class="btn-print">🖨 인쇄</button>':'<button id="crkPdfSave" class="btn-pdf">📄 PDF 저장</button>';

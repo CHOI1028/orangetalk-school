@@ -423,7 +423,7 @@ export function openPersonTypeChooser(prefillName){
   const _k = (typeof isKinder==='function') && isKinder();
   const _sl = _k ? '원아' : '학생';
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+  ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:360px;max-width:92vw;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden">'
     +'<div style="padding:12px 18px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">＋ 인원 등록</div>'
     +'<div style="padding:16px 20px;font-size:12.5px;color:var(--t1);line-height:1.7;background:var(--card)">등록할 인원이 <b>'+_sl+'</b>인가요, <b>교직원</b>인가요?</div>'
@@ -1180,7 +1180,7 @@ function _pmBuildDiag(o){
 }
 function _pmShowDiagModal(title, msgHtml, diagText){
   var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;z-index:50001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:50001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
   ov.innerHTML = '<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:480px;max-width:94vw;max-height:88vh;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden;display:flex;flex-direction:column">'
     + '<div style="padding:12px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1);flex-shrink:0">' + title + '</div>'
     + '<div style="padding:16px 18px 8px;font-size:12.5px;color:var(--t1);line-height:1.7;flex-shrink:0">' + msgHtml + '</div>'

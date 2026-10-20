@@ -2037,7 +2037,17 @@ export function vpSetOrientation(orient, btn){
 
 export function vpToggleContent(field, btn){
   /* 비활성 칩 (예: V/S 값 없을 때) 은 클릭 무시 — title 툴팁만 보여줌. */
-  if(btn.classList.contains('vp-disabled')) return;
+  if(btn.disabled || btn.classList.contains('vp-disabled') || _vpContentUnavailable(field)) return;
+  /* 포함 여부와 배치 방식을 분리하여 한 항목만 출력해도 저장된 배치 설정은 보존한다. */
+  if(field === 'symtreatLayout'){
+    if(!vpState.content.symptoms || !vpState.content.treatment) return;
+    const mode = btn.dataset.mode;
+    if(mode !== 'merge' && mode !== 'split') return;
+    _vpSetSymTreatMode(vpState.format, mode);
+    vpUpdatePreview();
+    try{ bus.emit('toast:save'); }catch(_){}
+    return;
+  }
   /* 증상·처치 통합 칩 — 클릭마다 합침 → 분리 → 끔 → 합침 3단계 순환 (사용자 요청 2026-06-16).
    *  on/off(symptoms·treatment)와 합침/분리 모드(양식별 저장)를 한 칩으로 통합. */
   if(field === 'symtreatCombo'){
@@ -2117,12 +2127,11 @@ function vpSyncAllToggle(){
 }
 
 function vpUpdateContentLabel(){
-  let active = 0, total = _VP_CONTENT_GROUPS.length;
-  _VP_CONTENT_GROUPS.forEach(g => { if(g.every(f => vpState.content[f])) active++; });
+  const fields = ['date', 'timeIn', 'timeOut', 'symptoms', 'treatment', 'bodymap', 'vs'];
+  const active = fields.filter(function(f){ return vpState.content[f] && !_vpContentUnavailable(f); }).length
+    + _vpTeacherOrder(vpState.format).length;
   const label = document.getElementById('vpContentLabel');
-  if(active === total) label.textContent = '전부';
-  else if(active === 0) label.textContent = '없음';
-  else label.textContent = active + '개 선택';
+  if(label) label.textContent = active ? active + '개 선택' : '선택 없음';
 }
 
 function vpToggleCustomInput(btn){
@@ -2518,14 +2527,38 @@ function _vpSaveContentForFormat(fmt){
 /* 내용 선택 바 버튼 on/off + 통합 칩 라벨을 현재 vpState.content 기준으로 동기화 (양식 전환 시 호출) */
 function _vpSyncContentBar(){
   document.querySelectorAll('#vpContentBar .vp-toggle[data-field]').forEach(function(b){
-    const f=b.dataset.field;
-    if(f==='all'||f==='custom') return;
-    if(f==='symtreatCombo'){ _vpUpdateSymTreatComboChip(); return; }
-    if(f==='teacherNurse'||f==='teacherSubject'||f==='teacherHomeroom'){ _vpUpdateTeacherChips(); return; }
-    b.classList.toggle('on', !!vpState.content[f]);
+    const f = b.dataset.field;
+    if(f === 'all' || f === 'custom' || f === 'symtreatCombo' || f === 'symtreatLayout') return;
+    if(f === 'teacherNurse' || f === 'teacherSubject' || f === 'teacherHomeroom') return;
+    const reason = _vpContentUnavailable(f);
+    const selected = !!vpState.content[f] && !reason;
+    b.disabled = !!reason;
+    b.classList.toggle('vp-disabled', !!reason);
+    b.classList.toggle('on', selected);
+    b.setAttribute('aria-pressed', String(selected));
+    if(reason) b.setAttribute('aria-describedby', f === 'vs' ? 'vpVsAvailability' : 'vpTimeAvailability');
+    else b.removeAttribute('aria-describedby');
   });
+  _vpUpdateSymTreatComboChip();
+  _vpUpdateTeacherChips();
+  const times = document.getElementById('vpTimeAvailability');
+  if(times){ times.textContent = _vpContentUnavailable('timeIn'); times.hidden = !times.textContent; }
+  const vs = document.getElementById('vpVsAvailability');
+  if(vs){ vs.textContent = _vpContentUnavailable('vs'); vs.hidden = !vs.textContent; }
   vpSyncAllToggle();
   vpUpdateContentLabel();
+}
+
+/* 사용할 수 없는 항목은 선택값을 지우지 않고 이 양식에서만 비활성화한다. */
+function _vpContentUnavailable(field){
+  if((field === 'timeIn' || field === 'timeOut') &&
+     (vpState.format === 'meal_request' || vpState.format === 'referral')){
+    return '이 양식에는 입실·퇴실시간 항목이 없습니다.';
+  }
+  if(field === 'vs' && !_vpVsBlockHtml(vpState.selectedRecord)){
+    return 'V/S는 선택한 방문 기록에 측정값이 있을 때 사용할 수 있습니다.';
+  }
+  return '';
 }
 /* 양식 전환 감지용 — vpUpdatePreview 에서 양식이 바뀌면 그 양식의 content 로드 */
 let _vpLastContentFormat = null;
@@ -2568,19 +2601,29 @@ function _vpTeacherLinesHtml(fmt, nurseInner){
 /* 3개 칩 on/off 상태 동기화 (라벨은 고정) */
 function _vpUpdateTeacherChips(){
   const order=_vpTeacherOrder(vpState.format);
-  const set=function(field,key){ const b=document.querySelector('#vpContentBar .vp-toggle[data-field="'+field+'"]'); if(b) b.classList.toggle('on', order.indexOf(key)>=0); };
+  const set=function(field,key){ const b=document.querySelector('#vpContentBar .vp-toggle[data-field="'+field+'"]'); if(b){ const selected = order.indexOf(key)>=0; b.classList.toggle('on', selected); b.setAttribute('aria-pressed', String(selected)); } };
   set('teacherNurse','nurse');
   set('teacherSubject','subject');
   set('teacherHomeroom','homeroom');
 }
 /* 증상·처치 통합 칩 라벨/상태 동기화 — 합침/분리/끔 3단계를 한 칩에 표시 (사용자 요청 2026-06-16). */
 function _vpUpdateSymTreatComboChip(){
-  const btn=document.querySelector('#vpContentBar .vp-toggle[data-field="symtreatCombo"]');
-  if(!btn)return;
-  const on = !!(vpState.content.symptoms && vpState.content.treatment);
-  const mode=_vpSymTreatMode(vpState.format);
-  btn.textContent = !on ? '증상·처치 (끔)' : (mode==='split' ? '증상·처치 (분리)' : '증상·처치 (합침)');
-  btn.classList.toggle('on', on);
+  const both = !!(vpState.content.symptoms && vpState.content.treatment);
+  const mode = _vpSymTreatMode(vpState.format);
+  /* 이전 호출과의 호환은 유지하되 새 화면에서는 두 항목을 독립적으로 표시한다. */
+  const legacy = document.querySelector('#vpContentBar .vp-toggle[data-field="symtreatCombo"]');
+  if(legacy){
+    legacy.textContent = !both ? '증상·처치 (끔)' : (mode === 'split' ? '증상·처치 (분리)' : '증상·처치 (합침)');
+    legacy.classList.toggle('on', both);
+  }
+  const layout = document.getElementById('vpSymTreatLayout');
+  if(layout) layout.hidden = !both;
+  document.querySelectorAll('#vpContentBar [data-field="symtreatLayout"]').forEach(function(b){
+    const selected = b.dataset.mode === mode;
+    b.disabled = !both;
+    b.classList.toggle('on', selected);
+    b.setAttribute('aria-pressed', String(selected));
+  });
 }
 /* 기본·급식·진료·안정 양식 공통 — 증상·처치 행(모드별) + V/S 행(항상 아래로). (사용자 요청 2026-06-16) */
 function _vpStdSymTreatVsRows(rec){
@@ -2588,11 +2631,11 @@ function _vpStdSymTreatVsRows(rec){
   const mode = _vpSymTreatMode(vpState.format);
   let h = '';
   if(c.symptoms || c.treatment){
-    if(mode === 'split'){
+    if(mode === 'split' || !c.symptoms || !c.treatment){
       if(c.symptoms)  h += `<tr><td class="label">증 상</td><td colspan="3">${rec && rec.symptoms && rec.symptoms.length ? escHtml(_vpSymStr(rec)) : _VP_PH}</td></tr>`;
-      if(c.treatment) h += `<tr><td class="label">처치내용</td><td colspan="3">${rec && ((rec.treatment&&rec.treatment.length)||rec.medication) ? escHtml(_vpTreatStr(rec)) : _VP_PH}</td></tr>`;
+      if(c.treatment) h += `<tr><td class="label">처치내용</td><td colspan="3">${rec && (_vpFlatTreatArr(rec).length || rec.medication) ? escHtml(_vpTreatStr(rec)) : _VP_PH}</td></tr>`;
     } else {
-      h += `<tr><td class="label">증상<br>처치</td><td colspan="3">${rec && ((rec.symptoms&&rec.symptoms.length)||(rec.treatment&&rec.treatment.length)) ? _vpRenderSymTreatCell(rec) : _VP_PH}</td></tr>`;
+      h += `<tr><td class="label">증상<br>처치</td><td colspan="3">${rec && ((rec.symptoms&&rec.symptoms.length)||_vpFlatTreatArr(rec).length||rec.medication) ? _vpRenderSymTreatCell(rec) : _VP_PH}</td></tr>`;
     }
   }
   if(c.bodymap){
@@ -2860,6 +2903,7 @@ function _vpRenderSigRow(userPos, nurseName, sigImgHtml){
   return `<div class="vp-sig-area" style="flex-direction:column;align-items:center">${lines}</div>`;
 }
 
+/* 첫 행이 병합되어 있어도 항목명 네 글자와 셀 여백이 들어갈 열 너비를 확보한다. */
 function vpBuildDefaultTemplate(opts){
   /* opts.title / opts.confirmKey — '보건실 안정 의뢰서'(rest_referral)가 같은 양식을 제목만 바꿔 재사용 (사용자 요청 2026-06-11).
    * confirmKey 를 분리해 확인 문구 사용자 편집이 양식별로 따로 저장되게 한다. */
@@ -2922,7 +2966,7 @@ function vpBuildDefaultTemplate(opts){
     teacher: '교과담당교사 (서명/인)'
   };
   return `<h2>${_title}</h2>
-<table class="vp-info-table">${rows}${contentRows}${customLine}</table>
+<table class="vp-info-table"><colgroup><col style="width:72px"><col><col><col></colgroup>${rows}${contentRows}${customLine}</table>
 ${_vpRenderConfirmBlock(_confirmKey, _vpCtx)}
 <div class="vp-footer">${dateStr}<br><b>${schoolName}</b><br>${_vpRenderSigRow(userPos, nurseName, sigImgHtml)}</div>`;
 }
@@ -2959,7 +3003,7 @@ function vpBuildMealRequestTemplate(){
     teacher: '교과담당교사 (서명/인)'
   };
   return `<h2>빠른 급식 요청서</h2>
-<table class="vp-info-table">${rows}</table>
+<table class="vp-info-table"><colgroup><col style="width:72px"><col><col><col></colgroup>${rows}</table>
 ${_vpRenderConfirmBlock('meal', _vpCtx)}
 <div class="vp-footer">${dateStr}<br><b>${schoolName}</b><br>${_vpRenderSigRow(userPos, nurseName, sigImgHtml)}</div>`;
 }
@@ -2996,7 +3040,7 @@ function vpBuildReferralTemplate(){
     teacher: '교과담당교사 (서명/인)'
   };
   return `<h2>병원 진료 의뢰서</h2>
-<table class="vp-info-table">${rows}</table>
+<table class="vp-info-table"><colgroup><col style="width:72px"><col><col><col></colgroup>${rows}</table>
 ${_vpRenderConfirmBlock('referral', _vpCtx)}
 <div class="vp-footer">${dateStr}<br><b>${schoolName}</b><br>${_vpRenderSigRow(userPos, nurseName, sigImgHtml)}</div>`;
 }
@@ -3088,18 +3132,12 @@ function vpBuildCustomTemplate(slotKey){
    *  분리 = 기존대로 증 상/처치내용 두 칸(편집 가능 라벨). 합침 = 증상·처치 한 칸(per-symptom 매핑, HTML 셀).
    *  라벨 저장소(ec_vp_custom_labels)는 두 모드의 라벨이 각각 별도 키로 보존돼, 모드를 오가도 사용자 커스텀이 사라지지 않음. */
   const _stMode = _vpSymTreatMode(slotKey);
-  if(_stMode === 'split'){
-    if(c.symptoms) rows += '<tr>'+_L('증 상')+_V(rec ? (rec.symptoms.join(', ') || '-') : '', {colspan:3})+'</tr>';
-    const _tArr = _vpFlatTreatArr(rec).filter(function(t){return t!=='투약';});
-    const _med = rec && rec.medication ? (' ' + formatMedicationDisplay(rec.medication)) : '';
-    let _full = '';
-    if(_tArr.length && _med) _full = _tArr.join(', ') + ',  ' + _med.trim();
-    else if(_tArr.length) _full = _tArr.join(', ');
-    else if(_med) _full = _med.trim();
-    else _full = '-';
+  if(_stMode === 'split' || !c.symptoms || !c.treatment){
+    if(c.symptoms) rows += '<tr>'+_L('증 상')+_V(rec ? _vpSymStr(rec) : '', {colspan:3})+'</tr>';
+    const _full = _vpTreatStr(rec);
     if(c.treatment) rows += '<tr>'+_L('처치내용', {canAdd:true, afterIdx:-1})+_V(_full, {colspan:3})+'</tr>';
   } else if(c.symptoms || c.treatment){
-    const _stCell = rec && ((rec.symptoms&&rec.symptoms.length)||(rec.treatment&&rec.treatment.length)) ? _vpRenderSymTreatCell(rec) : '';
+    const _stCell = rec && ((rec.symptoms&&rec.symptoms.length)||_vpFlatTreatArr(rec).length||rec.medication) ? _vpRenderSymTreatCell(rec) : '';
     rows += '<tr>'+_L('증상·처치', {canAdd:true, afterIdx:-1})+'<td class="vp-cf-value" colspan="3">'+_stCell+'</td></tr>';
   }
   /* 부위 — 바디맵으로 표시한 부위(선택한 만큼 나열). (사용자 요청 2026-06-16) */
@@ -3155,7 +3193,7 @@ function vpBuildCustomTemplate(slotKey){
   return '<h2 class="vp-cf-editable" data-slot="'+slotKey+'">'
       + _editableInline(escHtml(title), ' data-block="title" data-slot="'+slotKey+'"', 'top:0;right:0')
     + '</h2>'
-    + '<table class="vp-info-table">'+rows+'</table>'
+    + '<table class="vp-info-table"><colgroup><col style="width:72px"><col><col><col></colgroup>'+rows+'</table>'
     + '<div class="vp-confirm vp-cf-editable" data-slot="'+slotKey+'">'
       + '<span class="vp-cf-l-text" data-block="confirm" data-slot="'+slotKey+'">'+curConfirm+'</span>'
       + '<span class="vp-cf-l-icons" style="top:0;right:0"><span class="vp-cf-edit" title="확인 문구 수정">✏️</span><span class="vp-cf-restore" title="기본 문구로 복원">↺</span></span>'
@@ -3171,7 +3209,7 @@ function vpBuildCustomTemplate(slotKey){
 function _vpConfirmRestoreModal(){
   return new Promise(function(resolve){
     const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
     ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:340px;max-width:92vw;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden">'
       +'<div style="padding:12px 18px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">원래 문구로 되돌리겠습니까?</div>'
       +'<div style="padding:18px 20px;font-size:12.5px;color:var(--t1);line-height:1.7;background:var(--card)">사용자가 직접 수정한 내용이 사라지고 기본 문구로 복원됩니다.</div>'
@@ -3475,7 +3513,7 @@ function _vpBindTipPopup(btn){
 function _vpSyncVsChip(){
   const btn = document.querySelector('#vpContentBar .vp-toggle[data-field="vs"]');
   if(!btn) return;
-  const hasVs = !!_vpVsStr(vpState.selectedRecord);
+  const hasVs = !!_vpVsBlockHtml(vpState.selectedRecord);
   if(hasVs){
     btn.classList.remove('vp-disabled');
     btn.setAttribute('data-tip', '확인증에 V/S 측정값(체온·혈압·맥박 등)을 표시합니다.');
@@ -3505,7 +3543,8 @@ function _vpApplyReceiptMatchCss(on){
     +'#vpPreview h2{font-size:19px;font-weight:900;text-align:center;margin:0 0 7px;padding-bottom:5px;line-height:1;border-bottom:1px solid #000;color:#000}'
     +'#vpPreview .vp-info-table{width:100%;border-collapse:collapse;margin:5px 0;font-size:14px}'
     +'#vpPreview .vp-info-table td{padding:4px 5px;border:1px solid #000;color:#000;word-break:keep-all;overflow-wrap:anywhere}'
-    +'#vpPreview .vp-info-table .label{background:#d8d8d8;font-weight:800;width:58px;text-align:center;white-space:nowrap;color:#000}'
+    +'#vpPreview .vp-info-table .label{background:#d8d8d8;font-weight:800;width:72px;text-align:center;white-space:nowrap;overflow-wrap:normal;color:#000}'
+    +'#vpPreview .vp-info-table td.label.vp-cf-editable,#vpPreview .vp-info-table td.label.vp-cf-editable .vp-cf-l-text{white-space:normal;overflow-wrap:anywhere}'
     +'#vpPreview .vp-confirm{text-align:center;margin:7px 0 4px;font-size:14px;line-height:1.5;color:#000;font-weight:600}'
     +'#vpPreview .vp-footer{text-align:center;margin-top:14px;font-size:14px;color:#000;font-weight:600;line-height:1.8}'
     +'#vpPreview .vp-sig-area{display:flex;justify-content:center;align-items:center;gap:9px;margin-top:10px}'
@@ -3632,9 +3671,7 @@ export function vpUpdatePreview(){
     _vpSyncContentBar();
   }
   const preview = document.getElementById('vpPreview');
-  _vpSyncVsChip();
-  _vpUpdateSymTreatComboChip();
-  _vpUpdateTeacherChips();
+  _vpSyncContentBar();
   _vpBindAllContentTips();
   const _isCustom = /^custom\d+$/.test(vpState.format||'');
   if(vpState.format === 'default' || vpState.format === 'meal_request' || vpState.format === 'rest_referral' || vpState.format === 'referral' || _isCustom){
@@ -3989,7 +4026,7 @@ function _vpComposePrintHtml(content, isA4, extraMm, previewMode){
         +'h2{font-size:18px;font-weight:900;text-align:center;margin:0 0 12px;padding-bottom:7px;border-bottom:2px solid #000;letter-spacing:0.5px;color:#000}'
         +'.vp-info-table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px;font-weight:500}'
         +'.vp-info-table td{padding:6px 6px;border:1.2px solid #000;color:#000;word-break:keep-all;overflow-wrap:anywhere}'
-        +'.vp-info-table .label{background:#d8d8d8;font-weight:800;width:70px;text-align:center;white-space:nowrap;color:#000}'
+        +'.vp-info-table .label{background:#d8d8d8;font-weight:800;width:72px;text-align:center;white-space:nowrap;overflow-wrap:normal;color:#000}'
         +'.vp-confirm{text-align:center;margin:12px 0 6px;font-size:12px;line-height:1.7;color:#000;font-weight:600}'
         +'.vp-footer{text-align:center;margin-top:10px;font-size:12px;color:#000;font-weight:600}'
         +'.vp-sig-area{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px}'
@@ -3998,14 +4035,15 @@ function _vpComposePrintHtml(content, isA4, extraMm, previewMode){
         +'h2{font-size:19px;font-weight:900;text-align:center;margin:0 0 7px;padding-bottom:5px;line-height:1;border-bottom:1px solid #000;color:#000}'
         +'.vp-info-table{width:100%;border-collapse:collapse;margin:5px 0;font-size:14px}'
         +'.vp-info-table td{padding:4px 5px;border:1px solid #000;color:#000;word-break:keep-all;overflow-wrap:anywhere}'
-        +'.vp-info-table .label{background:#d8d8d8;font-weight:800;width:58px;text-align:center;white-space:nowrap;color:#000}'
+        +'.vp-info-table .label{background:#d8d8d8;font-weight:800;width:72px;text-align:center;white-space:nowrap;overflow-wrap:normal;color:#000}'
         +'.vp-confirm{text-align:center;margin:7px 0 4px;font-size:14px;line-height:1.5;color:#000;font-weight:600}'
         +'.vp-footer{text-align:center;margin-top:14px;font-size:14px;color:#000;font-weight:600;line-height:1.8}'
         +'.vp-sig-area{display:flex;justify-content:center;align-items:center;gap:9px;margin-top:10px}'
         +'.vp-sig-area img{max-height:37px;max-width:74px;object-fit:contain}')
     +'img{max-width:100%;height:auto}'
     +'b,strong{font-weight:800;color:#000}'
-    +'table{page-break-inside:avoid;break-inside:avoid;table-layout:fixed}'
+    +'table{table-layout:fixed}.vp-info-table{page-break-inside:auto;break-inside:auto}'
+    +'.vp-info-table td.label.vp-cf-editable,.vp-info-table td.label.vp-cf-editable .vp-cf-l-text{white-space:normal;overflow-wrap:anywhere}'
     +'tr{page-break-inside:avoid;break-inside:avoid}'
     +'.vp-footer,.vp-sig-area{page-break-inside:avoid;break-inside:avoid}'
     /* 인쇄·인쇄 미리보기(iframe)에서는 필요 이유(Reason 등 contenteditable 빈칸) 점선 숨김 —

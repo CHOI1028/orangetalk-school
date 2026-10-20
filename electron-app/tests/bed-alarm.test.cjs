@@ -14,9 +14,19 @@ function section(startMarker, endMarker) {
   assert(start >= 0 && end > start, 'Production boundaries must exist: ' + startMarker);
   return source.slice(start, end);
 }
+// 실제 소리 정책을 가상 저장소에 연결한다. 재생·정지 검사 기준은 그대로 유지한다.
+const soundSource=fs.readFileSync(path.join(__dirname,'../src/renderer/core/sound-preferences.js'),'utf8').replace(/^export /gm,'');
+function installTestSound(context){
+  const storage=new Map();
+  context.window.localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value))};
+  if(!context.window.addEventListener)context.window.addEventListener=()=>{};
+  vm.runInContext(soundSource,context);
+}
+
 const alarmSource = section('function _bedShowAlarm(usage){', '/* ── Bed Manager Modal');
 const syntheticSource = section('function _bedPlaySyntheticAlarm(', 'function _bedTogglePreview(');
-const flushPromises = async () => { await Promise.resolve(); await Promise.resolve(); };
+// 실제 소리 모듈의 Promise 연결이 모두 처리된 다음 단계에서 결과를 확인한다.
+const flushPromises = () => new Promise(resolve => setImmediate(resolve));
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const decodeHtml = value => value.replace(/&(amp|lt|gt|quot|#39);/g, (_, entity) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]);
 
@@ -175,6 +185,7 @@ function harness({ rejectOnPause = true, audioConstructorError = null } = {}) {
     setTimeout(callback, delay) { const id = nextTimer++; timers.set(id, { callback, delay }); return id; },
     clearTimeout(id) { timers.delete(id); }
   });
+  installTestSound(context);
   vm.runInContext('let _bedAlarmAudio = null; let _bedAlarmSession = null;\n' + alarmSource + '\nglobalThis.show = _bedShowAlarm; globalThis.dismiss = _bedDismissAlarm;', context);
   return { document, window, audio, synth, timers, observers, state, context,
     show: context.show, dismiss: context.dismiss,
@@ -327,6 +338,7 @@ function syntheticHarness() {
     createGain() { return { gain: param(), connect() {}, disconnect() {} }; }
   }
   const context = vm.createContext({ window: { AudioContext }, bus: { emit() {} }, console });
+  installTestSound(context);
   vm.runInContext('let _bedAudioCtx = null; let _bedAudioStopFn = null;\n' + syntheticSource + '\nglobalThis.play = _bedPlaySyntheticAlarm; globalThis.previewStop = () => _bedAudioStopFn;', context);
   return { context, oscillators };
 }
@@ -347,4 +359,15 @@ test('an old synthetic preview ending does not clear the next preview stop handl
   const h = syntheticHarness(); h.context.play('1', () => {}); h.context.play('3', () => {});
   const latestStop = h.context.previewStop(); h.oscillators[0].onended();
   assert.equal(h.context.previewStop(), latestStop); latestStop(); assert.equal(h.oscillators[1].stops.at(-1), 0);
+});
+
+// 소리만 끄고 알림창과 기록 처리는 유지되는지 함께 확인한다.
+test('침상 종류별 음소거에서도 알림창과 이용 종료 처리는 유지된다',async()=>{
+ const h=harness();h.window.OrangeTalkSound.update({categories:{bed:false}});h.context.S._bedUsage=[usage()];h.show(usage());
+ assert(h.overlay());assert.equal(h.audio[0].pending,false);assert.equal(h.context.S._bedUsage.length,0);
+ h.dismiss();await flushPromises();assertClean(h);
+});
+test('전체 음소거는 이미 재생 중인 침상 소리를 멈추고 안내창은 유지한다',async()=>{
+ const h=harness();h.show(usage());h.audio[0].resolve();await flushPromises();h.window.OrangeTalkSound.update({muted:true});
+ assert(h.overlay());assert.equal(h.audio[0].playing,false);assert.equal(h.audio[0].currentTime,0);h.dismiss();assertClean(h);
 });

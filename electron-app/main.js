@@ -543,28 +543,52 @@ app.whenReady().then(() => {
     return autoUpdaterService.checkNow();
   });
 
-  ipcMain.handle('updater-quit-and-install', () => {
-    if (!autoUpdaterService) return { success: false, error: '업데이트가 준비되지 않았습니다.' };
-    return autoUpdaterService.quitAndInstall();
-  });
+  /* 두 설치 진입점은 같은 종료 확인과 실패 처리를 사용한다. */
+  async function _requestUpdateInstall() {
+    if (global._updateInstalling) return { success: true, pending: true };
+    if (!autoUpdaterService || !global._updateReady) {
+      return { success: false, error: '다운로드가 완료된 업데이트가 없습니다. 업데이트를 다시 확인해 주세요.' };
+    }
+    global._updateInstalling = true;
+    let accepted = false;
+    try {
+      const child = _webServerChild;
+      let stopped = _killWebServerChildSync();
+      if (!stopped.success && stopped.code === 'WEB_SERVER_STOP_PENDING' && child) {
+        const exited = await new Promise(resolve => {
+          let timer = null;
+          const done = value => {
+            if (timer !== null) clearTimeout(timer);
+            child.removeListener('exit', onExit);
+            resolve(value);
+          };
+          const onExit = () => done(true);
+          child.once('exit', onExit);
+          timer = setTimeout(() => done(false), 4000);
+          if (child.exitCode != null || child.signalCode != null) done(true);
+        });
+        if (exited) stopped = _killWebServerChildSync();
+      }
+      if (!stopped.success) return stopped;
+      global._updateConfirmed = true;
+      const result = await autoUpdaterService.quitAndInstall();
+      if (!result || result.success !== true) {
+        return { success: false, error: '업데이트 설치 요청에 실패했습니다. 프로그램을 계속 사용하거나 다시 시도해 주세요.' };
+      }
+      accepted = true;
+      return { success: true };
+    } catch (_) {
+      return { success: false, error: '업데이트 설치 준비에 실패했습니다. 프로그램을 계속 사용하거나 다시 시도해 주세요.' };
+    } finally {
+      if (!accepted) {
+        global._updateConfirmed = false;
+        global._updateInstalling = false;
+      }
+    }
+  }
 
-  /* 업데이트 준비 완료 상태에서 오버레이가 "설치+재시작" 진입 시 호출.
-     자동 재시작(2026-06-10): app.quit()+autoInstallOnAppQuit 은 재시작을 안 하므로
-     quitAndInstall(false, true) 로 설치 후 새 버전을 자동 실행 → 설치 중 옛 버전 켜는 레이스 제거. */
-  ipcMain.handle('confirm-quit-after-update', () => {
-    global._updateConfirmed = true;
-    /* 설치 직전 협업 웹서버 자식을 "완전히 죽을 때까지(동기)" 강제 종료 → 파일 잠금 해제 후 설치 진행.
-     *  자식이 electron 바이너리·app.asar 를 물고 있으면 NSIS 가 파일 교체 실패 → 설치 미적용·무한루프.
-     *  (사용자 보고 2026-06-18, 동기 종료로 강화 2026-06-25) */
-    try { _killWebServerChildSync(); } catch (_) {}
-    setImmediate(() => {
-      try {
-        if (autoUpdaterService) autoUpdaterService.quitAndInstall();
-        else app.quit();
-      } catch(_){ try { app.quit(); } catch(__){} }
-    });
-    return { success: true };
-  });
+  ipcMain.handle('updater-quit-and-install', () => _requestUpdateInstall());
+  ipcMain.handle('confirm-quit-after-update', () => _requestUpdateInstall());
 
   /* 렌더러가 업데이트 다운로드 완료 여부를 직접 조회 (헤더 배지 등) */
   ipcMain.handle('updater-is-ready', () => {
@@ -5193,26 +5217,38 @@ app.whenReady().then(() => {
    *  잠금이 풀리기 전에 설치가 시작될 수 있다. 그래서 설치 직전엔 taskkill /F /T 를 spawnSync 로
    *  "프로세스 트리가 사라질 때까지 블로킹" 한 뒤 진행한다. (자동 업데이트 루프 대응 2026-06-25) */
   function _killWebServerChildSync() {
-    _sharedHostState.token = ''; _sharedHostState.ports.clear();
     const child = _webServerChild;
+    const failure = { success: false, code: 'WEB_SERVER_STOP_FAILED',
+      error: '협업 웹서버 종료를 확인하지 못해 업데이트 설치를 중단했습니다. 잠시 후 다시 시도해 주세요.' };
+    if (child && child.exitCode == null && child.signalCode == null) {
+      const pid = child.pid;
+      if (!Number.isInteger(pid) || pid <= 0) return failure;
+      try {
+        if (process.platform === 'win32') {
+          const { spawnSync } = require('child_process');
+          const result = spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { windowsHide: true, timeout: 4000 });
+          if (!result || result.error || result.status !== 0) return failure;
+          // 종료 명령 성공과 실제 프로세스 소멸을 모두 확인한다.
+          try { process.kill(pid, 0); return failure; }
+          catch (err) { if (!err || err.code !== 'ESRCH') return failure; }
+        } else {
+          if (!child.kill('SIGKILL')) return failure;
+          return { ...failure, code: 'WEB_SERVER_STOP_PENDING' };
+        }
+      } catch (_) { return failure; }
+    }
+    // 실패 시에는 실행 중인 자식과 협업 인증 상태를 그대로 유지한다.
     _webServerChild = null;
     global._collabWebOn = false;
-    if (!child) return;
-    const pid = child.pid;
-    try {
-      if (process.platform === 'win32' && pid) {
-        const { spawnSync } = require('child_process');
-        spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { windowsHide: true, timeout: 4000 });
-      } else {
-        try { child.kill('SIGKILL'); } catch (_) {}
-      }
-    } catch (_) {
-      try { child.kill(); } catch (__) {}
-    }
-    try { if (_webServerLogStream) { _webServerLogStream.end(); _webServerLogStream = null; } } catch (_) {}
+    _sharedHostState.token = ''; _sharedHostState.ports.clear();
+    try { if (_webServerLogStream) _webServerLogStream.end(); } catch (_) {}
+    _webServerLogStream = null;
+    if (_webServerStartedEmitted) { _webServerStartedEmitted = false; _emitWebServerStopped(); }
+    return { success: true };
   }
 
   function _webServerStart() {
+    if (global._updateInstalling) return { success: false, error: '업데이트 설치 준비 중에는 협업 웹서버를 시작할 수 없습니다.' };
     if (_webServerChild && !_webServerChild.killed) {
       return { success: true, status: 'already-running', pid: _webServerChild.pid };
     }
@@ -5311,12 +5347,18 @@ app.whenReady().then(() => {
 
   function _webServerStatus() {
     const running = !!(_webServerChild && !_webServerChild.killed);
-    return { success: true, running, pid: running ? _webServerChild.pid : null, port: 3000 };
+    const activePorts = running ? Array.from(_sharedHostState.ports) : [];
+    return { success: true, running, ready: activePorts.length > 0, pid: running ? _webServerChild.pid : null, port: activePorts[0] || null, activePorts };
   }
 
   ipcMain.handle('web-server:start', () => _webServerStart());
   ipcMain.handle('web-server:stop', () => _webServerStop());
   ipcMain.handle('web-server:status', () => _webServerStatus());
+  require('./src/main/services/collab-host-query').registerCollabHostHandlers(ipcMain, {
+    getWindow: () => mainWindow,
+    getState: () => ({ running: !!(_webServerChild && !_webServerChild.killed), token: _sharedHostState.token, ports: Array.from(_sharedHostState.ports) })
+  });
+
 
   /* 시작 시 자동 구동 — 이전 실행에서 토글을 켠 채로 종료했으면(flag='1') 다음 실행 때 자동으로 다시 켠다.
    * 끈 채로 종료했거나(flag='0') flag 가 없으면(최초 실행) 켜지 않는다. (사용자 요청 2026-05-29) */
@@ -5327,10 +5369,14 @@ app.whenReady().then(() => {
     }
   } catch (e) { console.warn('[WEB] 웹 서버 자동 시작 확인 실패:', e.message); }
 
-  app.on('before-quit', () => {
-    /* 동기 강제종료 — autoInstallOnAppQuit 로 종료 시 자동 설치가 이어지는데, 그 전에 자식이
-     *  파일 잠금을 확실히 놓도록 "죽을 때까지" 기다린다. (자동 업데이트 무한루프 방지 2026-06-25) */
-    try { _killWebServerChildSync(); } catch (_) {}
+  app.on('before-quit', (event) => {
+    const stopped = _killWebServerChildSync();
+    if (!stopped.success && global._updateReady) {
+      event.preventDefault();
+      global._updateConfirmed = false;
+      global._updateInstalling = false;
+      try { mainWindow.webContents.send('show-update-overlay', { mode: 'install-error', error: stopped.error }); } catch (_) {}
+    }
   });
 
   /* 부팅 시 자동 시작 제거 (2026-05-27)

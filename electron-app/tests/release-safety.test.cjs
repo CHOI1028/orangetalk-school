@@ -108,7 +108,9 @@ for(const [name,exportName,windowName] of [
    "if(build.exports.obfuscationOptions(relative.replaceAll('/', '\\\\')).stringArray!==false)throw Error('Windows filename policy missing');",
    "(async()=>{",
    "const code=build.exports.obfuscateJs(fs.readFileSync(path.join(root,relative),'utf8'),relative);",
-   "const mod=new vm.SourceTextModule(code);await mod.link(()=>new vm.SyntheticModule(['KIOSK_CHIME_RECORDINGS'],function(){this.setExport('KIOSK_CHIME_RECORDINGS',{});}));await mod.evaluate();",
+   // 직렬화에 쓰이는 실제 소리 정책 모듈도 같은 격리 컨텍스트에서 난독화하여 연결한다.
+   "const context=vm.createContext({window:{localStorage:{getItem(){return null;}},addEventListener(){}},console,setTimeout,clearTimeout,setInterval,clearInterval});",
+   "const mod=new vm.SourceTextModule(code,{context});await mod.link(async(specifier)=>{if(specifier.endsWith('/sound-preferences.js')){const rel='src/renderer/core/sound-preferences.js';const dep=new vm.SourceTextModule(build.exports.obfuscateJs(fs.readFileSync(path.join(root,rel),'utf8'),rel),{context});await dep.link(()=>{throw Error('Unexpected sound dependency');});return dep;}return new vm.SyntheticModule(['KIOSK_CHIME_RECORDINGS'],function(){this.setExport('KIOSK_CHIME_RECORDINGS',{});},{context});});await mod.evaluate();",
    "const document={addEventListener(){},removeEventListener(){},getElementById(){return null;},querySelector(){return null;}};",
    "const window={document,addEventListener(){},removeEventListener(){}};",
    "vm.runInNewContext(mod.namespace["+JSON.stringify(exportName)+"]({preview:true,channelId:'synthetic',callAudio:{chime:'classic'}}),{window,document,console,setTimeout,clearTimeout,setInterval,clearInterval},{timeout:2000});",

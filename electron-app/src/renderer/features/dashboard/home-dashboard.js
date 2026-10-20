@@ -207,7 +207,7 @@ function _hwInfoIcon(wid){
   return '<span data-tooltip="'+d+'" data-tooltip-html="1" data-tooltip-instant="1" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--bdr);color:var(--t3);font-size:9px;font-weight:800;font-style:normal;cursor:help;flex-shrink:0;line-height:1;user-select:none">i</span>';
 }
 const _HOME_WIDGET_RENDERERS = {
-  progress:    { header:function(){return _hwHeader('📊','시기별 진행률','<button data-action="prog-gear" title="표시할 항목 켜고 끄기" style="border:1px solid var(--bdr);background:var(--bg2);color:var(--t3);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center">⚙</button>',_hwInfoIcon('progress'));}, body:function(){return _wProgressContent();} },
+  progress:    { header:function(){return _hwHeader('📊','시기별 진행률','<button type="button" class="school-progress-settings" data-action="prog-gear" title="표시할 항목 켜고 끄기" aria-label="시기별 진행률 표시 설정">⚙</button>',_hwInfoIcon('progress'));}, body:function(){return _wProgressContent();} },
   quicklinks:  { header:function(){return _hwHeader('🔗','업무 사이트',_hwAddBtn('add-quicklink','추가'),_hwInfoIcon('quicklinks'));}, body:function(){return _homeCapEl('quicklinks')+_hwListBody(_wQuicklinksEditable());} },
   phonebook:   { header:function(){return _hwHeader('📱','업무 연락처',_hwAddBtn('add-phone','추가'),_hwInfoIcon('phonebook'));}, body:function(){return _homeCapEl('phonebook')+_hwListBody(_wPhonebookEditable());} },
   procurement: { header:function(){return _hwHeader('🛒','구매·품의 목록',_hwAddBtn('add-procurement','추가'),_hwInfoIcon('procurement'));}, body:function(){return _homeCapEl('procurement')+_hwListBody(_wProcurementEditable());} },
@@ -1944,7 +1944,7 @@ function _openTimetableEditor(){
   const old=document.getElementById('ttEditorOverlay'); if(old) old.remove();
   const tt=_getTimetable();
   const ov=document.createElement('div'); ov.id='ttEditorOverlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:13000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+  ov.style.cssText='position:fixed;inset:0;z-index:13000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
   let h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:780px;max-width:96vw;max-height:92vh;box-shadow:0 18px 50px rgba(0,0,0,0.45);display:flex;flex-direction:column;overflow:hidden;font-family:var(--f)">';
   /* 헤더 — 위젯 보관함과 동일 그라데이션(시안0.10+보라0.06,135deg). ✕ 버튼 제거(ESC·배경클릭으로 닫힘, 입력 즉시 저장이라 닫아도 보존). */
   h+='<div style="padding:14px 18px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px"><span style="font-size:22px">📅</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">주간 시간표 입력</div><div style="font-size:11px;color:var(--t3);margin-top:2px">각 칸에 과목명을 입력하면 즉시 저장됩니다. (ESC 또는 바깥 클릭으로 닫기)</div></div></div>';
@@ -2282,7 +2282,7 @@ function _openLessonSemConfig(){
   };
   const ov = document.createElement('div');
   ov.id='lessonSemCfgOv';
-  ov.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;opacity:0;transition:opacity 0.18s ease';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.5);backdrop-filter:blur(0.9px);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;opacity:0;transition:opacity 0.18s ease';
   const _slot=function(label,key){
     return '<div style="flex:1;min-width:0"><div style="font-size:11.5px;font-weight:800;color:var(--t1);margin-bottom:5px;text-align:right">'+label+' <span id="lsclbl-'+key+'" style="color:var(--cyan);font-weight:700;margin-left:4px">'+_semDateLabel(cfg[key])+'</span></div><div id="lscal-'+key+'" style="width:100%"></div></div>';
   };
@@ -3369,27 +3369,26 @@ async function _gcalShareRefresh(calId){
   });
 }
 
-/* 진행률 데이터 4종 */
-/* 📊 진행률 상태바 위젯 — 1열 최상단 (캘린더 헤더에서 이동). 오늘/이번달/학기/학년도 4종 세로 배치. */
+/* 기간 계산과 표시 설정은 유지하고, 홈 위젯 공통 스타일로 표시한다. */
 function _wProgressContent(){
   const _prog=_progressData();
-  function bar(label,pct,color){
-    /* 퍼센트 글씨 — 흰 글씨 + 검은 외곽선 (채워진 바·빈 바 양쪽에서 또렷). */
-    const _pctStyle='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:800;color:#fff;text-shadow:0 0 2px #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;letter-spacing:0.3px;line-height:1';
-    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px" title="'+escHtml(label)+' 진행률 '+pct+'%">'
-      +'<span style="font-size:11px;font-weight:700;color:var(--t2);min-width:62px;white-space:nowrap">'+escHtml(label)+'</span>'
-      +'<div style="flex:1;height:20px;background:var(--bg2);border-radius:5px;overflow:hidden;position:relative"><div style="background:'+color+';height:100%;width:'+pct+'%;border-radius:5px"></div><span style="'+_pctStyle+'">'+pct+'%</span></div>'
+  function bar(key,icon,label,pct){
+    return '<div class="school-period-row" data-period="'+key+'" title="'+escHtml(label)+' 진행률 '+pct+'%">'
+      +'<span class="school-period-label"><span class="school-period-icon" aria-hidden="true">'+icon+'</span>'+escHtml(label)+'</span>'
+      +'<span class="school-period-value" aria-hidden="true">'+pct+'<small>%</small></span>'
+      +'<div class="school-period-track" role="progressbar" aria-label="'+escHtml(label)+' 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'">'
+      +'<span class="school-period-fill" style="width:'+pct+'%"></span></div>'
       +'</div>';
   }
   const _vis=_getProgVis();
   let _out='';
-  if(_vis.day!==false)      _out+=bar('🕐 오늘',_prog.day,'#0891b2');
-  if(_vis.month!==false)    _out+=bar('📅 이달',_prog.month,'#16a34a');
-  if(_vis.year!==false)     _out+=bar('🗓 올해',_prog.year,'#4f46e5');
-  if(_vis.semester!==false) _out+=bar('📚 학기',_prog.semester,'#7c3aed');
-  if(_vis.ay!==false)       _out+=bar('🎓 학년도',_prog.ay,'#d97706');
-  if(!_out) _out='<div style="font-size:10.5px;color:var(--t3);text-align:center;padding:6px 0">표시할 항목이 없습니다 (⚙ 에서 켜기)</div>';
-  return _out;
+  if(_vis.day!==false)      _out+=bar('day','🕐','오늘',_prog.day);
+  if(_vis.month!==false)    _out+=bar('month','📅','이달',_prog.month);
+  if(_vis.year!==false)     _out+=bar('year','🗓','올해',_prog.year);
+  if(_vis.semester!==false) _out+=bar('semester','📚','학기',_prog.semester);
+  if(_vis.ay!==false)       _out+=bar('ay','🎓','학년도',_prog.ay);
+  if(!_out) return '<p class="school-widget-note school-period-empty">표시할 항목이 없습니다.<br>설정 버튼에서 표시할 항목을 선택해 주세요.</p>';
+  return '<div class="school-period-progress" role="group" aria-label="기간별 진행률">'+_out+'</div>';
 }
 function _progressData(){
   const now=new Date();

@@ -206,7 +206,7 @@ export function appConfirmModal(msg, title, opts){
   return new Promise(function(resolve){
     const ov=document.createElement('div');
     ov.className='school-confirm-overlay';
-    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)';
+    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(0.6px)';
     const box=document.createElement('div');
     box.className='school-confirm-dialog';
     box.style.width=opts.width || (opts.vertical ? '440px' : '380px');

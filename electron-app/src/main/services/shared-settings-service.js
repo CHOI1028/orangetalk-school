@@ -5,6 +5,15 @@ const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const missing=Symbol('missing');
+const medicationKeys=new Set(['user_med_syms','user_added_meds','user_med_syms_prefilled','med_hidden','med_renames','meddb_user']);
+function validMedicationValue(key,value){
+  if(!object(value))return false;
+  return Object.keys(value).every(name=>{
+    if(['__proto__','constructor','prototype'].includes(name))return false;
+    if(key==='user_med_syms'||key==='meddb_user')return Array.isArray(value[name])&&value[name].every(item=>typeof item==='string');
+    return true;
+  });
+}
 function merge(base,current,next,path,conflicts){
   if(equal(base,next))return current;
   if(equal(base,current)||equal(current,next))return next;
@@ -29,9 +38,21 @@ function read(services,key){
       let jsonTime=0;try{jsonTime=fs.statSync(services.jsonFile().commonPath(key)).mtimeMs;}catch(_){}
       if(!db.exists||jsonTime>(Date.parse(db.updatedAt)||0))chosen=json;
     }
+    if(medicationKeys.has(key)){
+      const dbValid=db.exists&&validMedicationValue(key,db.data);
+      const jsonValid=json.exists&&validMedicationValue(key,json.data);
+      if((db.exists||json.exists)&&!dbValid&&!jsonValid)throw Error('Invalid medication migration data');
+      // 최초 전환에서 빈 파일이나 잘못된 값이 정상 약품 목록을 지우지 않도록 한다.
+      if(dbValid&&(!jsonValid||(Object.keys(db.data).length>0&&Object.keys(json.data).length===0)))chosen=db;
+      else if(jsonValid&&!dbValid)chosen=json;
+    }
     const items=[{scope:'common',key:marker,value:true}];
     if(db.exists||json.exists){
-      items.push({scope:'common',key:'__shared_settings_backup.'+key,value:{database:db,json,migratedAt:new Date().toISOString()}});
+      const backupKey='__shared_settings_backup.'+key;
+      // 기존 복구 사본은 보존한다. 전환 완료 후 빈 목록을 자동으로 복원하지 않는다.
+      if(!medicationKeys.has(key)||!store.get('common',backupKey).exists){
+        items.push({scope:'common',key:backupKey,value:{database:db,json,migratedAt:new Date().toISOString()}});
+      }
       items.push({scope:'common',key,value:chosen.data});
     }
     store.batchSet(items);

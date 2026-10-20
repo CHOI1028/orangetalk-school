@@ -94,6 +94,8 @@ const _api = {
   webServerStart: () => ipcRenderer.invoke('web-server:start'),
   webServerStop: () => ipcRenderer.invoke('web-server:stop'),
   webServerStatus: () => ipcRenderer.invoke('web-server:status'),
+  webServerConnectionInfo: () => ipcRenderer.invoke('web-server:connection-info'),
+  webServerPortScan: () => ipcRenderer.invoke('web-server:port-scan'),
   /* 웹 서버 라이프사이클 이벤트 — data-loader.js 의 폴링 시작/정지 신호.
    * main 이 자식 stdout 의 'listening on port' 감지 시 started, 자식 'exit' 시 stopped 송신. */
   onWebServerStarted: (callback) => {

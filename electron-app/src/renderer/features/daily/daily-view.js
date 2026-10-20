@@ -429,7 +429,7 @@ function _onTbodyLeave(event){
   if(!datePanel||!datePanel._visitHistoryDisplay)return;
   if(S._visitHistoryLocked||document.getElementById('symCatOverlay'))return;
   const next=event&&event.relatedTarget;
-  if(next&&typeof next.closest==='function'&&next.closest('#sideVisitHistory,#recBody tr[data-stu-id],#ecListBody tr[data-stu-id],#infListBody tr[data-stu-id]'))return;
+  if(next&&typeof next.closest==='function'&&next.closest('#sideVisitHistory,#recBody tr[data-stu-id],#dailyPeriodTable tr[data-stu-id],#ecListBody tr[data-stu-id],#infListBody tr[data-stu-id]'))return;
   _hideVisitHistory();
 }
 export function _bindNameHoverVisitHistory(){
@@ -443,6 +443,8 @@ export function _bindNameHoverVisitHistory(){
     el.addEventListener('mouseleave',_onTbodyLeave);
   }
   _bindOne(document.getElementById('recBody'));
+  /* 기간검색은 조회·쪽 이동마다 표가 교체되므로 현재 결과 표에도 연결한다. */
+  _bindOne(document.querySelector('#dailyPeriodTable tbody'));
   _bindOne(document.getElementById('ecListBody'));
   _bindOne(document.getElementById('infListBody'));
   const history=document.getElementById('sideVisitHistory');
@@ -806,7 +808,7 @@ document.addEventListener('mousedown',function(e){
   if(!vh||!vh.classList.contains('vh-show'))return;
   if(vh.contains(e.target))return;
   /* 테이블 행 hover로 다시 열리는 것은 별도 — 여기서는 사이드바 검색 결과 선택 후 고정된 이력만 닫음 */
-  if(e.target.closest('#recBody,#ecListBody,#infListBody'))return;
+  if(e.target.closest('#recBody,#dailyPeriodTable,#ecListBody,#infListBody'))return;
   /* 이름 클릭으로 뜨는 EMS 미니 메뉴(#emsMiniPopup) 와 그 호버 카드(#nameHoverFloat) 안 클릭도
      외부 클릭으로 보면 안 됨 — "증상 선택 및 처치 열기" 누를 때 mousedown 단계에서 vh-show 가
      제거되어 페이드 아웃 후 다시 페이드 인 되는 카드 깜빡임이 발생함. */
@@ -2091,6 +2093,7 @@ export function renderDailyPeriodTable(container,records,privacy,beforeAction,pr
   });
   const tbody=table.querySelector('tbody');
   bindDailyRecordActions(tbody,beforeAction);
+  _bindNameHoverVisitHistory();
   bindDiaryPrivacy(tbody,{
     key:'period',scope:privacyScope,
     toolbarHost:document.querySelector('#dailyPeriodPanel .daily-period-tools'),
@@ -2378,7 +2381,7 @@ function _dailyConfirm(msg, title){
   return new Promise(function(resolve){
     const _title = title || '인원 삭제';
     const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
     /* 헤더(회색) + 바디(흰색/카드) + 푸터 분리 — 앱 표준 모달 톤. 기본 focus outline 제거. */
     ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:340px;max-width:92vw;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden">'
       +'<div style="padding:12px 18px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">'+_title+'</div>'
@@ -3147,11 +3150,11 @@ export function showVisitHistory(studentId){
   /* 사용자 설정: 생년월일·연락처 팝업 ON/OFF (보건일지 설정 > "생년월일·주보호자 연락처 팝업 오픈 설정").
    * 기본 ON. OFF 면 입력값이 있어도 표시 안 함. */
   const _binfoOn = (localStorage.getItem('ec_daily_birthcontact_popup')||'Y') !== 'N';
-  const birthInfo=(!_binfoOn||isStf)?'':'<div style="font-size:10px;color:var(--t3);margin-top:2px">생년월일: '+escHtml(birth)+'</div>';
-  const guardianInfo=(!_binfoOn||isStf||!guardianContact||!String(guardianContact).trim())?'':'<div style="font-size:10px;color:var(--t2);margin-top:2px">주 보호자 연락처: '+escHtml(guardianContact)+'</div>';
-  const careInfo=(isCare&&stu.condition)?'<div style="font-size:10px;color:var(--yl);margin-top:2px">요보호 질환명: '+escHtml(stu.condition)+'</div>':'';
-  const dustInfo=(stu.dustDisease&&String(stu.dustDisease).trim())?'<div style="font-size:10px;color:#0ea5e9;margin-top:2px">미세먼지 기저질환: '+escHtml(stu.dustDisease)+'</div>':'';
-  const careMemoInfo=(isCare&&getCareMemoText(stu))?'<div style="font-size:10px;color:var(--yl);margin-top:2px">메모 사항: '+escHtml(getCareMemoText(stu))+'</div>':'';
+  const birthInfo=(!_binfoOn||isStf)?'':'<div class="vh-person-detail">생년월일: '+escHtml(birth)+'</div>';
+  const guardianInfo=(!_binfoOn||isStf||!guardianContact||!String(guardianContact).trim())?'':'<div class="vh-person-detail">주 보호자 연락처: '+escHtml(guardianContact)+'</div>';
+  const careInfo=(isCare&&stu.condition)?'<div class="vh-person-detail vh-care">요보호 질환명: '+escHtml(stu.condition)+'</div>':'';
+  const dustInfo=(stu.dustDisease&&String(stu.dustDisease).trim())?'<div class="vh-person-detail vh-dust">미세먼지 기저질환: '+escHtml(stu.dustDisease)+'</div>':'';
+  const careMemoInfo=(isCare&&getCareMemoText(stu))?'<div class="vh-person-detail vh-care">메모 사항: '+escHtml(getCareMemoText(stu))+'</div>':'';
   /* 5종 상태 칩 — 이름 오른쪽. (요보호·관찰·미세먼지 기저질환·응급처치비동의·일반의약품비동의) */
   const _vhDots=(function(s){
     const chips=[];
@@ -3161,18 +3164,18 @@ export function showVisitHistory(studentId){
     if(s.emergencyConsent==='N') chips.push({c:'#dc2626', t:'응급처치 비동의'});
     if(s.medConsent==='N')       chips.push({c:'#a855f7', t:'일반의약품 비동의'});
     if(!chips.length) return '';
-    return '<span style="display:inline-flex;gap:4px;margin-left:6px;align-items:center;flex-wrap:wrap">'
+    return '<span class="vh-status-list">'
       + chips.map(function(x){
-          return '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:9px;font-size:9.5px;font-weight:700;color:'+x.c+';background:'+x.c+'14;border:1px solid '+x.c+'4d"><span style="width:6px;height:6px;border-radius:50%;background:'+x.c+'"></span>'+x.t+'</span>';
+          return '<span class="vh-status" style="color:'+x.c+';background:'+x.c+'14;border:1px solid '+x.c+'4d"><span style="width:6px;height:6px;border-radius:50%;background:'+x.c+'"></span>'+x.t+'</span>';
         }).join('')
       + '</span>';
   })(stu);
   /* 명단에서 빠진(전출·자퇴·졸업·전근·퇴직) 인원은 번호 옆에 [현재 미등록 인원] 대괄호 회색 텍스트 (오해 소지 방지) */
   const _leaverBadge = stu._isLeaver
-    ? '<span style="font-size:10px;color:var(--t3)">[현재 미등록 인원]</span>'
+    ? '<span class="vh-person-detail">[현재 미등록 인원]</span>'
     : '';
   /* [전체 이력 확인] — 사이드 카드에서 바로 전체 방문 이력 팝업 열기 (사용자 피드백 2026-08-26) */
-  title.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:var(--t2)">최근 보건실 방문 이력</span><button id="vhFullHistBtn" style="padding:2px 8px;font-size:9.5px;font-weight:700;background:rgba(34,197,94,0.08);color:#22c55e;border:1px solid rgba(34,197,94,0.3);border-radius:6px;cursor:pointer;font-family:var(--f);white-space:nowrap">전체 이력 확인</button></div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:13px;font-weight:800;color:var(--t1)">${escHtml(stu.name)}</span><span style="font-size:10px;color:var(--t3)">${escHtml(infoStr)}</span>${_leaverBadge}${_vhDots}</div>${birthInfo}${guardianInfo}${careInfo}${dustInfo}${careMemoInfo}`;
+  title.innerHTML=`<div class="vh-heading"><span class="vh-heading-label">최근 보건실 방문 이력</span><button type="button" id="vhFullHistBtn" title="전체 방문 이력 확인" aria-label="전체 방문 이력 확인">전체 이력</button></div><div class="vh-person"><span class="vh-person-name">${escHtml(stu.name)}</span><span class="vh-person-info">${escHtml(infoStr)}</span>${_leaverBadge}${_vhDots}</div>${birthInfo}${guardianInfo}${careInfo}${dustInfo}${careMemoInfo}`;
   const _vhFullBtn=title.querySelector('#vhFullHistBtn');
   if(_vhFullBtn)_vhFullBtn.addEventListener('click',function(e){
     e.stopPropagation();
@@ -3181,11 +3184,11 @@ export function showVisitHistory(studentId){
   /* 이력 누락 수정 (2026-08-26) — studentId 타입 혼재·personUid 엇갈림 레코드도 포함 */
   const _vhKeys=stuKeySet(studentId);
   const stuRecs=S.records.filter(r=>recInStuKeys(r,_vhKeys)).sort((a,b)=>b.date.localeCompare(a.date)||b.timeIn.localeCompare(a.timeIn));
-  if(!stuRecs.length){body.innerHTML='<div style="padding:12px;text-align:center;color:var(--t3);font-size:11px">방문 이력 없음</div>';_showVisitHistory();return;}
+  if(!stuRecs.length){body.innerHTML='<div class="vh-empty">등록된 방문 이력이 없습니다.</div>';_showVisitHistory();return;}
   const _emsSaved=JSON.parse(localStorage.getItem('ec_ems_saved')||'[]');
   body.innerHTML=stuRecs.map(r=>{
     const hasEms=_emsSaved.some(function(s){return s.name===stu.name&&s.date&&s.date.startsWith(r.date);});
-    const emsChip=hasEms?'<div style="font-size:9px;font-weight:800;color:#ef4444;margin-bottom:2px">🚑 구급대 이송 경험</div>':'';
+    const emsChip=hasEms?'<div class="vh-ems">🚑 구급대 이송 경험</div>':'';
     /* 증상은 처치와 동일한 글 형태로 표시 (사용자 요청 — 칩 톤이 시각적 노이즈 됨).
      * 부위/메모를 감싸는 () → []로 변환 (투약 표기 [약명 ...]와 통일). */
     const _symList=(r.symptoms||[]).map(function(_s){
@@ -3234,13 +3237,13 @@ export function showVisitHistory(studentId){
          *    → 화살표·처치 자체를 무조건 다음 줄로 내려 처치 가로 영역 확보 (증상 span 에 flex-basis:100% 적용).
          *    짧은 일반 증상 (12자 미만) 은 종전과 같이 같은 줄. word-break 는 한국어 어절 단위 (keep-all). */
         var _symLong = String(_symDisp || '').length >= 12;
-        return '<div style="display:flex;flex-wrap:wrap;gap:6px 6px;align-items:baseline;margin-top:'+(idx===0?'0':'3px')+';min-width:0">'
-             + '<span style="font-size:10.5px;font-weight:700;color:var(--cyan);word-break:keep-all;overflow-wrap:break-word;'+(_symLong?'flex-basis:100%;width:100%':'')+'">'+escHtml(_symDisp)+'</span>'
-             + '<span style="font-size:10.5px;color:var(--t1);font-weight:500;word-break:keep-all;overflow-wrap:break-word;min-width:0;flex:1"><span style="color:var(--t3);margin-right:6px;font-weight:700">→</span>'+escHtml(treatStr)+'</span>'
+        return '<div class="vh-detail-line" style="display:flex;flex-wrap:wrap;gap:6px 6px;align-items:baseline;margin-top:'+(idx===0?'0':'3px')+';min-width:0">'
+             + '<span class="vh-symptom" style="font-size:10.5px;font-weight:700;color:var(--cyan);word-break:keep-all;overflow-wrap:break-word;'+(_symLong?'flex-basis:100%;width:100%':'')+'">'+escHtml(_symDisp)+'</span>'
+             + '<span class="vh-treatment" style="font-size:10.5px;color:var(--t1);font-weight:500;word-break:keep-all;overflow-wrap:break-word;min-width:0;flex:1"><span style="color:var(--t3);margin-right:6px;font-weight:700">→</span>'+escHtml(treatStr)+'</span>'
              + '</div>';
       });
       _sympHtml='';
-      _treatHtml=_lines.join('') + (r.treatmentMemo?'<div style="margin-top:3px;font-size:10px;color:var(--t2);font-style:italic">'+escHtml(r.treatmentMemo)+'</div>':'');
+      _treatHtml=_lines.join('') + (r.treatmentMemo?'<div class="vh-treatment-note">'+escHtml(r.treatmentMemo)+'</div>':'');
       _medTail='';
     } else {
       /* 단일 증상 또는 옛 일지 — multi-symptom 와 동일하게 "증상 → 처치" 화살표 포맷 (사용자 요청 2026-05-24). */
@@ -3260,9 +3263,9 @@ export function showVisitHistory(studentId){
       /* 미분기(다중 증상 합쳐 표시)면 화살표·처치를 증상 아래 줄로 내림 (사용자 요청 2026-06-09). 단일 증상은 종전(짧으면 같은 줄). */
       const _forceBelow = _symLong || (Array.isArray(r.symptoms) && r.symptoms.length>1);
       _sympHtml='';
-      _treatHtml='<div style="display:flex;flex-wrap:wrap;gap:6px 6px;align-items:baseline;min-width:0">'
-        + '<span style="font-size:10.5px;font-weight:700;color:var(--cyan);word-break:keep-all;overflow-wrap:break-word;'+(_forceBelow?'flex-basis:100%;width:100%':'')+'">'+escHtml(_symDisp)+'</span>'
-        + '<span style="font-size:10.5px;color:var(--t1);font-weight:500;word-break:keep-all;overflow-wrap:break-word;min-width:0;flex:1"><span style="color:var(--t3);margin-right:6px;font-weight:700">→</span>'+escHtml(_treatCombo)+'</span>'
+      _treatHtml='<div class="vh-detail-line" style="display:flex;flex-wrap:wrap;gap:6px 6px;align-items:baseline;min-width:0">'
+        + '<span class="vh-symptom" style="font-size:10.5px;font-weight:700;color:var(--cyan);word-break:keep-all;overflow-wrap:break-word;'+(_forceBelow?'flex-basis:100%;width:100%':'')+'">'+escHtml(_symDisp)+'</span>'
+        + '<span class="vh-treatment" style="font-size:10.5px;color:var(--t1);font-weight:500;word-break:keep-all;overflow-wrap:break-word;min-width:0;flex:1"><span style="color:var(--t3);margin-right:6px;font-weight:700">→</span>'+escHtml(_treatCombo)+'</span>'
         + '</div>';
       _medTail='';
     }
@@ -3273,8 +3276,8 @@ export function showVisitHistory(studentId){
     /* 바디맵 부위 — 날짜와 증상 사이. 기존 기록도 r.bodymapData 폴백으로 표시 (사용자 요청 2026-06-16) */
     const _vhBmArr = (window._bmData && window._bmData[r.id]) ? window._bmData[r.id] : (r.bodymapData||[]);
     const _vhParts=[]; (_vhBmArr||[]).forEach(function(m){ if(m&&m.label && _vhParts.indexOf(m.label)===-1) _vhParts.push(m.label); });
-    const _vhBodymapHtml = _vhParts.length ? `<div style="font-size:10px;color:#6d28d9;font-weight:600;margin-top:3px"><span style="color:#7c3aed;font-weight:700">바디맵 부위:</span> ${escHtml(_vhParts.join(', '))}</div>` : '';
-    return `<div style="padding:9px 0;border-bottom:1px solid var(--bdrl)"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:var(--fm);font-size:11px;color:var(--t2);font-weight:600">${escHtml(r.date)} ${_timeRange}</span>${r.isImported?'<span style="font-size:9.5px;padding:2px 6px;border-radius:6px;background:rgba(99,102,241,0.18);color:#6366f1;font-weight:800;margin-right:8px">이전기록</span>':''}</div>${_vhBodymapHtml}${(emsChip||_sympHtml)?`<div style="margin-top:4px">${emsChip}${_sympHtml}</div>`:''}<div style="font-size:11px;color:var(--t1);margin-top:3px;font-weight:500">${_treatHtml}${_medTail}</div></div>`;
+    const _vhBodymapHtml = _vhParts.length ? `<div class="vh-bodymap"><span>바디맵 부위:</span> ${escHtml(_vhParts.join(', '))}</div>` : '';
+    return `<div class="vh-record"><div class="vh-record-heading"><span class="vh-date">${escHtml(r.date)}</span><span class="vh-time">${_timeRange}</span>${r.isImported?'<span class="vh-imported">이전기록</span>':''}</div>${_vhBodymapHtml}${(emsChip||_sympHtml)?`<div class="vh-alerts">${emsChip}${_sympHtml}</div>`:''}<div class="vh-record-content">${_treatHtml}${_medTail}</div></div>`;
   }).join('');
   _showVisitHistory();
   setTimeout(function(){

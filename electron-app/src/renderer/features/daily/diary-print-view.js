@@ -1659,7 +1659,7 @@ function _dpShowExportProgress(recCount,label){
   _dpExportTotal=recCount>0?recCount:0;
   const ov=document.createElement('div');
   ov.id='dpExportProgressOverlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:49000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(2px)';
+  ov.style.cssText='position:fixed;inset:0;z-index:49000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(0.6px)';
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--cyan);border-radius:12px;padding:22px 34px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.3);font-family:var(--f)">'
     +'<div style="width:30px;height:30px;margin:0 auto 12px;border:3px solid var(--bdr);border-top-color:var(--cyan);border-radius:50%;animation:dpExpSpin 0.9s linear infinite"></div>'
     +'<div style="font-size:13.5px;font-weight:800;color:var(--t1)">'+(label||'PDF')+' 생성 진행 중...'

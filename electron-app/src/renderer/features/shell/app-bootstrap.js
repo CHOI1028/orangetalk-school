@@ -105,7 +105,7 @@ function _showBetaExpiredModal(){
   if(document.getElementById('betaExpiredOverlay')) return; /* 중복 방지 */
   const ov=document.createElement('div');
   ov.id='betaExpiredOverlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:2147483646;display:flex;align-items:center;justify-content:center;animation:bxFadeIn .18s ease-out';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(1.2px);z-index:2147483646;display:flex;align-items:center;justify-content:center;animation:bxFadeIn .18s ease-out';
   ov.innerHTML='<div style="background:var(--card,#fff);border:1px solid var(--bdr,rgba(15,23,42,0.10));border-radius:16px;width:480px;max-width:92vw;box-shadow:0 28px 70px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.10);overflow:hidden;animation:bxPopIn .22s cubic-bezier(.2,.9,.3,1.1)">'
     + '<div style="padding:20px 24px 16px;border-bottom:1px solid var(--bdr,rgba(15,23,42,0.10));display:flex;align-items:center;gap:14px;background:rgba(239,68,68,0.07)">'
     +   '<div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;line-height:1;box-shadow:0 4px 12px rgba(220,38,38,0.30)">!</div>'

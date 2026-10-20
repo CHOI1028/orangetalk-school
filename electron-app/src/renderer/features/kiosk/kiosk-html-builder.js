@@ -1285,7 +1285,7 @@ function _kioskCss(isPortrait){
     + '.st-medttl{font-size:14px;font-weight:800;color:#b45309;margin-bottom:8px}'
     + '.st-hint{font-size:13px;color:#94a3b8}'
     + '.bm-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:background .35s ease,backdrop-filter .35s ease,-webkit-backdrop-filter .35s ease,opacity .35s ease}'
-    + '.bm-modal.active{background:rgba(0,0,0,0.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:auto;opacity:1}'
+    + '.bm-modal.active{background:rgba(0,0,0,0.35);backdrop-filter:blur(2.4px);-webkit-backdrop-filter:blur(2.4px);pointer-events:auto;opacity:1}'
     + '.bm-header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0}'
     + '.bm-header-title{font-size:14px;font-weight:800;color:#1e293b}'
     + '.bm-header-sub{font-size:10px;color:#94a3b8;margin-top:2px}'

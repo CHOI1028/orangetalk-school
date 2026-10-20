@@ -131,14 +131,17 @@ class AutoUpdaterService {
       '[오렌지톡 업데이트 진단]',
       '시각: ' + this._kstNow(),
       '증상: ' + (o.symptom || '업데이트 반복 실패'),
-      '확인된 원인: ' + (cause.label ? ('[' + cause.code + '] ' + cause.label) : '(분류 불가)'),
-      '보류(멈춘) 파일 존재: ' + (o.pendingExists ? '예' : '아니오'),
+      '진단 분류(원인 확정 아님): ' + (cause.label ? ('[' + cause.code + '] ' + cause.label) : '원인 미확정'),
+      '분류 근거: ' + (cause.evidence || '원인을 확정할 수 있는 오류 정보가 없습니다.'),
+      '정리 전 보류 파일 존재: ' + (o.pendingExists ? '예' : '아니오'),
       '현재 버전: ' + (this._curVer() || '(미상)'),
       '대상 버전: ' + (o.target || '(미상)'),
-      '반복 횟수: ' + (o.count || 0) + '회',
-      '마지막 오류: ' + (o.error || '설치가 적용되지 않음 (파일 잠금/서명 검증 추정)'),
+      '감지 횟수: ' + (o.count || 0) + '회',
+      '횟수 기준: ' + (o.error ? '업데이트 오류 이벤트 수 (실제 설치 실패 횟수와 다를 수 있음)' : '실행 세션별 동일 버전 다운로드 완료 감지 수 (실제 설치 시도 횟수 아님)'),
+      '마지막 오류: ' + (o.error || '실제 오류 메시지가 수집되지 않았습니다.'),
       '캐시 정리: ' + (heal.ok ? ('완료 (' + (heal.cleared || 0) + '개 폴더)') : ('일부/실패 (정리 ' + (heal.cleared || 0) + ' / 실패 ' + (heal.failed || 0) + ')')),
-      '협업 웹서버: ' + (global._collabWebOn ? '켜짐' : '꺼짐/미상'),
+      '협업 웹서버(진단 시점): ' + (global._collabWebOn ? '켜짐' : '꺼짐/미상'),
+      '안내: 캐시 정리 완료는 업데이트 설치 성공을 의미하지 않습니다.',
       'OS: ' + os.platform() + ' ' + os.release() + ' ' + os.arch(),
       '피드 호스트: school114.org/B11'
     ].join('\n');
@@ -196,23 +199,32 @@ class AutoUpdaterService {
       });
     } catch (_) { return false; }
   }
-  /* 실제 에러·상태로 원인을 "분류(verify)" — 추측이 아니라 증거로 판정. */
+  /* 오류 메시지와 진단 시점의 상태를 구분한다. 이 분류만으로 실제 원인을 확정하지 않는다. */
   _classifyCause(o) {
     const e = String((o && o.error) || '').toLowerCase();
     if (/sign|signature|publisher|not signed|signercertificate|인증서|서명/.test(e)) {
-      return { code: 'A', label: '배포본 서명 검증 실패', cacheFix: false,
-        advice: '홈페이지에서 최신 버전을 수동으로 다시 설치해 주세요. (서버측 재서명·재배포가 필요할 수 있으니 이 진단을 오렌지팜에 보내주세요.)' };
+      return { code: 'A', label: '서명 검증 관련 오류 감지', cacheFix: false,
+        evidence: '업데이트 오류 메시지에 서명·인증서 관련 문구가 있습니다. 배포 파일과 해당 PC의 검증 상태를 확인해야 합니다.',
+        advice: '진단 정보를 오렌지팜에 전달해 주세요. 정식 설치파일과 서명 검증 상태를 확인한 뒤 재시도해 주세요.' };
     }
-    if (global._collabWebOn || /ebusy|eperm|locked|in use|access is denied|busy|rename|잠금/.test(e)) {
-      return { code: 'D', label: '설치 중 파일 잠금 (협업 웹서버 등)', cacheFix: true,
-        advice: '멈춘 파일을 정리했습니다. 다시 시작하면 정상 설치됩니다.' };
+    if (/ebusy|eperm|locked|in use|access is denied|busy|rename|잠금/.test(e)) {
+      return { code: 'D', label: '파일 사용·접근 권한 관련 오류 감지', cacheFix: true,
+        evidence: '업데이트 오류 메시지에 파일 사용 또는 접근 권한 관련 문구가 있습니다. 잠금 주체나 정확한 원인은 확인되지 않았습니다.',
+        advice: '작성 내용을 저장하고 협업 사용을 마친 뒤 프로그램을 완전히 종료해 재시도해 주세요. 반복되면 진단 정보를 전달해 주세요.' };
+    }
+    if (global._collabWebOn) {
+      return { code: 'D', label: '파일 사용 중 가능성 (협업 웹서버 실행 중)', cacheFix: true,
+        evidence: '진단 시점에 협업 웹서버가 켜져 있습니다. 실제 파일 잠금을 직접 확인한 것은 아닙니다.',
+        advice: '다른 PC의 입력을 마치고 저장한 뒤 협업 웹서버를 끄고 프로그램을 완전히 종료해 재시도해 주세요. 이후 실행 버전을 확인해 주세요.' };
     }
     if (o && o.pendingExists) {
-      return { code: 'C', label: '보류(멈춘) 업데이트 파일 손상·미적용', cacheFix: true,
-        advice: '멈춘 파일을 정리했습니다. 다시 시작하면 새로 받아 설치됩니다.' };
+      return { code: 'C', label: '보류 업데이트 파일 존재 (미적용 원인 미확정)', cacheFix: true,
+        evidence: '정리 전에 보류 설치파일이 있었습니다. 파일의 존재만으로 손상 여부나 설치 실패 원인을 알 수는 없습니다.',
+        advice: '작성 내용을 저장한 뒤 다시 시작해 업데이트를 재시도하고 실행 버전을 확인해 주세요. 반복되면 진단 정보를 전달해 주세요.' };
     }
     return { code: '?', label: '원인 미확정', cacheFix: true,
-      advice: '캐시를 초기화했습니다. 그래도 반복되면 홈페이지에서 재설치 후 이 진단을 오렌지팜에 보내주세요.' };
+      evidence: '현재 수집된 오류 정보와 실행 상태만으로 원인을 특정할 수 없습니다.',
+      advice: '작성 내용을 저장하고 다시 시도해 주세요. 반복되면 정식 설치파일로 수동 설치하기 전에 진단 정보를 오렌지팜에 전달해 주세요.' };
   }
   _emitDiagnostic(o) {
     this._send('show-update-overlay', {
@@ -226,7 +238,7 @@ class AutoUpdaterService {
       current: this._curVer()
     });
   }
-  /* 무한 루프 감지 시: 원인 분류(verify) → 그에 맞는 조치 → 캐시 정리 → 진단·보고 (세션 1회) */
+  /* 반복 감지 시: 오류·상태 기반 분류 → 기존 재시도 정책 적용 → 캐시 정리 결과 안내 (세션 1회) */
   _triggerLoopHeal(o) {
     if (this._diagnosed) return;
     this._diagnosed = true;
@@ -346,6 +358,12 @@ class AutoUpdaterService {
       const msg = (err && err.message) || String(err);
       this._log('ERROR ' + msg.replace(/\s+/g, ' ').slice(0, 300));
       this._send('updater:error', { message: msg });
+      if (global._updateInstalling) {
+        global._updateConfirmed = false;
+        global._updateInstalling = false;
+        this._send('show-update-overlay', { mode: 'install-error',
+          error: '업데이트 설치 요청에 실패했습니다. 프로그램을 계속 사용하거나 다시 시도해 주세요.' });
+      }
       /* 네트워크성 오류(부팅 직후 DNS/네트워크 미준비·일시 끊김·프록시 등)는 사용자 잘못도 설치 결함도 아니다.
        *  → 진단(errCount)에서 제외하고, 앱이 스스로 조용히 재시도한다. 사용자는 아무것도 하지 않는다. (2026-07-06) */
       if (this._isNetworkError(msg)) {
@@ -434,6 +452,10 @@ class AutoUpdaterService {
   }
 
   quitAndInstall() {
+    if (!global._updateReady) return { success: false, error: '다운로드가 완료된 업데이트가 없습니다.' };
+    let requestError = null;
+    const captureError = err => { requestError = err || new Error('설치 요청 실패'); };
+    autoUpdater.on('error', captureError);
     try {
       /* 사용자 결정 2026-06-10: 설치가 끝나면 새 버전으로 자동 재시작 (isForceRunAfter=true).
        *  · 이전(false)에는 설치 완료 신호가 없어, 가짜 "설치중" 오버레이가 사라지면 사용자가 끝난 줄 알고
@@ -446,10 +468,14 @@ class AutoUpdaterService {
        *    우리 자체 "설치 중… 자동으로 다시 열립니다" 오버레이는 그대로 노출되므로 사용자 안내는 유지. */
       this._log('quitAndInstall requested (silent install on quit) target=' + (global._updateVersion || '?'));
       autoUpdater.quitAndInstall(true, true);
+      // 설치 거절이 예외 대신 오류 이벤트로 전달되는 경우도 확인한다.
+      if (requestError) return { success: false, error: '업데이트 설치 요청에 실패했습니다.' };
       return { success: true };
     } catch (err) {
       this._log('quitAndInstall EXCEPTION ' + ((err && err.message) || String(err)));
-      return { success: false, error: (err && err.message) || String(err) };
+      return { success: false, error: '업데이트 설치 요청에 실패했습니다.' };
+    } finally {
+      autoUpdater.removeListener('error', captureError);
     }
   }
 

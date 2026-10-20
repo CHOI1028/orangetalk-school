@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { createExternalApiModules } = require('./helpers/external-api-harness.cjs');
 const { preparePublicDataProxyRequest } = require('../src/main/services/public-data-key-store');
 
 // Extract only the production functions: never start Electron/the web server or use real API keys.
@@ -28,21 +29,24 @@ const safeErrors = {
 
 function harness(implementation, fetchImpl) {
   const calls = [], timeouts = [];
-  const signal = { synthetic: true };
+  let signal = { synthetic: true };
+  const rawFetch = async (url, options) => {
+    calls.push({ url, options });
+    if (implementation.name === 'Electron') signal = options.signal;
+    return fetchImpl(url, options);
+  };
+  const modules = createExternalApiModules(rawFetch, {
+    setTimeout(fn, ms) { timeouts.push(ms); return setTimeout(fn, ms); }
+  });
   const invoke = vm.runInNewContext(implementation.expression, {
-    URL,
-    preparePublicDataProxyRequest,
+    URL, preparePublicDataProxyRequest,
     services: { store: () => ({ get: () => ({ exists: false, data: null }) }) },
     AbortSignal: { timeout(ms) { timeouts.push(ms); return signal; } },
-    fetch: async (url, options) => {
-      calls.push({ url, options });
-      return fetchImpl(url, options);
-    }
+    fetch: implementation.name === 'Electron' ? modules.get('./external-api-transport').fetchExternalApi : rawFetch
   });
   return {
-    calls, timeouts, signal,
+    calls, timeouts, get signal() { return signal; },
     async run(url = requestUrl) {
-      // VM objects have different prototypes. Compare their serialized public IPC contract.
       return JSON.parse(JSON.stringify(await invoke(implementation.input(url))));
     }
   };
@@ -79,6 +83,7 @@ for (const implementation of implementations) {
       assert.equal(h.calls[0].url, requestUrl);
       assert.equal(h.calls[0].options.headers['User-Agent'], 'OrangePharmDiary/1.0');
       assert.equal(h.calls[0].options.signal, h.signal);
+      if (implementation.name === 'Electron') assert.ok(h.signal instanceof AbortSignal);
       assert.deepEqual(h.timeouts, [8000]);
     });
   }

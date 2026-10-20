@@ -21,6 +21,7 @@ function section(source, startMarker, endMarker) {
 }
 
 const productionFunctions = [
+  section(symptomSource, 'function _symHistoryVisits(', 'export function _symShowHistory('),
   section(utilsSource, 'export function shouldShowTreatmentBySymptom(', '/* ── 인물↔레코드'),
   section(formatSource, 'export function escHtml(', 'export function escJs('),
   section(symptomSource, 'function _parseMedWithDose(', 'function _serializeMedWithDose('),
@@ -284,3 +285,85 @@ for (const [label, overrides] of [
     assert(html.includes(context.escHtml(r.treatmentMemo)));
   });
 }
+
+
+// 당일 재방문은 날짜가 아니라 개별 기록으로 구분한다.
+test('당일 재방문 이력은 현재 기록만 제외하고 시간순으로 표시한다', () => {
+  const { html } = render([
+    visit({ id: 301, date: '2026-10-13', timeIn: '9:05', treatment: ['오전 방문 처치'] }),
+    visit({ id: 302, date: '2026-10-13', timeIn: '10:30', treatment: ['두 번째 방문 처치'] }),
+    visit({ id: 303, date: '2026-10-13', timeIn: '14:00', treatment: ['현재 작성 내용'] }),
+    visit({ id: 300, date: '2026-10-12', timeIn: '15:00', treatment: ['전날 방문 처치'] })
+  ], 303);
+  assert(html.includes('과거 방문 이력 (3건)'));
+  assert(!html.includes('현재 작성 내용'));
+  assert(html.includes('9:05') && html.includes('10:30'));
+  assert(html.indexOf('두 번째 방문 처치') < html.indexOf('오전 방문 처치'));
+  assert(html.indexOf('오전 방문 처치') < html.indexOf('전날 방문 처치'));
+});
+
+test('전체 이력에서는 현재 방문을 포함하고 같은 날짜의 방문도 각각 집계한다', () => {
+  const { html } = render([
+    visit({ id: 401, date: '2026-10-13', timeIn: '09:00', treatment: ['첫 방문'] }),
+    visit({ id: 402, date: '2026-10-13', timeIn: '13:00', treatment: ['재방문'] })
+  ]);
+  assert(html.includes('과거 방문 이력 (2건)'));
+  assert(html.includes('첫 방문') && html.includes('재방문'));
+});
+
+test('현재 기록 번호의 문자 숫자 타입 차이로 현재 기록이 노출되지 않는다', () => {
+  const { html } = render([
+    visit({ id: 501, date: '2026-10-13', treatment: ['현재 기록 제외'] }),
+    visit({ id: 502, date: '2026-10-13', treatment: ['같은 날 별도 기록'] })
+  ], '501');
+  assert(!html.includes('현재 기록 제외'));
+  assert(html.includes('같은 날 별도 기록'));
+});
+
+test('임시 번호와 DB 번호가 다른 현재 기록도 제외한다', () => {
+  const { html } = render([
+    visit({ id: 601, _dbId: 1601, treatment: ['현재 기록 제외'] }),
+    visit({ id: 602, _dbId: 1602, treatment: ['이전 기록 유지'] })
+  ], 1601);
+  assert(!html.includes('현재 기록 제외'));
+  assert(html.includes('이전 기록 유지'));
+});
+
+test('삭제되거나 임시 표시용인 기록은 이력 건수에서 제외한다', () => {
+  const { html } = render([
+    visit({ id: 701, _deleted: true, treatment: ['삭제된 기록'] }),
+    visit({ id: 702, _isDummy: true, treatment: ['임시 표시 기록'] }),
+    visit({ id: 703, treatment: ['유효한 기록'] })
+  ]);
+  assert(html.includes('과거 방문 이력 (1건)'));
+  assert(!html.includes('삭제된 기록') && !html.includes('임시 표시 기록'));
+  assert(html.includes('유효한 기록'));
+});
+
+test('입실 시간이 없는 이전 자료도 조회 오류 없이 표시한다', () => {
+  const { html } = render([
+    visit({ id: 801, timeIn: undefined, treatment: ['시간 없는 이전 기록'] }),
+    visit({ id: 802, timeIn: '09:00', treatment: ['시간 있는 기록'] })
+  ]);
+  assert(html.includes('과거 방문 이력 (2건)'));
+  assert(html.includes('시간 없는 이전 기록'));
+  assert(html.indexOf('시간 있는 기록') < html.indexOf('시간 없는 이전 기록'));
+  assert(!html.includes('undefined'));
+});
+
+test('현재 기록만 있을 때는 과거 이력이 없음을 표시한다', () => {
+  const { html } = render([visit({ id: 901 })], 901);
+  assert(html.includes('과거 방문 이력 (0건)'));
+  assert(html.includes('과거 방문 내역이 없습니다.'));
+});
+
+test('이력 입실 시간도 HTML로 실행되지 않도록 처리한다', () => {
+  const { html } = render([visit({ timeIn: '<img src=x onerror=alert(1)>' })]);
+  assert(!html.includes('<img'));
+  assert(html.includes('&lt;img'));
+});
+
+test('방문 건수 칩과 이력 팝업은 같은 조회 함수를 사용한다', () => {
+  assert(symptomSource.includes('const _visitCnt=_symHistoryVisits(rec.personUid||rec.studentId,recId).length;'));
+  assert(symptomSource.includes('const allVisits=_symHistoryVisits(stuId,curRecId);'));
+});

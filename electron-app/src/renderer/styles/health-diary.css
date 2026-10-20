@@ -1753,6 +1753,49 @@ body.is-windows #sideRecentCard *,
 body.is-windows #sideVisitHistory *{font-family:"Pretendard Variable","Pretendard","맑은 고딕","Malgun Gothic","Segoe UI",-apple-system,sans-serif !important;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .visit-history-card{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#60a5fa transparent;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .visit-history-card *{font-family:inherit}
+
+/* 최근 방문 이력: 날짜·시간, 증상, 처치를 좁은 사이드바에서도 구분해서 읽는다.
+   조회·정렬·개인정보 보호와 스크롤 높이 계산은 기존 동작을 유지한다. */
+@media screen{
+  #sideVisitHistory{--vh-line:color-mix(in srgb,#7daf88 24%,var(--bdr));--vh-soft:color-mix(in srgb,#7daf88 4%,var(--card))}
+  #sideVisitHistory #visitHistoryTitle{margin-bottom:10px!important}
+  #sideVisitHistory .vh-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+  #sideVisitHistory .vh-heading-label{font-size:12px;line-height:1.5;font-weight:700;color:var(--t2)}
+  #sideVisitHistory #vhFullHistBtn{display:inline-flex;align-items:center;justify-content:center;min-height:28px;max-width:100%;box-sizing:border-box;padding:4px 8px;border:1px solid var(--vh-line);border-radius:8px;background:var(--vh-soft);color:color-mix(in srgb,#4b9561 65%,var(--t1));font:600 11.5px/1.4 var(--f);white-space:nowrap;cursor:pointer}
+  #sideVisitHistory #vhFullHistBtn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  #sideVisitHistory .vh-person{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 7px;min-width:0;margin-top:7px}
+  #sideVisitHistory .vh-person-name{font-size:15px;font-weight:800;line-height:1.4;color:var(--t1);overflow-wrap:anywhere}
+  #sideVisitHistory .vh-person-info{font-size:12px;font-weight:500;line-height:1.5;color:var(--t2);overflow-wrap:anywhere}
+  #sideVisitHistory .vh-person-detail{margin-top:3px;font-size:11.5px;font-weight:500;line-height:1.5;color:var(--t2);word-break:keep-all;overflow-wrap:anywhere}
+  #sideVisitHistory .vh-care{color:var(--yl);font-weight:600}
+  #sideVisitHistory .vh-dust{color:var(--cyan);font-weight:600}
+  #sideVisitHistory .vh-status-list{display:flex;flex-wrap:wrap;align-items:center;gap:4px;flex-basis:100%;margin-top:2px}
+  #sideVisitHistory .vh-status{display:inline-flex;align-items:center;gap:3px;max-width:100%;box-sizing:border-box;padding:2px 6px;border-radius:8px;font-size:10.5px;font-weight:700;line-height:1.5;overflow-wrap:anywhere}
+  #sideVisitHistory #visitHistoryBody{min-width:0;padding-right:3px;line-height:1.6}
+  #sideVisitHistory .vh-record{min-width:0;margin-bottom:8px;padding:9px 10px;border:1px solid var(--vh-line);border-radius:10px;background:var(--vh-soft);overflow-wrap:anywhere}
+  #sideVisitHistory .vh-record:last-child{margin-bottom:0}
+  #sideVisitHistory .vh-record-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;min-width:0}
+  #sideVisitHistory .vh-date{font-size:13px;line-height:1.5;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums}
+  #sideVisitHistory .vh-time{font-size:12px;line-height:1.5;font-weight:500;color:var(--t2);font-variant-numeric:tabular-nums}
+  #sideVisitHistory .vh-imported{padding:1px 5px;border-radius:6px;background:var(--bg2);color:var(--t2);font-size:10.5px;line-height:1.5;font-weight:600}
+  #sideVisitHistory .vh-record-content{margin-top:7px;min-width:0;color:var(--t1);font-size:13px;font-weight:500}
+  #sideVisitHistory .vh-detail-line{gap:2px 6px!important;margin-top:8px!important;min-width:0}
+  #sideVisitHistory .vh-detail-line:first-child{margin-top:0!important}
+  #sideVisitHistory .vh-symptom{flex-basis:100%!important;width:100%;min-width:0;font-size:13px!important;line-height:1.6;word-break:keep-all;overflow-wrap:anywhere!important}
+  #sideVisitHistory .vh-treatment{flex:1 1 100%!important;min-width:0;font-size:13px!important;line-height:1.6;word-break:keep-all;overflow-wrap:anywhere!important}
+  #sideVisitHistory .vh-treatment-note{margin-top:5px;font-size:12px;line-height:1.6;color:var(--t2);overflow-wrap:anywhere}
+  #sideVisitHistory .vh-bodymap{margin-top:5px;font-size:11.5px;line-height:1.5;color:#6d28d9;font-weight:500;overflow-wrap:anywhere}
+  #sideVisitHistory .vh-bodymap>span{font-weight:600}
+  body:not(.light) #sideVisitHistory .vh-bodymap{color:#c4b5fd}
+  #sideVisitHistory .vh-alerts{margin-top:5px}
+  #sideVisitHistory .vh-ems{font-size:12px;line-height:1.5;font-weight:700;color:var(--rs)}
+  #sideVisitHistory .vh-empty{padding:16px 10px;text-align:center;font-size:13px;line-height:1.6;color:var(--t2)}
+}
+@media screen and (hover:hover){
+  #sideVisitHistory #vhFullHistBtn:hover{border-color:color-mix(in srgb,#4b9561 65%,var(--bdr));background:color-mix(in srgb,#7daf88 10%,var(--card))}
+}
+/* 최근 방문 이력 가독성 정돈 끝 */
+
 .visit-history-card::-webkit-scrollbar{width:6px}
 .visit-history-card::-webkit-scrollbar-track{background:transparent;border-radius:3px}
 .visit-history-card::-webkit-scrollbar-thumb{background:#93c5fd;border-radius:3px}
@@ -1893,7 +1936,7 @@ body.is-windows #sideVisitHistory *{font-family:"Pretendard Variable","Pretendar
 .vp-preview h2{font-size:16px;font-weight:900;text-align:center;margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid #111;letter-spacing:1px}
 .vp-preview .vp-info-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px}
 .vp-preview .vp-info-table td{padding:8px 8px;border:1px solid #bbb}
-.vp-preview .vp-info-table .label{background:#f0f0f0;font-weight:700;width:70px;text-align:center;white-space:nowrap}
+.vp-preview .vp-info-table .label{background:#f0f0f0;font-weight:700;width:72px;text-align:center;white-space:nowrap}
 /* 커스텀 양식 라벨 셀(✏️ 편집 가능한 셀) — 글씨 축소 + 줄바꿈 금지.
  * 입실시간·퇴실시간·처치내용 등이 두 줄로 꺾여 내려가던 문제 (사용자 요청 2026-06-11). */
 .vp-preview .vp-info-table td.label.vp-cf-editable{font-size:12px;white-space:nowrap}
@@ -3284,3 +3327,27 @@ button:focus,button:focus-visible{outline:none!important}
 #_kcFlowBody::-webkit-scrollbar-track{background:var(--bg2);border-radius:999px}
 #_kcFlowBody::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:999px;border:3px solid var(--bg2)}
 #_kcFlowBody::-webkit-scrollbar-thumb:hover{background:#818cf8}
+
+/* 출력 항목 선택: 기존 청록색과 설정 버튼 형태를 공유한다. */
+#vpContentBar .vp-content-panel{padding:12px 10px;background:var(--card);box-shadow:none}
+#vpContentBar .vp-content-intro{margin:0 0 12px;font-size:11px;line-height:1.6;color:var(--t2)}
+#vpContentBar .vp-content-group{min-width:0;margin:0 0 13px;padding:0;border:0}
+#vpContentBar .vp-content-group legend{float:none;width:100%;padding:0;margin-bottom:6px;font-size:11px;font-weight:700;color:var(--t1)}
+#vpContentBar .vp-content-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#vpContentBar .vp-content-choice{display:flex;align-items:center;gap:6px;min-width:0;min-height:34px;margin:0;padding:7px 8px;border-radius:7px;text-align:left;font-size:11.5px;line-height:1.35;color:var(--t2);background:var(--card);border:1px solid var(--bdr);box-shadow:none}
+#vpContentBar .vp-content-choice::before{content:'';flex:0 0 12px;width:12px;height:12px;box-sizing:border-box;border:1px solid var(--bdr);border-radius:3px;background:var(--card)}
+#vpContentBar .vp-content-choice.on{background:var(--cbg);color:var(--cyan);border-color:var(--cyan)}
+#vpContentBar .vp-content-choice.on::before{content:'\2713';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;background:var(--cyan);border-color:var(--cyan)}
+#vpContentBar .vp-toggle:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+#vpContentBar .vp-content-choice:disabled{opacity:.65;cursor:not-allowed;color:var(--t3);border-color:var(--bdr);background:var(--bg2)}
+#vpContentBar .vp-content-hint{margin:6px 1px 0;font-size:10px;line-height:1.6;color:var(--t3);overflow-wrap:anywhere}
+#vpContentBar .vp-content-layout{margin-top:9px;padding:8px;border-radius:7px;background:var(--bg2)}
+#vpContentBar .vp-content-layout-title{display:block;margin-bottom:6px;font-size:10px;font-weight:600;color:var(--t2)}
+#vpContentBar .vp-content-layout-buttons{display:flex;gap:4px}
+#vpContentBar .vp-content-layout-buttons .vp-toggle{flex:1;min-width:0;min-height:30px;padding:5px 3px;border-radius:5px;font-size:10.5px}
+#vpContentBar .vp-content-layout-buttons .vp-toggle.on{background:var(--card);border-color:var(--cyan);color:var(--cyan)}
+#vpContentBar .vp-content-footer{margin:0;padding-top:9px;border-top:1px solid var(--bdr);font-size:10px;line-height:1.7;color:var(--t2)}
+#vpContentBar [hidden]{display:none!important}
+.vp-preview .vp-info-table td:not(.label){overflow-wrap:anywhere;word-break:normal}
+/* 긴 사용자 지정 라벨도 셀 너비 안에서 줄바꿈한다. */
+.vp-preview .vp-info-table td.label.vp-cf-editable,.vp-preview .vp-info-table td.label.vp-cf-editable .vp-cf-l-text{white-space:normal;overflow-wrap:anywhere}

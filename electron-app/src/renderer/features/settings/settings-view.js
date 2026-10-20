@@ -2,6 +2,8 @@
 /* ES Module */
 import { getStu, escHtml, toDateStr, getGrades, saveStudents, isKinder, closeModalGracefully } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
+import { buildSharedConnectionAddress, isSharedConnectionAddress, copySharedConnectionAddress } from './collab-connection-address.js';
+import { readCollabControl, collabControlMessage } from './collab-control-query.js';
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { S } from '../../core/app-state.js';
 import { renderSoundSettings, bindSoundSettings } from './settings-sound.js';
@@ -1746,164 +1748,39 @@ function _renderDatasyncTabInline(){
   const isWeb=!!window.__isWebBrowser;
   const peer=S._collabPeer;
   const peers=Array.isArray(S._collabPeers)?S._collabPeers:[];
-  const connected=!!(peer&&peer.name);
-  let html='<div class="settings-panel-title" style="display:flex;justify-content:space-between;align-items:center">🤝 동료와 협업</div>';
-  html+='<div class="settings-panel-desc">같은 보건실에서 근무하는 동료가 브라우저로 접속하여 일지를 함께 사용할 수 있습니다.</div>';
-  /* ── 웹 서버 On/Off 토글 (Electron 전용) ── */
+  const people=peers.length?peers:peer&&peer.name?[peer]:[];
+  let html='<section class="collab-settings"><div class="settings-panel-title">동료와 협업</div>'
+    +'<p class="collab-intro">연결 주소를 전달하면 동료도 브라우저로 함께 사용할 수 있어요.</p>'
+    +'<div class="cc collab-share-card">';
   if(!isWeb){
-    html+='<div class="cc" style="padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:14px">'
-      +'<div style="flex:1">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px">🟢 웹 서버 구동</div>'
-      +'<div id="webServerStatusText" style="font-size:11px;color:var(--t3);line-height:1.5">상태 확인 중...</div>'
-      +'</div>'
-      +'<label class="switch" style="position:relative;display:inline-block;width:50px;height:26px;flex-shrink:0">'
-      +'<input type="checkbox" id="webServerToggle" data-no-auto-save style="opacity:0;width:0;height:0">'
-      +'<span id="webServerSlider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;transition:.25s;border-radius:26px">'
-      +'<span style="position:absolute;content:\'\';height:20px;width:20px;left:3px;bottom:3px;background:#fff;transition:.25s;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.15)" id="webServerKnob"></span>'
-      +'</span>'
-      +'</label>'
-      +'</div>';
+    html+='<div class="collab-share-header"><div><label class="collab-section-title" for="webServerToggle">동료와 공유</label>'
+      +'<div id="webServerStatusText" class="collab-muted" role="status">공유 상태 확인 중...</div></div>'
+      +'<label class="collab-toggle"><input type="checkbox" id="webServerToggle" role="switch" aria-label="동료와 공유" data-no-auto-save>'
+      +'<span id="webServerSlider"><span id="webServerKnob"></span></span></label></div>';
   }
-  /* ── 동료와 협업 개념 안내 (아코디언) ── */
-  html+='<div class="cc" style="padding:0;margin-bottom:12px;overflow:hidden">'
-    +'<div data-action="toggleAccordion" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:12px 16px;background:var(--bg2);user-select:none">'
-    +'<span class="acc-arrow" style="font-size:10px;color:var(--t3)">\u25B6</span>'
-    +'<span style="font-size:12px;font-weight:700;color:var(--t1)">📖 <span style="color:#9333ea">[클릭해서 읽어주세요!]</span> 어떻게 작동하나요? — 처음이라면 꼭 읽어주세요.</span>'
-    +'</div>'
-    +'<div style="display:none;padding:16px 18px;font-size:11.5px;color:var(--t2);line-height:1.8">'
-    +'<div style="background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;padding:10px 12px;border-radius:6px;margin-bottom:12px">'
-    +'<b style="color:var(--t1)">⚠️ 별도의 서버를 설치·구축하는 것이 아닙니다.</b><br>'
-    +'오렌지톡은 <b>이 프로그램 자체를</b> 동료가 잠깐 함께 사용할 수 있도록 통로만 열어 둘 뿐입니다. 오렌지톡을 <b>종료하면 그 통로도 함께 닫힙니다.</b> 별도의 하드웨어, 별도의 서비스 가입, 별도의 IP 부여 — 어느 것도 필요 없고 발생하지도 않습니다.<br><br>'
-    +'동료가 접속하더라도 <b>오렌지톡 화면 외에는</b> 이 PC의 그 어떤 폴더·파일·프로그램에도 접근할 수 없습니다. 보건일지 프로그램만 함께 쓰는 개념입니다.'
-    +'</div>'
-    +'<div style="margin-bottom:12px"><b style="color:var(--t1)">📡 어떻게 동료가 접속하나요?</b><br>'
-    +'같은 학교 <b>유선 LAN</b>(같은 허브 또는 같은 공유기에 랜선으로 연결)에 있는 동료가 별도 프로그램 설치 없이, <b>웹브라우저(크롬·엣지·사파리 등)</b>로 위 IP 주소를 입력하면 오렌지톡을 함께 사용할 수 있습니다.</div>'
-    +'<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);padding:10px 12px;border-radius:6px;margin-bottom:12px">'
-    +'<b style="color:var(--t1)">💡 추천 구성: 보건교사 두 분 이상이라면 "전용 호스트 PC" 한 대를 두세요</b><br>'
-    +'선생님 두 분의 컴퓨터 중 한 대를 호스트로 쓰셔도 되지만, 그 선생님이 <b>출장·연가·병가·연수</b> 등으로 학교에 안 계시거나 PC를 끄고 가시면 다른 한 분도 못 쓰게 됩니다. 그래서 <b>남는 저사양 PC 한 대(전용 호스트)</b>를 보건실 한쪽에 두고 늘 켜둔 채 오렌지톡만 띄워 두면, 모든 보건교사가 자신의 PC에서 브라우저로 접속해 함께 쓸 수 있습니다.<br><br>'
-    +'· 호스트 PC: 오렌지톡만 실행, 항상 ON<br>'
-    +'· 보건교사 A: 자기 PC 브라우저로 호스트 IP 접속<br>'
-    +'· 보건교사 B: 자기 PC 브라우저로 호스트 IP 접속<br><br>'
-    +'이렇게 <b>3대 구성(호스트 1 + 사용자 N)</b>이 가장 안정적입니다. 한 분이 안 계셔도 다른 분이 그대로 사용할 수 있고, 데이터는 호스트 PC 한 곳에 모입니다.'
-    +'</div>'
-    +'<div style="margin-bottom:12px"><b style="color:var(--t1)">📍 데이터는 어디에 있나요?</b><br>'
-    +'모든 데이터는 <b>호스트 PC 안에서만</b> 오갑니다. 외부 클라우드·외부 서버·인터넷 어디로도 전송되지 않으며, 학교 네트워크 밖으로 한 글자도 나가지 않습니다. 인터넷이 끊겨도 <b>유선 LAN만 살아 있으면</b> 협업이 가능합니다.</div>'
-    +'<div style="margin-bottom:12px"><b style="color:var(--t1)">🖥 누가 무엇을 봅니까?</b><br>'
-    +'· <b>호스트(이 PC)</b>: 보건일지 본체. 모든 데이터의 원본을 보관합니다.<br>'
-    +'· <b>동료(브라우저)</b>: 호스트와 동일한 보건일지를 사용. 학생 검색·기록·수정이 가능하며, 변경 내용은 즉시 호스트 DB에 반영됩니다.</div>'
-    +'<div style="margin-bottom:12px"><b style="color:var(--t1)">🔒 방화벽 — 한 번만 허용해 주세요</b><br>'
-    +'처음 실행할 때 Windows가 "이 앱이 네트워크 통신을 허용하시겠습니까?" 팝업을 띄웁니다. <b>"허용"</b>을 눌러주시면 그 이후로는 신경 쓸 필요가 없습니다. 같은 유선 LAN 환경에서는 학교 네트워크 정책으로 차단되는 일이 사실상 없습니다.</div>'
-    +'<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.18);padding:10px 12px;border-radius:6px">'
-    +'<b style="color:var(--t1)">⚠️ 알아두실 점</b><br>'
-    +'· 호스트 PC가 켜져 있고 오렌지톡이 실행 중일 때만 접속할 수 있습니다.<br>'
-    +'· 호스트와 동료가 다른 네트워크 망에 있으면 연결되지 않습니다.'
-    +'</div>'
-    +'</div></div>';
-  /* 접속 주소 + 포트 상태 통합 카드 (한 표에 주소·포트 가용성·복사 버튼 모두 포함) */
-  html+='<div class="cc" style="padding:16px;margin-bottom:12px">'
-    +'<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">🌐 접속 주소 · 포트 상태</div>'
-    +'<div style="font-size:11px;color:var(--t3);line-height:1.7;margin-bottom:12px">'
-    +'동료의 컴퓨터·태블릿·스마트폰 브라우저 주소창에 아래 주소를 입력하면 접속할 수 있습니다. 각 주소의 통로(포트) 사용 가능 여부를 함께 표시합니다.'
-    +'</div>'
-    +'<div id="collabAddressArea" style="padding:8px 0">'
-    +'<div style="font-size:10px;color:var(--t3);text-align:center">주소를 불러오는 중...</div>'
-    +'</div></div>';
-  /* ── 포트 사용 현황 (Phase 3-3) — 통합 표에 흡수, 별도 카드는 도움말만 유지 ── */
+  html+='<div id="collabAddressArea" class="collab-copy-panel"><p class="collab-muted" role="status">연결 주소를 준비하는 중...</p></div></div>';
+  if(people.length){
+    html+='<section class="cc collab-peers"><h3 class="collab-section-title">함께 접속 중 <span class="collab-count">'+people.length+'</span></h3><ul class="collab-peer-list">';
+    people.forEach(function(p){html+='<li>'+escHtml([p.school,p.position,p.name].filter(Boolean).join(' ')||'동료')+'</li>';});
+    html+='</ul></section>';
+  }
+  html+='<details id="collabTroubleshoot" class="cc collab-help"><summary>연결이 안 되나요?<span>연결 확인 · 다른 주소</span></summary>'
+    +'<div class="collab-help-body"><ol class="collab-checklist">'
+    +'<li>메인 PC의 오렌지톡을 켜두고, 동료 PC가 같은 학교 내부망에 연결되어 있는지 확인해 주세요.</li>'
+    +'<li>복사한 전체 주소를 크롬·엣지 주소창에 붙여 넣어 주세요. IP·포트만 입력하면 처음 연결할 수 없습니다.</li>'
+    +'</ol><div id="collabAlternateArea"><p class="collab-muted">공유를 켜면 다른 연결 주소도 확인할 수 있어요.</p></div>';
   if(!isWeb){
-    html+='<div class="cc" style="padding:16px;margin-bottom:12px">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px">🔌 포트 사용 현황 (상세 도움말)</div>'
-      +'<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-bottom:10px">학교 인터넷 정책에 따라 어떤 통로(포트)는 막혀있을 수 있어요. 어느 통로(포트)가 열려 있는지는 아래와 같습니다.</div>'
-      +'<div id="collabPortScanArea" style="font-size:11px;color:var(--t3)">검사 결과를 불러오는 중...</div>'
-      +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">'
-      +'<button id="collabPortScanBtn" class="btn btn-sm" style="background:#0891b2;color:#fff;border:none;padding:7px 14px;font-size:11px;font-weight:700;border-radius:6px">🔄 다시 검사하기</button>'
-      +'<span id="collabPortScanMeta" style="margin-left:auto;font-size:10px;color:var(--t3);font-family:var(--fm)"></span>'
-      +'</div>'
-      +'<div id="collabPortScanConclusion" style="margin-top:14px"></div>'
-      +'<div style="margin-top:10px;padding:12px 14px;background:rgba(6,182,212,0.04);border:1px dashed rgba(6,182,212,0.25);border-radius:8px;font-size:11.5px;line-height:1.85;color:var(--t2)">'
-      +'<div><b style="color:var(--t1)">💡 표가 어렵게 보이세요? 이렇게 이해하시면 됩니다.</b></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:4px"><span style="flex-shrink:0">📌</span><span><span style="color:var(--cyan);font-weight:700">"이 컴퓨터에서 쓸 수 있나요?"</span> — 보건실 컴퓨터(이 PC)에서 그 통로를 우리 프로그램이 쓸 수 있는지 알려줍니다. 다른 프로그램이 그 통로를 이미 점유하고 있다면 ⚠ 표시가 나오며 쓸 수 없습니다.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:4px"><span style="flex-shrink:0">📌</span><span><span style="color:var(--cyan);font-weight:700">"동료 컴퓨터에서 들어올 수 있나요?"</span> — 그 통로를 통해 동료가 접속하는 것을 학교 방화벽 등이 막지 않는지 알려줍니다. ❌ 차단이면 학교 정책상 막혀 있다는 뜻입니다.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:4px"><span style="flex-shrink:0">📌</span><span><span style="color:#a855f7;font-weight:700">✅ / ❌ 결과는 프로그램이 자동으로 검사</span>해서 채웁니다. 사용자가 별도로 뭘 누르거나 알려줄 필요 없어요.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:8px"><span style="flex-shrink:0">🎯</span><span><b>가장 쉬운 사용법:</b> 위 <b>접속 주소</b>를 동료에게 알려주고, 동료가 접속되면 끝입니다. 표는 <b>안 될 때만 참고</b>하시면 됩니다.</span></div>'
-      +'</div>'
-      +'</div>';
-    /* ── 자동 재연결 작동 방식 (Phase 3-4) ── */
-    html+='<div class="cc" style="padding:16px;margin-bottom:12px">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px">🔄 자동 재연결 작동 방식</div>'
-      +'<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-bottom:10px">동료 선생님과 연결이 갑자기 끊겼을 때 프로그램은 자동으로 연결을 시도합니다.</div>'
-      +'<div style="padding:12px 14px;background:rgba(168,85,247,0.05);border:1px solid rgba(168,85,247,0.25);border-radius:8px;font-size:11.5px;line-height:1.7;color:var(--t2)">'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:0"><span style="color:#a855f7;font-weight:800;font-family:var(--fm);flex-shrink:0;min-width:18px">1.</span><span>끊김을 감지하면 화면 상에 "🔄 연결이 끊겼습니다. 같은 통로(8080포트)로 자동 재연결 중... (2/5회 시도)" 와 같은 식의 안내가 표시됩니다.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:6px"><span style="color:#a855f7;font-weight:800;font-family:var(--fm);flex-shrink:0;min-width:18px">2.</span><span>처음에 선택한 통로(예. 8080포트)로 약 20초간 자동으로 다시 시도합니다.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:6px"><span style="color:#a855f7;font-weight:800;font-family:var(--fm);flex-shrink:0;min-width:18px">3.</span><span>그래도 안 되면 다른 통로(예. 80포트 등)로 자동으로 옮겨갑니다.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:6px"><span style="color:#a855f7;font-weight:800;font-family:var(--fm);flex-shrink:0;min-width:18px">4.</span><span>끊긴 동안 입력하신 내용은 자동 보관됐다가 복구되면 자동으로 저장됩니다.</span></div>'
-      +'<div style="display:flex;align-items:flex-start;gap:8px;margin-top:6px"><span style="color:#a855f7;font-weight:800;font-family:var(--fm);flex-shrink:0;min-width:18px">5.</span><span>모두 안 되면 학교 컴퓨터 담당 선생님께 보낼 안내문을 아래를 클릭해서 보내시기 바랍니다.</span></div>'
-      +'</div>'
-      +'</div>';
-    /* ── IT 담당자 안내문 (Phase 4-1) ── */
-    html+='<div class="cc" style="padding:16px;margin-bottom:12px">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px">📞 그래도 안 될 때</div>'
-      +'<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-bottom:10px">학교 컴퓨터 담당 선생님께 보낼 안내문을 자동으로 만들어드립니다.</div>'
-      +'<button id="collabItHelpCopyBtn" class="btn btn-sm" style="padding:8px 14px;font-size:11px;font-weight:700;border-radius:6px;background:var(--bg2);color:var(--t1);border:1px solid var(--bdr);cursor:pointer">📋 학교 컴퓨터 담당자 안내문 복사하기</button>'
-      +'<span id="collabItHelpCopiedMsg" style="display:none;margin-left:10px;font-size:11px;color:var(--gs);font-weight:700">✅ 복사되었습니다</span>'
-      +'</div>';
+    html+='<details class="collab-port-details"><summary>자세한 연결 상태</summary>'
+      +'<p class="collab-muted">이 PC의 포트 상태입니다. 학교망에서 동료 PC가 실제 접속할 수 있는지는 별도 확인이 필요합니다.</p>'
+      +'<div id="collabPortScanArea" class="collab-diagnostics">공유 상태를 확인한 뒤 표시합니다.</div>'
+      +'<div class="collab-actions"><button type="button" id="collabPortScanBtn" class="btn btn-outline btn-sm">다시 검사하기</button><span id="collabPortScanMeta" class="collab-muted"></span></div>'
+      +'<div id="collabPortScanConclusion"></div></details>'
+      +'<div class="collab-support"><p class="collab-muted">계속 연결되지 않으면 학교 컴퓨터 담당자에게 확인을 요청해 주세요.</p>'
+      +'<button type="button" id="collabItHelpCopyBtn" class="btn btn-outline btn-sm">담당자에게 보낼 안내 복사</button>'
+      +'<span id="collabItHelpCopiedMsg" class="collab-muted" style="display:none">복사되었습니다.</span></div>';
   }
-  /* 접속 현황 카드는 제거 — 동료 정보는 아래 *웹 동료 접속* 카드 한 곳에 표시. */
-
-  /* 동료 접속 상태 — A안: 모든 접속 동료를 N장 카드로. host/client 라벨 분기. */
-  if(connected){
-    /* peers 배열이 있으면 그것 사용, 없으면(LAN 단일 협업 등) peer 단일을 1장으로 fallback */
-    const list = peers.length ? peers : [{
-      _source: peer._source||'lan',
-      name: (peer.name||'').replace(/\s*외\s*\d+명$/,''),
-      school: peer.school||'',
-      position: peer.position||'',
-      type: peer.type||'client',
-      stuCount: peer.stuCount,
-      staffCount: peer.staffCount
-    }];
-    html+='<div class="cc" style="padding:16px;margin-bottom:12px">';
-    html+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">🤝 접속 동료 ('+list.length+'명)</div>';
-    html+='<div style="display:flex;flex-direction:column;gap:8px">';
-    list.forEach(function(p){
-      const isHost=p.type==='host';
-      const isWebPeer=p._source==='web';
-      const icon=isHost?'🖥':'🌐';
-      const label=isHost?'PC 프로그램 (호스트)':'웹 브라우저 접속';
-      const nameLine=[p.school,p.position,p.name].filter(Boolean).join(' ')||'접속자';
-      /* 호스트=청록, 웹 클라이언트=보라 그라데이션, LAN=초록 */
-      const boxCls=isWebPeer&&!isHost?'collab-web-peer-card':'';
-      let boxStyle;
-      if(isHost){
-        boxStyle='padding:14px;background:rgba(6,182,212,0.18);border:1px solid rgba(6,182,212,0.35);border-radius:12px;box-shadow:0 2px 12px rgba(6,182,212,0.12)';
-      } else if(isWebPeer){
-        boxStyle='padding:14px;border-radius:12px;position:relative;overflow:hidden;box-shadow:0 2px 12px rgba(139,92,246,0.15)';
-      } else {
-        boxStyle='padding:12px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:10px';
-      }
-      const avatarStyle=(isHost||isWebPeer)
-        ? 'width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.22);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;animation:collabPulse 2.4s ease-in-out infinite'
-        : 'width:36px;height:36px;border-radius:50%;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0';
-      const nameColor=(isHost||isWebPeer)?'#fff':'var(--t1)';
-      const subColor=(isHost||isWebPeer)?'rgba(255,255,255,0.85)':'var(--t3)';
-      const nameShadow=(isHost||isWebPeer)?';text-shadow:0 1px 2px rgba(0,0,0,0.25)':'';
-      html+='<div class="'+boxCls+'" style="display:flex;align-items:center;gap:12px;'+boxStyle+'">'
-        +'<div style="'+avatarStyle+'">'+icon+'</div>'
-        +'<div style="flex:1;position:relative;z-index:1">'
-        +'<div style="font-size:10px;font-weight:700;color:'+subColor+';letter-spacing:0.3px'+nameShadow+'">'+label+'</div>'
-        +'<div style="font-size:13px;font-weight:700;color:'+nameColor+';margin-top:2px'+nameShadow+'">'+escHtml(nameLine)+'</div>'
-        +'</div></div>';
-    });
-    html+='</div></div>';
-  }
-
-  /* 비동기 데이터 로드 */
-  setTimeout(function(){
-    /* 접속 주소 — 웹 브라우저 모드(서버가 이미 떠 있음)일 때만 직접 감지.
-       Electron 모드에서는 _bindWebServerToggle 이 서버 상태 확인 후 주소를 렌더. */
-    if(isWeb) _loadCollabAddress(isWeb);
-    /* 웹 서버 On/Off 토글 */
-    if(!isWeb)_bindWebServerToggle();
-  },100);
+  html+='</div></details></section>';
+  setTimeout(function(){if(isWeb)_loadCollabAddress(true);else _bindWebServerToggle();},100);
   return html;
 }
 
@@ -1913,31 +1790,39 @@ function _bindWebServerToggle(){
   const slider=document.getElementById('webServerSlider');
   const knob=document.getElementById('webServerKnob');
   const status=document.getElementById('webServerStatusText');
-  if(!toggle||!slider||!status)return;
+  if(!toggle||!slider||!status||toggle._collabToggleBound)return;
+  toggle._collabToggleBound=true;
   function _setUI(running){
     toggle.checked=!!running;
-    slider.style.background=running?'#22c55e':'#ccc';
+    slider.style.background=running?'var(--cyan)':'var(--bdr)';
     if(knob)knob.style.transform=running?'translateX(24px)':'translateX(0)';
-    status.innerHTML=running
-      ? '<span style="color:#22c55e;font-weight:700">● 실행 중</span> — 같은 네트워크의 동료가 브라우저로 접속 가능합니다.'
-      : '<span style="color:#94a3b8;font-weight:700">● 중지됨</span> — 혼자 쓰는 중. 동료와 협업하려면 토글을 켜세요.';
+    status.textContent=running?'공유 켜짐 · 연결 주소 확인 중...':'공유 꺼짐 · 켜면 동료와 함께 사용할 수 있어요.';
     /* 접속 주소·세션·포트 검사 — 서버 실행 중일 때만 감지 시도 */
     const addrArea=document.getElementById('collabAddressArea');
     if(running){
       /* 서버가 막 시작됐을 수 있으므로 800ms 뒤 주소·세션·포트 조회 */
-      setTimeout(function(){_loadCollabAddress(false);_loadCollabSessions();_loadCollabPortScan();},800);
+      _loadCollabAddress(false).then(function(){
+        if(document.getElementById('collabAddressArea')===addrArea&&toggle.checked)_loadCollabPortScan();
+      });
     } else if(addrArea){
-      /* 꺼진 상태 — 자주색 안내 박스만 노출 (주소 없음) */
-      addrArea.innerHTML='<div style="font-size:13px;font-weight:700;color:#9333ea;padding:14px 24px;background:rgba(147,51,234,0.08);border:2px solid rgba(147,51,234,0.35);border-radius:12px;display:inline-block;line-height:1.5">웹 서버 구동 시 IP 주소와 포트 번호가 표시됩니다.</div>'
-        +'<div style="font-size:12px;color:var(--t2);margin-top:10px;line-height:1.7;max-width:680px">⚠️ <b>접속하는 동료와 호스트 PC 는 반드시 같은 학교 네트워크(같은 유선 LAN 회선·같은 공유기/허브)에</b><br>연결되어 있어야 합니다.<br>서로 다른 와이파이/회선이면 접속되지 않습니다.</div>';
+      addrArea._collabLoadId=(addrArea._collabLoadId||0)+1;
+      const scan=document.getElementById('collabPortScanArea');
+      if(scan){scan._collabLoadId=(scan._collabLoadId||0)+1;scan.textContent='웹 서버가 꺼져 있습니다.';}
+      const conclusion=document.getElementById('collabPortScanConclusion');if(conclusion)conclusion.textContent='';
+      addrArea.innerHTML='<p class="collab-section-title">공유를 켜면 연결 주소가 준비돼요.</p><p class="collab-muted">필요할 때 켜고, 복사한 주소를 동료에게 전달해 주세요.</p>';
+      const alternate=document.getElementById('collabAlternateArea');if(alternate)alternate.innerHTML='<p class="collab-muted">공유를 켜면 다른 연결 주소도 확인할 수 있어요.</p>';
       const sessArea=document.getElementById('collabSessionsArea');
       if(sessArea)sessArea.innerHTML='<div style="text-align:center;padding:16px;color:var(--t3);font-size:11px">웹 서버가 꺼져 있습니다.</div>';
     }
   }
   /* 초기 상태 조회 */
-  if(window.electronAPI&&window.electronAPI.webServerStatus){
-    window.electronAPI.webServerStatus().then(function(r){_setUI(r&&r.running);});
-  }
+  readCollabControl('status',{api:window.electronAPI,timeoutMs:3500}).then(function(r){
+    if(document.getElementById('webServerToggle')!==toggle)return;
+    if(r.success&&typeof r.running==='boolean'){_setUI(r.running);return;}
+    status.textContent=collabControlMessage(r.code||'invalid-response');
+    const area=document.getElementById('collabAddressArea');if(area)_showCollabLoadFailure(area,r,false);
+    const scan=document.getElementById('collabPortScanArea');if(scan)scan.textContent='서버 실행 상태를 확인하지 못해 검사를 시작하지 않았습니다.';
+  });
   /* 연결 상태 변화 시 세션 카드 자동 새로고침 — Phase 3-2 */
   if(!toggle._connEventsBound){
     toggle._connEventsBound=true;
@@ -1970,9 +1855,8 @@ function _bindWebServerToggle(){
       /* 진단 정보 — server-info 호출하여 IP, 활성 포트 가져오기 (실패 시 폴백) */
       var info={ips:[],activePorts:[],port:''};
       try{
-        var base=window.__isWebBrowser?'':'http://localhost:3000';
-        var r=await fetch(base+'/api/server-info',{cache:'no-store'});
-        if(r.ok){var j=await r.json();if(j&&j.success)info=j;}
+        var j=await readCollabControl('info',{isWeb:!!window.__isWebBrowser,api:window.electronAPI});
+        if(j&&j.success)info=j;
       }catch(_e){}
       var ipStr=(info.ips&&info.ips[0])?info.ips[0]:'(자동 감지 실패)';
       var portsStr=(info.activePorts&&info.activePorts.length)?info.activePorts.join(', '):'80, 8080, 8000, 8888, 9000, 3000';
@@ -1982,12 +1866,11 @@ function _bindWebServerToggle(){
         '[보건교사 업무 프로그램 — 학교 인터넷 방화벽 협조 요청]\n\n'+
         '안녕하세요, '+(schoolName?schoolName+' ':'')+(teacherPos?teacherPos+' ':'')+(teacherName?teacherName+' ':'')+'입니다.\n\n'+
         '보건실 컴퓨터에서 다른 보건교사 컴퓨터로 보건일지 프로그램을\n'+
-        '함께 사용하려고 하는데, 학교 인터넷 방화벽 때문에 연결이\n'+
-        '되지 않는 것 같습니다.\n\n'+
+        '함께 사용하려고 하는데 연결되지 않아 원인 확인을 요청드립니다.\n\n'+
         '▪ 사용 프로그램: 오렌지톡 (웹브라우저로 접속하여 사용)\n'+
         '▪ 서버 컴퓨터(보건실 PC) IP: '+ipStr+'\n'+
         '▪ 시도한 통로(포트): '+portsStr+'\n'+
-        '▪ 동료 컴퓨터에서 접근이 차단된 상태입니다.\n\n'+
+        '▪ 동료 컴퓨터의 접속 가능 여부와 인증 상태 확인이 필요합니다.\n\n'+
         '요청드립니다:\n'+
         '보건실 컴퓨터('+ipStr+')의 80번 또는 8080번 포트로\n'+
         '같은 학교 내부망의 다른 컴퓨터에서 접근할 수 있도록\n'+
@@ -2042,130 +1925,88 @@ function _bindWebServerToggle(){
 /* 접속 주소 렌더 — 서버 실행 중일 때만 호출됨 (OFF 상태는 _bindWebServerToggle 에서 직접 렌더).
    activePorts: server-info 가 반환한 모든 활성 포트 배열 (Phase 1-1) */
 function _renderCollabAddressPanel(addr,allAddrs,activePorts,inviteKey){
-  function secureAddress(value){return /^[a-f0-9]{64}$/.test(inviteKey||'')?String(value).replace(/\/$/,'')+'/#ot-share='+inviteKey:'';}
-  var area=document.getElementById('collabAddressArea');
+  const area=document.getElementById('collabAddressArea');
   if(!area)return;
-  allAddrs=allAddrs||[];
-  activePorts=Array.isArray(activePorts)?activePorts:[];
-  var accent={color:'#16a34a',bg:'rgba(22,163,74,0.08)',bd:'rgba(22,163,74,0.35)'};
-
-  /* 모든 IP × 모든 활성 포트 조합 생성 — 사용자가 어떤 주소든 시도해볼 수 있도록.
-     포트 번호 가시성을 위해 80 포트도 :80 명시 (사용자 요청). */
-  function _buildAddr(ip,p){
-    var port=parseInt(p,10)||80;
-    return 'http://'+ip+':'+port;
+  const full=buildSharedConnectionAddress(addr,inviteKey);
+  const ready=isSharedConnectionAddress(full);
+  function copyButton(url,invite,primary){
+    return '<button type="button" class="btn '+(primary?'btn-primary':'btn-outline')+' '+(invite?'collab-copy-invite-btn':'collab-copy-row-btn')+'"'
+      +(primary?' id="collabCopyAddrBtn"':'')+' data-collab-url="'+escHtml(url)+'"'+(isSharedConnectionAddress(url)?'':' disabled')
+      +' aria-describedby="collabCopyHelp">'+(invite?'초대 문구 복사':'연결 주소 복사')+'</button>';
   }
-  /* 주 IP 추출 */
-  var primaryIp=addr.replace(/^https?:\/\//,'').replace(/:\d+$/,'');
-  var ipList=[];
-  /* 주 주소를 첫 번째로, 나머지 IP 들 (allAddrs 에서 IP 추출) */
-  var seenIps={};
-  if(primaryIp){ ipList.push(primaryIp); seenIps[primaryIp]=1; }
-  allAddrs.forEach(function(a){
-    var ip=String(a).replace(/^https?:\/\//,'').replace(/:\d+$/,'');
-    if(ip&&!seenIps[ip]){ ipList.push(ip); seenIps[ip]=1; }
-  });
-  /* 포트 — 활성 포트 우선, 없으면 주 주소 포트 */
-  var portList=activePorts.length?activePorts.slice():[];
-  if(!portList.length){
-    var pm=addr.match(/:(\d+)$/);
-    portList.push(pm?parseInt(pm[1],10):80);
-  }
-  /* 모든 조합 */
-  var addrPairs=[];  /* {url, ip, port, primary} */
-  ipList.forEach(function(ip){
-    portList.forEach(function(p){
-      addrPairs.push({url:_buildAddr(ip,p),ip:ip,port:p,primary:(ip===primaryIp&&String(p)===String(portList[0]))});
+  area.innerHTML='<h3 class="collab-section-title">주소를 복사해 동료에게 전달해 주세요</h3>'
+    +'<p class="collab-muted">동료는 받은 주소를 브라우저 주소창에 붙여 넣으면 됩니다.</p>'
+    +'<div class="collab-actions">'+copyButton(full,false,true)+copyButton(full,true,false)+'</div>'
+    +'<p id="collabCopyHelp" class="collab-copy-note">'+(ready?'접속용 키 자동 포함 · 보건업무 담당자에게만 전달해 주세요.':'연결 주소가 준비되면 복사할 수 있어요.')+'</p>'
+    +'<div data-collab-copy-status class="collab-feedback" role="status" aria-live="polite">'
+    +(ready?'':window.__isWebBrowser?'연결 주소는 메인 PC의 오렌지톡에서 복사해 주세요.':'접속용 키를 확인하지 못해 복사를 막았습니다. 연결 주소를 다시 불러와 주세요.')+'</div>'
+    +'<p class="collab-keep-open">함께 사용하는 동안 이 PC의 오렌지톡을 켜두세요.</p>';
+  const alternate=document.getElementById('collabAlternateArea');
+  if(alternate){
+    const bases=[addr,...(Array.isArray(allAddrs)?allAddrs:[])];
+    const hosts=[];
+    bases.forEach(function(base){try{const u=new URL(base);if(!hosts.includes(u.hostname))hosts.push(u.hostname);}catch(_){}});
+    const ports=Array.isArray(activePorts)?activePorts.filter(p=>Number.isInteger(p)&&p>0&&p<=65535):[];
+    const variants=[];
+    function add(base){const secure=buildSharedConnectionAddress(base,inviteKey);if(!variants.some(v=>v.base===base))variants.push({base,url:secure});}
+    add(String(addr).replace(/\/$/,''));
+    hosts.forEach(function(host){ports.forEach(function(port){add('http://'+host+':'+port);});});
+    alternate.innerHTML='<div class="collab-alternate"><label class="collab-section-title" for="collabAltAddressSelect">다른 연결 주소로 시도하기</label>'
+      +'<p class="collab-muted">기본 주소로 연결되지 않을 때만 선택해 주세요. 여기서 복사해도 접속용 키가 포함됩니다.</p>'
+      +'<select id="collabAltAddressSelect" class="form-input"'+(ready?'':' disabled')+'>'
+      +variants.map((v,i)=>'<option value="'+i+'">'+escHtml(v.base.replace(/^https?:\/\//,''))+(i===0?' · 기본 주소':'')+'</option>').join('')+'</select>'
+      +'<div class="collab-actions">'+copyButton(full,false,false)+copyButton(full,true,false)+'</div>'
+      +'<p class="collab-muted collab-reference">메인 PC 주소 · 확인용: '+escHtml(String(addr).replace(/^https?:\/\//,''))+'</p></div>';
+    const select=alternate.querySelector('#collabAltAddressSelect');
+    select.addEventListener('change',function(){
+      const index=/^(0|[1-9]\d*)$/.test(this.value)?Number(this.value):-1;
+      const value=variants[index];
+      const url=value&&isSharedConnectionAddress(value.url)?value.url:'';
+      alternate.querySelectorAll('[data-collab-url]').forEach(function(btn){btn.dataset.collabUrl=url;btn.disabled=!url;});
     });
+  }
+  _bindCollabCopyButtons();
+}
+function _showCollabLoadFailure(area, result, isWeb){
+  const code=result&&result.code||'connection-failed';
+  const alternate=document.getElementById('collabAlternateArea');
+  if(alternate)alternate.innerHTML='<p class="collab-muted">연결 주소를 준비한 뒤 선택할 수 있어요.</p>';
+  area.innerHTML='<div role="status" data-collab-load-error="'+escHtml(code)+'" style="padding:14px;border:1px solid var(--bdr);border-radius:10px;background:var(--bg2);font-size:12px;line-height:1.8">'
+    +'<b>연결 주소를 준비하지 못했습니다.</b><br>'+escHtml(collabControlMessage(code))
+    +'<div style="margin-top:10px"><button type="button" id="collabAddressRetryBtn" class="btn btn-outline btn-sm">주소 다시 불러오기</button></div></div>';
+  const retry=area.querySelector('#collabAddressRetryBtn');
+  if(retry)retry.addEventListener('click',async function(){
+    const ready=await _loadCollabAddress(isWeb);
+    if(ready&&!isWeb&&document.getElementById('collabAddressArea')===area)_loadCollabPortScan();
   });
-
-  var h='';
-  /* 주 주소 — 큰 배지 (가장 추천). 위에 "추천하는 접속 주소" 라벨 표시. */
-  h+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">보안 연결 주소</div>';
-  h+='<p style="font-size:12px;color:var(--t2);line-height:1.7">'+(inviteKey?'복사 버튼으로 전달해 주세요. 접속용 키가 포함되므로 보건업무 담당자에게만 공유해 주세요. 브라우저 인증은 최대 30일간 유지됩니다.':'새 기기의 접속 주소는 메인 PC에서 복사해 주세요.')+'</p>';
-  if(inviteKey)h+='<button type="button" class="btn collab-copy-row-btn" data-collab-url="'+escHtml(secureAddress(addr))+'" style="min-height:40px;margin:0 12px 10px 0">보안 연결 주소 복사</button>';
-  h+='<div style="font-size:22px;font-weight:800;font-family:var(--fm);color:'+accent.color+';padding:14px 24px;background:'+accent.bg+';border-radius:12px;letter-spacing:1px;user-select:all;display:inline-block;border:2px solid '+accent.bd+';line-height:1.5">'+escHtml(addr)+'</div>';
-
-  /* 모든 IP × 포트 조합 — 주소 + 포트 상태 통합 표 */
-  if(addrPairs.length){
-    h+='<div style="margin-top:14px;padding:12px 14px;background:rgba(0,0,0,0.04);border:1px solid var(--bdrl);border-radius:10px">';
-    h+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px">🔁 접속 가능한 주소</div>';
-    h+='<table style="width:100%;border-collapse:collapse;font-size:11.5px">';
-    h+='<thead><tr>'
-      +'<th style="padding:6px 8px;background:var(--bg2);text-align:left;font-size:10px;font-weight:700;color:var(--t2);border-bottom:1px solid var(--bdr)">주소</th>'
-      +'<th style="padding:6px 4px;background:var(--bg2);text-align:center;font-size:10px;font-weight:700;color:var(--t2);border-bottom:1px solid var(--bdr);width:130px;white-space:nowrap">현재 동료 접속 가능 여부</th>'
-      +'<th style="padding:6px 4px;background:var(--bg2);text-align:center;font-size:10px;font-weight:700;color:var(--t2);border-bottom:1px solid var(--bdr);width:120px;white-space:nowrap">클립보드에 복사</th>'
-      +'</tr></thead><tbody>';
-    addrPairs.forEach(function(pair){
-      h+='<tr data-collab-port="'+escHtml(String(pair.port))+'" style="border-bottom:1px solid var(--bdrl)">'
-        +'<td style="padding:7px 12px;vertical-align:middle"><code style="font-size:13px;font-family:var(--fm);color:var(--t1);user-select:all">'+escHtml(pair.url)+'</code></td>'
-        +'<td class="collab-ext-cell" style="padding:7px 4px;vertical-align:middle;font-size:10.5px;color:var(--t3);text-align:center">검사 중...</td>'
-        +'<td style="padding:7px 4px;vertical-align:middle;text-align:center">'
-        +'<button class="btn btn-sm collab-copy-row-btn" data-collab-url="'+escHtml(secureAddress(pair.url))+'"'+(inviteKey?'':' disabled')+' data-collab-tip="주소를 클립보드에 복사합니다." style="background:#16a34a;color:#fff;border:none;padding:5px 10px;font-size:10.5px;font-weight:700;border-radius:5px;cursor:pointer;margin-right:4px">📋</button>'
-        +'<button class="btn btn-sm collab-copy-invite-btn" data-collab-url="'+escHtml(secureAddress(pair.url))+'"'+(inviteKey?'':' disabled')+' data-collab-tip="동료에게 보낼 메시지 내용이 포함된 주소를 클립보드에 복사합니다." style="background:#8b5cf6;color:#fff;border:none;padding:5px 10px;font-size:10.5px;font-weight:700;border-radius:5px;cursor:pointer">✉️</button>'
-        +'</td></tr>';
-    });
-    h+='</tbody></table></div>';
-  }
-
-  /* IP/포트 메타 정보 */
-  if(primaryIp){
-    h+='<div style="font-size:10px;color:var(--t3);margin-top:8px">기본 IP: <b style="color:var(--t1);font-family:var(--fm)">'+escHtml(primaryIp)+'</b>'+(activePorts.length?(' · 활성 포트: '+activePorts.map(function(p){return '<b style="color:var(--t1);font-family:var(--fm)">'+escHtml(String(p))+'</b>';}).join(', ')):'')+'</div>';
-  }
-
-  /* 네트워크 안내 — 글자 크기 확대 + 상세 설명 */
-  h+='<div style="font-size:12px;color:var(--t2);margin-top:12px;line-height:1.7;max-width:680px">⚠️ <b>접속하는 동료와 호스트 PC 는 반드시 같은 학교 네트워크(같은 유선 LAN 회선·같은 공유기/허브)에</b><br>연결되어 있어야 합니다.<br>서로 다른 와이파이/회선이면 접속되지 않습니다.</div>';
-  area.innerHTML=h;
-  _bindCollabCopyButtons(secureAddress(addr));
 }
-function _loadCollabAddress(isWeb){
-  var area=document.getElementById('collabAddressArea');
-  if(!area)return;
-  /* 활성 포트 우선 — server-info 의 recommendedPort 사용 (Phase 1-1 도입).
-     포트 가시성을 위해 80 포트도 :80 명시. */
-  function _buildAddr(ip,port){
-    var p=parseInt(port,10)||80;
-    return 'http://'+ip+':'+p;
-  }
-  function _fromInfo(info){
-    if(!info||!info.success)return null;
-    var port=info.recommendedPort || (info.activePorts&&info.activePorts[0]) || info.port;
-    var ips=info.ips||[];
-    return {
-      port:port,
-      ips:ips,
-      addr:ips[0]?_buildAddr(ips[0],port):('http://localhost:'+(parseInt(port,10)||80)),
-      all:ips.map(function(ip){return _buildAddr(ip,port);}),
-      activePorts:info.activePorts||[], inviteKey:info.inviteKey||''
-    };
-  }
-  if(isWeb){
-    /* 웹 브라우저: 자기 자신이 접속 중인 서버 정보 조회 */
-    fetch('/api/server-info',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(info){
-      var x=_fromInfo(info);
-      if(!x){area.innerHTML='<div style="font-size:11px;color:var(--t3)">주소를 불러올 수 없습니다.</div>';return;}
-      _renderCollabAddressPanel(x.addr,x.all,x.activePorts,x.inviteKey);
-    }).catch(function(){ area.innerHTML='<div style="font-size:11px;color:var(--t3)">주소를 불러올 수 없습니다.</div>'; });
-    return;
-  }
-  /* Electron 모드: 서버가 켜져 있을 때만 호출됨 → 실제 실행 중인 포트 감지. 한 번만 시도.
-     PREFERRED_PORTS 와 호환 — server-info 가 활성 포트 배열 반환 */
-  var _candidatePorts=[3000,80,8080,8000,8888,9000,7330];
-  var _done=false;
-  function _tryPort(idx){
-    if(_done)return;
-    if(idx>=_candidatePorts.length)return;
-    var port=_candidatePorts[idx];
-    fetch('http://localhost:'+port+'/api/server-info',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(info){
-      if(_done)return;
-      var x=_fromInfo(info);
-      if(x){_done=true;_renderCollabAddressPanel(x.addr,x.all,x.activePorts,x.inviteKey);}
-      else _tryPort(idx+1);
-    }).catch(function(){ if(!_done)_tryPort(idx+1); });
-  }
-  _tryPort(0);
+async function _loadCollabAddress(isWeb){
+  const area=document.getElementById('collabAddressArea');
+  if(!area)return false;
+  const alternate=document.getElementById('collabAlternateArea');
+  if(alternate)alternate.innerHTML='<p class="collab-muted">연결 주소를 준비하는 중...</p>';
+  const requestId=area._collabLoadId=(area._collabLoadId||0)+1;
+  const current=()=>document.getElementById('collabAddressArea')===area&&area._collabLoadId===requestId;
+  area.innerHTML='<div role="status" style="padding:12px;text-align:center;color:var(--t3);font-size:12px">연결 주소와 접속용 키를 확인하는 중...</div>';
+  const result=await readCollabControl('info',{isWeb,api:window.electronAPI});
+  if(!current())return false;
+  if(!result.success){_showCollabLoadFailure(area,result,isWeb);return false;}
+  try{
+    const ports=Array.isArray(result.activePorts)?result.activePorts.filter(p=>Number.isInteger(p)&&p>0&&p<=65535):[];
+    const ips=Array.isArray(result.ips)?result.ips.filter(ip=>typeof ip==='string'&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)&&ip.split('.').every(n=>Number(n)<=255)&&!ip.startsWith('127.')&&ip!=='0.0.0.0'):[];
+    if(!ports.length||!ips.length){_showCollabLoadFailure(area,{code:ips.length?'invalid-response':'lan-address-missing'},isWeb);return false;}
+    const port=ports.includes(result.recommendedPort)?result.recommendedPort:ports[0];
+    const all=ips.map(ip=>'http://'+ip+':'+port);
+    if(!isWeb&&!buildSharedConnectionAddress(all[0],result.inviteKey)){_showCollabLoadFailure(area,{code:'invite-key-missing'},isWeb);return false;}
+    _renderCollabAddressPanel(all[0],all,ports,result.inviteKey||'');
+    if(!isWeb){
+      const status=document.getElementById('webServerStatusText');
+      if(status)status.textContent='공유 켜짐 · 연결 주소 준비 완료';
+    }
+    return true;
+  }catch(_){if(current())_showCollabLoadFailure(area,{code:'invalid-response'},isWeb);return false;}
 }
-function _bindCollabCopyButtons(addr){
+function _bindCollabCopyButtons(){
   /* 초대 메시지 빌드 — 입력 주소(targetAddr) 기준 */
   function _buildInvite(targetAddr){
     var u=(typeof S!=='undefined'&&S._userProfile)?S._userProfile:{};
@@ -2188,27 +2029,34 @@ function _bindCollabCopyButtons(addr){
       '같은 학교 인터넷망에서만 접속됩니다.\n'+
       '별도 프로그램 설치 없이 브라우저로 바로 사용 가능합니다.\n이 주소에는 접속용 키가 포함되어 있으므로 보건업무 담당자에게만 전달해 주세요.';
   }
-  /* 주 주소 복사 버튼 */
-  var addrBtn=document.getElementById('collabCopyAddrBtn');
-  if(addrBtn)addrBtn.addEventListener('click',function(){
-    var url=this.dataset.collabUrl||addr;
-      if(!url){bus.emit('toast:show',{text:'보안 연결 주소는 메인 PC에서 복사해 주세요.'});return;}
-    navigator.clipboard.writeText(url).then(function(){ bus.emit('toast:show',{text:'주소가 복사되었습니다.'}); });
-  });
-  /* 행마다 [복사] — 보조 주소 */
-  document.querySelectorAll('.collab-copy-row-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var url=this.dataset.collabUrl||addr;
-      if(!url){bus.emit('toast:show',{text:'보안 연결 주소는 메인 PC에서 복사해 주세요.'});return;}
-      navigator.clipboard.writeText(url).then(function(){ bus.emit('toast:show',{text:'보안 연결 주소가 복사되었습니다.'}); });
-    });
-  });
-  /* 행마다 [초대 메시지 복사] */
-  document.querySelectorAll('.collab-copy-invite-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var url=this.dataset.collabUrl||addr;
-      if(!url){bus.emit('toast:show',{text:'보안 연결 주소는 메인 PC에서 복사해 주세요.'});return;}
-      navigator.clipboard.writeText(_buildInvite(url)).then(function(){ bus.emit('toast:show',{text:'초대 메시지가 복사되었습니다.'}); });
+  const area=document.getElementById('collabAddressArea');
+  if(!area)return;
+  const scope=area.closest('.collab-settings')||area;
+  scope.querySelectorAll('#collabCopyAddrBtn, .collab-copy-row-btn, .collab-copy-invite-btn').forEach(function(btn){
+    if(btn._collabCopyBound)return;
+    btn._collabCopyBound=true;
+    btn.addEventListener('click',async function(event){
+      event.preventDefault();
+      if(this._collabCopyPending)return;
+      this._collabCopyPending=true;
+      const wasDisabled=this.disabled;
+      this.disabled=true;
+      let result;
+      try{
+        /* No fallback: a missing per-button URL must never copy a different or bare address. */
+        result=await copySharedConnectionAddress(this.dataset.collabUrl||'',{
+          clipboard:navigator.clipboard,
+          format:this.classList.contains('collab-copy-invite-btn')?_buildInvite:undefined
+        });
+      }catch(_){result={success:false,reason:'clipboard-failed'};}
+      finally{this._collabCopyPending=false;this.disabled=wasDisabled;}
+      const text=result.success?'접속용 키가 포함된 '+(this.classList.contains('collab-copy-invite-btn')?'초대 문구':'주소')+'를 복사했습니다.'
+        :result.reason==='invalid-address'||result.reason==='invalid-message'
+          ?'접속용 키가 포함된 주소를 확인하지 못해 복사하지 않았습니다. 메인 PC에서 연결 주소를 다시 불러와 주세요.'
+          :'복사하지 못했습니다. 이전에 복사한 주소를 사용하지 말고 다시 시도해 주세요.';
+      const status=area.querySelector('[data-collab-copy-status]');
+      if(status)status.textContent=text;
+      bus.emit('toast:show',{text:text});
     });
   });
   /* 마우스 호버 시 미니 팝업 — data-collab-tip 안내 */
@@ -2244,17 +2092,24 @@ function _bindCollabCopyButtons(addr){
  *  GET /api/port-scan 호출 → 결과를 표 + 결론 박스로 렌더.
  *  활성 포트 / 점유 / 차단 / 외부 접근 자동 추적 결과를 한 화면에 보여준다.
  * ════════════════════════════════════════════════════════════ */
-function _loadCollabPortScan(){
-  var area=document.getElementById('collabPortScanArea');
-  var concl=document.getElementById('collabPortScanConclusion');
-  var meta=document.getElementById('collabPortScanMeta');
+async function _loadCollabPortScan(){
+  const area=document.getElementById('collabPortScanArea');
+  const concl=document.getElementById('collabPortScanConclusion');
+  const meta=document.getElementById('collabPortScanMeta');
   if(!area)return;
-  area.innerHTML='<div style="text-align:center;padding:16px;color:var(--t3);font-size:11px">검사 중...</div>';
-  if(concl)concl.innerHTML='';
-  /* Electron 환경: localhost:3000 직접 호출. 웹: 자기 origin */
-  var base=window.__isWebBrowser?'':'http://localhost:3000';
-  fetch(base+'/api/port-scan',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){
-    if(!d||!d.success){area.innerHTML='<div style="text-align:center;padding:16px;color:var(--t3);font-size:11px">검사 결과를 불러올 수 없습니다.</div>';return;}
+  const requestId=area._collabLoadId=(area._collabLoadId||0)+1;
+  const current=()=>document.getElementById('collabPortScanArea')===area&&area._collabLoadId===requestId;
+  area.textContent='포트 사용 현황을 확인하는 중...';
+  if(concl)concl.textContent='';
+  if(meta)meta.textContent='';
+  const d=await readCollabControl('scan',{isWeb:!!window.__isWebBrowser,api:window.electronAPI});
+  if(!current())return;
+  if(!d.success){
+    area.textContent=collabControlMessage(d.code);
+    document.querySelectorAll('#collabAddressArea .collab-ext-cell').forEach(cell=>{cell.textContent='확인 실패';});
+    return;
+  }
+  try{
     var results=d.results||[];
     if(meta)meta.textContent='마지막 검사: '+new Date().toLocaleTimeString();
     /* 표 렌더 — 호스트 점유 + 외부 접근 두 컬럼 */
@@ -2292,7 +2147,7 @@ function _loadCollabPortScan(){
         extHtml='<span style="color:var(--gs);font-weight:700">✅ 가능</span>';
       }
       else if(ext.state==='stale'){extHtml='<span style="color:var(--gs);font-weight:700">✅ 가능</span>';}
-      else if(it.status==='active'){extHtml='<span style="color:var(--gs);font-weight:700">✅ 가능</span>';}
+      else if(it.status==='active'){extHtml='<span style="color:var(--t3)">실행 중 · 동료 접속 미확인</span>';}
       else {extHtml='<span style="color:var(--rs);font-weight:700">❌ 불가능</span>';}
       h+='<td style="padding:10px;vertical-align:middle">'+extHtml+'</td>';
       h+='</tr>';
@@ -2324,9 +2179,7 @@ function _loadCollabPortScan(){
       }
       concl.innerHTML=conclHtml;
     }
-  }).catch(function(){
-    area.innerHTML='<div style="text-align:center;padding:16px;color:var(--t3);font-size:11px">검사 결과를 불러올 수 없습니다.</div>';
-  });
+  }catch(_){if(current())area.textContent=collabControlMessage('invalid-response');}
 }
 
 function _loadCollabSessions(){
@@ -2798,7 +2651,7 @@ function _showUpdateInstallConfirm(){
   if(document.getElementById('updInstallConfirmOv')) return;
   const ov=document.createElement('div');
   ov.id='updInstallConfirmOv';
-  ov.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.5);backdrop-filter:blur(0.9px);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;width:400px;max-width:92vw;box-shadow:0 24px 60px rgba(0,0,0,0.42);overflow:hidden">'
     +'<div style="padding:16px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:10px">'
     +'<span style="font-size:18px">↻</span><div style="font-size:14.5px;font-weight:800;color:var(--t1)">업데이트 설치</div></div>'
@@ -2872,7 +2725,7 @@ function _renderFontsizeSection(){
 function _renderVersionTab(){
   const VERSIONS=[
     {ver:'1.0',name:'Roma'},
-    {ver:'1.1',name:'Firenze',release:'1.1.12'},
+    {ver:'1.1',name:'Firenze',release:'1.1.14'},
     {ver:'1.2',name:'Bologna'},
     {ver:'1.3',name:'Venezia'},
     {ver:'1.4',name:'Ljubljana'},
@@ -2927,14 +2780,12 @@ function _renderVersionTab(){
   });
   h+='</div>';
   h+='<section aria-labelledby="rmReleaseTitle" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">';
-  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.12 Firenze · 소리 설정 추가 및 보건일지 사용성 개선</h3>';
-  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">알림음 설정을 추가하고, 날짜 선택·일지 등록·방문 이력과 팝업 사용 중의 불편함을 개선했습니다.</p>';
+  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.14 Firenze · 상용 약품 목록 보존 및 저장 안정화</h3>';
+  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">상용 약품의 목록 표시와 기존 설정 보존을 보완했습니다.</p>';
   h+='<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9">';
-  h+='<li>환경설정에 전체 또는 알림 종류별로 소리를 켜고 끌 수 있는 소리 설정 기능을 추가했습니다.</li>';
-  h+='<li>날짜·방문 이력 달력에서 선택한 날짜가 일반일지 조회 날짜와 연동되도록 개선했습니다.</li>';
-  h+='<li>기간검색 중에도 선택한 날짜로 일지를 등록할 수 있도록 수정하고, 오늘이 아닌 날짜에는 등록 날짜를 확인하도록 보완했습니다.</li>';
-  h+='<li>학생 방문 이력을 확인한 뒤 마우스를 이동하면 날짜별 방문 목록이 비어 보이던 오류를 수정했습니다.</li>';
-  h+='<li>상용 메시지·물품 대여 대장·열 필드 설정 창이 다시 열리지 않거나 두 번 클릭해야 열리던 오류를 수정했습니다.</li>';
+  h+='<li>저장된 상용 약품을 불러온 뒤에도 목록이 비어 보이거나, 약품 편집 시 기존 목록이 덮어써질 수 있는 문제를 수정했습니다.</li>';
+  h+='<li>약품 추가·수정·삭제 전에 최신 설정을 확인하고, 불러오기·저장 실패 시 안내하도록 보완했습니다.</li>';
+  h+='<li>약품 설정 변경 전 복구용 사본을 보관하도록 보완했습니다.</li>';
   h+='</ul></section></div>';
 
   /* ═══ 업데이트 카드 — 기존 _renderUpdateTabInline 통합 ═══ */

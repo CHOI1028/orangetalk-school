@@ -725,7 +725,7 @@ function _showDateGuardModal(targetDate, todayStr){
     const _todayShort=_formatKoreanDateShort(todayStr);
     const _selShort=_formatKoreanDateShort(targetDate);
     const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+    ov.style.cssText='position:fixed;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
     ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:460px;max-width:92vw;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden">'
       +'<div style="padding:12px 18px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1)">날짜 확인</div>'
       +'<div style="padding:18px 20px;font-size:12.5px;color:var(--t1);line-height:1.7;background:var(--card)">'

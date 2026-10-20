@@ -255,7 +255,7 @@ if(!window.electronAPI){
   </div>
   <div class="mcal" id="mainCalendar"></div>
   <div class="search-box" id="sidebarSearchBox" style="position:relative">
-    <input type="text" placeholder="이름 검색 (방문이력 검색)" id="sideSearch" aria-label="방문 이력 이름 검색" style="padding-right:72px">
+    <input type="text" placeholder="이름 검색" id="sideSearch" aria-label="방문 이력 이름 검색" style="padding-right:72px">
     <button id="advSearchSidebarBtn" class="adv-search-hover-btn" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);padding:3px 8px;font-size:9px;font-weight:600;background:rgba(236,72,153,0.06);color:#a8456e;border:1px solid rgba(236,72,153,0.15);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1">상세 검색</button>
   </div>
   <div id="sideSearchResults" class="search-results"></div>
@@ -493,19 +493,45 @@ if(!window.electronAPI){
       </div>
       <!-- Content selection -->
       <div class="vp-sel-bar" id="vpContentBar">
-        <div class="vp-sel-trigger">📝 내용 선택 <span id="vpContentLabel" style="color:var(--cyan);font-size:10px;margin-left:4px">전부</span><span class="vp-arrow">▼</span></div>
-        <div class="vp-dropdown">
-          <div class="vp-toggle-row">
-            <button class="vp-toggle on" data-field="date" data-tip="확인증에 방문한 날짜를 표시합니다.">방문한 날짜</button>
-            <button class="vp-toggle on" data-field="timeIn" data-tip="확인증에 보건실 입실시간을 표시합니다.">입실시간</button>
-            <button class="vp-toggle on" data-field="timeOut" data-tip="확인증에 보건실 퇴실시간을 표시합니다.">퇴실시간</button>
-            <button class="vp-toggle on" data-field="symtreatCombo" data-tip="클릭할 때마다 전환됩니다: 증상·처치 (합침=한 칸) → 증상·처치 (분리=두 칸) → 증상·처치 (끔=표시 안 함). (합침/분리 모드는 양식별로 저장)">증상·처치 (합침)</button>
-            <button class="vp-toggle on" data-field="bodymap" data-tip="확인증에 바디맵으로 표시한 부위(예: 왼쪽 어깨)를 표시합니다. 선택한 부위 수만큼 나열됩니다.">부위</button>
-            <button class="vp-toggle on" data-field="vs" data-tip="확인증에 V/S 측정값(체온·혈압·맥박 등)을 표시합니다.">V/S</button>
-            <button class="vp-toggle on" data-field="teacherNurse" data-tip="보건교사 본인(○○○)의 서명/도장 줄입니다. 끄면 서명·도장까지 함께 빠집니다. 양식별로 따로 저장됩니다.">교사 확인 (보건)</button>
-            <button class="vp-toggle on" data-field="teacherSubject" data-tip="교과담당교사 확인 줄을 넣습니다. 교과·담임은 켠 순서대로 위에서 아래로 배치됩니다. 양식별로 따로 저장됩니다.">교사 확인 (교과)</button>
-            <button class="vp-toggle" data-field="teacherHomeroom" data-tip="담임교사 확인 줄을 넣습니다. 교과·담임은 켠 순서대로 위에서 아래로 배치됩니다. 양식별로 따로 저장됩니다.">교사 확인 (담임)</button>
-          </div>
+        <div class="vp-sel-trigger">📝 내용 선택 <span id="vpContentLabel" style="color:var(--cyan);font-size:10px;margin-left:4px" aria-live="polite">선택 항목</span><span class="vp-arrow">▼</span></div>
+        <div class="vp-dropdown vp-content-panel">
+          <p class="vp-content-intro">출력할 항목을 선택하세요.</p>
+          <fieldset class="vp-content-group">
+            <legend>방문 정보</legend>
+            <div class="vp-content-grid">
+              <button type="button" class="vp-toggle vp-content-choice" data-field="date" aria-pressed="false" data-tip="선택한 기록의 방문 날짜를 출력합니다."><span>방문일</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="timeIn" aria-pressed="false" data-tip="보건실 입실시간을 출력합니다."><span>입실시간</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="timeOut" aria-pressed="false" data-tip="보건실 퇴실시간을 출력합니다."><span>퇴실시간</span></button>
+            </div>
+            <p id="vpTimeAvailability" class="vp-content-hint" hidden></p>
+          </fieldset>
+          <fieldset class="vp-content-group">
+            <legend>기록 내용</legend>
+            <div class="vp-content-grid">
+              <button type="button" class="vp-toggle vp-content-choice" data-field="symptoms" aria-pressed="false" data-tip="증상만 따로 선택할 수 있습니다. 처치를 끄면 처치와 투약 내용은 출력하지 않습니다."><span>증상</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="treatment" aria-pressed="false" data-tip="처치와 투약 내용을 출력합니다. 증상과 별도로 선택할 수 있습니다."><span>처치</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="bodymap" aria-pressed="false" data-tip="바디맵에서 선택한 부위를 출력합니다."><span>부위</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="vs" aria-pressed="false" data-tip="기록에 있는 체온·혈압 등 측정값을 출력합니다."><span>V/S</span></button>
+            </div>
+            <p id="vpVsAvailability" class="vp-content-hint" hidden></p>
+            <div id="vpSymTreatLayout" class="vp-content-layout" hidden>
+              <span class="vp-content-layout-title">증상·처치 배치</span>
+              <div class="vp-content-layout-buttons" role="group" aria-label="증상과 처치를 함께 선택했을 때의 배치">
+                <button type="button" class="vp-toggle" data-field="symtreatLayout" data-mode="merge" aria-pressed="false">한 칸에</button>
+                <button type="button" class="vp-toggle" data-field="symtreatLayout" data-mode="split" aria-pressed="false">칸 나누기</button>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset class="vp-content-group">
+            <legend>교사 확인란</legend>
+            <div class="vp-content-grid">
+              <button type="button" class="vp-toggle vp-content-choice" data-field="teacherNurse" aria-pressed="false" data-tip="끄면 보건교사 확인란과 서명·도장을 함께 제외합니다."><span>보건교사</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="teacherSubject" aria-pressed="false" data-tip="교과담당교사 확인란을 출력합니다. 확인란은 선택한 순서로 배치합니다."><span>교과교사</span></button>
+              <button type="button" class="vp-toggle vp-content-choice" data-field="teacherHomeroom" aria-pressed="false" data-tip="담임교사 확인란을 출력합니다. 확인란은 선택한 순서로 배치합니다."><span>담임교사</span></button>
+            </div>
+          </fieldset>
+          <p class="vp-content-footer">선택은 양식별로 자동 저장됩니다.<br>원본 보건일지에는 영향을 주지 않습니다.</p>
+          <p class="vp-content-hint vp-content-edit-note">항목을 바꾸면 미리보기에 직접 입력한 내용은 다시 불러옵니다.</p>
         </div>
       </div>
       <!-- Signature selection -->

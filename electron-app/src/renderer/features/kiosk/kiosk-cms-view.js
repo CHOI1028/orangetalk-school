@@ -61,7 +61,7 @@ setTimeout(function(){
   function _kErrFallbackCopy(t){ try{ var ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;opacity:0;left:-9999px'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); ta.remove(); return true; }catch(_){ return false; } }
   function _showKioskErrModal(title, msgHtml, diagText){
     var ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:50001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px)';
+    ov.style.cssText='position:fixed;inset:0;z-index:50001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(0.6px)';
     ov.innerHTML='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;width:460px;max-width:94vw;max-height:88vh;box-shadow:0 16px 40px rgba(0,0,0,0.5);font-family:var(--f);overflow:hidden;display:flex;flex-direction:column">'
       +'<div style="padding:12px 18px;background:var(--popup-head);border-bottom:1px solid var(--bdr);font-size:13px;font-weight:800;color:var(--t1);flex-shrink:0">'+title+'</div>'
       +'<div style="padding:16px 18px 8px;font-size:12.5px;color:var(--t1);line-height:1.7;flex-shrink:0">'+msgHtml+'</div>'
@@ -2032,7 +2032,7 @@ setTimeout(function(){
   }
   export function _showKioskRelayConsent(onAgree){
     const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)';
+    ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(1.2px)';
     const box=document.createElement('div');
     box.style.cssText='background:var(--card);border-radius:16px;padding:28px 24px;max-width:520px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.3);border:1px solid var(--bdr)';
     box.innerHTML=

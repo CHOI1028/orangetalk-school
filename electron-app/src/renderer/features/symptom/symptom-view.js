@@ -611,12 +611,16 @@ function _installSymptomHeaderStyles(){
   const style=document.createElement('style');
   style.id='symEditorHeaderStyles';
   style.textContent=`
-    #symCatBox .sym-editor-header{padding:12px 18px;border-bottom:1px solid var(--bdr);background:var(--card);flex-shrink:0;color:var(--t1);font-family:var(--f)}
-    #symCatBox .sym-editor-topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 14px;margin-bottom:9px}
+    #symCatBox .sym-editor-header{padding:10px 18px;border-bottom:1px solid var(--bdr);background:var(--card);flex-shrink:0;color:var(--t1);font-family:var(--f)}
+    #symCatBox .sym-editor-topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 14px;margin-bottom:7px}
     #symCatBox .sym-editor-title{font-size:13px;font-weight:700;line-height:1.5;color:var(--t2)}
     #symCatBox .sym-editor-date{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1.5;color:var(--t2);font-variant-numeric:tabular-nums}
     #symCatBox .sym-editor-date strong{font-weight:700;color:var(--t1)}
-    #symCatBox .sym-editor-person-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:10px}
+    #symCatBox .sym-editor-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
+    #symCatBox .sym-editor-close{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:52px;min-height:32px;box-sizing:border-box;padding:5px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--t1);font:600 12px/1.45 var(--f);cursor:pointer;white-space:nowrap}
+    #symCatBox .sym-editor-close:hover{border-color:var(--cyan);color:var(--cyan)}
+    #symCatBox .sym-editor-close:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+    #symCatBox .sym-editor-person-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:8px}
     #symCatBox .sym-editor-person{display:flex;flex:1 1 220px;min-width:0;flex-direction:column;gap:2px}
     #symCatBox .sym-editor-name-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
     #symCatBox .sym-editor-name{font-size:20px;line-height:1.3;font-weight:800;letter-spacing:-.3px;overflow-wrap:anywhere;color:var(--t1)}
@@ -624,8 +628,8 @@ function _installSymptomHeaderStyles(){
     #symCatBox .sym-editor-affiliation{font-size:13px;line-height:1.45;color:var(--t2);overflow-wrap:anywhere}
     #symCatBox .sym-editor-meta{font-size:12px;line-height:1.5;color:var(--t2);overflow-wrap:anywhere}
     #symCatBox .sym-editor-header .sym-time-chip{display:inline-flex;align-items:center;min-height:30px;box-sizing:border-box;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--t1);font:600 12px/1.5 var(--f);font-variant-numeric:tabular-nums;cursor:pointer}
-    #symCatBox .sym-editor-group{display:grid;grid-template-columns:62px minmax(0,1fr);align-items:start;gap:8px;padding-top:7px;margin-top:7px;border-top:1px solid var(--bdr)}
-    #symCatBox .sym-editor-group-label{padding-top:7px;font-size:12px;line-height:1.5;font-weight:700;color:var(--t2)}
+    #symCatBox .sym-editor-group{display:grid;grid-template-columns:62px minmax(0,1fr);align-items:start;gap:8px;padding-top:5px;margin-top:5px;border-top:1px solid var(--bdr)}
+    #symCatBox .sym-editor-group-label{padding-top:6px;font-size:12px;line-height:1.5;font-weight:700;color:var(--t2)}
     #symCatBox .sym-editor-group-items{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
     /* Live counters still write legacy inline colors; keep one header-only palette. */
     #symCatBox .sym-editor-header .sym-hdr-chip{--sym-chip-fg:var(--t2);--sym-chip-bg:var(--bg2);--sym-chip-border:var(--bdr);display:inline-flex;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;min-height:32px;max-width:100%;margin:0;padding:5px 9px;border:1px solid;border-radius:6px;font:600 12px/1.45 var(--f);text-align:left;white-space:normal;overflow-wrap:anywhere;vertical-align:middle;box-shadow:none;color:var(--sym-chip-fg)!important;background:var(--sym-chip-bg)!important;border-color:var(--sym-chip-border)!important}
@@ -635,11 +639,118 @@ function _installSymptomHeaderStyles(){
     #symCatBox .sym-editor-header .sym-hdr-chip.is-note{--sym-chip-fg:var(--cyan);--sym-chip-bg:color-mix(in srgb,var(--cyan) 7%,var(--card));--sym-chip-border:color-mix(in srgb,var(--cyan) 30%,var(--bdr))}
     #symCatBox .sym-editor-header .sym-hdr-chip:focus-visible,#symCatBox .sym-editor-header .sym-time-chip:focus-visible,#symCatBox .sym-editor-header #symQuickSearchInput:focus-visible{outline:2px solid var(--cyan)!important;outline-offset:2px}
     #symCatBox .sym-editor-header #symQuickSearchInput{font-size:13px!important;line-height:1.5;padding:8px 11px!important}
+    /* 증상·처치 본문 가독성: 창 크기와 상단 도구는 유지하고 선택 항목만 조정한다. */
+    #symCatBox :is(#symCatList,#symSymList,#symTreatPanel){min-width:0;line-height:1.5}
+    #symCatBox #symCatList .sym-cat-item{font-size:14px!important;min-height:38px;box-sizing:border-box;line-height:1.45}
+    #symCatBox #symCatList .sym-cat-item>span:nth-child(2){min-width:0;line-height:1.45!important;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+    #symCatBox #symSymList .sym-sel-chip[data-action="toggleSym"]{font-size:15px!important;line-height:1.5;min-height:38px;max-width:calc(100% - 8px);box-sizing:border-box;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+    #symCatBox #symTreatPanel .sym-fav-chip{font-size:15px!important;line-height:1.5;min-height:34px;max-width:100%;box-sizing:border-box;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+    #symCatBox #symTreatPanel .sym-fav-chip:not(.is-sel):not([data-sel="1"]){color:var(--t1)!important}
+    #symCatBox #symTreatPanel :is(.sym-treat-chip,[data-action="addUserTreat"],[data-action="openFreeText"]),
+    #symCatBox #symSymList .sym-sel-chip[data-action="openSymFreeText"]{font-size:14px!important;line-height:1.5;min-height:32px;max-width:100%;box-sizing:border-box;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+    #symCatBox #symSymList .sym-sel-chip:is([data-action="toggleSym"],[data-action="openSymFreeText"]) [style*="text-overflow"],
+    #symCatBox #symTreatPanel :is(.sym-fav-chip,.sym-treat-chip) [style*="text-overflow"]{min-width:0;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
+    /* 본문 가독성 조정 끝 */
+    /* 입력 흐름 정돈: 기능과 창 크기는 유지하고 학교용의 부드러운 색감을 살린다. */
+    #symCatBox .sym-editor-group{border-top-color:color-mix(in srgb,var(--bdr) 62%,transparent)}
+    #symCatBox #symTreatPanel .sym-block-pair{--sym-soft-accent:#539861;--sym-soft-heading:#347847;--sym-soft-line:color-mix(in srgb,var(--sym-soft-accent) 28%,var(--bdr));margin-bottom:14px;padding:12px 14px;border:1px solid var(--sym-soft-line);border-radius:14px;background:color-mix(in srgb,var(--sym-soft-accent) 5%,var(--card))}
+    body:not(.light) #symCatBox #symTreatPanel .sym-block-pair{--sym-soft-accent:#7cbd90;--sym-soft-heading:#a4dcad}
+    #symCatBox #symTreatPanel .sym-block-label{margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--sym-soft-heading);font-size:13px;font-weight:700;line-height:1.5}
+    #symCatBox #symTreatPanel .sym-block-label .num{background:var(--bg2);color:inherit}
+    #symCatBox #symTreatPanel .sym-block{padding:0;border:0;border-radius:0;background:transparent}
+    #symCatBox #symTreatPanel .sym-block-head{margin:8px 0 12px;gap:6px}
+    #symCatBox #symTreatPanel .sym-breadcrumb{padding:0;border:0;border-radius:0;background:transparent;font-size:13px;line-height:1.5}
+    #symCatBox #symTreatPanel .sym-breadcrumb b{font-size:14px}
+    #symCatBox #symTreatPanel .sym-block-sub-title{margin:0 0 6px;font-size:12px;font-weight:600}
+    #symCatBox #symTreatPanel .sym-sum-wrap>span:not(.sym-sel-chip){font-size:12px!important;line-height:1.5;font-style:normal!important;opacity:1!important}
+    #symCatBox #symTreatPanel .sym-block-divider{margin:12px 0;border:0;border-top:1px solid color-mix(in srgb,var(--sym-soft-line) 55%,transparent)}
+    #symCatBox #symTreatPanel .sym-fav-acc{border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+    #symCatBox #symTreatPanel .sym-fav-acc-head{padding:0;margin-bottom:6px;background:transparent;gap:6px;flex-wrap:wrap}
+    #symCatBox #symTreatPanel .sym-fav-acc-head .chev{display:none}
+    #symCatBox #symTreatPanel .sym-fav-acc-head .title{font-weight:600;color:var(--sym-soft-heading)}
+    #symCatBox #symTreatPanel .sym-fav-hint{margin:0 0 8px;color:var(--t3);font-size:12px;line-height:1.5}
+    #symCatBox #symTreatPanel .sym-fav-acc-body{padding:0;gap:7px;align-items:flex-start}
+    #symCatBox #symTreatPanel .sym-fav-chip{min-height:36px;padding:5px 10px!important;border-style:solid!important;border-radius:12px!important}
+    #symCatBox #symTreatPanel .sym-fav-chip:not(.is-sel):not([data-sel="1"]){border-color:var(--sym-soft-line)!important;background:var(--card)!important}
+    #symCatBox #symTreatPanel .sym-fav-tools{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:0;border-top:0}
+    #symCatBox #symTreatPanel .sym-fav-tools>.sym-sel-chip{min-height:32px;padding:4px 9px!important;border:1px solid color-mix(in srgb,#d89558 28%,var(--bdr))!important;border-radius:10px!important;background:color-mix(in srgb,#d89558 4%,var(--card))!important;color:var(--t2)!important;font-size:13px!important;font-weight:600!important}
+    #symCatBox #symTreatPanel .sym-fav-tools>[data-action="addUserTreat"]{color:color-mix(in srgb,#d47b32 65%,var(--t1))!important}
+    /* 보조 아이콘의 원래 색을 은은하게 표시하고 입력된 부위·메모의 강조는 유지한다. */
+    #symCatBox #symSymList [data-action="toggleSym"]{border-radius:10px!important}
+    #symCatBox #symSymList [data-action="toggleSym"] :is(.sym-bm-mark,.sym-chip-pen){display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;min-width:24px;min-height:24px;box-sizing:border-box;padding:0!important;transform:none;box-shadow:none}
+    #symCatBox #symSymList [data-action="toggleSym"]:not(.has-bm) .sym-bm-mark,
+    #symCatBox #symSymList [data-action="toggleSym"]:not(.is-sel) .sym-chip-pen{filter:grayscale(.2);opacity:.85}
+    @media(hover:hover){
+      #symCatBox #symTreatPanel .sym-fav-chip:not(.is-sel):not([data-sel="1"]):hover{border-color:var(--sym-soft-accent)!important;background:color-mix(in srgb,var(--sym-soft-accent) 9%,var(--card))!important}
+      #symCatBox #symTreatPanel .sym-fav-tools>.sym-sel-chip:hover{border-color:color-mix(in srgb,#d89558 65%,var(--bdr))!important;color:var(--t1)!important;background:color-mix(in srgb,#d89558 9%,var(--card))!important}
+      #symCatBox #symSymList [data-action="toggleSym"] :is(.sym-bm-mark,.sym-chip-pen):hover{filter:none;opacity:1;transform:none}
+    }
+    /* 입력 흐름 정돈 끝 */
+
+
     @media(hover:hover){#symCatBox .sym-editor-header .sym-hdr-chip[data-action]:hover{box-shadow:inset 0 0 0 1px var(--sym-chip-border)}#symCatBox .sym-editor-header .sym-hdr-chip:not(.is-caution):not(.is-danger):not(.is-note):hover{--sym-chip-fg:var(--cyan)}#symCatBox .sym-editor-header .sym-time-chip:hover{border-color:var(--cyan)}}
     @media(max-width:760px){#symCatBox .sym-editor-header{padding:10px 12px}#symCatBox .sym-editor-person{flex-basis:100%}#symCatBox .sym-editor-group{grid-template-columns:56px minmax(0,1fr);gap:6px}}
     @media(max-height:640px){#symCatBox .sym-editor-header{padding-top:8px;padding-bottom:8px}#symCatBox .sym-editor-topline{margin-bottom:5px}#symCatBox .sym-editor-person-row{margin-bottom:6px}#symCatBox .sym-editor-name{font-size:18px}#symCatBox .sym-editor-group{padding-top:4px;margin-top:4px}#symCatBox .sym-editor-header .sym-hdr-chip{min-height:28px;padding-top:3px;padding-bottom:3px}}
   `;
   document.head.appendChild(style);
+}
+
+/* 최근 방문 이력은 함께 열람하고, 그 밖의 배경 클릭은 기존 저장·완료 경로로 닫는다. */
+/* 배경은 이력 아래에, 작성창은 이력 위에 두어 겹침과 클릭 경로를 분리한다. */
+function _attachSymptomBackdrop(ov){
+  const backdrop=document.createElement('div');
+  backdrop.id='symCatBackdrop';
+  backdrop.setAttribute('aria-hidden','true');
+  backdrop.dataset.schoolModalEffects='off';
+  backdrop.style.cssText='position:fixed;inset:0;z-index:9500;background:transparent';
+  ov._symBackdrop=backdrop;
+  ov.style.zIndex='9560';
+  ov.style.pointerEvents='none';
+  if(ov.firstElementChild)ov.firstElementChild.style.pointerEvents='auto';
+  document.body.appendChild(backdrop);
+  const watcher=new MutationObserver(function(){
+    if(ov.isConnected)return;
+    backdrop.remove();
+    watcher.disconnect();
+  });
+  watcher.observe(document.body,{childList:true});
+}
+
+function _bindSymptomDismissal(ov){
+  let pressedOutside=false;
+  const backdrop=ov._symBackdrop;
+  const surfaces=backdrop?[ov,backdrop]:[ov];
+  const isOutside=target=>target===ov||target===backdrop;
+  surfaces.forEach(function(surface){
+  surface.addEventListener('mousedown',function(e){
+    pressedOutside=isOutside(e.target)&&e.button===0;
+    e.stopPropagation();
+  });
+  surface.addEventListener('click',function(e){
+    const closeOutside=pressedOutside&&isOutside(e.target);
+    pressedOutside=false;
+    e.stopPropagation();
+    /* 창 안에서 시작한 드래그나 창 복귀 클릭은 작성 완료로 처리하지 않는다. */
+    if(!closeOutside||window._symFocusJustReturned)return;
+    const top=document.querySelector('[data-school-modal-layer="top"]');
+    if(top&&top!==ov)return;
+    if(document.getElementById('symHistoryOverlay')||document.getElementById('bmOverlay')||document.getElementById('symMedPopup'))return;
+    const settings=document.getElementById('settingsModal');
+    if(settings&&settings.classList.contains('show'))return;
+    _symComplete();
+  });
+  });
+  const closeButton=ov.querySelector('[data-action="closeSymptomPopup"]');
+  if(!closeButton)return;
+  closeButton.addEventListener('click',function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    _symComplete();
+  });
+  closeButton.addEventListener('keydown',function(e){
+    /* 버튼의 기본 Enter·Space·Tab 동작을 증상 선택 단축키가 가로채지 않게 한다. */
+    if(e.key==='Enter'||e.key===' '||e.key==='Tab')e.stopPropagation();
+  });
 }
 
 export function openSymptomCategoryPopup(recId, opts){
@@ -930,9 +1041,8 @@ export function openSymptomCategoryPopup(recId, opts){
       _rentalCnt = _rlRecs.filter(function(r){ return r && r.personId == rec.studentId && !r.returned; }).length;
     }
   } catch(_) {}
-  /* 과거 방문 이력 건수 (현재 날짜 제외, 날짜 기준 고유 카운트) */
-  const _visitDates={};S.records.forEach(function(r){if(recInStuKeys(r,_stuKeys)&&r.date!==rec.date)_visitDates[r.date]=1;});
-  const _visitCnt=Object.keys(_visitDates).length;
+  /* 현재 작성 중인 기록만 제외하고, 같은 날의 다른 방문도 각각 집계한다. */
+  const _visitCnt=_symHistoryVisits(rec.personUid||rec.studentId,recId).length;
   /* V/S 이력 건수 — 같은 학생의 모든 일지 중 V/S 필드(체온/혈압/맥박/호흡/SpO₂/BST) 하나라도 입력된 건수 */
   let _vsHistCount=0;
   S.records.forEach(function(r){
@@ -952,8 +1062,10 @@ export function openSymptomCategoryPopup(recId, opts){
 
   /* 1행: 제목 */
   h+='<div class="sym-editor-topline"><div class="sym-editor-title">증상 선택 및 처치</div>'
+    +'<div class="sym-editor-actions">'
     +(rec.date?'<span class="sym-editor-date">기록일 <strong>'+escHtml(rec.date)+'</strong></span>':'')
-    +'</div>';
+    +'<button type="button" class="sym-editor-close" data-action="closeSymptomPopup" title="증상·처치 창 닫기 (Esc)" aria-label="증상·처치 창 닫기">닫기</button>'
+    +'</div></div>';
   /* 2행: 학년반(소속) + 이름 / 주 보호자 연락처 / 생년월일 — 칩 3개로 분리 */
   /* 미입력 표시 헬퍼 — 빈 값/'-' 면 기울임체 "(미입력)", 아니면 escHtml 그대로 */
   const _emptyMark='<span style="font-style:italic;opacity:0.7;font-weight:500">(미입력)</span>';
@@ -1066,38 +1178,15 @@ export function openSymptomCategoryPopup(recId, opts){
   h+='</div>';
   h+='</div></div>';
   ov.innerHTML=h;
-  ov.addEventListener('mousedown',function(e){
-    if(e.target===ov){
-      /* 바디맵/투약/설정 모달이 열려있으면 증상 팝업은 닫지 않음 */
-      if(document.getElementById('bmOverlay'))return;
-      if(document.getElementById('symMedPopup'))return;
-      const _setOv=document.getElementById('settingsModal');
-      if(_setOv&&_setOv.classList.contains('show'))return;
-      /* 병원 찾기 / 외부 창에서 main 으로 포커스 복귀한 직후 mousedown 은 무시.
-       * 사용자 보고: 병원 찾기 창 외부 클릭 시 증상 팝업도 같이 닫히는 문제.
-       * 외부창에서 main 으로 돌아온 클릭은 popup 닫기 의도가 아니므로 200ms 디바운스. */
-      if(window._symFocusJustReturned)return;
-      /* 사이드바 가로 영역 안의 클릭은 닫지 않음 — 사용자가 최근 보건실 방문이력 카드를 클릭했는데,
-       *  카드 본문이 짧아 카드 아래 빈 공간(실제론 ov 영역) 까지 클릭한 경우 팝업이 의도치 않게 닫히지 않도록.
-       *  사이드바는 본래 z:9550 으로 ov 위에 있어 카드 위 직접 클릭은 사이드바가 target 이 되어 이미 통과되지만,
-       *  카드 아래/사이드바 컬럼의 빈 공간은 ov 가 target 이라 추가 가드가 필요. (사용자 요청 2026-05-19) */
-      const _sb=document.querySelector('.sidebar');
-      if(_sb){
-        const _r=_sb.getBoundingClientRect();
-        if(e.clientX>=_r.left && e.clientX<=_r.right)return;
-      }
-      _symComplete();return;
-    }
-    e.stopPropagation();
-  });
-  ov.addEventListener('click',function(e){e.stopPropagation();});
+  _attachSymptomBackdrop(ov);
+  _bindSymptomDismissal(ov);
   document.body.appendChild(ov);
   /* 증상 선택 및 처치 팝업 전역 미니 팝업 위임 — 카테고리 패널·처치 패널·헤더 칩 등 모든 자식 요소의
    * data-tooltip 호버를 통일된 GUI(showHeaderTooltip) 로 처리. (2026-05-20 통합) */
   _symBindTipDelegation(ov);
   /* 사용자 요청 (2026-05-19) — 증상 팝업 열린 동안 좌측 사이드바를 ov(z:9500) 위로 끌어올려
      "최근 보건실 방문 이력"에서 마우스 휠 스크롤로 과거 이력 열람 가능하게.
-     ov 외부 클릭으로 팝업이 닫히는 정책은 그대로 유지 (사이드바 영역은 클릭이 사이드바로 흡수되어 닫기 미발생 — 의도된 동작).
+     최근 방문 이력은 클릭·스크롤해도 유지하고, 다른 배경 클릭은 기존 완료 경로로 닫는다.
      ov 가 DOM 에서 사라지면 자동으로 body 클래스 해제. */
   document.body.classList.add('sym-popup-open');
   /* visitHistoryBody 영역 위에서 휠을 굴리면 그쪽 scrollTop 을 직접 변경 — 증상 팝업이 떠있는 동안
@@ -1105,7 +1194,8 @@ export function openSymptomCategoryPopup(recId, opts){
      좌표가 visitHistoryBody 안일 때만 작동. (사용자 요청 2026-05-19) */
   const _symVhWheel = function(e){
     const vhBody=document.getElementById('visitHistoryBody');
-    if(!vhBody)return;
+    if(!vhBody||!vhBody.contains(e.target))return;
+    /* 좌표가 겹쳐도 작성창 위에서 굴린 휠을 뒤쪽 방문 이력으로 보내지 않는다. */
     if(vhBody.offsetParent===null)return; /* 숨김 상태 */
     const r=vhBody.getBoundingClientRect();
     if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
@@ -1393,6 +1483,11 @@ export function openSymptomCategoryPopup(recId, opts){
     /* 증상 팝업 위에 떠 있는 자식 팝업(옵션 선택·미니 약품 픽커·옵션 3/5/복합 모달·약품 정보/검색·프롬프트)이 있으면
      *  ESC 는 그 자식 팝업이 스스로 닫도록 두고 증상 팝업은 닫지 않는다 (사용자 보고 2026-06-04). */
     if(e.key==='Escape' && (document.getElementById('symAddOptOverlay')||document.getElementById('symMiniDrugPick')||document.getElementById('symAddMixedOverlay')||document.getElementById('symAddNoMedOverlay')||document.getElementById('symAddCpxOverlay')||document.getElementById('drugInfoPopup')||document.getElementById('drugSearchOverlay')||document.getElementById('symPromptOverlay'))){
+      return;
+    }
+    /* 전체 이력 열람 중에는 키 입력도 이력 창에 양보하고, Esc는 이력 창만 닫는다. */
+    if(document.getElementById('symHistoryOverlay')){
+      if(e.key==='Escape'){e.preventDefault();_symCloseHistory();}
       return;
     }
     if(e.key==='Escape'){_symComplete();document.removeEventListener('keydown',_symKeyNav);return;}
@@ -2824,8 +2919,9 @@ function _symRenderSingleBlock(recId, opts){
 
   /* 자주 쓰는 처치 칩 */
   let favChipsHtml='';
-  favChipsHtml+='<span class="sym-sel-chip" data-action="addUserTreat" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상에 새 처치 칩을 추가합니다." data-tooltip-instant="1" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:800;border-radius:12px;cursor:pointer;border:1.5px dashed #f97316;background:rgba(249,115,22,0.12);color:#f97316;font-family:var(--f)">+ 추가</span>';
-  favChipsHtml+='<span class="sym-sel-chip" data-action="openFreeText" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.08);color:#d97706;font-family:var(--f)" data-tooltip="일회성으로 처치를 자유롭게 적을 수 있습니다." data-tooltip-instant="1">✏️ 처치 자유 기입</span>';
+  let favToolsHtml='';
+  favToolsHtml+='<span class="sym-sel-chip" data-action="addUserTreat" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상에 새 처치 칩을 추가합니다." data-tooltip-instant="1" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:800;border-radius:12px;cursor:pointer;border:1.5px dashed #f97316;background:rgba(249,115,22,0.12);color:#f97316;font-family:var(--f)">+ 추가</span>';
+  favToolsHtml+='<span class="sym-sel-chip" data-action="openFreeText" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.08);color:#d97706;font-family:var(--f)" data-tooltip="일회성으로 처치를 자유롭게 적을 수 있습니다." data-tooltip-instant="1">✏️ 처치 자유 기입</span>';
   recArr.forEach(function(t){
     const isFixed=FIXED_FAVS.indexOf(t)!==-1;
     const isCore=CORE_FIXED.indexOf(t)!==-1;
@@ -2872,10 +2968,11 @@ function _symRenderSingleBlock(recId, opts){
   blockHtml+='<span class="count">'+recArr.length+'개</span>';
   blockHtml+='</div>';
   /* 안내 — "자" 글자 위치에 맞춤 (chev 10px + gap 8px + padding 12px = ~30px) */
-  blockHtml+='<div style="padding:5px 12px 6px 30px;font-size:10.5px;color:var(--t3);font-weight:600;line-height:1.5">칩 하나 이상을 선택해주세요.</div>';
+  blockHtml+='<div class="sym-fav-hint">처치를 선택하세요.</div>';
   blockHtml+='<div class="sym-fav-acc-body sym-fav-wrap">';
   blockHtml+=favChipsHtml;
   blockHtml+='</div>';
+  blockHtml+='<div class="sym-fav-tools">'+favToolsHtml+'</div>';
   blockHtml+='</div>';
   blockHtml+='</div>';
   blockHtml+='</div>';
@@ -5750,6 +5847,8 @@ export function openDrugSearchPopup(){
   document.body.appendChild(ov);
   requestAnimationFrame(function(){pop.style.opacity='1';pop.style.transform='scale(1)';});
   function _close(){
+    if(_searchTimer)clearTimeout(_searchTimer);
+    _seq++;
     const p=document.getElementById('drugSearchPopup');
     const o=document.getElementById('drugSearchOverlay');
     if(p){p.style.opacity='0';p.style.transform='scale(0.95)';}
@@ -5786,6 +5885,7 @@ export function openDrugSearchPopup(){
      *  리스트를 갈아엎어 클릭하려던 항목이 사라졌다(→ 클릭 무시·재검색). clearTimeout 으로 그 연쇄를
      *  합치고, 값이 실제로 바뀐 경우(_lastSearched 비교)에만 갱신하면 재발화가 흡수되어 리스트가 유지된다. */
     _searchTimer=setTimeout(function(){
+      if(!ov.isConnected)return;
       if(raw===_lastSearched)return;
       _lastSearched=raw;
       if(raw.length<2){
@@ -5805,10 +5905,10 @@ export function openDrugSearchPopup(){
         list.innerHTML='<div style="padding:30px;text-align:center;color:var(--rd);font-size:11px">검색 기능을 사용할 수 없습니다.</div>';
         return;
       }
-      window.electronAPI.externalSearchDrugList(apiKey,raw).then(function(res){
-        if(mySeq!==_seq)return; /* 더 새 입력이 있으면 무시 */
+      window.electronAPI.externalSearchDrugList(getPublicDataApiKey('drug'),raw).then(function(res){
+        if(mySeq!==_seq||!ov.isConnected||input.value.trim()!==raw)return; /* 오래된 응답을 다른 검색의 결과로 표시하지 않는다. */
         if(!res||!res.success){
-          list.innerHTML='<div style="padding:30px;text-align:center;color:var(--rd);font-size:11px;line-height:1.7">'+escHtml((res&&res.error)||'검색 실패')+'</div>';
+          list.innerHTML='<div style="padding:30px;text-align:center;color:var(--rd);font-size:11px;line-height:1.7">'+escHtml((res&&res.diagnostic&&res.diagnostic.summary)||'약품 검색에 실패했습니다. 잠시 후 다시 시도해 주세요.')+'</div>';
           return;
         }
         let items=res.items||[];
@@ -5832,8 +5932,8 @@ export function openDrugSearchPopup(){
         if(items.length>80)html+='<div style="padding:8px;text-align:center;font-size:9px;color:var(--t3)">... 외 '+(items.length-80)+'건</div>';
         list.innerHTML=html;
       }).catch(function(e){
-        if(mySeq!==_seq)return;
-        list.innerHTML='<div style="padding:30px;text-align:center;color:var(--rd);font-size:11px">오류: '+escHtml(e&&e.message||'알 수 없음')+'</div>';
+        if(mySeq!==_seq||!ov.isConnected||input.value.trim()!==raw)return;
+        list.innerHTML='<div style="padding:30px;text-align:center;color:var(--rd);font-size:11px">검색 요청의 결과를 받지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
       });
     },350);
   });
@@ -8913,18 +9013,32 @@ function _symCloseBmHistory(){
   setTimeout(function(){if(ov.parentNode)ov.parentNode.removeChild(ov);},220);
 }
 
+/* 칩의 건수와 이력 목록에 같은 기준을 사용한다. 전체 이력은 현재 기록도 포함한다. */
+function _symHistoryVisits(stuId,curRecId){
+  const curRec=curRecId==null?null:getDailyRecord(curRecId);
+  const currentIds=new Set([curRecId,curRec&&curRec.id,curRec&&curRec._dbId]
+    .filter(function(id){return id!=null&&id!=='';}).map(String));
+  const keys=stuKeySet(stuId);
+  return S.records.filter(function(r){
+    if(!r||r._deleted||r._isDummy||!recInStuKeys(r,keys))return false;
+    if(r===curRec)return false;
+    return ![r.id,r._dbId].some(function(id){
+      return id!=null&&id!==''&&currentIds.has(String(id));
+    });
+  }).sort(function(a,b){
+    return String(b.date||'').localeCompare(String(a.date||''))
+      ||String(b.timeIn||'').localeCompare(String(a.timeIn||''),undefined,{numeric:true})
+      ||(Number(b._dbId||b.id)||0)-(Number(a._dbId||a.id)||0);
+  });
+}
+
 /* ── 과거 방문 이력 미니 팝업 ── */
 export function _symShowHistory(stuId,curRecId){
   const existing=document.getElementById('symHistoryOverlay');
   if(existing){_symCloseHistory();return;}
-  /* 현재 레코드 제외한 과거 방문만 필터 (칩 건수와 일치 — 날짜 기준 고유 카운트) */
-  const curRec=getDailyRecord(curRecId);
-  const curDate=curRec?curRec.date:'';
-  const _histKeys=stuKeySet(stuId);   /* 이력 누락 수정 (2026-08-26) — uid/구id·타입 혼재 모두 매칭 */
-  const allVisits=S.records.filter(function(r){return recInStuKeys(r,_histKeys)&&r.date!==curDate;}).sort(function(a,b){return b.date.localeCompare(a.date);});
-  /* 고유 날짜 수 (칩 숫자와 일치) */
-  const _uniqueDates={};allVisits.forEach(function(r){_uniqueDates[r.date]=1;});
-  const uniqueDateCnt=Object.keys(_uniqueDates).length;
+  /* 날짜 전체를 제외하지 않아 당일 재방문의 앞선 처치도 확인할 수 있다. */
+  const allVisits=_symHistoryVisits(stuId,curRecId);
+  const visitCount=allVisits.length;
   const visits=allVisits.slice(0,50);
 
   const ov=document.createElement('div');ov.id='symHistoryOverlay';
@@ -8933,7 +9047,7 @@ export function _symShowHistory(stuId,curRecId){
   const pop=document.createElement('div');pop.id='symHistoryPop';
   pop.style.cssText='width:460px;max-width:90vw;max-height:60vh;background:var(--card);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;opacity:0;transform:scale(0.92) translateY(10px);transition:opacity .25s ease, transform .25s ease';
   let h='<div class="sym-hist-header" style="padding:10px 16px;background:rgba(6,182,212,0.10);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;cursor:grab;user-select:none">'
-    +'<span style="font-size:13px;font-weight:800;color:var(--t1)">📅 과거 방문 이력 ('+uniqueDateCnt+'건)</span>'
+    +'<span style="font-size:13px;font-weight:800;color:var(--t1)">📅 과거 방문 이력 ('+visitCount+'건)</span>'
     +'</div>';
   h+='<div style="flex:1;overflow-y:auto;padding:8px">';
   visits.forEach(function(v){
@@ -8942,7 +9056,9 @@ export function _symShowHistory(stuId,curRecId){
      * __flat__ 또는 이전 증상 키가 남아 있어도 미분기 기록을 분기하지 않는다. */
     const _isMultiSym = shouldShowTreatmentBySymptom(v);
     h+='<div style="padding:8px 10px;border-bottom:1px solid var(--bdr);display:flex;align-items:flex-start;gap:8px">';
-    h+='<span style="font-size:11px;font-weight:700;color:var(--t2);min-width:80px;padding-top:1px">'+escHtml(v.date)+'</span>';
+    /* 같은 날짜의 방문을 구분할 수 있도록 입실 시간을 함께 표시한다. */
+    h+='<span style="font-size:11px;font-weight:700;color:var(--t2);min-width:80px;padding-top:1px">'+escHtml(v.date)
+      +(v.timeIn?'<span style="display:block;margin-top:3px;font-size:10px;font-weight:500">'+escHtml(v.timeIn)+'</span>':'')+'</span>';
     if(_isMultiSym){
       const _vsStrV = _vsValueStr(v);
       const _medDispForSym = function(sym){

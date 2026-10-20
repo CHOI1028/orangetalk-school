@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { createExternalApiModules } = require('./helpers/external-api-harness.cjs');
 const { normalizePublicDataApiKey, encodePublicDataApiKey } = require('../src/shared/public-data-api-key');
 
 const serviceSource = fs.readFileSync(path.join(__dirname, '../src/main/services/external-api-service.js'), 'utf8');
@@ -107,24 +108,27 @@ function serviceHarness(options = {}) {
     assert.match(url.pathname, supported, 'Unhandled endpoint must not silently pass');
     return { response: { header: { resultCode: '00' }, body: { totalCount: 1, items: { item: [{ hpid: 'SYNTHETIC_HPID', yadmNm: 'Synthetic facility', h0: '3', h3: '3', h6: '3', h9: '3' }] } } } };
   }
+  const rawFetch = async (input, init = {}) => {
+      const url = new URL(String(input));
+      requests.push({ url, init });
+      const data = responseFor(url);
+      return { ok: true, status: 200, json: async () => data, text: async () => JSON.stringify(data), headers: { get: () => 'application/json' } };
+    };
+  const modules = createExternalApiModules(rawFetch, { Date: FakeDate });
   const module = { exports: {} };
   const context = vm.createContext({
     module, exports: module.exports,
     require(name) {
-      assert.equal(name, '../../shared/public-data-api-key', 'The test must not load runtime modules or user storage');
-      return helpers;
+      if (name === '../../shared/public-data-api-key') return helpers;
+      if (modules.has(name)) return modules.get(name);
+      throw new Error('검사 중 실행 모듈 또는 사용자 저장소 접근 금지: ' + name);
     },
     Date: FakeDate,
     URL, URLSearchParams, AbortController,
     AbortSignal: { timeout() { return undefined; } },
     setTimeout, clearTimeout,
     console: { log() {}, warn() {}, error() {} },
-    fetch: async (input, init = {}) => {
-      const url = new URL(String(input));
-      requests.push({ url, init });
-      const data = responseFor(url);
-      return { ok: true, status: 200, json: async () => data, text: async () => JSON.stringify(data), headers: { get: () => 'application/json' } };
-    }
+    fetch: rawFetch
   });
   vm.runInContext(serviceSource, context, { filename: 'external-api-service.js' });
   return {
@@ -179,7 +183,11 @@ for(const scenario of cases) {
         if(scenario.name === 'Emergency detail') assert.equal(result, null);
         else {
           assert.equal(result.success, false);
-          assert.match(result.error, /API 키/);
+          if(scenario.name === 'Drug search') {
+            assert.equal(result.error, '약품 검색에 사용할 인증키가 설정되어 있지 않습니다.');
+          } else {
+            assert.match(result.error, /API 키/);
+          }
         }
       }
       assert.equal(h.requests.length, 0, 'Missing credentials must not start public-data or Kakao requests');

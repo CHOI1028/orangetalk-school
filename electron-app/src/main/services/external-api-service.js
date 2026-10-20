@@ -2,6 +2,8 @@
 'use strict';
 
 const { normalizePublicDataApiKey, encodePublicDataApiKey } = require('../../shared/public-data-api-key');
+const { createDrugSearchDiagnostic, readPublicDataError } = require('./external-api-diagnostics');
+const { fetchDrugSearchText, fetchExternalApi: fetch } = require('./external-api-transport');
 
 /**
  * external-api-service.js — 외부 API 통합 서비스
@@ -92,7 +94,7 @@ class ExternalApiService {
     let lastErr = '';
     for (const url of tryUrls) {
       try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        const response = await fetch(url, { timeoutMs: 6000 });
         const text = await response.text();
         /* XML 에러 응답 (data.go.kr 공통 에러 포맷) */
         if (text.trim().startsWith('<')) {
@@ -154,7 +156,7 @@ class ExternalApiService {
     let lastErr = '';
     for (const url of tryUrls) {
       try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        const response = await fetch(url, { timeoutMs: 6000 });
         const text = await response.text();
         if (text.trim().startsWith('<')) { lastErr = 'XML 에러 응답'; continue; }
         let data;
@@ -210,7 +212,7 @@ class ExternalApiService {
     }
     const response = await fetch(url, {
       headers: { 'User-Agent': 'OrangePharmDiary/1.0' },
-      signal: AbortSignal.timeout(8000),
+      timeoutMs: 8000,
       redirect: 'manual'
     });
     const html = await response.text();
@@ -238,7 +240,7 @@ class ExternalApiService {
     try {
       const response = await fetch(url, {
         headers: { 'User-Agent': 'OrangePharmDiary/1.0' },
-        signal: AbortSignal.timeout(8000),
+        timeoutMs: 8000,
         ...(options.redirect === 'manual' ? { redirect: 'manual' } : {})
       });
       const text = await response.text();
@@ -275,7 +277,7 @@ class ExternalApiService {
     let lastErr = '';
     for (const url of tryUrls) {
       try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const response = await fetch(url, { timeoutMs: 8000 });
         const text = await response.text();
         /* XML 에러 응답 (data.go.kr 공통 에러 포맷) */
         if (text.trim().startsWith('<')) {
@@ -327,37 +329,58 @@ class ExternalApiService {
   /* 약품 검색용 — 입력 한 단어로 e약은요에서 매칭되는 후보 리스트 반환 (최대 50개)
      팝업 자동완성에서 사용. 짧은 입력(2글자)도 그대로 위임. */
   async searchDrugList(serviceKey, query) {
-    if (!normalizePublicDataApiKey(serviceKey)) return { success: false, error: '식약처 API 키를 입력해 주세요' };
-    if (!query || query.length < 1) return { success: true, items: [] };
-    const baseUrl = 'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
-    const keyForUrl = encodePublicDataApiKey(serviceKey);
-    const url = baseUrl + '?serviceKey=' + keyForUrl + '&itemName=' + encodeURIComponent(query) + '&type=json&numOfRows=50&pageNo=1';
+    const started = Date.now();
+    let stage = 'prepare', httpStatus = null, format = '', keyPresent = false;
+    let timedOut = false, transport = 'node', fallbackAttempted = false;
+    const finish = (kind, details = {}) => createDrugSearchDiagnostic({
+      started, stage, httpStatus, format, keyPresent, timedOut, transport, fallbackAttempted, kind, ...details
+    });
+    const fail = (kind, details) => {
+      const diagnostic = finish(kind, details);
+      return { success: false, error: diagnostic.summary, diagnostic };
+    };
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 6000);
-      const resp = await fetch(url, { signal: ctrl.signal });
-      clearTimeout(timer);
-      const text = await resp.text();
+      keyPresent = !!normalizePublicDataApiKey(serviceKey);
+      if (!keyPresent) return fail('missing_key');
+      if (!query) return { success: true, items: [], diagnostic: finish('no_query') };
+      if (typeof query !== 'string') return fail('invalid_input');
+      const baseUrl = 'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
+      const keyForUrl = encodePublicDataApiKey(serviceKey);
+      const url = baseUrl + '?serviceKey=' + keyForUrl + '&itemName=' + encodeURIComponent(query) + '&type=json&numOfRows=50&pageNo=1';
+      stage = 'request';
+      const result = await fetchDrugSearchText(url);
+      ({ stage, httpStatus, timedOut, transport, fallbackAttempted } = result);
+      if (!result.ok) return fail(undefined, { error: result.error });
+      const text = result.text;
       if (text.trim().startsWith('<')) {
-        return { success: false, error: 'API 에러 응답 (XML)', raw: text.substring(0, 200) };
+        format = 'XML';
+        const api = readPublicDataError(text);
+        if (api) { stage = 'service'; return fail('api', { api }); }
+        return fail(httpStatus < 200 || httpStatus >= 300 ? 'http' : 'response');
       }
       let data;
-      try { data = JSON.parse(text); } catch (e) { return { success: false, error: 'JSON 파싱 실패' }; }
-      if (data && data.OpenAPI_ServiceResponse) {
-        const h = data.OpenAPI_ServiceResponse.cmmMsgHeader || {};
-        return { success: false, error: (h.errMsg || h.returnAuthMsg || '') + (h.returnReasonCode ? ' (코드 ' + h.returnReasonCode + ')' : '') };
+      try { data = JSON.parse(text); }
+      catch (_) {
+        format = '기타';
+        return fail(httpStatus < 200 || httpStatus >= 300 ? 'http' : 'response');
       }
+      format = 'JSON';
+      const api = readPublicDataError(data);
+      stage = 'service';
+      if (api) return fail('api', { api });
+      if (httpStatus < 200 || httpStatus >= 300) return fail('http');
       const body = (data && data.body) || (data && data.response && data.response.body);
-      const rawItems = body && body.items;
+      if (!body || typeof body !== 'object') return fail('response');
+      const rawItems = body.items;
       const items = Array.isArray(rawItems) ? rawItems : (rawItems && rawItems.item) ? (Array.isArray(rawItems.item) ? rawItems.item : [rawItems.item]) : [];
-      const slim = items.map(it => ({
-        itemName: it.itemName || '',
-        entpName: it.entpName || '',
-        itemSeq: it.itemSeq || ''
+      const slim = items.filter(it => it && typeof it === 'object').map(it => ({
+        itemName: it.itemName || '', entpName: it.entpName || '', itemSeq: it.itemSeq || ''
       }));
-      return { success: true, items: slim };
-    } catch (err) {
-      return { success: false, error: err.message || String(err) };
+      stage = 'complete';
+      return { success: true, items: slim, diagnostic: finish('success') };
+    } catch (error) {
+      // 오류 메시지와 cause 원문에는 URL·키가 섞일 수 있어 허용 코드만 진단에 사용한다.
+      return fail(undefined, { error });
     }
   }
 
@@ -499,15 +522,7 @@ class ExternalApiService {
     const limitedSearches = _priorityOrder.slice(0, 15);
     console.log('[drug-info] 시도할 변형 목록:', limitedSearches);
     /* fetch 타임아웃 유틸 — data.go.kr 응답이 느릴 때 무한 대기 방지 */
-    const _fetchWithTimeout = (url, ms) => {
-      return new Promise((resolve, reject) => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => { ctrl.abort(); reject(new Error('timeout ' + ms + 'ms')); }, ms);
-        fetch(url, { signal: ctrl.signal })
-          .then(r => { clearTimeout(t); resolve(r); })
-          .catch(e => { clearTimeout(t); reject(e); });
-      });
-    };
+    const _fetchWithTimeout = (url, ms) => fetch(url, { timeoutMs: ms });
     const fetchVariant = async (query, timeoutMs) => {
       triedQueries.push(query);
       /* HTTPS 만 시도 — HTTP 폴백 제거로 변형당 요청 수 절반 축소 */
@@ -886,7 +901,7 @@ class ExternalApiService {
 class WeatherService {
   async getIpLocation() {
     try {
-      const response = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(5000) });
+      const response = await fetch('https://ipwho.is/', { timeoutMs: 5000 });
       const data = await response.json();
       return {
         latitude: data.latitude || 37.5665,
@@ -902,7 +917,7 @@ class WeatherService {
   async reverseGeocode(lat, lon) {
     try {
       const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&format=json&accept-language=ko&zoom=10';
-      const response = await fetch(url, { headers: { 'User-Agent': 'OrangePharmDiary/1.0' }, signal: AbortSignal.timeout(5000) });
+      const response = await fetch(url, { headers: { 'User-Agent': 'OrangePharmDiary/1.0' }, timeoutMs: 5000 });
       const geo = await response.json();
       const addr = geo.address || {};
       return { city: addr.city || addr.town || addr.county || addr.state || '' };
@@ -916,8 +931,8 @@ class WeatherService {
     const weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code,uv_index&daily=temperature_2m_max,temperature_2m_min,uv_index_max&timezone=Asia%2FSeoul&forecast_days=1';
     const airUrl = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&current=pm10,pm2_5&hourly=pm10,pm2_5&timezone=Asia%2FSeoul&forecast_days=1';
     const results = await Promise.all([
-      fetch(weatherUrl, { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(e => { console.warn('[weather] open-meteo 날씨 실패:', e.message); return null; }),
-      fetch(airUrl, { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(e => { console.warn('[weather] open-meteo 대기 실패:', e.message); return null; })
+      fetch(weatherUrl, { timeoutMs: 8000 }).then(r => r.json()).catch(e => { console.warn('[weather] open-meteo 날씨 실패:', e.message); return null; }),
+      fetch(airUrl, { timeoutMs: 8000 }).then(r => r.json()).catch(e => { console.warn('[weather] open-meteo 대기 실패:', e.message); return null; })
     ]);
     return { weather: results[0], airQuality: results[1] };
   }
@@ -930,7 +945,7 @@ class WeatherService {
     if (!kakaoRestKey) throw new Error('카카오 REST 키 없음');
     /* 1) 카카오 좌표→법정동코드(areaNo) */
     let areaNo = '';
-    const kr = await fetch('https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=' + encodeURIComponent(lon) + '&y=' + encodeURIComponent(lat), { headers: { Authorization: 'KakaoAK ' + kakaoRestKey }, signal: AbortSignal.timeout(6000) });
+    const kr = await fetch('https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=' + encodeURIComponent(lon) + '&y=' + encodeURIComponent(lat), { headers: { Authorization: 'KakaoAK ' + kakaoRestKey }, timeoutMs: 6000 });
     const ktext = await kr.text();
     let kj; try { kj = JSON.parse(ktext); } catch (_) { throw new Error('카카오 좌표변환 응답 오류(' + kr.status + '): ' + ktext.slice(0, 100)); }
     const docs = (kj && kj.documents) || [];
@@ -962,7 +977,7 @@ class WeatherService {
       const url = 'https://apis.data.go.kr/1360000/' + eps[i] + '?serviceKey=' + _sk + '&areaNo=' + encodeURIComponent(areaNo) + '&time=' + time + '&dataType=JSON&numOfRows=10&pageNo=1';
       let rtext = '', st = 0;
       try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const r = await fetch(url, { timeoutMs: 8000 });
         st = r.status; rtext = await r.text();
         const j = JSON.parse(rtext);
         const item = j && j.response && j.response.body && j.response.body.items && j.response.body.items.item && j.response.body.items.item[0];

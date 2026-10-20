@@ -21,7 +21,7 @@ function _appModal({title, body, okText='확인', cancelText='취소', danger=fa
     const old=document.getElementById('appModalOverlay'); if(old)old.remove();
     const ov=document.createElement('div');
     ov.id='appModalOverlay';
-    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);z-index:9900;display:flex;align-items:center;justify-content:center';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(1.2px);z-index:9900;display:flex;align-items:center;justify-content:center';
     const okStyle=danger
       ? 'background:rgba(239,68,68,0.15);color:#dc2626;border:1px solid rgba(239,68,68,0.4)'
       : 'background:rgba(6,182,212,0.12);color:var(--cyan);border:1px solid rgba(6,182,212,0.4)';
@@ -654,7 +654,7 @@ async function _openRetentionCleanupDialog(kind){
   const old=document.getElementById('retentionCleanupOverlay');if(old)old.remove();
   const ov=document.createElement('div');
   ov.id='retentionCleanupOverlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);z-index:9800;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(1.2px);z-index:9800;display:flex;align-items:center;justify-content:center';
   function _fmtDate(s){if(!s)return '-';return String(s).slice(0,10);}
   function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 

@@ -918,7 +918,7 @@ function _openYouTubeModal(videoId, title){
   if(document.getElementById('ytModalOverlay')) return;
   const ov=document.createElement('div');
   ov.id='ytModalOverlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s ease';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);backdrop-filter:blur(1.8px);display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s ease';
   ov.innerHTML='<div style="width:min(960px,92vw);max-height:92vh;display:flex;flex-direction:column;gap:10px">'
     +'<div style="display:flex;align-items:center;gap:10px;color:#fff">'
       +'<span style="font-size:14px;font-weight:700;flex:1">▶ '+(title||'').replace(/[<>&]/g,'')+'</span>'

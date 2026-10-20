@@ -8,6 +8,7 @@ import { matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.j
 import { getSymData, _symPrompt, getMedSystemSyms, refreshMedHidden, getEffectiveSymCats, getEffectiveSymCatById } from '../symptom/symptom-view.js';
 import { dailyColEyeIcon } from '../emergency/emergency-view.js';
 import { S, ensureHolidayYear } from '../../core/app-state.js';
+import { medicationSettings } from '../../core/medication-settings.js';
 import { showSchoolMealPopup, restartMealScheduler } from '../../core/school-meal.js';
 import { showTimetableModal } from '../../core/timetable.js';
 import { getClassPopups, removeClassPopupByKey, classPopupKey, classDowLabel, setClassPopupOn } from '../../core/class-popup.js';
@@ -373,20 +374,23 @@ export function _bindDiaryTabEvents(){
   if(medAddSrch){
     medAddSrch.addEventListener('input',function(){ _setMedAddEditRender(); _setMedAddBtnSync(); });
     /* Enter 키로도 추가 (입력란에서 빠른 등록) */
-    medAddSrch.addEventListener('keydown',function(e){
+    medAddSrch.addEventListener('keydown',async function(e){
       if(e.key==='Enter' && medAddSrch.value.trim()){
         e.preventDefault();
-        _setMedAddDirect(medAddSrch.value.trim());
+        const name=medAddSrch.value.trim();
+        if(!await _setMedAddDirect(name))return;
+        if(medAddSrch.value.trim()!==name)return;
         medAddSrch.value=''; _setMedAddEditRender(); _setMedAddBtnSync();
         try{medAddSrch.focus();}catch(_){}
       }
     });
   }
   if(medAddBtn){
-    medAddBtn.addEventListener('click',function(){
+    medAddBtn.addEventListener('click',async function(){
       if(!medAddSrch)return;
       const v=medAddSrch.value.trim(); if(!v)return;
-      _setMedAddDirect(v);
+      if(!await _setMedAddDirect(v))return;
+      if(medAddSrch.value.trim()!==v)return;
       medAddSrch.value=''; _setMedAddEditRender(); _setMedAddBtnSync();
       try{medAddSrch.focus();}catch(_){}
     });
@@ -594,11 +598,36 @@ bus.on('classpopup:changed',function(){ const l=document.getElementById('setClas
 
 /* ═══ 설정: 약품→증상 매칭 관리 ═══ */
 /* 데이터: { "약품명": ["증상1","증상2",...], ... } */
-const _userMedSyms=JSON.parse(localStorage.getItem('ec_user_med_syms')||'{}');
-function _saveMedSyms(){
-  localStorage.setItem('ec_user_med_syms',JSON.stringify(_userMedSyms));
-  if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','user_med_syms',_userMedSyms);
+let _medEditTail=Promise.resolve();
+let _medPopupRequest=0;
+let _medLoadState='idle';
+function _setMedSaveWarning(){
+  bus.emit('toast:show',{text:'약품 설정의 불러오기 또는 저장 완료를 확인하지 못했습니다. 기존 목록을 초기화하지 말고 연결을 확인한 뒤 다시 시도해 주세요.'});
 }
+function _setRunMedEdit(work,notify=true){
+  const task=_medEditTail.then(async function(){
+    let loaded=false;
+    try{
+      await medicationSettings.load();
+      loaded=true;_medLoadState='ready';
+      await work();
+      _setMedSearchRender();_setMedRenderCards();_setMedEditPopupRenderSlots();
+      try{refreshMedHidden();}catch(_){}
+      if(notify)bus.emit('toast:save');
+      return true;
+    }catch(_){
+      if(!loaded)_medLoadState='error';
+      _setMedRenderCards();_setMedSaveWarning();return false;
+    }
+  });
+  _medEditTail=task.then(function(){});
+  return task;
+}
+bus.on('settings:shared-changed',function(keys){
+  if((keys||[]).some(function(key){return ['user_med_syms','user_added_meds','user_med_syms_prefilled','med_hidden','med_renames','meddb_user'].includes(key);})){
+    _setMedSearchRender();_setMedRenderCards();_setMedEditPopupRenderSlots();
+  }
+});
 let _setMedEditTarget=''; /* 현재 증상 추가 중인 약품명 */
 
 /* 약품 입력 자동완성 */
@@ -606,7 +635,10 @@ export function _setMedInitInput(){
   /* 자동완성 없음 — 새 약품명 직접 입력 전용.
    * 2026-05-27 2단 재구성: 좌(숨기기) · 우(추가/수정) 두 컬럼 리스트의 초기 렌더 트리거.
    * xlsx 매핑(symptom_medicine_matching.xlsx) 도 백그라운드로 로드 (캐시 없을 때만 IPC). */
-  _setMedSearchRender();
+  _medLoadState='loading';_setMedRenderCards();
+  medicationSettings.load().then(function(){
+    _medLoadState='ready';_setMedSearchRender();_setMedRenderCards();
+  }).catch(function(){_medLoadState='error';_setMedRenderCards();_setMedSaveWarning();});
   try{ _setLoadXlsxMedSymMap(); }catch(_){}
   /* 안내문 height 동기화 — 좌측 안내문이 우측보다 짧아 검색창이 위로 떠 보이는 문제 해결.
    * 우측 height 를 측정해 좌측 min-height 로 적용 + ResizeObserver 로 viewport 변경 시 재동기화. */
@@ -631,42 +663,25 @@ export function _setMedInitInput(){
  *  "등록된 약품" 카드 목록에 시스템 약품이 등장하는 버그 발생.
  *  → 사용자가 직접 등록한 약품만 별도 store 에 마킹해 카드 목록 표시 대상으로 사용.
  *  _userMedSyms (매핑 데이터) 와 _userAddedMeds (등록 set) 두 store 로 의미 분리. */
-let _userAddedMeds=null;
 function _setGetUserAddedMeds(){
-  if(_userAddedMeds) return _userAddedMeds;
-  let s={};
-  try{ s=JSON.parse(localStorage.getItem('ec_user_added_meds')||'{}')||{}; }catch(_){}
-  /* 마이그레이션 — ec_user_added_meds 가 비어 있고 _userMedSyms 에 약품이 있다면 (이전 버전 사용자),
-   * prefilled 플래그가 없는 약품은 사용자가 직접 추가한 것으로 간주해 자동 마킹. */
-  if(Object.keys(s).length===0 && Object.keys(_userMedSyms).length>0){
-    let pf={};
-    try{ pf=JSON.parse(localStorage.getItem('ec_user_med_syms_prefilled')||'{}')||{}; }catch(_){}
-    Object.keys(_userMedSyms).forEach(function(m){ if(!pf[m]) s[m]=true; });
-    try{
-      localStorage.setItem('ec_user_added_meds',JSON.stringify(s));
-      if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','user_added_meds',s);
-    }catch(_){}
+  const added=medicationSettings.snapshot('user_added_meds');
+  if(!Object.keys(added).length){
+    const flags=medicationSettings.snapshot('user_med_syms_prefilled');
+    Object.keys(medicationSettings.snapshot('user_med_syms')).forEach(function(name){if(!flags[name])added[name]=true;});
   }
-  _userAddedMeds=s;
-  return s;
+  return added;
 }
-function _setMarkUserAddedMed(name){
-  const s=_setGetUserAddedMeds();
-  if(s[name]) return;
-  s[name]=true;
-  try{
-    localStorage.setItem('ec_user_added_meds',JSON.stringify(s));
-    if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','user_added_meds',s);
-  }catch(_){}
+async function _setMarkUserAddedMed(name){
+  await medicationSettings.update('user_added_meds',function(added){
+    if(!Object.keys(added).length)Object.assign(added,_setGetUserAddedMeds());
+    added[name]=true;
+  });
 }
-function _setUnmarkUserAddedMed(name){
-  const s=_setGetUserAddedMeds();
-  if(!s[name]) return;
-  delete s[name];
-  try{
-    localStorage.setItem('ec_user_added_meds',JSON.stringify(s));
-    if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','user_added_meds',s);
-  }catch(_){}
+async function _setUnmarkUserAddedMed(name){
+  await medicationSettings.update('user_added_meds',function(added){
+    if(!Object.keys(added).length)Object.assign(added,_setGetUserAddedMeds());
+    delete added[name];
+  });
 }
 
 /* 약품 추가 (_setMedAddDirect) —
@@ -676,33 +691,13 @@ function _setUnmarkUserAddedMed(name){
    시스템/사용자 JSON 은 분리 관리 (런타임에 검색 시 merge).
    (구 _setMedAdd 래퍼는 setMedAddInput 폐기와 함께 제거 — 호출자가 직접 _setMedAddDirect(name) 호출.) */
 function _setMedAddDirect(name){
-  if(!_userMedSyms[name])_userMedSyms[name]=[];
-  _saveMedSyms();
-  /* 사용자가 명시적으로 "+ 약품 추가" 한 약품으로 마킹 — 카드 목록 표시 대상 (시스템 prefill 과 분리) */
-  _setMarkUserAddedMed(name);
-  /* 사용자 요청 2026-05-27: 우측 추가 시 좌측에서 자동 unhide — 추가한 약품은 즉시 양쪽에 보여야 함. */
-  try{
-    const _h=JSON.parse(localStorage.getItem('ec_med_hidden')||'{}')||{};
-    if(_h[name]){
-      delete _h[name];
-      localStorage.setItem('ec_med_hidden',JSON.stringify(_h));
-      if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','med_hidden',_h);
-      if(typeof refreshMedHidden==='function') refreshMedHidden();
-    }
-  }catch(_){}
-  /* (구) setMedAddInput 은 2026-05-27 2단 재구성으로 제거됨 — 호출자(검색 input/button)가 input 값 정리/focus 담당. */
-  const dd=document.getElementById('setMedAddDD');if(dd)dd.style.display='none';
-  _setMedRenderCards();
-  /* 신규 약품이 좌·우 두 컬럼 리스트에도 즉시 반영되도록 재렌더 (외부 호출자 누락 대비). */
-  _setMedSearchRender();
-  /* "+약품 추가" 버튼 클릭 시점에 "저장 중… → 모든 내용이 저장되었습니다." 흐름 표시.
-     (타이핑 중에는 아무 토스트도 뜨지 않음 — #setMedAddInput 은 전역 input 리스너에서 제외됨) */
-  bus.emit('toast:saveLater');
-  setTimeout(function(){ bus.emit('toast:save'); }, 180);
-  /* ── 백그라운드 API fetch + 사용자 JSON 등재 ──
-     약품 이름으로 e약은요 API 호출 → 상세정보 획득 → medications_list.json 에 upsert.
-     UI 블로킹 없이 Promise 큐로 수행. 실패해도 사용자 매핑(_userMedSyms) 은 유지. */
-  _fetchAndCacheDrugFromEyakey(name);
+  name=String(name||'').trim();if(!name)return Promise.resolve(false);
+  return _setRunMedEdit(async function(){
+    await medicationSettings.update('user_med_syms',function(meds){if(!Object.prototype.hasOwnProperty.call(meds,name))meds[name]=[];});
+    await _setMarkUserAddedMed(name);
+    await medicationSettings.update('med_hidden',function(hidden){delete hidden[name];});
+    _fetchAndCacheDrugFromEyakey(name);
+  });
 }
 
 /* ── 시스템 약품 전체 일괄 조회 ──
@@ -1056,9 +1051,11 @@ async function _setMedRemove(name){
   }catch(_){}
   /* 사용자 정책 (2026-05-22): 한 번 클릭으로 즉시 삭제 — 확인 모달 제거.
    *  hasCache 는 아래 사용자 JSON 캐시 동기 제거 분기에서 사용. */
-  delete _userMedSyms[name];
-  _saveMedSyms();
-  _setUnmarkUserAddedMed(name);
+  const saved=await _setRunMedEdit(async function(){
+    await medicationSettings.update('user_med_syms',function(meds){delete meds[name];});
+    await _setUnmarkUserAddedMed(name);
+  });
+  if(!saved)return false;
   _eyakeyQueueRemove(name);
   /* 사용자 JSON 캐시에서도 제거 — 비동기. 캐시 없으면 noop. */
   if(hasCache && window.electronAPI&&window.electronAPI.jsonLoadCommon&&window.electronAPI.jsonSaveCommon){
@@ -1071,14 +1068,18 @@ async function _setMedRemove(name){
     }).catch(function(){});
   }
   _setMedRenderCards();
-  bus.emit('toast:save');
+  return true;
 }
 
 /* 약품 카드 목록 렌더 — 사용자 요청 2026-05-27: 한 줄 표시.
  *  · 표시 대상: 사용자가 "+ 약품 추가" 로 명시적으로 등록한 약품만 (_setGetUserAddedMeds).
  *  · 한 줄 = 약품명 + 증상 1~4 칩(읽기 전용) + ✕ 삭제. 매칭 편집은 우측 컬럼 ✏️ 미니 팝업에서. */
 export function _setMedRenderCards(){
+  const _userMedSyms=medicationSettings.snapshot('user_med_syms');
   const el=document.getElementById('setMedCardList');if(!el)return;
+  if(_medLoadState==='loading'||_medLoadState==='error'){
+    el.innerHTML='<div style="padding:14px;color:var(--t3)">'+(_medLoadState==='loading'?'약품 설정을 불러오는 중입니다.':'약품 설정을 불러오지 못했습니다. 설정을 다시 열어 주세요.')+'</div>';return;
+  }
   const userAdded=_setGetUserAddedMeds();
   const meds=Object.keys(_userMedSyms).filter(function(m){return userAdded[m];});
   if(!meds.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--t3);font-size:10px">등록된 약품이 없습니다. 위에서 새 약품을 추가하세요.</div>';return;}
@@ -1134,11 +1135,9 @@ export function _setMedRenderCards(){
 
 /* 증상에서 약품 제거 */
 function _setMedRemoveSym(med,sym){
-  if(!_userMedSyms[med])return;
-  _userMedSyms[med]=_userMedSyms[med].filter(function(s){return s!==sym;});
-  _saveMedSyms();
-  _setMedRenderCards();
-  bus.emit('toast:save');
+  return _setRunMedEdit(async function(){
+    await medicationSettings.update('user_med_syms',function(meds){if(meds[med])meds[med]=meds[med].filter(function(value){return value!==sym;});});
+  });
 }
 
 /* ── 증상 선택 피커 (카테고리1 → 카테고리2) ── */
@@ -1193,6 +1192,7 @@ function _setMedOpenSymPicker(med,btnEl){
 
 /* 카테고리1 선택 → 카테고리2(세부 증상) 표시 */
 function _setMedSymPickCat(catId){
+  const _userMedSyms=medicationSettings.snapshot('user_med_syms');
   const cats=getSymData().symCategories||[];
   const cat=cats.find(function(c){return c.id===catId;});
   if(!cat)return;
@@ -1229,28 +1229,30 @@ function _setMedSymPickCat(catId){
 }
 
 /* 증상 선택 → 약품에 매칭 추가 — 저장중/완료 토스트 + 증상 팝업 즉시 반영 */
-function _setMedSymPick(sym){
-  if(!_setMedEditTarget)return;
-  if(!_userMedSyms[_setMedEditTarget])_userMedSyms[_setMedEditTarget]=[];
-  if(_userMedSyms[_setMedEditTarget].indexOf(sym)!==-1)return; /* 이미 있음 */
-  /* 1) "저장 중..." 토스트 즉시 */
-  bus.emit('toast:saveLater');
-  _userMedSyms[_setMedEditTarget].push(sym);
-  _saveMedSyms();
+async function _setMedSymPick(sym){
+  const target=_setMedEditTarget;if(!target)return false;
+  const saved=await _setRunMedEdit(async function(){
+    await medicationSettings.update('user_med_syms',function(meds){
+      if(!meds[target])meds[target]=[];
+      if(!meds[target].includes(sym))meds[target].push(sym);
+    });
+  });
+  if(!saved)return false;
+  const _userMedSyms=medicationSettings.snapshot('user_med_syms');
   _setMedRenderCards();
   /* ✏️ 미니 팝업이 열려 있고 같은 약품을 편집 중이면 슬롯 즉시 갱신 */
   const _editPop=document.getElementById('setMedEditPopup');
-  if(_editPop && _editPop.dataset.med===_setMedEditTarget && typeof _setMedEditPopupRenderSlots==='function'){
+  if(_editPop && _editPop.dataset.med===target && typeof _setMedEditPopupRenderSlots==='function'){
     _setMedEditPopupRenderSlots();
   }
   /* 2) 증상→처치 팝업이 다음 호출에서 즉시 반영되도록 사용자 약품 인덱스도 리로드 */
   try{ if(typeof window._reloadUserMedSyms==='function') window._reloadUserMedSyms(); }catch(e){}
   /* 3) 잠깐 뒤 "모든 내용이 저장되었습니다" 토스트 */
-  setTimeout(function(){ bus.emit('toast:save'); }, 180);
+
   /* 피커 갱신 — 매칭된 '모든' 증상에 연두색 배경+✓ (data-sym 기준). 2026-06-09: 예전 단일 div(textContent===sym) 갱신은 여러 개 매칭 시 하나만 칠해지던 문제. */
   const c2=document.getElementById('setMedSymCat2');
   if(c2){
-    const _matched=_userMedSyms[_setMedEditTarget]||[];
+    const _matched=_userMedSyms[target]||[];
     c2.querySelectorAll('[data-action="med-sym-pick"]').forEach(function(d){
       const _s=d.dataset.sym;
       if(_matched.indexOf(_s)!==-1){
@@ -1305,35 +1307,17 @@ function _setMedDelSearchRender(){
   });
 }
 
-function _setMedDelConfirm(name){
-  if(!confirm('"'+name+'" 약품을 삭제하시겠습니까?\n\n모든 카테고리에서 해당 약품이 제거됩니다.'))return;
-  /* 기본 DB에서는 삭제 불가 → 숨기기로 처리 */
-  const _md=getSymData().medDb||{};
-  let inBase=false;
-  Object.keys(_md).forEach(function(c){if((_md[c]||[]).indexOf(name)!==-1)inBase=true;});
-  if(inBase){
-    /* 기본 약품 → 숨기기 처리 */
-    const hidden=JSON.parse(localStorage.getItem('ec_med_hidden')||'{}');
-    hidden[name]=true;
-    localStorage.setItem('ec_med_hidden',JSON.stringify(hidden));
-    if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','med_hidden',hidden);
-    if(typeof S._medHidden!=='undefined')S._medHidden=hidden;
-  }
-  /* 사용자 추가 약품에서 삭제 */
-  const _mdu=JSON.parse(localStorage.getItem('ec_meddb_user')||'{}');
-  let changed=false;
-  Object.keys(_mdu).forEach(function(c){
-    const idx=(_mdu[c]||[]).indexOf(name);
-    if(idx!==-1){_mdu[c].splice(idx,1);changed=true;}
+async function _setMedDelConfirm(name){
+  if(!confirm('"'+name+'" 약품을 삭제하시겠습니까?'))return false;
+  return _setRunMedEdit(async function(){
+    const base=getSymData().medDb||{};
+    if(Object.values(base).some(function(list){return list.includes(name);}))await medicationSettings.update('med_hidden',function(hidden){hidden[name]=true;});
+    const user=await medicationSettings.update('meddb_user',function(meds){Object.keys(meds).forEach(function(cat){meds[cat]=meds[cat].filter(function(item){return item!==name;});});});
+    S._medDbUser=user;
+    await medicationSettings.update('user_med_syms',function(meds){delete meds[name];});
+    await _setUnmarkUserAddedMed(name);
+    _setMedDelSearchRender();
   });
-  if(changed){
-    localStorage.setItem('ec_meddb_user',JSON.stringify(_mdu));
-    if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','meddb_user',_mdu);
-  }
-  /* 사용자 매칭에서도 제거 */
-  if(_userMedSyms[name]){delete _userMedSyms[name];_saveMedSyms();}
-  _setMedDelSearchRender();
-  bus.emit('toast:save');
 }
 
 /* ── 약품명 정렬: 한글 가나다 → 영어 ABC (사용자 요청 2026-05-27).
@@ -1353,6 +1337,7 @@ function _setMedSortKorFirst(arr, renames){
 
 /* ── 약품 풀(시스템 + 사용자) 수집 헬퍼 — 두 컬럼이 공유 ── */
 function _setMedCollectPool(){
+  const _userMedSyms=medicationSettings.snapshot('user_med_syms');
   const allMeds={};
   const _md=getSymData().medDb||{};
   Object.keys(_md).forEach(function(c){(_md[c]||[]).forEach(function(m){allMeds[m]=1;});});
@@ -1511,24 +1496,14 @@ function _setMedGetSysSyms(name){
 /* ── 시스템 매칭 prefill ──
  *  ec_user_med_syms_prefilled 키로 약품별 prefill 완료 플래그 저장 (한 번만 실행).
  *  사용자가 ✕ 한 매칭이 다음 ✏️ 열림 시 다시 복원되지 않도록 보장. */
-function _setMedEnsurePrefilled(name){
-  if(!name) return;
-  let flag={};
-  try{ flag=JSON.parse(localStorage.getItem('ec_user_med_syms_prefilled')||'{}')||{}; }catch(_){}
-  if(flag[name]) return; /* 이미 한 번 prefill 됨 — 사용자 편집 결과 보존 */
-  const sysSyms = _setMedGetSysSyms(name);
-  if(sysSyms.length){
-    if(!_userMedSyms[name]) _userMedSyms[name]=[];
-    sysSyms.slice(0,4).forEach(function(s){
-      if(_userMedSyms[name].indexOf(s)===-1) _userMedSyms[name].push(s);
-    });
-    _saveMedSyms();
-  }
-  flag[name]=true;
-  try{
-    localStorage.setItem('ec_user_med_syms_prefilled',JSON.stringify(flag));
-    if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','user_med_syms_prefilled',flag);
-  }catch(_){}
+async function _setMedEnsurePrefilled(name){
+  if(!name||medicationSettings.snapshot('user_med_syms_prefilled')[name])return;
+  const syms=_setMedGetSysSyms(name);
+  if(syms.length)await medicationSettings.update('user_med_syms',function(meds){
+    if(!meds[name])meds[name]=[];
+    syms.slice(0,4).forEach(function(sym){if(!meds[name].includes(sym))meds[name].push(sym);});
+  });
+  await medicationSettings.update('user_med_syms_prefilled',function(flags){flags[name]=true;});
 }
 
 /* ── ✏️ 미니 팝업: 이름 수정 + 증상 1~4 매칭 (사용자 요청 2026-05-27) ──
@@ -1538,16 +1513,22 @@ function _setMedEnsurePrefilled(name){
  *  · 슬롯의 ✕ → _setMedRemoveSym 으로 매칭 해제 (둘 다 _userMedSyms 갱신).
  *  · 저장: 이름 새 값 → ec_med_renames 갱신, 매칭은 picker / ✕ 가 이미 즉시 저장.
  *  · 외부 클릭/ESC → 저장 후 닫기 (이름 입력만 저장 필요, 매칭은 실시간 저장됨). */
-function _setMedEditPopupOpen(origName, rowEl){
-  /* 기존 팝업 닫기 (외부 클릭 핸들러도 제거) */
-  _setMedEditPopupClose(false);
-  /* 시스템 매칭 prefill — 첫 열림 시 한 번만 _userMedSyms 에 복사 */
-  _setMedEnsurePrefilled(origName);
+async function _setMedEditPopupOpen(origName, rowEl){
+  /* 로드가 끝나기 전에 다른 약품을 선택하면 마지막 요청만 창을 연다. */
+  const request=++_medPopupRequest;
+  const panel=document.getElementById('setMedSubAdd');
+  const anchor=rowEl?rowEl.getBoundingClientRect():null;
+  const previous=document.getElementById('setMedEditPopup');
+  if(previous&&!await _setMedEditPopupClose(true,previous,true))return;
+  if(request!==_medPopupRequest)return;
+  if(!await _setRunMedEdit(function(){return _setMedEnsurePrefilled(origName);},false))return;
+  if(request!==_medPopupRequest)return;
+  if(panel&&(!panel.isConnected||document.getElementById('setMedSubAdd')!==panel))return;
   const popup=document.createElement('div');
   popup.id='setMedEditPopup';
   popup.dataset.med=origName;
   const W=360;
-  const r=rowEl ? rowEl.getBoundingClientRect() : null;
+  const r=anchor;
   /* row 가 없으면 화면 중앙 fallback */
   let top, left;
   if(r){
@@ -1581,6 +1562,7 @@ function _setMedEditPopupOpen(origName, rowEl){
   _setMedEditPopupRenderSlots();
   /* 이름 input focus + select all */
   setTimeout(function(){
+    if(!popup.isConnected)return;
     const ni=popup.querySelector('#setMedEditNameInput');
     if(ni){ try{ ni.focus(); ni.select(); }catch(_){} }
   },10);
@@ -1588,15 +1570,15 @@ function _setMedEditPopupOpen(origName, rowEl){
   const ni=popup.querySelector('#setMedEditNameInput');
   if(ni){
     ni.addEventListener('keydown',function(e){
-      if(e.key==='Enter'){ e.preventDefault(); _setMedEditPopupClose(true); }
-      else if(e.key==='Escape'){ e.preventDefault(); _setMedEditPopupClose(false); }
+      if(e.key==='Enter'){ e.preventDefault(); _setMedEditPopupClose(true,popup); }
+      else if(e.key==='Escape'){ e.preventDefault(); _setMedEditPopupClose(false,popup); }
     });
   }
   /* 팝업 클릭 위임 — 헤더 ✕ 닫기 / 슬롯 add·remove (취소/저장 버튼은 사용자 요청 2026-05-27 제거).
    * 헤더 ✕ 는 외부 클릭과 동일하게 저장 후 닫기. 취소는 ESC 만. */
   popup.addEventListener('click',function(e){
     const cn=e.target.closest('[data-action="med-edit-close"]');
-    if(cn){ e.stopPropagation(); _setMedEditPopupClose(true); return; }
+    if(cn){ e.stopPropagation(); _setMedEditPopupClose(true,popup); return; }
     const rm=e.target.closest('[data-action="med-edit-rm-sym"]');
     if(rm){
       e.stopPropagation();
@@ -1614,20 +1596,24 @@ function _setMedEditPopupOpen(origName, rowEl){
   });
   /* 외부 클릭 닫기 — 단 picker 안 클릭은 제외 */
   setTimeout(function(){
+    if(!popup.isConnected)return;
     function _outside(e){
-      if(popup.contains(e.target)) return;
+      if(!popup.isConnected){document.removeEventListener('click',_outside);return;}
+      if(popup.contains(e.target))return;
       const pk=document.getElementById('setMedSymPicker');
-      if(pk && pk.contains(e.target)) return;
-      _setMedEditPopupClose(true);
-      document.removeEventListener('mousedown',_outside,true);
+      if(pk&&pk.contains(e.target))return;
+      /* 다른 약품 편집은 해당 버튼의 전환 처리에서 저장을 기다린다. */
+      if(e.target.closest&&e.target.closest('[data-action="med-rename"]'))return;
+      _setMedEditPopupClose(true,popup);
     }
     popup._outsideHandler=_outside;
-    document.addEventListener('mousedown',_outside,true);
+    document.addEventListener('click',_outside);
   },10);
 }
 
 /* 슬롯 4개 렌더 — _userMedSyms 의 첫 4개 만 표시. picker / ✕ 가 _userMedSyms 갱신 후 호출. */
 function _setMedEditPopupRenderSlots(){
+  const _userMedSyms=medicationSettings.snapshot('user_med_syms');
   const popup=document.getElementById('setMedEditPopup'); if(!popup)return;
   const origName=popup.dataset.med;
   const slotsEl=popup.querySelector('#setMedEditSlots'); if(!slotsEl)return;
@@ -1651,33 +1637,31 @@ function _setMedEditPopupRenderSlots(){
 }
 
 /* 미니 팝업 닫기 (+ 이름 변경 저장) */
-function _setMedEditPopupClose(save){
-  const popup=document.getElementById('setMedEditPopup'); if(!popup)return;
-  if(popup._outsideHandler){
-    try{ document.removeEventListener('mousedown',popup._outsideHandler,true); }catch(_){}
-  }
-  if(save){
-    const origName=popup.dataset.med;
-    const ni=popup.querySelector('#setMedEditNameInput');
-    const newName=ni ? ni.value.trim() : '';
-    const rmap=JSON.parse(localStorage.getItem('ec_med_renames')||'{}');
-    const prev=rmap[origName]||'';
-    if(!newName || newName===origName){
-      if(rmap[origName]){ delete rmap[origName]; }
-    } else {
-      rmap[origName]=newName;
+async function _setMedEditPopupClose(save,expectedPopup,keepRequest=false){
+  if(!keepRequest)_medPopupRequest++;
+  const popup=expectedPopup||document.getElementById('setMedEditPopup');
+  if(!popup||!popup.isConnected)return true;
+  /* 닫기·다른 약품 열기가 겹쳐도 진행 중인 같은 저장 결과를 기다린다. */
+  if(popup._savePromise)return popup._savePromise;
+  const origName=popup.dataset.med;
+  const ni=popup.querySelector('#setMedEditNameInput');
+  const newName=ni?ni.value.trim():'';
+  const finish=async function(){
+    if(save){
+      popup._saving=true;popup.setAttribute('aria-busy','true');
+      if(ni)ni.readOnly=true;
+      const ok=await _setRunMedEdit(async function(){
+        await medicationSettings.update('med_renames',function(map){if(!newName||newName===origName)delete map[origName];else map[origName]=newName;});
+      });
+      popup._saving=false;popup.removeAttribute('aria-busy');
+      if(ni)ni.readOnly=false;
+      if(!ok)return false;
     }
-    /* 실제 변경이 있을 때만 저장 토스트 */
-    const changed = (prev||origName) !== (rmap[origName]||origName);
-    if(changed){
-      localStorage.setItem('ec_med_renames',JSON.stringify(rmap));
-      if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','med_renames',rmap);
-      bus.emit('toast:save');
-    }
-  }
-  popup.remove();
-  _setMedSearchRender();
-  _setMedRenderCards();
+    if(popup._outsideHandler)document.removeEventListener('click',popup._outsideHandler);
+    popup.remove();_setMedSearchRender();_setMedRenderCards();return true;
+  };
+  popup._savePromise=finish();
+  try{return await popup._savePromise;}finally{popup._savePromise=null;}
 }
 /* 인라인 이름 수정 — 약품 정보는 그대로, 표시 이름만 ec_med_renames 에 저장 */
 function _setResetUserSymptoms(){
@@ -2145,18 +2129,10 @@ function _setSymStartDrag(chipEl,e){
 }
 
 function _setMedToggle(name){
-  const hidden=JSON.parse(localStorage.getItem('ec_med_hidden')||'{}');
-  if(hidden[name])delete hidden[name];
-  else hidden[name]=true;
-  localStorage.setItem('ec_med_hidden',JSON.stringify(hidden));
-  if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','med_hidden',hidden);
-  /* 전역 변수도 동기화 */
-  if(typeof S._medHidden!=='undefined')S._medHidden=hidden;
-  /* symptom-view.js 의 module-level _medHidden 객체도 즉시 동기화 — 다음 검색 필터에서 숨김 반영.
-   * 이게 없으면 첫 로드 시 const 로 캡처된 객체라 토글 후에도 _medIsHidden() 이 옛 값을 반환함. */
-  try{ if(typeof refreshMedHidden==='function') refreshMedHidden(); }catch(_){}
-  _setMedSearchRender();
-  bus.emit('toast:save');
+  return _setRunMedEdit(async function(){
+    const hidden=await medicationSettings.update('med_hidden',function(map){if(map[name])delete map[name];else map[name]=true;});
+    S._medHidden=hidden;
+  });
 }
 
 /* ── Treatment table ── */

@@ -164,7 +164,7 @@ function _openPalette(){
 
   const ov = document.createElement('div');
   ov.id = 'commandPaletteOverlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.18);backdrop-filter:blur(2.5px) saturate(120%);-webkit-backdrop-filter:blur(2.5px) saturate(120%);display:flex;align-items:flex-start;justify-content:center;padding-top:18vh;opacity:0;transition:opacity .18s cubic-bezier(0.4,0,0.2,1)';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.18);backdrop-filter:blur(0.75px) saturate(120%);-webkit-backdrop-filter:blur(0.75px) saturate(120%);display:flex;align-items:flex-start;justify-content:center;padding-top:18vh;opacity:0;transition:opacity .18s cubic-bezier(0.4,0,0.2,1)';
 
   ov.innerHTML = ''
     + '<div id="cpPalette" style="width:640px;max-width:92vw;background:var(--card);border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,0.28),0 0 0 1px rgba(255,255,255,0.1) inset;overflow:hidden;transform:translateY(-8px) scale(0.98);transition:transform .22s cubic-bezier(0.34,1.32,0.64,1);max-height:60vh;display:flex;flex-direction:column">'
@@ -418,7 +418,7 @@ function showShortcutCheatsheet(){
   if(existing){_cheatClose();return;}
   const ov=document.createElement('div');
   ov.id='shortcutCheatsheetOverlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.22);backdrop-filter:blur(3px) saturate(120%);-webkit-backdrop-filter:blur(3px) saturate(120%);display:flex;align-items:center;justify-content:center;padding:32px;opacity:0;transition:opacity .22s cubic-bezier(0.4,0,0.2,1)';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.22);backdrop-filter:blur(0.9px) saturate(120%);-webkit-backdrop-filter:blur(0.9px) saturate(120%);display:flex;align-items:center;justify-content:center;padding:32px;opacity:0;transition:opacity .22s cubic-bezier(0.4,0,0.2,1)';
   let html='<div id="cheatPalette" style="width:720px;max-width:100%;max-height:84vh;background:var(--card);border-radius:16px;box-shadow:0 32px 80px rgba(0,0,0,0.32),0 0 0 1px rgba(255,255,255,0.08) inset;overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(0.96);transition:transform .28s cubic-bezier(0.34,1.32,0.64,1)">';
   html+='<div style="padding:18px 24px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:12px"><span style="font-size:22px">⌨</span><div style="flex:1"><div style="font-size:15px;font-weight:800;color:var(--t1)">키보드 단축키</div><div style="font-size:11px;color:var(--t3);margin-top:2px">오렌지톡 단축키 모음</div></div><button id="cheatCloseBtn" style="background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .12s">✕</button></div>';
   html+='<div style="flex:1;overflow-y:auto;padding:16px 24px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 28px">';

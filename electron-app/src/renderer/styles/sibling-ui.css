@@ -1113,7 +1113,7 @@
 @media screen {
   body.school-interface {
     --school-modal-shade:rgba(15,23,42,.12);
-    --school-modal-blur:3px;
+    --school-modal-blur:0.9px;
   }
   body.school-interface:not(.light) {
     --school-modal-shade:rgba(0,0,0,.18);
@@ -1126,6 +1126,52 @@
   }
   body.school-interface [data-school-modal-layer="under"],
   body.school-interface #settingsModal[data-school-modal-layer="under"] {
+    background:transparent !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  /* 증상·처치 입력 중에는 옆의 최근 방문 이력을 함께 읽을 수 있어야 한다.
+     개인정보 가리기와 다른 팝업의 배경 효과는 그대로 유지한다. */
+  /* 증상 입력 중에는 방문 이력의 실제 버튼과 스크롤바가 덮개 위에서 동작해야 한다.
+     body > *의 z-index가 만든 상위 쌓임 맥락을 이때만 해제한다. */
+  body.school-interface.sym-popup-open > .app { z-index:auto; }
+  body.school-interface.sym-popup-open > .app > #schoolSidebar { z-index:9550; }
+  /* 현재 방문 이력만 조작할 수 있다. 달력·검색 등 나머지 영역은 배경 닫기로 전달한다. */
+  body.school-interface.sym-popup-open > .app > #schoolSidebar,
+  body.school-interface.sym-popup-open > .app > #schoolSidebar * { pointer-events:none !important; }
+  body.school-interface.sym-popup-open > .app > #schoolSidebar #sideVisitHistory,
+  body.school-interface.sym-popup-open > .app > #schoolSidebar #sideVisitHistory * { pointer-events:auto !important; }
+
+  /* 흐림 없이 작성창만 구분한다. 기존 방문 이력의 쌓임 순서와 클릭 경로는 유지한다. */
+  /* 배경 효과와 작성창을 분리해 방문 이력의 클릭과 드래그 겹침을 함께 지원한다. */
+  body.school-interface #symCatOverlay,
+  body.school-interface #symCatBackdrop {
+    --sym-focus-shade:rgba(15,23,42,.07);
+    --sym-focus-edge:color-mix(in srgb,var(--cyan) 30%,var(--bdr));
+    --sym-focus-shadow:0 18px 48px rgba(15,23,42,.18),0 3px 12px rgba(15,23,42,.08);
+  }
+  body.school-interface #symCatOverlay {
+    background:transparent !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  body.school-interface #symCatBackdrop {
+    background:var(--sym-focus-shade) !important;
+    backdrop-filter:blur(var(--school-modal-blur)) !important;
+    -webkit-backdrop-filter:blur(var(--school-modal-blur)) !important;
+  }
+  body.school-interface:not(.light) #symCatOverlay,
+  body.school-interface:not(.light) #symCatBackdrop {
+    --sym-focus-shade:rgba(0,0,0,.10);
+    --sym-focus-edge:color-mix(in srgb,var(--cyan) 35%,var(--bdr));
+    --sym-focus-shadow:0 18px 48px rgba(0,0,0,.32),0 3px 12px rgba(0,0,0,.18);
+  }
+  body.school-interface #symCatOverlay > * { pointer-events:auto; }
+  body.school-interface #symCatOverlay > div {
+    border:1px solid var(--sym-focus-edge) !important;
+    box-shadow:var(--sym-focus-shadow) !important;
+  }
+  body.school-interface:has(#symCatOverlay[data-school-modal-layer="under"]) #symCatBackdrop {
     background:transparent !important;
     backdrop-filter:none !important;
     -webkit-backdrop-filter:none !important;
