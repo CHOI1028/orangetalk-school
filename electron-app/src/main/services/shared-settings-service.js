@@ -60,7 +60,36 @@ function read(services,key){
   return {success:true,...store.get('common',key)};
 }
 function sharedSettingsRequest(services,request){
-  try{return services.store().db.transaction(()=>{
+  try{
+    if(request?.action==='write-medications'){
+      const result=services.store().db.transaction(()=>{
+        const items=request.items;
+        if(!Array.isArray(items)||!items.length||items.length>medicationKeys.size||new Set(items.map(item=>item?.key)).size!==items.length)throw Error('Invalid medication batch');
+        const prepared=[];
+        for(const item of items){
+          if(!item||!medicationKeys.has(item.key)||typeof item.baseExists!=='boolean'||!validMedicationValue(item.key,item.value))throw Error('Invalid medication batch item');
+          const encoded=JSON.stringify(item.value);
+          if(Buffer.byteLength(encoded,'utf8')>4*1024*1024)throw Error('Medication batch value too large');
+          const current=read(services,item.key);
+          // One stale setting must cancel the entire deletion, not merge half of it.
+          if(current.exists!==item.baseExists||(current.exists&&!equal(current.data,item.base)))return {success:false,conflict:true,error:'medication_settings_changed'};
+          prepared.push({key:item.key,value:JSON.parse(encoded)});
+        }
+        for(const item of prepared)services.store().set('common',item.key,item.value);
+        const entries={};
+        for(const item of prepared)entries[item.key]={success:true,...services.store().get('common',item.key)};
+        return {success:true,entries,count:prepared.length};
+      }).immediate();
+      // Mirrors are best-effort only after the authoritative transaction commits.
+      if(result.success){
+        result.mirrorSaved=true;
+        for(const [key,entry] of Object.entries(result.entries)){
+          try{services.jsonFile().saveCommon(key,entry.data);}catch(_){result.mirrorSaved=false;}
+        }
+      }
+      return result;
+    }
+    return services.store().db.transaction(()=>{
     if(!request||typeof request!=='object')throw Error('Invalid settings request');
     if(request.action==='read-many'){
       if(!Array.isArray(request.keys)||request.keys.length>100)throw Error('Invalid settings keys');

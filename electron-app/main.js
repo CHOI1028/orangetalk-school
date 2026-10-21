@@ -170,10 +170,21 @@ const { listCalendars, listEvents, createEvent, updateEvent, deleteEvent, listAc
 const { createHealthDiaryDB } = require('./src/main/services/database');
 const { ServiceContainer } = require('./src/main/services/service-container');
 const AutoUpdaterService = require('./src/main/services/auto-updater-service');
+const { createQuitConfirmation } = require('./src/main/services/quit-confirmation');
 const { resolveStoredPublicDataApiKey, preparePublicDataProxyRequest } = require('./src/main/services/public-data-key-store');
 
 let mainWindow = null;
 let autoUpdaterService = null;
+const quitConfirmation = createQuitConfirmation({
+  dialog,
+  getWindow: () => mainWindow,
+  getUpdateState: () => ({
+    ready: !!global._updateReady,
+    confirmed: !!global._updateConfirmed,
+    installing: !!global._updateConfirmed && !!global._updateInstalling,
+    version: global._updateVersion || ''
+  })
+});
 let loginWindow = null;
 let splashWindow = null;
 let authClient = null;
@@ -256,15 +267,8 @@ function createMainWindow() {
   win.loadFile('health_diary.html');
   _bindDevToolsShortcut(win);
 
-  /* 업데이트가 다운로드된 상태에서 사용자가 종료를 시도하면 — 오버레이를 띄우고 잠시 대기.
-     사용자가 [확인 후 종료] 클릭 시에만 실제로 닫음. autoInstallOnAppQuit=true 라 종료 시 자동 설치 */
-  win.on('close', (e) => {
-    if (global._updateReady && !global._updateConfirmed) {
-      e.preventDefault();
-      /* CASE A — 사용자가 종료 시도. mode='quit' 로 모달 표시 */
-      try { win.webContents.send('show-update-overlay', { version: global._updateVersion || '', mode: 'quit' }); } catch (_) {}
-    }
-  });
+  /* Confirm ordinary exit; retain the existing update-specific confirmation. */
+  quitConfirmation.attach(win);
 
   win.webContents.on('console-message', (e, level, msg, line) => {
     if(msg.indexOf('[GP2]')!==-1 || level >= 2){
@@ -5370,6 +5374,7 @@ app.whenReady().then(() => {
   } catch (e) { console.warn('[WEB] 웹 서버 자동 시작 확인 실패:', e.message); }
 
   app.on('before-quit', (event) => {
+    if (!quitConfirmation.confirm(event)) return;
     const stopped = _killWebServerChildSync();
     if (!stopped.success && global._updateReady) {
       event.preventDefault();

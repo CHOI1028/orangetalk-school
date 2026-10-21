@@ -57,6 +57,34 @@ export function createMedicationSettings(options){
     storage().setItem('ec_'+key,JSON.stringify(accepted));
     return copy(accepted);
   });}
-  return {snapshot,load,update};
+  function updateMany(change){return enqueue(async()=>{
+    const a=api();if(!a?.dbGet||!a?.medicationSettingsWriteMany)throw Error('Atomic medication storage unavailable');
+    const bases={},before={},next={};
+    for(const key of MEDICATION_SETTING_KEYS){
+      const result=await a.dbGet('common',key);
+      if(!result?.success||result.conflict||result.pending)throw Error('Medication settings load failed');
+      bases[key]={exists:result.exists===true,data:result.exists?copy(check(key,result.data)):null};
+      before[key]=bases[key].exists?copy(bases[key].data):(options.isWeb?.()?{}:copy(local(key)));
+      next[key]=copy(before[key]);
+    }
+    change(next);
+    for(const key of MEDICATION_SETTING_KEYS)check(key,next[key]);
+    if(JSON.stringify(before)===JSON.stringify(next))return copy(before);
+    for(const key of MEDICATION_SETTING_KEYS)backup(key,before[key]);
+    // Keep all six settings in one compare-and-set transaction.
+    const order=['meddb_user','med_renames','med_hidden','user_med_syms_prefilled','user_med_syms','user_added_meds'];
+    const items=order.map(key=>({key,baseExists:bases[key].exists,base:bases[key].data,value:next[key]}));
+    const result=await a.medicationSettingsWriteMany(items);
+    if(!result?.success||result.conflict||result.pending)throw Error('Medication settings save not confirmed');
+    const accepted={};
+    for(const key of MEDICATION_SETTING_KEYS){
+      const entry=result.entries?.[key];
+      if(!entry?.success||entry.exists!==true||entry.conflict||entry.pending)throw Error('Medication settings save response invalid');
+      accepted[key]=copy(check(key,entry.data));
+    }
+    for(const key of MEDICATION_SETTING_KEYS)storage().setItem('ec_'+key,JSON.stringify(accepted[key]));
+    return copy(accepted);
+  });}
+  return {snapshot,load,update,updateMany};
 }
 export const medicationSettings=createMedicationSettings({api:()=>window.electronAPI,storage:()=>localStorage,isWeb:()=>!!window.__isWebBrowser});

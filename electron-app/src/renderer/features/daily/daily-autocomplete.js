@@ -791,31 +791,9 @@ export async function selectStudent(id, _preDate){
   S.dailySortOrder='desc';
   S._dailySortCol='timeIn';
   S._dailySortDir='desc';
-  /* 새 DB에 개별 insert (백그라운드) — _inserting 플래그로 동시성 보호 */
-  if(window.electronAPI&&window.electronAPI.recordsDailyInsert){
-    newRec._inserting=true;
-    window.electronAPI.recordsDailyInsert({
-      school_year:(function(){const _rd=new Date(_regDate+'T00:00:00');return String(_rd.getMonth()>=2?_rd.getFullYear():_rd.getFullYear()-1);})(), person_uid:id, person_type:_pType,
-      visit_date:_regDate, time_in:timeIn, time_out:timeOut,
-      symptoms:'[]', treatment:'', medication:'', department:'',
-      body_temp:'', blood_pressure:'', result_code:'return',
-      nurse_name:_curUser.name||S.settings.nurse1||'', nurse_id:_curUser.id||null, vip_tags:'[]', memo:''
-    }).then(function(res){
-      newRec._inserting=false;
-      if(res&&res.success&&res.id){
-        const _oldLocalId=newRec.id;   /* 스왑 전 로컬 id */
-        newRec._dbId=res.id; newRec.id=res.id;
-        /* ★ "마지막 등록자 맨 위 고정"(recsByDate) 은 S._lastRegisteredRecId 로 매칭한다.
-         *  등록 시엔 로컬 id 를 넣지만 여기서 id 가 DB id 로 바뀌므로, 옛 로컬 id 를 가리키던
-         *  경우 함께 DB id 로 갱신해야 한다. 안 그러면 로컬 id 와 DB id 가 어긋난 환경(레코드 삭제로
-         *  autoincrement 선행 / 협업·키오스크의 병행 insert)에서 옛 로컬 id 가 '먼저 온 다른 레코드'의
-         *  id 와 우연히 겹쳐 그 레코드를 맨 위에 잘못 고정한다. (사용자 보고 2026-07-16) */
-        if(S._lastRegisteredRecId===_oldLocalId) S._lastRegisteredRecId=res.id;
-      }
-      else if(res&&!res.success){ console.error('[DB] daily insert 검증 실패:',res.error); bus.emit('toast:show',{text:'⚠️ 일지 등록 실패: '+(res.error||'알 수 없는 오류')}); }
-      if(newRec._pendingUpdate){newRec._pendingUpdate=false;if(typeof saveRecordNow==='function')saveRecordNow(newRec);}
-    }).catch(function(err){newRec._inserting=false;console.error('[DB] daily insert 실패:',err);});
-  }
+  /* Keep unsaved records retryable through the shared acknowledged write queue. */
+  newRec._dirty=true;
+  if(window.electronAPI&&window.electronAPI.recordsDailyInsert)saveRecordNow(newRec);
   saveData({silent:true});
   addRecord(newRec);
   /* 생일 폭죽: 오늘 처음 등록된 생일 학생만 */

@@ -1,0 +1,39 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {chromium}=require('playwright'),acorn=require('acorn');
+const root=path.resolve(__dirname,'..');
+test('version settings renders installed-version notes and major.minor roadmap',{timeout:90000},async t=>{
+ const source=fs.readFileSync(path.join(root,'src/renderer/features/settings/settings-view.js'),'utf8');
+ const ast=acorn.parse(source,{ecmaVersion:'latest',sourceType:'module'});
+ assert.ok(ast.body.some(n=>n.type==='ImportDeclaration'&&n.source.value==='../shell/school-release-notes.js'&&n.specifiers.some(s=>s.imported?.name==='SCHOOL_RELEASE_NOTES')));
+ const functions=['_renderVersionTab','_bindUpdateTab'].map(name=>{const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end);}).join('\n');
+ const notes=fs.readFileSync(path.join(root,'src/renderer/features/shell/school-release-notes.js'),'utf8').replace(/\bexport\s+/g,'');
+ const css=['health-diary.css','sibling-ui.css','school-workspace.css','school-classic-remodel.css'].map(n=>fs.readFileSync(path.join(root,'src/renderer/styles',n),'utf8')).join('\n');
+ const browser=await chromium.launch({headless:true,executablePath:process.env.COLLAB_TEST_BROWSER||'C:/Users/최용빈/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe'});
+ const context=await browser.newContext({viewport:{width:1100,height:1100}});await context.route('**/*',r=>r.abort());
+ const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ async function open(version,mode='ok'){
+  await page.goto('about:blank');await page.setContent('<html><head></head><body class="light"><main id="versionTest" style="max-width:1000px;padding:24px;margin:auto;background:var(--card)"></main></body></html>');await page.addStyleTag({content:css});
+  await page.evaluate(({functions,notes,version,mode})=>{
+   window.__mode=mode;window.__version=version;window.__event=null;window.__subscriptions=0;window.__unsubscribed=0;
+   window.electronAPI={updaterGetVersion:()=>new Promise((resolve,reject)=>{window.__finishVersion=()=>mode==='reject'?reject(Error('mock unavailable')):resolve(version===null?null:{version});}),onUpdaterEvent:fn=>{window.__event=fn;window.__subscriptions++;return()=>window.__unsubscribed++;}};
+   (0,eval)(notes+'\n'+functions+'\nwindow.__render=_renderVersionTab;window.__bind=_bindUpdateTab;window.__notes=SCHOOL_RELEASE_NOTES;');
+   document.getElementById('versionTest').innerHTML=window.__render();window.__bind();
+  },{functions,notes,version,mode});
+ }
+ async function settle(){await page.evaluate(async()=>{window.__finishVersion();await new Promise(r=>setTimeout(r,0));});}
+ try{
+  await t.test('initial screen does not show stale release notes',async()=>{await open('1.1.15');assert.equal(await page.locator('#rmReleaseNotes').isVisible(),false);assert.ok(!(await page.locator('body').innerText()).includes('1.1.14'));assert.equal(await page.locator('[data-rm-ver="1.1"] > div').first().innerText(),'1.1');});
+  await t.test('1.1.15 hero and installed card match shared notes',async()=>{await settle();assert.deepEqual(await page.locator('#appVerHero > span').allTextContents(),['v1.1.15','Firenze']);assert.equal(await page.locator('#updCurrentVersion').innerText(),'v1.1.15');assert.equal(await page.locator('#rmReleaseNotes').isVisible(),true);const expected=await page.evaluate(()=>window.__notes.find(n=>n.version==='1.1.15'));assert.equal(await page.locator('#rmReleaseTitle').innerText(),'v1.1.15 · '+expected.title);assert.deepEqual(await page.locator('#rmReleaseChanges li').allTextContents(),expected.changes);assert.equal(expected.changes.length,3);});
+  await t.test('roadmap keeps 1.1 Firenze and one NOW label',async()=>{assert.equal(await page.locator('[data-rm-ver="1.1"] > div').first().innerText(),'1.1');assert.equal(await page.locator('[data-rm-ver="1.1"] > div').nth(1).innerText(),'Firenze');assert.equal(await page.locator('.rm-cur').count(),1);assert.equal(await page.locator('.rm-cur').getAttribute('data-rm-ver'),'1.1');assert.equal(await page.locator('[data-rm-now]').count(),1);assert.equal(await page.locator('[data-rm-ver="1.0"]').getAttribute('class'),'rm-tile rm-released');assert.equal(await page.locator('[data-rm-ver="1.2"]').getAttribute('class'),'rm-tile rm-planned');assert.equal(await page.locator('[data-rm-ver]').count(),14);});
+  await t.test('update availability does not replace installed release notes',async()=>{await page.evaluate(()=>window.__event('available',{version:'1.1.16'}));assert.equal(await page.locator('#appVerUpdateBadge').isVisible(),true);assert.ok((await page.locator('#rmReleaseTitle').innerText()).startsWith('v1.1.15'));assert.equal(await page.locator('#updCurrentVersion').innerText(),'v1.1.15');});
+  for(const width of [1100,780])await t.test('visible release card at width '+width,async()=>{await page.setViewportSize({width,height:1100});const box=await page.locator('#rmReleaseNotes').evaluate(el=>({width:el.clientWidth,overflow:el.scrollWidth>el.clientWidth}));assert.ok(box.width>0);assert.equal(box.overflow,false);assert.equal(await page.locator('#rmReleaseChanges li').count(),3);if(width===1100){const out=process.env.VERSION_UI_OUTPUT||path.join(process.env.ORANGETALK_LAYOUT_REPORT_DIR||process.env.TEMP,'version-settings');fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'version-1.1.15.png'),fullPage:true});}});
+  await t.test('older installed version selects matching historical notes',async()=>{await open('1.1.14');await settle();assert.ok((await page.locator('#rmReleaseTitle').innerText()).startsWith('v1.1.14'));assert.deepEqual(await page.locator('#rmReleaseChanges li').allTextContents(),await page.evaluate(()=>window.__notes.find(n=>n.version==='1.1.14').changes));assert.equal(await page.locator('[data-rm-ver="1.1"] > div').first().innerText(),'1.1');});
+  await t.test('unknown release never shows unrelated notes',async()=>{await open('1.2.0');await settle();assert.deepEqual(await page.locator('#appVerHero > span').allTextContents(),['v1.2.0','Bologna']);assert.equal(await page.locator('#rmReleaseNotes').isVisible(),false);assert.equal(await page.locator('#rmReleaseChanges li').count(),0);});
+  await t.test('missing version leaves notes hidden',async()=>{await open(null);await settle();assert.equal(await page.locator('#rmReleaseNotes').isVisible(),false);assert.equal(await page.locator('#updCurrentVersion').innerText(),'—');});
+  await t.test('failed version lookup leaves notes hidden without page errors',async()=>{await open('1.1.15','reject');await settle();assert.equal(await page.locator('#rmReleaseNotes').isVisible(),false);});
+  await t.test('reopen does not duplicate release entries or NOW labels',async()=>{await open('1.1.15');await settle();await page.evaluate(()=>{document.getElementById('versionTest').innerHTML=window.__render();window.__bind();});await settle();assert.equal(await page.locator('#rmReleaseChanges li').count(),3);assert.equal(await page.locator('[data-rm-now]').count(),1);assert.equal(await page.evaluate(()=>window.__unsubscribed),1);});
+  await t.test('release text is not interpreted as HTML',async()=>{await open('1.1.15');await page.evaluate(()=>{window.__notes[0].changes[0]='<img src=x onerror="window.__injected=true">';});await settle();assert.equal(await page.locator('#rmReleaseChanges img').count(),0);assert.equal(await page.locator('#rmReleaseChanges li').first().textContent(),'<img src=x onerror="window.__injected=true">');assert.equal(await page.evaluate(()=>window.__injected),undefined);});
+  assert.deepEqual(errors,[]);
+ }finally{await browser.close();}
+});

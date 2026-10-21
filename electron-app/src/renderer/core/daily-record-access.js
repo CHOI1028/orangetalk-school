@@ -4,7 +4,7 @@ import { S } from './app-state.js';
 const periodEdits = new Map();
 export function getDailyRecord(id) {
   if (id == null || id === '') return null;
-  const record=(S.records || []).find(record => String(record.id) === String(id)) || periodEdits.get(String(id));
+  const record=(S.records || []).find(record => String(record.id) === String(id)) || periodEdits.get(String(id)) || (S.records || []).find(record => (record._localIds || []).includes(String(id))) || Array.from(periodEdits.values()).find(record => (record._localIds || []).includes(String(id)));
   return record&&!record._deleted?record:null;
 }
 
@@ -17,7 +17,7 @@ export function preparePeriodRecord(record) {
     return live;
   }
   const old = periodEdits.get(String(record.id));
-  if (old && (old._dirty || old._pendingUpdate || Date.now()-Number(old._savedAt)<7000)) return old;
+  if (old && (old._dirty || old._saving || old._inserting || old._pendingUpdate || Date.now()-Number(old._savedAt)<7000)) return old;
   const editable = structuredClone(record);
   editable.studentId = editable.personUid || editable.studentId || '';
   periodEdits.set(String(record.id), editable);

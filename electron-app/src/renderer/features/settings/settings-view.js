@@ -2,6 +2,7 @@
 /* ES Module */
 import { getStu, escHtml, toDateStr, getGrades, saveStudents, isKinder, closeModalGracefully } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
+import { SCHOOL_RELEASE_NOTES } from '../shell/school-release-notes.js';
 import { buildSharedConnectionAddress, isSharedConnectionAddress, copySharedConnectionAddress } from './collab-connection-address.js';
 import { readCollabControl, collabControlMessage } from './collab-control-query.js';
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
@@ -1390,8 +1391,9 @@ export function openAccordion(headerEl){
        아코디언까지 닫히던 문제. */
     if(e.target && e.target.closest){
       if(e.target.closest('#setSemCalOv')) return;
-      if(e.target.closest('.modal-overlay')) return;
+      if(e.target.closest('.modal-overlay, .school-confirm-overlay')) return;
       if(e.target.closest('#emojiPickerOverlay')) return;
+      if(e.target.closest('#setMedEditPopup, #setMedSymPicker')) return;
     }
     if(!headerEl.contains(e.target)&&!(body&&body.contains(e.target))){closeAllAccordions();}
   };
@@ -2725,7 +2727,7 @@ function _renderFontsizeSection(){
 function _renderVersionTab(){
   const VERSIONS=[
     {ver:'1.0',name:'Roma'},
-    {ver:'1.1',name:'Firenze',release:'1.1.14'},
+    {ver:'1.1',name:'Firenze'},
     {ver:'1.2',name:'Bologna'},
     {ver:'1.3',name:'Venezia'},
     {ver:'1.4',name:'Ljubljana'},
@@ -2774,19 +2776,15 @@ function _renderVersionTab(){
   VERSIONS.forEach(function(v){
     /* 초기엔 모두 planned, _bindVersionTab 에서 실제 버전 받아 클래스 갱신 */
     h+='<div class="rm-tile rm-planned" data-rm-ver="'+v.ver+'">';
-    h+='<div style="font-size:12px;font-weight:800;line-height:1.2">'+(v.release||v.ver)+'</div>';
+    h+='<div style="font-size:12px;font-weight:800;line-height:1.2">'+v.ver+'</div>';
     h+='<div style="font-size:9px;margin-top:2px;opacity:0.85">'+v.name+'</div>';
     h+='</div>';
   });
   h+='</div>';
-  h+='<section aria-labelledby="rmReleaseTitle" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">';
-  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6">v1.1.14 Firenze · 상용 약품 목록 보존 및 저장 안정화</h3>';
-  h+='<p style="margin:0 0 10px;font-size:12px;color:var(--t2);line-height:1.7">상용 약품의 목록 표시와 기존 설정 보존을 보완했습니다.</p>';
-  h+='<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9">';
-  h+='<li>저장된 상용 약품을 불러온 뒤에도 목록이 비어 보이거나, 약품 편집 시 기존 목록이 덮어써질 수 있는 문제를 수정했습니다.</li>';
-  h+='<li>약품 추가·수정·삭제 전에 최신 설정을 확인하고, 불러오기·저장 실패 시 안내하도록 보완했습니다.</li>';
-  h+='<li>약품 설정 변경 전 복구용 사본을 보관하도록 보완했습니다.</li>';
-  h+='</ul></section></div>';
+  h+='<section id="rmReleaseNotes" hidden aria-labelledby="rmReleaseTitle" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">';
+  h+='<h3 id="rmReleaseTitle" style="margin:0 0 8px;font-size:14px;font-weight:800;color:var(--t1);line-height:1.6"></h3>';
+  h+='<ul id="rmReleaseChanges" style="margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9"></ul>';
+  h+='</section></div>';
 
   /* ═══ 업데이트 카드 — 기존 _renderUpdateTabInline 통합 ═══ */
   h+='<div style="padding:0 4px;margin-bottom:28px">';
@@ -3323,6 +3321,22 @@ function _bindUpdateTab(){
     if (window.electronAPI && window.electronAPI.updaterGetVersion){
       window.electronAPI.updaterGetVersion().then(function(r){
         const ver=(r&&r.version)||'';
+        const releaseSection=document.getElementById('rmReleaseNotes');
+        if(releaseSection){
+          const release=SCHOOL_RELEASE_NOTES.find(function(item){return item.version===ver;});
+          const releaseTitle=releaseSection.querySelector('#rmReleaseTitle');
+          const releaseChanges=releaseSection.querySelector('#rmReleaseChanges');
+          releaseTitle.textContent=release?'v'+release.version+' · '+release.title:'';
+          releaseChanges.replaceChildren();
+          if(release){
+            release.changes.forEach(function(change){
+              const item=document.createElement('li');
+              item.textContent=change;
+              releaseChanges.appendChild(item);
+            });
+          }
+          releaseSection.hidden=!release;
+        }
         /* 업데이트 카드 — 설치된 버전 */
         const el=document.getElementById('updCurrentVersion');
         if(el) el.textContent=ver?'v'+ver:'—';

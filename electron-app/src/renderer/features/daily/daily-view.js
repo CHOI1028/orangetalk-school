@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 import { getDailyRecord, preparePeriodRecord } from '../../core/daily-record-access.js';
+import { deletePersistedDailyRecord } from '../../core/daily-record-persistence.js';
 import { bindDiaryPrivacy, resetDiaryPrivacy } from './daily-privacy.js';
 /* ES Module */
 import { getStu, escHtml, escJs, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
@@ -427,7 +428,7 @@ function _onTbodyLeave(event){
   _lastHoverStuId=null;
   const datePanel=document.getElementById('dateVisitorsPanel');
   if(!datePanel||!datePanel._visitHistoryDisplay)return;
-  if(S._visitHistoryLocked||document.getElementById('symCatOverlay'))return;
+  if(S._visitHistoryLocked||document.getElementById('symCatOverlay')||document.getElementById('vhHealthDetailDialog'))return;
   const next=event&&event.relatedTarget;
   if(next&&typeof next.closest==='function'&&next.closest('#sideVisitHistory,#recBody tr[data-stu-id],#dailyPeriodTable tr[data-stu-id],#ecListBody tr[data-stu-id],#infListBody tr[data-stu-id]'))return;
   _hideVisitHistory();
@@ -948,24 +949,33 @@ function _undoPushDelete(deletedRecs){
   if(_undoStack.length>20)_undoStack.shift();/* 최대 20단계 */
 }
 function dailyUndoDelete(){
-  if(!_undoStack.length){dailyShowToast('되돌릴 항목이 없습니다.');return;}
+  if(!_undoStack.length){dailyShowToast('되돌릴 항목이 없습니다.');return Promise.resolve([]);}
   const entry=_undoStack.pop();
-  entry.records.forEach(function(rec){
-    /* 되돌리기 = 삭제 취소 → _deleted 해제해 다시 저장 가능하게 */
-    if(rec)rec._deleted=false;
-    S.records.push(rec);
-    /* DB에 다시 삽입 */
-    if(window.electronAPI&&window.electronAPI.recordsDailyInsert){
-      const row=_recToDbRow(rec);
-      row.school_year=String(new Date().getMonth()>=2?new Date().getFullYear():new Date().getFullYear()-1);
-      window.electronAPI.recordsDailyInsert(row).then(function(res){
-        if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;}
-        else if(res&&!res.success){console.error('[DB] undo insert 검증 실패:',res.error);dailyShowToast('⚠️ 되돌리기 실패: '+(res.error||''));}
-      }).catch(function(err){console.error('[DB] undo insert 실패:',err);});
+  const pending=entry.records.map(function(rec){
+    if(!rec._undoRestoreStarted){
+      delete rec._dbId;
+      delete rec._insertRequestId;
+      rec._insertUncertain=false;
+      rec._undoRestoreStarted=true;
     }
+    rec._deleted=false;
+    rec._dirty=true;
+    if(!S.records.includes(rec))S.records.push(rec);
+    return saveRecordNow(rec);
   });
   renderDaily();renderCalendar();renderSidebarRecent();
-  dailyShowToast(entry.records.length+'건의 삭제를 되돌렸습니다.');
+  return Promise.all(pending).then(function(results){
+    const failed=entry.records.filter(function(rec,i){return !results[i]||!results[i].success;});
+    entry.records.forEach(function(rec,i){if(results[i]&&results[i].success)delete rec._undoRestoreStarted;});
+    if(failed.length){
+      _undoStack.push({records:failed,time:Date.now()});
+      dailyShowToast('일부 기록을 되돌리지 못했습니다. 입력 내용은 유지됩니다. 다시 저장하거나 되돌리기를 다시 눌러 주세요.');
+    }else{
+      dailyShowToast(entry.records.length+'건의 삭제를 되돌렸습니다.');
+    }
+    renderDaily();renderCalendar();renderSidebarRecent();
+    return results;
+  });
 }
 document.addEventListener('keydown',function(e){
   /* 공통 — 입력 필드/편집 가능 요소 포커스 시 모두 스킵 (브라우저 기본 동작에 양보) */
@@ -1324,21 +1334,28 @@ export function dailyClearDragSelect(){
 
 async function dailyBulkDelete(){
   dailyCloseCtxPopup();
-  const ok=await _dailyConfirm('선택한 <b>'+_dragSelectedRecIds.length+'명</b>의 방문 기록을 삭제하시겠습니까?','방문 기록 삭제');
+  const selected=_dragSelectedRecIds.slice();
+  const ok=await _dailyConfirm('선택한 <b>'+selected.length+'명</b>의 방문 기록을 삭제하시겠습니까?','방문 기록 삭제');
   if(!ok)return;
-  const toDelete=S.records.filter(function(r){return _dragSelectedRecIds.indexOf(r.id)!==-1;});
-  _undoPushDelete(toDelete);
-  S.records=S.records.filter(function(r){return _dragSelectedRecIds.indexOf(r.id)===-1;});
-  /* 이 기록들에 연결된 침상 이용 현황도 함께 삭제. 2026-06-10 */
-  try{ const _bedIds=[]; toDelete.forEach(function(r){ _bedIds.push(r.id); if(r._dbId!=null)_bedIds.push(r._dbId); }); bus.emit('bed:recordsDeleted',{ids:_bedIds}); }catch(_){}
-  if(window.electronAPI&&window.electronAPI.recordsDailyDelete){
-    toDelete.forEach(function(r){
-      const dbId=r._dbId||r.id;
-      window.electronAPI.recordsDailyDelete(dbId).catch(function(err){console.error('[DB] daily delete 실패:',err);});
-    });
-  }
+  const toDelete=S.records.filter(function(r){return selected.includes(r.id)&&!r._deleted&&!r._deleting;});
+  if(!toDelete.length)return;
+  const pending=toDelete.map(function(r){return deletePersistedDailyRecord(r);});
+  S.records=S.records.filter(function(r){return !toDelete.includes(r);});
   dailyClearDragSelect();renderDaily();renderCalendar();renderSidebarRecent();
-  dailyShowToast('삭제되었습니다.\n<span style="font-size:11px;font-weight:500;color:var(--t3)">('+(_isMac?'⌘':'Ctrl')+'+Z로 되돌릴 수 있습니다)</span>');
+  const results=await Promise.all(pending);
+  const removed=[],failed=[];
+  toDelete.forEach(function(rec,i){
+    if(results[i].success)removed.push(rec);
+    else{failed.push(rec);if(!S.records.includes(rec))S.records.push(rec);}
+  });
+  if(removed.length){
+    _undoPushDelete(removed);
+    try{bus.emit('bed:recordsDeleted',{ids:removed.flatMap(function(r){return [r.id,r._dbId,...(r._localIds||[])];})});}catch(_){}
+  }
+  renderDaily();renderCalendar();renderSidebarRecent();
+  dailyShowToast(failed.length
+    ? removed.length+'건 삭제, '+failed.length+'건은 삭제하지 못해 다시 표시했습니다.'
+    : '삭제되었습니다.\n<span style="font-size:11px;font-weight:500;color:var(--t3)">('+(_isMac?'⌘':'Ctrl')+'+Z로 되돌릴 수 있습니다)</span>');
 }
 
 async function ecBulkDelete(){
@@ -2404,22 +2421,22 @@ function _dailyConfirm(msg, title){
   });
 }
 async function dailyDeleteRecord(recId){
+  const rec=getDailyRecord(recId);
+  if(!rec||rec._deleting)return;
   const ok=await _dailyConfirm('삭제하시겠습니까?');
-  if(!ok)return;
-  const rec=S.records.find(function(r){return r.id===recId;});
-  if(rec)_undoPushDelete([rec]);
-  const dbId=rec?(rec._dbId||rec.id):recId;
-  S.records=S.records.filter(function(r){return r.id!==recId;});
-  /* 이 기록에 연결된 침상 이용 현황도 함께 삭제 (사이드바 카드 잔류 방지). 2026-06-10 */
-  try{ bus.emit('bed:recordsDeleted',{ids:[recId, dbId]}); }catch(_){}
-  /* 실시간 머지가 삭제한 레코드를 다시 살리지 않도록 7초 유예 표시 */
-  if(!window._recentlyDeletedRecs)window._recentlyDeletedRecs={};
-  window._recentlyDeletedRecs[recId]=Date.now();
-  window._recentlyDeletedRecs[dbId]=Date.now();
-  if(window.electronAPI&&window.electronAPI.recordsDailyDelete){
-    window.electronAPI.recordsDailyDelete(dbId).catch(function(err){console.error('[DB] daily delete 실패:',err);});
-  }
+  if(!ok||rec._deleted)return;
+  const pending=deletePersistedDailyRecord(rec);
+  S.records=S.records.filter(function(r){return r!==rec;});
   renderDaily();renderCalendar();renderSidebarRecent();
+  const result=await pending;
+  if(!result.success){
+    if(!S.records.includes(rec))S.records.push(rec);
+    renderDaily();renderCalendar();renderSidebarRecent();
+    dailyShowToast('삭제하지 못했습니다. 기록을 다시 표시했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  _undoPushDelete([rec]);
+  try{bus.emit('bed:recordsDeleted',{ids:[recId,rec.id,rec._dbId]});}catch(_){}
   dailyShowToast('삭제되었습니다.\n<span style="font-size:11px;font-weight:500;color:var(--t3)">('+(_isMac?'⌘':'Ctrl')+'+Z로 되돌릴 수 있습니다)</span>');
 }
 
@@ -2967,6 +2984,104 @@ export function crInsertHandles(){ if(_crInsertHandlesRef)_crInsertHandlesRef();
 /* ═══════════════════════════════════════
    VISIT HISTORY (visit-history-view.js에서 통합)
    ═══════════════════════════════════════ */
+/* Read-only health summaries. The full values stay in the DOM, never rewritten in storage. */
+function _visitHealthDetailHtml(label,value,tone){
+  const text=value==null?'':String(value);
+  if(!text.trim())return '';
+  return '<div class="vh-person-detail vh-health-detail '+tone+'" data-vh-health-label="'+escHtml(label)+'">'
+    +'<div class="vh-health-preview"><span class="vh-health-label">'+escHtml(label)+': </span><span class="vh-health-value">'+escHtml(text)+'</span></div>'
+    +'<button type="button" class="vh-health-more" data-vh-health-more aria-haspopup="dialog" aria-label="'+escHtml(label)+' 전체 내용 보기" hidden>전체 내용 보기</button></div>';
+}
+function _openVisitHealthDetail(detail,opener){
+  const value=detail&&detail.querySelector('.vh-health-value');if(!value)return;
+  const old=document.getElementById('vhHealthDetailDialog');if(old&&old._vhClose)old._vhClose();
+  const owner=detail.closest('.vh-person-summary');
+  const name=owner&&owner.querySelector('.vh-person-name');
+  const dialog=document.createElement('dialog');
+  dialog.id='vhHealthDetailDialog';dialog.className='vh-health-dialog';
+  dialog.setAttribute('aria-labelledby','vhHealthDetailHeading');
+  dialog.setAttribute('aria-describedby','vhHealthDetailHint');
+  dialog.innerHTML='<div class="vh-health-dialog-header"><h2 id="vhHealthDetailHeading"></h2><button type="button" class="vh-health-close" aria-label="전체 내용 닫기" autofocus>닫기</button></div>'
+    +'<p id="vhHealthDetailHint" class="vh-health-dialog-hint">읽기 전용입니다. 원본 내용은 변경되지 않습니다.</p>'
+    +'<div class="vh-health-dialog-text" tabindex="0" role="region" aria-label="원문 내용"></div>';
+  dialog.querySelector('h2').textContent=(name?name.textContent+' · ':'')+detail.dataset.vhHealthLabel;
+  dialog.querySelector('.vh-health-dialog-text').textContent=value.textContent;
+  const close=function(){
+    if(dialog.open)dialog.close();
+    dialog.remove();
+    if(opener&&opener.isConnected)opener.focus({preventScroll:true});
+    else if(owner&&owner.isConnected)owner.focus({preventScroll:true});
+  };
+  dialog._vhClose=close;
+  dialog.querySelector('.vh-health-close').addEventListener('click',function(e){e.stopPropagation();close();});
+  dialog.addEventListener('cancel',function(e){e.preventDefault();e.stopPropagation();close();});
+  dialog.addEventListener('keydown',function(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}});
+  dialog.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(e.target!==dialog)return;
+    const bounds=dialog.getBoundingClientRect();
+    if(e.clientX<bounds.left||e.clientX>bounds.right||e.clientY<bounds.top||e.clientY>bounds.bottom)close();
+  });
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+function _fitVisitHealthSummary(root){
+  if(!root||root.id!=='visitHistoryTitle')return;
+  const panel=document.getElementById('sideVisitHistory'),body=document.getElementById('visitHistoryBody');
+  const summary=root.querySelector('.vh-person-summary');
+  if(!panel||!body||!summary||!panel.getClientRects().length)return;
+  const panelStyle=getComputedStyle(panel),titleStyle=getComputedStyle(root);
+  const number=function(value){return parseFloat(value)||0;};
+  const footer=document.querySelector('footer');
+  const footerTop=footer&&footer.getBoundingClientRect().top;
+  const bottom=footerTop>0?Math.min(window.innerHeight,footerTop):window.innerHeight;
+  let available=Math.max(120,bottom-panel.getBoundingClientRect().top-16);
+  if(panel.closest('.sidebar.has-bed-card')){
+    const bedLimit=parseFloat(panelStyle.getPropertyValue('--side-recent-max'));
+    available=Math.min(available,Number.isFinite(bedLimit)?Math.max(120,bedLimit):260);
+  }
+  const panelSpace=number(panelStyle.paddingTop)+number(panelStyle.paddingBottom)+number(panelStyle.borderTopWidth)+number(panelStyle.borderBottomWidth);
+  const titleSpace=number(titleStyle.marginTop)+number(titleStyle.marginBottom);
+  const fixed=root.getBoundingClientRect().height-summary.getBoundingClientRect().height;
+  const recordSpace=Math.min(100,Math.max(48,available*.4));
+  const summaryHeight=Math.max(0,Math.min(192,window.innerHeight*.26,available-panelSpace-titleSpace-fixed-recordSpace));
+  const set=function(key,value){if(panel.style.getPropertyValue(key)!==value)panel.style.setProperty(key,value);};
+  set('--vh-available-height',Math.floor(available)+'px');
+  set('--vh-summary-height',Math.floor(summaryHeight)+'px');
+  body.style.maxHeight='none';
+}
+function _bindVisitHealthDetails(root){
+  if(!root)return;
+  if(root._vhHealthDispose)root._vhHealthDispose();
+  let frame=0,disposed=false;
+  const update=function(){
+    frame=0;if(disposed||!root.isConnected)return;
+    root.querySelectorAll('.vh-health-detail').forEach(function(detail){
+      const preview=detail.querySelector('.vh-health-preview'),button=detail.querySelector('[data-vh-health-more]');
+      if(preview&&button&&preview.clientHeight)button.hidden=preview.scrollHeight<=preview.clientHeight+1;
+    });
+    _fitVisitHealthSummary(root);
+  };
+  const schedule=function(){if(!disposed&&!frame)frame=requestAnimationFrame(update);};
+  const click=function(e){
+    const button=e.target.closest('[data-vh-health-more]');
+    if(!button||!root.contains(button))return;
+    e.preventDefault();e.stopPropagation();_openVisitHealthDetail(button.closest('.vh-health-detail'),button);
+  };
+  root.addEventListener('click',click);
+  window.addEventListener('resize',schedule);
+  const observer=typeof ResizeObserver==='function'?new ResizeObserver(schedule):null;
+  if(observer){
+    observer.observe(root);
+    const summary=root.querySelector('.vh-person-summary');if(summary)observer.observe(summary);
+    if(root.id==='visitHistoryTitle'){
+      const panel=document.getElementById('sideVisitHistory');if(panel)observer.observe(panel);
+    }
+  }
+  root._vhHealthDispose=function(){disposed=true;if(frame)cancelAnimationFrame(frame);if(observer)observer.disconnect();root.removeEventListener('click',click);window.removeEventListener('resize',schedule);root._vhHealthDispose=null;};
+  schedule();
+}
+
 function _setDateVisitorsHistoryPreview(active){
   const panel=document.getElementById('dateVisitorsPanel');
   if(!panel||!panel.dataset.contextHistory)return false;
@@ -2993,7 +3108,7 @@ function _showVisitHistory(){
   const showId=(vh._historyDisplayId||0)+1;
   vh._historyDisplayId=showId;
   _setDateVisitorsHistoryPreview(true);
-  vh.style.display='block';
+  vh.style.display=vh.classList.contains('vh-health-bounded')?'flex':'block';
   requestAnimationFrame(function(){requestAnimationFrame(function(){
     if(vh.isConnected&&vh._historyDisplayId===showId)vh.classList.add('vh-show');
   });});
@@ -3042,7 +3157,7 @@ export function openRecentVisitModal(){
     +'</div>';
   document.body.appendChild(ov);
   requestAnimationFrame(function(){ ov.style.opacity='1'; const b=document.getElementById('rvBrowserBox'); if(b){b.style.opacity='1';b.style.transform='scale(1)';} });
-  const close=function(){ ov.style.opacity='0'; const b=document.getElementById('rvBrowserBox'); if(b){b.style.opacity='0';b.style.transform='scale(0.97)';} setTimeout(function(){ if(ov.parentNode)ov.parentNode.removeChild(ov); },190); };
+  const close=function(){ const details=ov.querySelector('#rvHistArea');if(details&&details._vhHealthDispose)details._vhHealthDispose();ov.style.opacity='0'; const b=document.getElementById('rvBrowserBox'); if(b){b.style.opacity='0';b.style.transform='scale(0.97)';} setTimeout(function(){ if(ov.parentNode)ov.parentNode.removeChild(ov); },190); };
   ov.addEventListener('mousedown',function(e){ if(e.target===ov)close(); });
 
   const inp=document.getElementById('rvSearchInput');
@@ -3065,6 +3180,7 @@ export function openRecentVisitModal(){
     const row=e.target.closest('[data-rvid]'); if(!row)return;
     const cap=_captureVisitHistoryHtml(row.dataset.rvid);
     histEl.innerHTML='<div style="margin:-12px -16px 10px;padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.08)">'+cap.titleHTML+'</div>'+cap.bodyHTML;
+    _bindVisitHealthDetails(histEl);
     histEl.scrollTop=0;
   });
   inp.addEventListener('input',_renderList);
@@ -3152,9 +3268,9 @@ export function showVisitHistory(studentId){
   const _binfoOn = (localStorage.getItem('ec_daily_birthcontact_popup')||'Y') !== 'N';
   const birthInfo=(!_binfoOn||isStf)?'':'<div class="vh-person-detail">생년월일: '+escHtml(birth)+'</div>';
   const guardianInfo=(!_binfoOn||isStf||!guardianContact||!String(guardianContact).trim())?'':'<div class="vh-person-detail">주 보호자 연락처: '+escHtml(guardianContact)+'</div>';
-  const careInfo=(isCare&&stu.condition)?'<div class="vh-person-detail vh-care">요보호 질환명: '+escHtml(stu.condition)+'</div>':'';
-  const dustInfo=(stu.dustDisease&&String(stu.dustDisease).trim())?'<div class="vh-person-detail vh-dust">미세먼지 기저질환: '+escHtml(stu.dustDisease)+'</div>':'';
-  const careMemoInfo=(isCare&&getCareMemoText(stu))?'<div class="vh-person-detail vh-care">메모 사항: '+escHtml(getCareMemoText(stu))+'</div>':'';
+  const careInfo=isCare?_visitHealthDetailHtml('요보호 질환명',stu.condition,'vh-care'):'';
+  const dustInfo=_visitHealthDetailHtml('미세먼지 기저질환',stu.dustDisease,'vh-dust');
+  const careMemoInfo=isCare?_visitHealthDetailHtml('메모 사항',getCareMemoText(stu),'vh-care'):'';
   /* 5종 상태 칩 — 이름 오른쪽. (요보호·관찰·미세먼지 기저질환·응급처치비동의·일반의약품비동의) */
   const _vhDots=(function(s){
     const chips=[];
@@ -3175,7 +3291,9 @@ export function showVisitHistory(studentId){
     ? '<span class="vh-person-detail">[현재 미등록 인원]</span>'
     : '';
   /* [전체 이력 확인] — 사이드 카드에서 바로 전체 방문 이력 팝업 열기 (사용자 피드백 2026-08-26) */
-  title.innerHTML=`<div class="vh-heading"><span class="vh-heading-label">최근 보건실 방문 이력</span><button type="button" id="vhFullHistBtn" title="전체 방문 이력 확인" aria-label="전체 방문 이력 확인">전체 이력</button></div><div class="vh-person"><span class="vh-person-name">${escHtml(stu.name)}</span><span class="vh-person-info">${escHtml(infoStr)}</span>${_leaverBadge}${_vhDots}</div>${birthInfo}${guardianInfo}${careInfo}${dustInfo}${careMemoInfo}`;
+  panel.classList.add('vh-health-bounded');
+  title.innerHTML=`<div class="vh-heading"><span class="vh-heading-label">최근 보건실 방문 이력</span><button type="button" id="vhFullHistBtn" title="전체 방문 이력 확인" aria-label="전체 방문 이력 확인">전체 이력</button></div><div class="vh-person-summary" tabindex="0" role="region" aria-label="방문자 정보 및 주의사항"><div class="vh-person"><span class="vh-person-name">${escHtml(stu.name)}</span><span class="vh-person-info">${escHtml(infoStr)}</span>${_leaverBadge}${_vhDots}</div>${birthInfo}${guardianInfo}${careInfo}${dustInfo}${careMemoInfo}</div>`;
+  _bindVisitHealthDetails(title);
   const _vhFullBtn=title.querySelector('#vhFullHistBtn');
   if(_vhFullBtn)_vhFullBtn.addEventListener('click',function(e){
     e.stopPropagation();
@@ -3280,16 +3398,9 @@ export function showVisitHistory(studentId){
     return `<div class="vh-record"><div class="vh-record-heading"><span class="vh-date">${escHtml(r.date)}</span><span class="vh-time">${_timeRange}</span>${r.isImported?'<span class="vh-imported">이전기록</span>':''}</div>${_vhBodymapHtml}${(emsChip||_sympHtml)?`<div class="vh-alerts">${emsChip}${_sympHtml}</div>`:''}<div class="vh-record-content">${_treatHtml}${_medTail}</div></div>`;
   }).join('');
   _showVisitHistory();
-  setTimeout(function(){
-    const footer=document.querySelector('footer');
-    const bodyEl=document.getElementById('visitHistoryBody');
-    if(footer&&bodyEl){
-      const footerTop=footer.getBoundingClientRect().top;
-      const bodyTop=bodyEl.getBoundingClientRect().top;
-      const available=footerTop-bodyTop-18;
-      bodyEl.style.maxHeight=Math.max(100,available)+'px';
-    }
-  },0);
+  requestAnimationFrame(function(){
+    if(panel._lastStuId===studentId)_fitVisitHealthSummary(title);
+  });
 }
 
 /* ═══════════════════════════════════════

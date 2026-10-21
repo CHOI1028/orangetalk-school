@@ -521,12 +521,41 @@ function _kbGetFocusable(root){
   const sel='a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
   return Array.prototype.slice.call(root.querySelectorAll(sel)).filter(function(el){if(el.offsetWidth===0&&el.offsetHeight===0)return false;const st=getComputedStyle(el);return st.visibility!=='hidden'&&st.display!=='none';});
 }
+function _kbGetSaveRetryButtons(modal){
+  const toast=document.getElementById('globalSaveToast');
+  if(!toast||!toast.classList.contains('show')||modal.contains(toast)||toast.closest('[inert], [aria-hidden="true"]'))return[];
+  const style=getComputedStyle(toast),rect=toast.getBoundingClientRect();
+  if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width===0||rect.height===0)return[];
+  if((parseInt(style.zIndex)||0)<(parseInt(getComputedStyle(modal).zIndex)||0))return[];
+  return _kbGetFocusable(toast).filter(function(el){return el.tagName==='BUTTON'&&el.tabIndex>=0;});
+}
 document.addEventListener('keydown',function(e){
   if(e.key!=='Tab')return;
   const modal=_kbFindTopModal();if(!modal)return;
+  // This editor is a portal owned by the active medication picker, not a background control.
+  const unitEditor=e.target&&e.target.closest?e.target.closest('[data-custom-unit-editor]'):null;
+  const unitMenu=unitEditor?unitEditor.closest('.sym-med-unit-menu'):null;
+  const unitOwner=unitMenu&&unitMenu._medUnitOwner;
+  if(modal.id==='symCatOverlay'&&unitEditor&&!unitEditor.hidden&&unitEditor.contains(document.activeElement)
+    &&unitOwner&&unitOwner.id==='symMedPopup'&&unitOwner.isConnected&&unitOwner.contains(unitMenu._medUnitWrap)
+    &&getComputedStyle(unitMenu).display!=='none'&&getComputedStyle(unitOwner).display!=='none')return;
   const focusables=_kbGetFocusable(modal);if(focusables.length===0)return;
   const first=focusables[0], last=focusables[focusables.length-1];
   const ae=document.activeElement;
+  // The global save notice is above the editor but outside its DOM subtree.
+  // Only its visible retry controls join the modal's existing focus loop.
+  const retries=_kbGetSaveRetryButtons(modal);
+  if(retries.length){
+    const retryIndex=retries.indexOf(ae);
+    if(retryIndex>=0){
+      e.preventDefault();
+      if(e.shiftKey)(retryIndex>0?retries[retryIndex-1]:last).focus();
+      else (retryIndex<retries.length-1?retries[retryIndex+1]:first).focus();
+      return;
+    }
+    if(e.shiftKey&&ae===first){e.preventDefault();retries[retries.length-1].focus();return;}
+    if(!e.shiftKey&&ae===last){e.preventDefault();retries[0].focus();return;}
+  }
   if(!modal.contains(ae)){e.preventDefault();first.focus();return;}
   if(e.shiftKey&&ae===first){e.preventDefault();last.focus();return;}
   if(!e.shiftKey&&ae===last){e.preventDefault();first.focus();return;}

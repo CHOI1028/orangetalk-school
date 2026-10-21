@@ -104,7 +104,7 @@ export function _recToDbRow(r){
   const tr=Array.isArray(r.treatment)?JSON.stringify(r.treatment):(r.treatment||'');
   /* extra_json — 기존 값을 보존한 채 추가 메타만 갱신 (treatment_memo · meds_by_sym · med_doses_by_sym) */
   let _ej={};
-  try { if (typeof r.extra_json==='string') _ej=JSON.parse(r.extra_json)||{}; else if (r.extra_json && typeof r.extra_json==='object') _ej=r.extra_json; } catch(_){ _ej={}; }
+  try { if (typeof r.extra_json==='string') _ej=JSON.parse(r.extra_json)||{}; else if (r.extra_json && typeof r.extra_json==='object') _ej=JSON.parse(JSON.stringify(r.extra_json)); } catch(_){ _ej={}; }
   if (typeof r.treatmentMemo==='string') _ej.treatment_memo=r.treatmentMemo;
   /* v3 — 증상별 약품/도즈 매핑은 extra_json 에 저장 (스키마 v3 유지, 옛 코드 호환).
    *  · meds_by_sym = {"증상라벨": ["약명","약명",...], ...}

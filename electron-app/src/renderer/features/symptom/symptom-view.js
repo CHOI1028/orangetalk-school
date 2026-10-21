@@ -1,5 +1,8 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 import { getDailyRecord } from '../../core/daily-record-access.js';
+import { mountSymptomEditorFeedback } from './symptom-editor-feedback.js';
+import { medicationDoseUnit, replaceMedicationDoseUnit } from '../../core/medication-dose-unit.js';
+import { mountSymptomFocusLayout, mountFocusedMedication, renderFocusedMedicationSelection, isFocusedMedication, attachFocusedMedicationUnits, refreshFocusedMedicationControls } from './symptom-focused-workspace.js';
 /* ES Module */
 import { getStu, escHtml, escJs, getGuardianContact, getStudentBirth, getDeptForSymptom, saveData, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { openA4PrintDialog, saveA4Pdf } from '../../core/a4-print-dialog.js';
@@ -281,7 +284,7 @@ document.addEventListener('keydown',function(e){
     const tip=document.getElementById('medHideTip');if(tip)tip.remove();
     bus.emit('toast:show', {text: last+' 숨김이 해제되었습니다.'});
     const pop=document.getElementById('symMedPopup');
-    if(pop){pop.remove();}
+    if(pop){_symCleanupMedUnitMenus(pop);pop.remove();}
     return;
   }
   /* 2. 처치 변경 되돌리기 (Phase 3a 새 액션 + 레거시 promote/demote 지원) */
@@ -319,6 +322,12 @@ function _symRemovePatch(idx){S._symPatches.splice(idx,1);_symSavePatches();rend
 function _symAddPatchSetting(){_symPrompt('추가할 파스명','',function(v){S._symPatches.push(v);_symSavePatches();renderSettingsPanel('diary');});}
 
 let _symPopupRecId=null;
+bus.on('daily:record-id-changed',function(ev){
+  if(ev&&String(_symPopupRecId)===String(ev.oldId)){
+    _symPopupRecId=ev.id;
+    S._symPopupRecId=ev.id;
+  }
+});
 let _symSelectedSymptoms=[];
 let _symSelectedTreatments=[];
 let _symSelectedMeds=[];
@@ -425,9 +434,26 @@ export function formatMedicationDisplay(medsStr){
 /* 투약 팝업 — 단위 드롭다운 호버 핸들러 직접 부착. 매 렌더 직후 호출.
  * 부모 팝업(symMedPopup)이 transform 을 사용해 position:fixed 자식의 containing block 을 변경하므로,
  * 메뉴를 document.body 로 이동해 viewport 기준 좌표가 정확히 동작하게 함. */
+function _symCleanupMedUnitMenus(owner){
+  document.querySelectorAll('.sym-med-unit-menu').forEach(function(menu){
+    const wrap=menu._medUnitWrap;
+    if(!wrap)return;
+    if((owner&&menu._medUnitOwner===owner)||!wrap.isConnected){
+      if(typeof menu._medUnitDispose==='function')menu._medUnitDispose();
+      menu.remove();
+      if(wrap._unitMenu===menu)wrap._unitMenu=null;
+    }
+  });
+}
+
 function _symAttachUnitHover(root){
+  _symCleanupMedUnitMenus();
   if(!root) root = document.getElementById('symMedList') || document.getElementById('symMedPopup');
   if(!root) return;
+  if(root.closest('#symMedPopup[data-sym-focus-dock="1"]')){
+    attachFocusedMedicationUnits(root,medicationDoseUnit,replaceMedicationDoseUnit);
+    return;
+  }
   root.querySelectorAll('.sym-med-dose-wrap').forEach(function(wrap){
     if(wrap._unitHoverBound) return;
     wrap._unitHoverBound = true;
@@ -436,46 +462,70 @@ function _symAttachUnitHover(root){
      * 단위 클릭 시 stopPropagation 으로 popup 외부 클릭 검사를 무력화. */
     const _menu0 = wrap.querySelector('.sym-med-unit-menu');
     if(_menu0){
+      _menu0._medUnitWrap=wrap;
+      _menu0._medUnitOwner=wrap.closest('#symMedPopup')||root;
       document.body.appendChild(_menu0);
       wrap._unitMenu = _menu0;
       _menu0.addEventListener('mousedown', function(e){ e.stopPropagation(); }, true);
-      _menu0.addEventListener('click', function(e){
+      const doseInput=function(){return wrap.querySelector('[data-action="medDoseInput"]');};
+      const editor=_menu0.querySelector('[data-custom-unit-editor]');
+      const customInput=_menu0.querySelector('[data-custom-unit-input]');
+      const message=_menu0.querySelector('[data-custom-unit-error]');
+      const closeEditor=function(){
+        editor.hidden=true;message.textContent='';_menu0.style.display='none';
+        const input=doseInput();if(input&&input.isConnected)input.focus();
+      };
+      const applyUnit=function(unit){
+        const input=doseInput();if(!input||!input.isConnected)return;
+        try{
+          const next=replaceMedicationDoseUnit(input.value,unit);
+          input.value=next;
+          input.dispatchEvent(new Event('input',{bubbles:true}));
+          closeEditor();
+        }catch(error){
+          editor.hidden=false;message.textContent=error.message;
+          _show();customInput.focus();
+        }
+      };
+      _menu0.addEventListener('click',function(e){
         e.stopPropagation();
-        const unitBtn = e.target.closest('[data-action="pickMedUnit"]');
-        if(!unitBtn) return;
-        const med = unitBtn.dataset.med;
-        const unit = unitBtn.dataset.unit;
-        const inp = document.querySelector('[data-action="medDoseInput"][data-med="'+(window.CSS&&CSS.escape?CSS.escape(med):med.replace(/"/g,'\\"'))+'"]');
-        if(!inp) return;
-        let v = String(inp.value||'').trim();
-        ['T','C','g','cc','ml','mg','gtt','포','개','병'].forEach(function(u){
-          if(v.endsWith(u)) v = v.slice(0, -u.length).trim();
-        });
-        inp.value = v + unit;
-        inp.dispatchEvent(new Event('input', {bubbles:true}));
-        /* 메뉴 닫기 */
-        _menu0.style.display = 'none';
+        const button=e.target.closest('[data-action]');if(!button)return;
+        const action=button.dataset.action;
+        if(action==='editMedUnit'){
+          editor.hidden=false;message.textContent='';
+          customInput.value=medicationDoseUnit(doseInput()?.value);
+          _show();customInput.focus();customInput.select();
+        }else if(action==='applyCustomMedUnit')applyUnit(customInput.value);
+        else if(action==='cancelCustomMedUnit')closeEditor();
+        else if(action==='pickMedUnit')applyUnit(button.dataset.unit);
       });
-      /* 키보드 네비게이션 — 방향키 이동 / 엔터 선택 / ESC 는 저장하고 닫기 (사용자 요청 2026-06-16).
-       *  투여량 input 에서 Tab 으로 진입 → 첫 단위에 focus 된 상태로 시작. */
-      _menu0.addEventListener('keydown', function(e){
-        const items = Array.from(_menu0.querySelectorAll('[data-action="pickMedUnit"]'));
-        if(!items.length) return;
-        const cur = document.activeElement;
-        let idx = items.indexOf(cur);
-        if(e.key==='ArrowDown' || e.key==='ArrowRight'){
-          e.preventDefault(); idx = (idx<0 ? 0 : (idx+1)%items.length); items[idx].focus();
-        } else if(e.key==='ArrowUp' || e.key==='ArrowLeft'){
-          e.preventDefault(); idx = (idx<0 ? items.length-1 : (idx-1+items.length)%items.length); items[idx].focus();
-        } else if(e.key==='Enter'){
-          e.preventDefault(); if(cur && cur.dataset && cur.dataset.action==='pickMedUnit') cur.click();
-        } else if(e.key==='Escape'){
-          e.preventDefault();
-          _menu0.style.display = 'none';
-          if(typeof _symAutoSave==='function') _symAutoSave();   /* 취소가 아니라 저장하고 닫기 */
-          const _med = items[0] && items[0].dataset ? items[0].dataset.med : '';
-          const _inp = _med ? document.querySelector('[data-action="medDoseInput"][data-med="'+(window.CSS&&CSS.escape?CSS.escape(_med):_med.replace(/"/g,'\\"'))+'"]') : null;
-          if(_inp) _inp.focus();
+      _menu0.addEventListener('keydown',function(e){
+        if(e.isComposing||e.keyCode===229)return;
+        e.stopPropagation();
+        if(!editor.hidden&&editor.contains(e.target)){
+          if(e.key==='Escape'){e.preventDefault();closeEditor();}
+          else if(e.key==='Enter'){
+            e.preventDefault();
+            if(e.target.dataset.action==='cancelCustomMedUnit')closeEditor();else applyUnit(customInput.value);
+          }else if(e.key==='Tab'){
+            e.preventDefault();
+            const fields=Array.from(editor.querySelectorAll('input,button'));
+            const index=fields.indexOf(document.activeElement);
+            fields[(index+(e.shiftKey?-1:1)+fields.length)%fields.length].focus();
+          }
+          return;
+        }
+        const items=Array.from(_menu0.querySelectorAll('[data-action="pickMedUnit"], [data-action="editMedUnit"]'));
+        if(!items.length)return;
+        const current=document.activeElement;let index=items.indexOf(current);
+        if(e.key==='ArrowDown'||e.key==='ArrowRight'){
+          e.preventDefault();items[index<0?0:(index+1)%items.length].focus();
+        }else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){
+          e.preventDefault();items[index<0?items.length-1:(index-1+items.length)%items.length].focus();
+        }else if(e.key==='Enter'||e.key===' '){
+          e.preventDefault();if(items.includes(current))current.click();
+        }else if(e.key==='Escape'){
+          e.preventDefault();closeEditor();
         }
       });
     }
@@ -506,17 +556,21 @@ function _symAttachUnitHover(root){
       clearTimeout(_hideTimer);
       _hideTimer = setTimeout(function(){
         const menu = wrap._unitMenu;
-        if(menu && !menu.matches(':hover') && (!trig || !trig.matches(':hover'))) menu.style.display='none';
+        if(menu && !menu.contains(document.activeElement) && !menu.matches(':hover') && (!trig || !trig.matches(':hover'))) menu.style.display='none';
       }, 300);
     };
     if(trig){
       trig.addEventListener('mouseenter', _show);
+      trig.addEventListener('click', _show);
       trig.addEventListener('mouseleave', _scheduleHide);
     }
     /* 메뉴 자체에도 호버 핸들러 — 메뉴 위 마우스 있으면 닫기 취소 */
     if(wrap._unitMenu){
+      const ownedMenu=wrap._unitMenu;
+      ownedMenu._medUnitDispose=function(){clearTimeout(_hideTimer);ownedMenu.style.display='none';};
       wrap._unitMenu.addEventListener('mouseenter', function(){ clearTimeout(_hideTimer); });
       wrap._unitMenu.addEventListener('mouseleave', _scheduleHide);
+      wrap._unitMenu.addEventListener('focusout', _scheduleHide);
     }
   });
 }
@@ -529,9 +583,15 @@ function _buildMedDoseInput(item){
     return '<span data-action="pickMedUnit" tabindex="-1" data-med="'+escHtml(item)+'" data-unit="'+u+'" style="padding:3px 10px;font-size:11px;font-weight:600;color:var(--t1);border-radius:4px;cursor:pointer;text-align:center" onmouseover="this.style.background=\'rgba(6,182,212,0.12)\'" onmouseout="this.style.background=\'transparent\'">'+_lbl+'</span>';
   }).join('');
   return '<div class="sym-med-dose-wrap" style="position:relative;display:inline-flex;align-items:center;gap:3px;flex-shrink:0">'
-    +'<input data-action="medDoseInput" data-med="'+escHtml(item)+'" type="text" value="'+escHtml(cur)+'" placeholder="숫자로 투여량 입력" maxlength="20" style="width:100px;font-size:10px;padding:2px 7px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t1);outline:none;font-family:var(--f);text-align:center">'
+    +'<input data-action="medDoseInput" data-med="'+escHtml(item)+'" type="text" value="'+escHtml(cur)+'" aria-label="투여량과 단위" placeholder="예: 1정, 2.5ml" maxlength="20" style="width:100px;font-size:10px;padding:2px 7px;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t1);outline:none;font-family:var(--f);text-align:center">'
     +'<span class="sym-med-unit-trigger" data-med="'+escHtml(item)+'" style="padding:2px 6px;font-size:10px;font-weight:600;border:1px solid var(--bdr);border-radius:4px;background:var(--bg2);color:var(--t2);cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:2px">단위<span style="font-size:8px">▾</span></span>'
-    +'<div class="sym-med-unit-menu">'+menuItems+'</div>'
+    +'<div class="sym-med-unit-menu" style="flex-wrap:wrap;max-width:calc(100vw - 12px)">'+menuItems
+      +'<button type="button" class="btn btn-sm" tabindex="-1" data-action="editMedUnit">직접 입력</button>'
+      +'<div data-custom-unit-editor hidden style="flex:0 0 100%;width:220px;min-width:0;padding:8px 4px;border-top:1px solid var(--bdr)">'
+        +'<label style="display:block;font-size:11px;color:var(--t2)">단위 직접 입력<input class="form-input" data-custom-unit-input aria-label="직접 입력할 단위" maxlength="12" placeholder="예: 정, 캡슐, 매" style="display:block;width:100%;box-sizing:border-box;margin:6px 0" autocomplete="off"></label>'
+        +'<div style="display:flex;gap:6px"><button type="button" class="btn btn-sm" data-action="applyCustomMedUnit">적용</button><button type="button" class="btn btn-sm" data-action="cancelCustomMedUnit">취소</button></div>'
+        +'<div data-custom-unit-error role="alert" style="font-size:11px;color:var(--rs);white-space:normal;margin-top:6px"></div>'
+      +'</div></div>'
     +'</div>';
 }
 /* 통계용 — "가네톡액(10ml), 베아제" → ["가네톡액", "베아제"] (투여량 제거) */
@@ -1163,7 +1223,7 @@ export function openSymptomCategoryPopup(recId, opts){
   getEffectiveSymCats(false).forEach(function(cat,ci){
     /* 잠금 모드(_symLockCategory): 그 분류만 활성, 나머지는 흐리게 + 클릭 비활성 (사용자 요청 2026-06-13) */
     const _locked=_symLockCategory && cat.id!==_symLockCategory;
-    h+='<div class="sym-cat-item'+(_locked?' sym-cat-locked':'')+'" data-cat="'+cat.id+'"'+(_locked?'':' data-action="selectCat"')+' style="padding:9px 10px;cursor:'+(_locked?'not-allowed':'pointer')+';transition:all .15s;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:6px;position:relative'+(_locked?';opacity:0.38;pointer-events:none':'')+'">';
+    h+='<div role="button" tabindex="'+(_locked?'-1':'0')+'" aria-disabled="'+(_locked?'true':'false')+'" class="sym-cat-item sym-card-action'+(_locked?' sym-cat-locked':'')+'" data-cat="'+cat.id+'"'+(_locked?'':' data-action="selectCat"')+' style="padding:9px 10px;cursor:'+(_locked?'not-allowed':'pointer')+';transition:all .15s;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:6px;position:relative'+(_locked?';opacity:0.38;pointer-events:none':'')+'">';
     /* 화살표 자리(▶) — 항상 width 12px 확보, visibility 만 토글 (배지 위치 고정 위해) */
     h+='<span style="font-size:15px">'+cat.icon+'</span><span style="font-weight:600;color:var(--t2);line-height:1.3;flex:1">'+cat.name+'</span><span class="sym-cat-arrow" style="visibility:hidden;display:inline-block;width:12px;text-align:right;color:var(--cyan);font-size:10px;flex-shrink:0">▶</span></div>';
   });
@@ -1181,6 +1241,8 @@ export function openSymptomCategoryPopup(recId, opts){
   _attachSymptomBackdrop(ov);
   _bindSymptomDismissal(ov);
   document.body.appendChild(ov);
+  mountSymptomFocusLayout(ov, _symCloseFocusedMedication);
+  mountSymptomEditorFeedback(ov, () => getDailyRecord(recId), () => { const current=getDailyRecord(recId); if(current)saveRecordNow(current); });
   /* 증상 선택 및 처치 팝업 전역 미니 팝업 위임 — 카테고리 패널·처치 패널·헤더 칩 등 모든 자식 요소의
    * data-tooltip 호버를 통일된 GUI(showHeaderTooltip) 로 처리. (2026-05-20 통합) */
   _symBindTipDelegation(ov);
@@ -1443,12 +1505,16 @@ export function openSymptomCategoryPopup(recId, opts){
     }
   }
   const _symKeyNav=function(e){
-    if(e.key==='Escape' && e.defaultPrevented)return;
+    if((e.key==='Escape'||e.key==='Tab') && e.defaultPrevented)return;
+    /* Save-retry controls keep native button keys; Escape still closes the editor. */
+    if(e.key!=='Escape'&&e.target&&e.target.closest&&e.target.closest('#globalSaveToast'))return;
     /* 텍스트 입력창(input/textarea/contenteditable) 안에서 좌·우 방향키는 캐럿 이동이 우선되어야 함.
      * 사용자 보고 2026-05-21 — 자유 기술 dock·증상 자유 기술 dock·메모 dock·투약 검색 input 등에서
      * ArrowLeft/Right 가 전역 핸들러의 preventDefault 로 캐럿이 안 움직이던 회귀 fix.
      * ArrowUp/Down 은 투약 팝업이 아이템 네비게이션용으로 사용하므로 그대로 통과시킴. */
     const _tg = e.target;
+    if(e.key!=='Escape' && _tg && _tg.closest && _tg.closest('.symptom-row-choice,.sym-treatment-choice,.sym-card-action'))return;
+    if(e.key !== 'Escape' && _tg && _tg.closest && _tg.closest('#symCatBox.sym-focused-workspace') && (_tg.matches('button,select,summary') || _tg.closest('[data-sym-focus-native]')))return;
     const _isTxt = _tg && (_tg.tagName === 'INPUT' || _tg.tagName === 'TEXTAREA' || _tg.isContentEditable);
     /* 한글 조합 확정 키와 textarea 줄바꿈은 입력창에 양보한다.
      * 처치 문구 창 등의 Enter 완료는 해당 입력창의 자체 핸들러가 먼저 처리한다. */
@@ -1458,7 +1524,8 @@ export function openSymptomCategoryPopup(recId, opts){
     if(_isTxt && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Tab')) return;
     /* 여러 줄 textarea(자유 기술 dock 등)에선 위·아래 방향키도 캐럿 줄이동이 우선 (사용자 보고 2026-05-30 — 두 줄 이상 시 ↑↓ 안 먹던 문제). */
     if(_tg && _tg.tagName === 'TEXTAREA' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
-    if(document.getElementById('symMedPopup')){
+    const focusedMedPopup=document.getElementById('symMedPopup');
+    if(focusedMedPopup && (!isFocusedMedication(focusedMedPopup) || focusedMedPopup.contains(_tg))){
       /* 투약 팝업 키보드 */
       const medItems=document.querySelectorAll('#symMedList>div');
       if(!medItems.length)return;
@@ -1579,7 +1646,7 @@ export function openSymptomCategoryPopup(recId, opts){
     headerEl.style.cursor='grab';headerEl.style.userSelect='none';
     const _dd={active:false,offX:0,offY:0};
     headerEl.addEventListener('mousedown',function(e){
-      if(e.target.closest('button'))return;
+      if(e.target.closest('button,input,select,textarea,summary,[data-action],[data-sym-focus-native]'))return;
       e.preventDefault();
       _dd.active=true;
       _dd.offX=e.clientX-box.offsetLeft;
@@ -1698,8 +1765,18 @@ function _symBindQuickSearch(ov){
     const it=e.target.closest('.sym-qs-item'); if(!it)return;
     e.preventDefault(); _pick(parseInt(it.dataset.qi,10)||0);
   });
-  /* 팝업이 뜨면 검색란에 커서 자동 포커스 */
-  setTimeout(function(){ try{ inp.focus(); }catch(_){} }, 60);
+  /* Initial focus must not override a user's newer focus choice. */
+  const openingFocus=document.activeElement;
+  let focusMoved=false;
+  const trackOpeningFocus=function(e){if(e.target!==openingFocus)focusMoved=true;};
+  document.addEventListener('focusin',trackOpeningFocus,true);
+  setTimeout(function(){
+    document.removeEventListener('focusin',trackOpeningFocus,true);
+    if(focusMoved||document.activeElement!==openingFocus||!inp.isConnected||document.getElementById('symQuickSearchInput')!==inp)return;
+    const style=getComputedStyle(inp);
+    if(!inp.getClientRects().length||style.visibility==='hidden'||style.display==='none')return;
+    try{inp.focus();}catch(_){}
+  },60);
 }
 
 /* ═══ 재사용 가능한 팝업 드래그 이동 함수 ═══ */
@@ -1941,7 +2018,7 @@ function _symSelectCat(catId){
     const _bmColor=_hasBmForSym?'#22c55e':'#a855f7';
     /* 중분류 칩 자체는 선택 상태 시 cyan(하늘색), 미선택은 기본. 바디맵 입력 표시는 🧍 아이콘만 녹색으로. */
     h+='<div class="sym-sel-chip'+(isSel?' is-sel':'')+(_hasBmForSym?' has-bm':'')+'" data-sym="'+escHtml(sym)+'" data-cat="'+escHtml(cat.id)+'" data-user="'+(isUser?'1':'')+'" data-sel="'+(isSel?'1':'0')+'" data-action="toggleSym" style="padding:7px 12px;margin:0 4px 4px 4px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;transition:all .15s;display:flex;align-items:center;gap:6px;border:1px solid '+(isSel?'var(--cyan)':'var(--bdr)')+';background:'+(isSel?'rgba(6,182,212,0.1)':'transparent')+';color:'+(isSel?'var(--cyan)':'var(--t1)')+';position:relative">';
-    h+='<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(sym)+'</span>';
+    h+='<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><button type="button" class="symptom-row-choice" aria-pressed="'+(isSel?'true':'false')+'">'+escHtml(sym)+'</button></span>';
     /* 🧍 바디맵 아이콘 — 상담 분류에서는 제외 (바디맵 불필요, 사용자 요청 2026-06-13) */
     if(cat.id!=='counsel'){
       /* 바디맵 입력된 증상은 🧍 아이콘 자체에 녹색 테두리 + 옅은 녹색 배경으로 강조 */
@@ -1951,7 +2028,7 @@ function _symSelectCat(catId){
       const _bmParts=_bmMarkers.filter(function(m){return m.symptom===sym;}).map(function(m){return m.label;}).filter(Boolean);
       const _bmTipText='증상이 나타난 부위 또는 통증척도를 바디맵 상에 입력할 수 있습니다.'
         +((_hasBmForSym&&_bmParts.length>0)?('\n등록된 부위: '+_bmParts.join(', ')):'');
-      h+='<span class="sym-bm-mark" data-action="openSymBm" data-sym="'+escHtml(sym)+'" data-rec-id="'+_symPopupRecId+'" data-tooltip="'+escHtml(_bmTipText)+'" data-tooltip-instant="1" style="cursor:pointer;font-size:13px;line-height:1;padding:1px 4px;border-radius:6px;color:'+_bmColor+';border:'+_bmIconBorder+';background:'+_bmIconBg+'">🧍</span>';
+      h+='<span class="sym-bm-mark sym-card-action" role="button" tabindex="0" aria-label="바디맵 열기" data-action="openSymBm" data-sym="'+escHtml(sym)+'" data-rec-id="'+_symPopupRecId+'" data-tooltip="'+escHtml(_bmTipText)+'" data-tooltip-instant="1" style="cursor:pointer;font-size:13px;line-height:1;padding:1px 4px;border-radius:6px;color:'+_bmColor+';border:'+_bmIconBorder+';background:'+_bmIconBg+'">🧍</span>';
     }
     /* ✏️ 펜 아이콘 — 호버 즉시 표시 미니 팝업.
      *  자유 기술(메모)이 입력된 증상은 🧍 바디맵 아이콘과 동일하게 펜 아이콘에도 주황 테두리 + 옅은 배경으로 강조 (사용자 요청 2026-06-05).
@@ -1964,11 +2041,11 @@ function _symSelectCat(catId){
       })();
       const _penBorder=_hasSymMemo?'1.5px solid #d97706':'1.5px solid transparent';
       const _penBg=_hasSymMemo?'rgba(217,119,6,0.15)':'transparent';
-      h+='<span class="sym-chip-pen" data-action="openSymMemo" data-sym="'+escHtml(sym)+'" data-rec-id="'+_symPopupRecId+'" data-tooltip="증상에 대한 자세한 경위, 상태 등을 자유 기술할 수 있습니다." data-tooltip-instant="1" style="cursor:pointer;font-size:13px;line-height:1;padding:1px 3px;border-radius:6px;color:#d97706;border:'+_penBorder+';background:'+_penBg+'">✏️</span>';
+      h+='<span class="sym-chip-pen sym-card-action" role="button" tabindex="0" aria-label="증상 메모 열기" data-action="openSymMemo" data-sym="'+escHtml(sym)+'" data-rec-id="'+_symPopupRecId+'" data-tooltip="증상에 대한 자세한 경위, 상태 등을 자유 기술할 수 있습니다." data-tooltip-instant="1" style="cursor:pointer;font-size:13px;line-height:1;padding:1px 3px;border-radius:6px;color:#d97706;border:'+_penBorder+';background:'+_penBg+'">✏️</span>';
     }
     /* ✕ 취소 — 선택된 칩에서만 hover 시 노출, 선택 안 된 칩도 같은 폭의 placeholder 로 자리 확보 (정렬 일관성). */
     if(isSel){
-      h+='<span class="sym-chip-del" data-action="cancelSym" data-sym="'+escHtml(sym)+'" data-tooltip="이 증상 선택 해제" data-tooltip-instant="1">✕</span>';
+      h+='<span class="sym-chip-del sym-card-action" role="button" tabindex="0" aria-label="증상 선택 해제" data-action="cancelSym" data-sym="'+escHtml(sym)+'" data-tooltip="이 증상 선택 해제" data-tooltip-instant="1">✕</span>';
     } else {
       h+='<span class="sym-chip-del-placeholder" aria-hidden="true"></span>';
     }
@@ -2419,7 +2496,7 @@ function _symAutoSave(_silent){
                   && _nextTbs===_curTbs && _nextMbs===_curMbs && _nextMdbs===_curMdbs
                   && _nextScm===_curScm
                   && _nextBranchEff===_curBranchEff);
-    if(_noChange) return;
+    if(_noChange){if(rec._dirty||rec._saveError)saveRecordNow(rec);return;}
     rec.symptoms=_symSelectedSymptoms.map(_symToSavedSymptom); /* 상담 주제는 "상담[X 관련 상담]" 으로 저장 (2026-06-13) */
     rec.treatment=_symSelectedTreatments.slice();
     /* v3 — 증상별 처치 매핑도 함께 저장. 깊은 복사로 외부 mutation 차단. */
@@ -2468,28 +2545,12 @@ function _symAutoSave(_silent){
     /* 처치/약품 변경 시 대시보드(투약 TOP5)·방문 통계(투약 TOP10) 도 갱신 */
     bus.emit('render:dashboard');
     bus.emit('render:stats');
-    /* 저장 토스트 — silent=true 면 토스트 없이 조용히 저장 (팝업 닫힘 시 호출되는 마무리 저장용).
-     * 입력은 어차피 모두 실시간 저장되므로 닫을 때 또 토스트가 뜨는 건 사용자 입장에서 부자연스러움. */
-    if(_silent)return;
-    /* 토스트 디바운스 — 타이핑 중에는 600ms idle 까지 대기. 빠른 연타에도 한 번만 표시.
-     * 저장 자체는 위 saveRecordNow 에서 매 호출마다 즉시 수행되므로 데이터 손실 없음. */
-    if(window._symToastTimer)clearTimeout(window._symToastTimer);
-    window._symToastTimer=setTimeout(function(){
-      window._symToastTimer=null;
-      const toast=document.getElementById('globalSaveToast');
-      if(!toast)return;
-      toast.textContent='저장 중…';
-      toast.className='global-save-toast show saving';
-      setTimeout(function(){
-        toast.textContent='모든 내용이 저장되었습니다.';
-        toast.className='global-save-toast show';
-        setTimeout(function(){toast.className='global-save-toast';},3000);
-      },300);
-    },600);
+    /* Completion and retry feedback come from the acknowledged save queue. */
   }
 }
 
 function _symToggleSym(sym){
+  _symCloseFocusedMedication();
   /* Phase 3d: base name 매칭 — 메모 부착 항목도 동일 토글 */
   const idx=_symFindSymIdx(sym);
   const wasSelected=idx!==-1;
@@ -2706,6 +2767,7 @@ function _symSeedFlatFromBranchedIfEmpty(){
 }
 /* 토글 클릭 — 분기(1)/미분기(0) 전환. 두 저장소(증상별 키 · __flat__) 모두 보존, 팝업 표시만 전환. */
 function _symSetBranch(branch){
+  _symCloseFocusedMedication();
   const _next=(String(branch)==='1');
   if(_next===(_symBranchMode!==false)) return; /* 변화 없음 */
   if(!_next) _symSeedFlatFromBranchedIfEmpty(); /* 미분기로 갈 때만 seed */
@@ -2920,8 +2982,8 @@ function _symRenderSingleBlock(recId, opts){
   /* 자주 쓰는 처치 칩 */
   let favChipsHtml='';
   let favToolsHtml='';
-  favToolsHtml+='<span class="sym-sel-chip" data-action="addUserTreat" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상에 새 처치 칩을 추가합니다." data-tooltip-instant="1" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:800;border-radius:12px;cursor:pointer;border:1.5px dashed #f97316;background:rgba(249,115,22,0.12);color:#f97316;font-family:var(--f)">+ 추가</span>';
-  favToolsHtml+='<span class="sym-sel-chip" data-action="openFreeText" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.08);color:#d97706;font-family:var(--f)" data-tooltip="일회성으로 처치를 자유롭게 적을 수 있습니다." data-tooltip-instant="1">✏️ 처치 자유 기입</span>';
+  favToolsHtml+='<span class="sym-sel-chip sym-card-action" role="button" tabindex="0" aria-label="처치 추가" data-action="addUserTreat" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상에 새 처치 칩을 추가합니다." data-tooltip-instant="1" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:800;border-radius:12px;cursor:pointer;border:1.5px dashed #f97316;background:rgba(249,115,22,0.12);color:#f97316;font-family:var(--f)">+ 추가</span>';
+  favToolsHtml+='<span class="sym-sel-chip sym-card-action" role="button" tabindex="0" aria-label="처치 자유 기입" data-action="openFreeText" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.08);color:#d97706;font-family:var(--f)" data-tooltip="일회성으로 처치를 자유롭게 적을 수 있습니다." data-tooltip-instant="1">✏️ 처치 자유 기입</span>';
   recArr.forEach(function(t){
     const isFixed=FIXED_FAVS.indexOf(t)!==-1;
     const isCore=CORE_FIXED.indexOf(t)!==-1;
@@ -2930,13 +2992,13 @@ function _symRenderSingleBlock(recId, opts){
     if(t==='침상 이용')treatAction='bedRest';
     else if(t==='V/S 측정')treatAction='openVs';
     else if(t==='신체사정')treatAction='openPhysAssess';
-    const delBtn=isCore?'':'<span class="sym-chip-del" data-action="hardRemoveTreat" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상의 자주 쓰는 처치 목록에서 삭제 (Ctrl+Z로 복원 가능)" data-tooltip-instant="1">✕</span>';
+    const delBtn=isCore?'':'<span class="sym-chip-del sym-card-action" role="button" tabindex="0" aria-label="자주 쓰는 처치에서 제거" data-action="hardRemoveTreat" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상의 자주 쓰는 처치 목록에서 삭제 (Ctrl+Z로 복원 가능)" data-tooltip-instant="1">✕</span>';
     let _tipAttr='';
     if(t==='V/S 측정')_tipAttr=' data-tooltip="V/S, SpO₂, 혈당을 입력할 수 있습니다." data-tooltip-instant="1"';
     else if(t==='신체사정')_tipAttr=' data-tooltip="시진·촉진·타진·청진을 선택하고 소견을 적을 수 있습니다." data-tooltip-instant="1"';
     else if(t==='투약')_tipAttr=' data-tooltip="일반의약품을 선택할 수 있습니다." data-tooltip-instant="1"';
     else if(t==='침상 이용'||t==='침상 안정')_tipAttr=' data-tooltip="침상 선택, 시간과 알람 지정을 할 수 있습니다." data-tooltip-instant="1"';
-    favChipsHtml+='<span class="sym-sel-chip sym-fav-chip" data-action="'+treatAction+'" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-is-fixed="'+(isFixed?'1':'0')+'"'+_tipAttr+' style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;transition:all .12s;border:1px solid var(--bdr);background:transparent;color:var(--t2);font-family:var(--f)'+(isFixed?';border-style:dashed':'')+'">'+_disp+delBtn+'</span>';
+    favChipsHtml+='<span class="sym-sel-chip sym-fav-chip" data-action="'+treatAction+'" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-is-fixed="'+(isFixed?'1':'0')+'"'+_tipAttr+' style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;transition:all .12s;border:1px solid var(--bdr);background:transparent;color:var(--t2);font-family:var(--f)'+(isFixed?';border-style:dashed':'')+'"><span class="sym-treatment-name"><button type="button" class="sym-treatment-choice">'+_disp+'</button></span>'+delBtn+'</span>';
   });
 
   /* === 블록 조립 === */
@@ -3861,6 +3923,7 @@ function _splitCompositeTreat(s){
 }
 
 function _symToggleTreat(treat, symKey){
+  _symCloseFocusedMedication();
   /* 합성 fav 칩 ("지혈, 코튼볼 삽입" 등) 은 단일 칩으로 유지 (분리하지 않음).
    *  · 사용자 요청 2026-05-27: 자주 쓰는 처치에 등록한 합성 칩은 record 의 선택된 처치 영역에도 단일 칩으로 표시.
    *  · V/S 측정·침상 안정 sub-action 은 칩 렌더 단계의 _renderDispChip 에서 처리되므로 분리 불필요. */
@@ -4014,6 +4077,7 @@ function _symClearOrphanVsPa(recId, hadVs, hadPa){
   }
 }
 function _symRemoveTreat(t, symKey){
+  _symCloseFocusedMedication();
   /* === sym-key 별 제거 (일반 처치) === */
   if(symKey && symKey !== '__legacy__' && _symTreatmentsBySym[symKey]){
     const arr=_symTreatmentsBySym[symKey];
@@ -4135,6 +4199,7 @@ function _symBuildSymLabel(recId, baseName, memoOverride){
  *  같은 증상 재선택 시 의도치 않게 부활하던 결함. 세 맵을 한 곳에서 묶어 모든 라벨 변경 지점의 정합성 보장.
  *  ※ 약품 배열/도즈 객체는 _symSelectedMeds/_symMedDoses 가 reference 할 수 있어 같은 객체를 그대로 이동(충돌 시에만 병합). */
 function _symMigrateSymMaps(oldLabel, newLabel){
+  _symCloseFocusedMedication();
   if(!oldLabel || !newLabel || oldLabel===newLabel) return;
   /* 처치 (배열) */
   if(_symTreatmentsBySym && _symTreatmentsBySym[oldLabel]){
@@ -4179,6 +4244,7 @@ function _symRebuildAllSymLabels(recId){
   }
 }
 function _symRemoveSym(s){
+  _symCloseFocusedMedication();
   /* s 는 "설사" 또는 "설사(중앙하복부, 메모)" 등 보관된 전체 문자열 — base name 추출 후 매칭 */
   const _m=String(s).match(/^(.+?)\s*\(/);
   const _base=_m?_m[1].trim():String(s);
@@ -4230,6 +4296,7 @@ function _symRemoveSym(s){
   _symUpdateCatHighlights();
 }
 function _symRemoveMedAndUpdate(m, symKey){
+  _symCloseFocusedMedication();
   /* v3 — sym-key 모드면 _symMedsBySym[symKey] 에서만 제거, legacy 면 record-level (사용자 결정 2026-05-21).
    * 같은 약품이 다른 블록에도 있으면 그쪽은 그대로 유지. */
   const _useBy = !!(symKey && symKey !== '__legacy__');
@@ -4356,12 +4423,177 @@ function _symOpenMedListSettings(curType, subTarget){
   }
 }
 
+/* Medication browsing is popup-local; filters never persist or change selections. */
+function _symMedBrowseReadMap(key){
+  try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{};}catch(_){return {};}
+}
+export function getMedicationBrowseMeta(items){
+  const system=new Set(),categories=new Map();
+  [_medDb,S._medDbUser||{}].forEach(function(source,sourceIndex){
+    Object.keys(source).forEach(function(cat){
+      (Array.isArray(source[cat])?source[cat]:[]).forEach(function(name){
+        if(typeof name!=='string')return;
+        if(sourceIndex===0)system.add(name);
+        if(!categories.has(name))categories.set(name,new Set());
+        categories.get(name).add(cat);
+      });
+    });
+  });
+  const added=_symMedBrowseReadMap('ec_user_added_meds');
+  const matching=_symMedBrowseReadMap('ec_user_med_syms');
+  const meta=new Map();
+  items.forEach(function(name){
+    const cats=new Set(categories.get(name)||[]);
+    if(!cats.size){
+      (Array.isArray(matching[name])?matching[name]:[]).forEach(function(label){
+        const split=typeof _symSplitSymLabel==='function'?_symSplitSymLabel(label):null;
+        const sym=(split&&split.base)||label;
+        (Array.isArray(_medSymMap[sym])?_medSymMap[sym]:[]).forEach(function(cat){cats.add(cat);});
+      });
+    }
+    meta.set(name,{categories:Array.from(cats),user:!!added[name]||!system.has(name)});
+  });
+  return meta;
+}
+export function getMedicationCategoryText(meta){
+  return meta&&meta.categories.length?meta.categories.map(function(cat){return _medCatNames[cat]||cat;}).join(' · '):'미분류';
+}
+export function getMedicationCategoryOptions(counts,total,uncategorized,current){
+  let html='<option value="">전체 분류 ('+total+')</option>';
+  const groups=[['통증·소화 관련',['pain','digestPain','menstrual','digest']],['호흡기·알레르기 관련',['respiratory','allergy','nasal','throat']],['피부·외상 관련',['trauma','skin','wound','hemostasis','burn']],['기타 분류',['oral','eye','supplement','anxiety']]];
+  const seen=new Set();
+  groups.forEach(function(group){
+    let options='';
+    group[1].forEach(function(cat){
+      seen.add(cat);
+      if(counts.has(cat)||current===cat)options+='<option value="'+escHtml(cat)+'">'+escHtml(_medCatNames[cat]||cat)+' ('+(counts.get(cat)||0)+')</option>';
+    });
+    if(options)html+='<optgroup label="'+escHtml(group[0])+'">'+options+'</optgroup>';
+  });
+  const extra=Array.from(counts.keys()).filter(function(cat){return !seen.has(cat);});
+  if(current&&current!=='__uncategorized__'&&!seen.has(current)&&!extra.includes(current))extra.push(current);
+  if(extra.length)html+='<optgroup label="추가 분류">'+extra.sort(function(a,b){return (_medCatNames[a]||a).localeCompare(_medCatNames[b]||b,'ko');}).map(function(cat){return '<option value="'+escHtml(cat)+'">'+escHtml(_medCatNames[cat]||cat)+' ('+(counts.get(cat)||0)+')</option>';}).join('')+'</optgroup>';
+  return html+'<option value="__uncategorized__">미분류 ('+uncategorized+')</option>';
+}
+function _symMedBrowseCreate(recItems,allItems,previous){
+  const items=Array.from(new Set(recItems.concat(allItems,_symSelectedMeds)));
+  return {items:items,recommended:new Set(recItems),meta:getMedicationBrowseMeta(items),renames:_symMedBrowseReadMap('ec_med_renames'),
+    scope:previous&&['all','recommended','selected'].includes(previous.scope)?previous.scope:'all',
+    category:previous&&previous.category||'',origin:previous&&['all','system','user'].includes(previous.origin)?previous.origin:'all',
+    query:previous&&previous.query||'',limit:previous&&previous.limit||100};
+}
+function _symMedBrowseToolbar(){
+  return '<div class="sym-med-browse-tools">'
+    +'<div class="sym-med-browse-tabs" role="group" aria-label="약품 목록 범위">'
+    +'<button type="button" class="btn btn-sm sym-med-browse-tab" data-med-browse-scope="all" aria-pressed="true">전체</button>'
+    +'<button type="button" class="btn btn-sm sym-med-browse-tab" data-med-browse-scope="recommended" aria-pressed="false">추천</button>'
+    +'<button type="button" class="btn btn-sm sym-med-browse-tab" data-med-browse-scope="selected" aria-pressed="false">선택한 약품</button></div>'
+    +'<div class="med-browser-filter-row">'
+    +'<label>약품 분류<select class="form-input" data-med-browse-field="category" aria-label="약품 분류"></select></label>'
+    +'<label>등록 구분<select class="form-input" data-med-browse-field="origin" aria-label="약품 등록 구분"><option value="all">전체 등록 약품</option><option value="system">기본 제공</option><option value="user">사용자 추가</option></select></label>'
+    +'</div><div class="med-browser-result-row">'
+    +'<span id="symMedBrowseStatus" role="status" aria-live="polite"></span>'
+    +'<button type="button" class="btn btn-sm sym-med-browse-reset" data-med-browse-reset>필터 초기화</button></div>'
+    +'<p class="med-browser-note">추천은 등록된 증상 매칭과 사용 이력을 기준으로 합니다.</p></div>';
+}
+function _symMedBrowseRow(item,state){
+  const selected=_symSelectedMeds.indexOf(item)!==-1;
+  const display=state.renames[item]||item;
+  const recommended=state.recommended.has(item);
+  return '<div class="sym-sel-chip" data-action="selectMed" data-med="'+escHtml(item)+'" data-med-type="med" data-sel="'+(selected?'1':'')+'" style="padding:8px 10px;min-height:38px;margin-bottom:4px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border:1px solid '+(selected?'var(--cyan)':'transparent')+';background:'+(selected?'rgba(6,182,212,0.08)':'transparent')+'">'
+    +(selected?'<span style="color:var(--cyan)">✓</span>':'')
+    +'<span class="sym-med-name" title="'+escHtml(display)+'">'+escHtml(display)+'</span>'
+    +(recommended?'<span style="font-size:9px;padding:2px 5px;border-radius:5px;color:var(--cyan);background:rgba(6,182,212,.08);white-space:nowrap">추천</span>':'')
+    +(selected&&!isFocusedMedication(document.getElementById('symMedPopup'))?_buildMedDoseInput(item):'')
+    +'<span data-action="drugInfo" data-drug="'+escHtml(item)+'" style="cursor:pointer;flex-shrink:0;color:var(--cyan);width:16px;height:16px;border-radius:50%;border:1.5px solid var(--cyan);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:10px" data-tooltip="약품 정보 조회" data-tooltip-instant="1">i</span></div>';
+}
+function _symMedBrowseRender(pop,keepScroll){
+  const state=pop&&pop._medBrowse,list=pop&&pop.querySelector('#symMedList');
+  if(!state||!list)return;
+  const input=pop.querySelector('#symMedSearch');
+  const query=input?input.value.trim():state.query;
+  if(query!==state.query){state.query=query;state.limit=100;}
+  _symSelectedMeds.forEach(function(name){if(!state.items.includes(name))state.items.push(name);});
+  const selected=new Set(_symSelectedMeds);
+  const visible=state.items.filter(function(name){return !_medIsHidden(name)||selected.has(name);});
+  const counts={all:visible.length,recommended:visible.filter(function(name){return state.recommended.has(name);}).length,selected:_symSelectedMeds.length};
+  const labels={all:'전체',recommended:'추천',selected:'선택한 약품'};
+  pop.querySelectorAll('[data-med-browse-scope]').forEach(function(button){const scope=button.dataset.medBrowseScope;button.textContent=labels[scope]+' '+counts[scope];button.setAttribute('aria-pressed',scope===state.scope?'true':'false');});
+  const categoryCounts=new Map();let uncategorized=0;
+  visible.forEach(function(name){const meta=state.meta.get(name);const cats=meta?meta.categories:[];if(!cats.length)uncategorized++;cats.forEach(function(cat){categoryCounts.set(cat,(categoryCounts.get(cat)||0)+1);});});
+  const categorySelect=pop.querySelector('[data-med-browse-field="category"]');
+  if(categorySelect){
+    const options=getMedicationCategoryOptions(categoryCounts,visible.length,uncategorized,state.category);
+    categorySelect.innerHTML=options;categorySelect.value=state.category;
+  }
+  const originSelect=pop.querySelector('[data-med-browse-field="origin"]');if(originSelect)originSelect.value=state.origin;
+  const q=query.toLowerCase(),hasKorean=/[가-힣ㄱ-ㅎ]/.test(query);
+  const ranked=[];
+  visible.forEach(function(name,index){
+    const meta=state.meta.get(name)||{categories:[],user:true};
+    if(state.scope==='recommended'&&!state.recommended.has(name))return;
+    if(state.scope==='selected'&&!selected.has(name))return;
+    if(state.category==='__uncategorized__'&&meta.categories.length)return;
+    if(state.category&&state.category!=='__uncategorized__'&&!meta.categories.includes(state.category))return;
+    if(state.origin==='user'&&!meta.user||state.origin==='system'&&meta.user)return;
+    let rank=0;
+    if(q){
+      const names=[name,state.renames[name]||name];
+      const paren=name.indexOf('(');if(paren!==-1)names.push(name.slice(paren+1).replace(')',''));
+      if(names.some(function(value){return value.toLowerCase().startsWith(q);}))rank=0;
+      else if(hasKorean&&typeof matchKoreanFromStart==='function'&&names.some(function(value){return matchKoreanFromStart(value,query);}))rank=1;
+      else if(hasKorean&&typeof matchKorean==='function'&&names.some(function(value){return matchKorean(value,query);}))rank=2;
+      else if(names.some(function(value){return value.toLowerCase().includes(q);}))rank=3;
+      else return;
+    }
+    ranked.push({name:name,rank:rank,index:index});
+  });
+  ranked.sort(function(a,b){return a.rank-b.rank||a.index-b.index;});
+  const filtered=ranked.map(function(item){return item.name;}),shown=filtered.slice(0,state.limit),oldScroll=list.scrollTop;
+  let html='',lastGroup='';
+  shown.forEach(function(name){
+    if(state.scope==='all'&&!query){
+      const group=state.recommended.has(name)?'recommended':'other';
+      if(group!==lastGroup){html+='<div style="font-size:11px;font-weight:700;color:'+(group==='recommended'?'var(--cyan)':'var(--t3)')+';padding:7px 2px;margin-bottom:4px;border-bottom:1px solid var(--bdr)">'+(group==='recommended'?'추천 약품 · 현재 증상 기준':'다른 약품')+'</div>';lastGroup=group;}
+    }
+    html+=_symMedBrowseRow(name,state);
+  });
+  if(!shown.length){
+    const emptySelection=state.scope==='selected'&&!_symSelectedMeds.length;
+    const emptyRecommendation=state.scope==='recommended'&&!counts.recommended;
+    html='<div class="sym-med-empty"><strong>'+(emptySelection?'아직 선택한 약품이 없습니다.':emptyRecommendation?'현재 증상에 연결된 추천 약품이 없습니다.':'조건에 맞는 약품이 없습니다.')+'</strong><p>'+(emptySelection?'전체 목록에서 약품을 선택하면 이곳에서 모아볼 수 있습니다.':emptyRecommendation?'전체 목록에서 검색하거나 다른 분류를 선택해 주세요.':'검색어나 분류를 바꿔 주세요. 선택한 약품과 투여량은 유지됩니다.')+'</p><button type="button" class="btn btn-sm" data-med-browse-reset>전체 약품 보기</button></div>';
+  }
+  if(filtered.length>shown.length)html+='<button type="button" data-med-browse-more style="display:block;width:100%;padding:10px;margin-top:8px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--cyan);font-family:var(--f);font-size:12px;cursor:pointer">더 보기 · 남은 '+(filtered.length-shown.length)+'개</button>';
+  list.innerHTML=html;list.scrollTop=keepScroll?oldScroll:0;
+  const status=pop.querySelector('#symMedBrowseStatus');if(status)status.textContent='결과 '+filtered.length+'개 · '+shown.length+'개 표시';
+  _symRefreshSelectedChips('med');
+  _symAttachUnitHover(list);
+  refreshFocusedMedicationControls(pop);
+}
+function _symMedBrowseReset(pop,scope){
+  const state=pop&&pop._medBrowse;if(!state)return;
+  state.scope=scope||'all';state.category='';state.origin='all';state.query='';state.limit=scope==='selected'?Math.max(100,_symSelectedMeds.length):100;
+  const input=pop.querySelector('#symMedSearch');if(input)input.value='';
+  _symMedBrowseRender(pop,false);
+}
+
 /* 2차 팝업: 투약/연고/파스.
  * _isRefresh=true 면 기존 팝업을 제거하지 않고 안쪽 내용만 교체 (깜빡임 방지).
  * v3 (사용자 결정 2026-05-21): symKey 인자 추가 — 어느 증상 블록의 투약 팝업인지 추적.
  *   진입 시 _symActiveSymKey 갱신 + _symSelectedMeds/_symMedDoses 를 그 sym-key 의 array/map reference 로 swap.
  *   기존 코드 (push/splice/delete/도즈 set) 는 reference 를 통해 _symMedsBySym/_symMedDosesBySym 에 자동 반영.
  *   legacy 모드 일지 (symKey 없음/__legacy__) 는 옛 동작 그대로 — 별도 record-level _symSelectedMeds 사용. */
+function _symCloseFocusedMedication(){
+  const pop=document.getElementById('symMedPopup');
+  if(!isFocusedMedication(pop))return;
+  if(pop._closeMedPopup)pop._closeMedPopup();
+  else{
+    if(pop._disposeMedPopupListeners)pop._disposeMedPopupListeners();
+    _symCleanupMedUnitMenus(pop);pop.remove();
+    if(typeof _symRenderTreatPanel==='function')_symRenderTreatPanel();
+  }
+}
+
 function _symOpenMedPopup(type, symKey, _isRefresh){
   /* sym-key 모드 vs legacy — popup 진입 시 _symSelectedMeds/_symMedDoses swap. */
   if(!_isRefresh){
@@ -4377,7 +4609,7 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
     /* legacy 모드는 popup 진입 시 복원된 _symSelectedMeds/_symMedDoses 를 그대로 사용 (회귀 없음) */
   }
   const existing=document.getElementById('symMedPopup');
-  if(existing&&!_isRefresh)existing.remove();
+  if(existing&&!_isRefresh){if(existing._disposeMedPopupListeners)existing._disposeMedPopupListeners();_symCleanupMedUnitMenus(existing);existing.remove();}
   /* 팝업 제목 — '투약' 처치명이 _treatDisplayName 으로 커스텀된 경우 그 이름으로 표시.
    * 사용자가 "투약" → "약물 투여" 로 변경했다면 팝업 제목도 "💊 약물 투여 선택" 으로 자연스럽게 반영. */
   const _medTitleName=_treatDisplayName('투약');
@@ -4496,9 +4728,23 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
 
   /* 리프레시 모드: 기존 팝업 재사용. 새로 만들 때만 위치·애니메이션 설정. */
   const pop = _isRefresh ? existing : document.createElement('div');
+  if(type==='med'){
+    const previous=_isRefresh?pop._medBrowse:null;
+    const previousSearch=_isRefresh&&pop.querySelector('#symMedSearch');
+    if(previous&&previousSearch)previous.query=previousSearch.value.trim();
+    pop._medBrowse=_symMedBrowseCreate(recItems,allItems,previous);
+    pop.dataset.medBrowser='1';
+    pop.setAttribute('role','dialog');
+    pop.setAttribute('aria-label','투약 선택');
+  }
   if(!_isRefresh){
     pop.id='symMedPopup';
     pop.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.92);opacity:0;background:var(--card);border:1px solid var(--cyan);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.3);width:340px;height:460px;z-index:9600;display:flex;flex-direction:column;overflow:hidden;transition:opacity .18s ease,transform .18s ease';
+  }
+
+  if(type==='med'&&!_isRefresh){
+    pop.style.width='min(760px, calc(100vw - 24px))';
+    pop.style.height='min(680px, calc(100vh - 32px))';
   }
 
   /* 헤더: 제목 + 우측 "+" 드롭다운 (사용자 요청 2026-05-27).
@@ -4510,7 +4756,7 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
   let h='<div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);display:flex;align-items:center;gap:8px">';
   h+='<span style="flex:1;font-size:13px;font-weight:700;color:var(--t1)">'+titles[type]+'</span>';
   h+='<div style="position:relative;display:inline-flex">';
-  h+='<button class="sym-hdr-chip" data-action="toggleMedAddMenu" data-tooltip="약품 추가·수정 / 숨기기 메뉴 열기" data-tooltip-instant="1" style="width:26px;height:26px;padding:0;font-size:16px;font-weight:800;border-radius:6px;border:1px solid rgba(34,197,94,0.35);background:rgba(34,197,94,0.10);color:#16a34a;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;font-family:var(--f)">+</button>';
+  h+='<button type="button" class="btn btn-sm sym-med-manage" data-action="toggleMedAddMenu" aria-label="약품 추가·수정 및 숨김 관리 메뉴">약품 관리</button>';
   h+='<div id="symMedAddMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid var(--bdr);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.22);min-width:260px;z-index:30;overflow:hidden">';
   h+='<div data-action="medAddCommon" class="sym-med-add-menu-item" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'var(--card)\'" style="padding:10px 14px;font-size:11.5px;color:var(--t1);cursor:pointer;display:flex;align-items:center;gap:8px;font-family:var(--f);background:var(--card);transition:background .12s"><span style="font-size:13px">📥</span><span style="font-weight:700">상용 약품 추가 및 수정</span></div>';
   h+='<div style="border-top:1px solid var(--bdr)"></div>';
@@ -4518,9 +4764,10 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
   h+='</div>';
   h+='</div>';
   h+='</div>';
-  h+='<div style="padding:8px 16px;border-bottom:1px solid var(--bdr)">';
-  h+='<input class="form-input" id="symMedSearch" data-med-type="'+type+'" placeholder="검색" style="width:100%;font-size:11px;padding:5px 8px">';
+  h+='<div class="sym-med-search-wrap" style="padding:12px 16px 10px">';
+  h+='<input class="form-input" id="symMedSearch" aria-label="약품 검색" data-med-type="'+type+'" value="'+escHtml(type==='med'?pop._medBrowse.query:'')+'" placeholder="'+(type==='med'?'약품명 · 변경한 이름 · 초성으로 검색':'검색')+'" style="width:100%;font-size:'+(type==='med'?'12':'11')+'px;padding:7px 9px">';
   h+='</div>';
+  if(type==='med')h+=_symMedBrowseToolbar();
   /* 선택된 약품 칩 표시 (✕로 개별 삭제 가능) — 빈 상태에서도 컨테이너 유지해서 동적 갱신 가능 */
   h+='<div id="symMedSelectedChips" data-med-type="'+type+'" style="padding:'+(_symSelectedMeds.length>0?'6px 16px':'0')+';border-bottom:'+(_symSelectedMeds.length>0?'1px solid var(--bdr)':'none')+';display:'+(_symSelectedMeds.length>0?'flex':'none')+';flex-wrap:wrap;gap:3px;align-items:center">';
   if(_symSelectedMeds.length>0){
@@ -4549,32 +4796,21 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
       '<span data-action="drugInfo" data-drug="'+escHtml(item)+'" style="cursor:pointer;font-size:12px;flex-shrink:0;color:var(--cyan);opacity:0.6;transition:opacity .12s;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--cyan);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:10px" data-tooltip="약품 정보 조회" data-tooltip-instant="1">i</span>'+'</div>';
   }
 
-  if(type==='med'&&recItems.length>0){
-    h+='<div style="font-size:10px;font-weight:700;color:var(--cyan);margin-bottom:4px;padding-bottom:2px;border-bottom:1px solid rgba(6,182,212,0.15)">★ 추천 약품 (선택 증상 기반)</div>';
-    if(recCats.length>0){
-      h+='<div style="font-size:9px;color:var(--t3);margin-bottom:4px">'+recCats.map(function(c){return _medCatNames[c]||c;}).join(' · ')+'</div>';
-    }
-    recItems.forEach(function(item){h+=_medItem(item,type);});
-    if(allItems.length>0){
-      h+='<div style="font-size:10px;font-weight:700;color:var(--t3);margin-top:8px;margin-bottom:4px;padding-top:6px;border-top:1px solid var(--bdr)">전체 약품</div>';
-      allItems.forEach(function(item){h+=_medItem(item,type);});
-    }
-  } else {
-    allItems.forEach(function(item){h+=_medItem(item,type);});
-  }
+  if(type!=='med')allItems.forEach(function(item){h+=_medItem(item,type);});
 
   h+='</div>';
   /* 푸터 — 커스텀 안내 (사용자 요청 2026-05-27) + 외부 클릭으로 저장 (사용자 요청 2026-05-23).
    * 두 줄을 하나의 푸터 박스 안에 두고 사이를 가는 회색 구분선으로 분리. */
-  h+='<div style="border-top:1px solid var(--bdr);background:var(--bg3);font-family:var(--f);flex-shrink:0">';
-  h+='<div style="padding:7px 16px;font-size:10px;color:var(--t3);line-height:1.7">선생님의 학교에서 자주 사용하는 약품만 따로 등록하고 싶은 경우 이 팝업 우측 상단의 <b style="color:#16a34a;font-weight:800">"+"</b> &gt; <b>"상용 약품 추가 및 수정"</b>, <b>"약품 숨기거나 보이게 하기"</b>에서 커스텀할 수 있습니다.</div>';
-  h+='<div style="border-top:1px solid var(--bdr)"></div>';
-  h+='<div style="padding:7px 16px;font-size:10px;color:var(--t3);text-align:right">외부 클릭으로 저장</div>';
+  h+='<div class="sym-med-footer"><span>약품 선택과 투여량 변경 시 자동으로 저장을 요청합니다.</span>';
+  if(type==='med')h+='<button type="button" class="btn btn-sm" data-med-popup-close>완료</button>';
+  else h+='<span>바깥을 누르면 닫힙니다.</span>';
   h+='</div>';
+  _symCleanupMedUnitMenus(pop);
   pop.innerHTML=h;
-  setTimeout(function(){_symAttachUnitHover(pop);}, 0);
+  const focusedMedication=type==='med' && mountFocusedMedication(pop,_symActiveSymKey);
+  setTimeout(function(){if(pop.isConnected)_symAttachUnitHover(pop);}, 0);
   if(!_isRefresh){
-    document.body.appendChild(pop);
+    if(!focusedMedication)document.body.appendChild(pop);
     /* 약품 선택 팝업도 통합 미니 팝업 GUI 사용 — 'i' 약품 정보 / ✕ 약품 삭제 / 약품 위치 이동 칩 등. */
     _symBindTipDelegation(pop);
     /* 열림 애니메이션 + 글자 흐림 방지.
@@ -4604,14 +4840,18 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
     /* 닫기 애니메이션 — 드래그로 픽셀 좌표 고정된 경우/아닌 경우 분기 */
     pop._animClose=function(cb){
       if(pop._closing)return;pop._closing=true;
+      if(pop._disposeMedPopupListeners)pop._disposeMedPopupListeners();
+      _symCleanupMedUnitMenus(pop);
+      if(isFocusedMedication(pop)){pop.remove();if(cb)cb();return;}
       const dragged=pop.style.left&&pop.style.left.indexOf('px')!==-1;
       pop.style.opacity='0';
       pop.style.transform=dragged?'scale(0.92)':'translate(-50%,-50%) scale(0.92)';
       setTimeout(function(){if(pop.parentNode)pop.remove();if(cb)cb();},180);
     };
     /* 헤더 드래그 이동 */
-    _makeDraggable(pop);
+    if(!focusedMedication)_makeDraggable(pop);
   }
+  if(type==='med')_symMedBrowseRender(pop,false);
   /* 투약 팝업 이벤트 위임 — 리프레시 모드일 땐 이미 부착되어 있으므로 스킵 */
   if(!_isRefresh)pop.addEventListener('click',function(e){
     /* 드롭다운 메뉴가 열려 있고 클릭이 메뉴/토글 외 영역이면 메뉴 먼저 닫기 — 다른 action 처리는 그대로 진행. */
@@ -4620,6 +4860,23 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
        && !e.target.closest('#symMedAddMenu')
        && !e.target.closest('[data-action="toggleMedAddMenu"]')){
       _openMn.style.display='none';
+    }
+    if(pop._medBrowse){
+      if(e.target.closest('[data-med-popup-close]')){e.stopPropagation();if(pop._closeMedPopup)pop._closeMedPopup();return;}
+      const scopeButton=e.target.closest('[data-med-browse-scope]');
+      if(scopeButton){
+        e.stopPropagation();
+        if(scopeButton.dataset.medBrowseScope==='selected')_symMedBrowseReset(pop,'selected');
+        else{pop._medBrowse.scope=scopeButton.dataset.medBrowseScope;pop._medBrowse.limit=100;_symMedBrowseRender(pop,false);}
+        return;
+      }
+      if(e.target.closest('[data-med-browse-reset]')){e.stopPropagation();_symMedBrowseReset(pop);return;}
+      const more=e.target.closest('[data-med-browse-more]');
+      if(more){
+        e.stopPropagation();const focused=document.activeElement===more;pop._medBrowse.limit+=100;_symMedBrowseRender(pop,true);
+        if(focused){const next=pop.querySelector('[data-med-browse-more]')||pop.querySelector('#symMedList');if(next){if(!next.hasAttribute('tabindex'))next.tabIndex=-1;next.focus({preventScroll:true});}}
+        return;
+      }
     }
     const drugBtn=e.target.closest('[data-action="drugInfo"]');
     if(drugBtn){e.stopPropagation();_showDrugInfo(drugBtn.dataset.drug);return;}
@@ -4634,6 +4891,7 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
       const med=scrollChip.dataset.med;
       const list=document.getElementById('symMedList');
       if(list){
+        if(pop._medBrowse&&!Array.from(list.querySelectorAll('[data-action="selectMed"]')).some(function(row){return row.dataset.med===med;}))_symMedBrowseReset(pop,'selected');
         const rows=list.querySelectorAll('[data-action="selectMed"]');
         let target=null;
         rows.forEach(function(r){if(r.dataset.med===med)target=r;});
@@ -4693,17 +4951,22 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
       const wrap=unitPick.closest('.sym-med-dose-wrap');
       const inp=wrap?wrap.querySelector('[data-action="medDoseInput"]'):null;
       if(inp){
-        let v=String(inp.value||'').trim();
-        ['T','C','g','cc','ml','mg','gtt','포','개','병'].forEach(function(u){
-          if(v.endsWith(u)) v=v.slice(0,-u.length).trim();
-        });
-        inp.value=v+unit;
-        inp.dispatchEvent(new Event('input',{bubbles:true}));
+        try{
+          inp.value=replaceMedicationDoseUnit(inp.value,unit);
+          inp.dispatchEvent(new Event('input',{bubbles:true}));
+        }catch(error){bus.emit('toast:show',{text:error.message});}
       }
       return;
     }
     const sel=e.target.closest('[data-action="selectMed"]');
     if(sel){_symSelectMed(sel.dataset.med,sel.dataset.medType);return;}
+  });
+  if(!_isRefresh)pop.addEventListener('change',function(e){
+    const select=e.target.closest('[data-med-browse-field]');
+    if(!select||!pop._medBrowse)return;
+    const field=select.dataset.medBrowseField;
+    if(field!=='category'&&field!=='origin')return;
+    pop._medBrowse[field]=select.value;pop._medBrowse.limit=100;_symMedBrowseRender(pop,false);
   });
   /* 투여량 input — 사용자가 타이핑할 때 _symMedDoses 동기화 + 상단 칩 라이브 갱신 */
   if(!_isRefresh)pop.addEventListener('input',function(e){
@@ -4815,6 +5078,7 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
       const _t=_medSearchInp.dataset.medType;
       if(_t) _symMedSearchShownLimit[_t]=50;
       _medSearchTimer=setTimeout(function(){
+        if(!pop.isConnected||pop.querySelector('#symMedSearch')!==_medSearchInp)return;
         _symMedSearchFilter(_t);
       }, 300);
     });
@@ -4822,6 +5086,18 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
   /* 바깥 클릭/ESC로 닫기 — 리프레시 모드는 이미 부착된 리스너가 살아있으므로 스킵 */
   if(_isRefresh)return;
   setTimeout(function(){
+    if(!pop.isConnected)return;
+    function _finishMedPopup(){
+      const p=pop.isConnected?pop:null;
+      if(p){
+        const doClose=function(){if(typeof _symRenderTreatPanel==='function')_symRenderTreatPanel();};
+        if(p._animClose)p._animClose(doClose);else{_symCleanupMedUnitMenus(p);p.remove();doClose();}
+      }
+      document.removeEventListener('mousedown',_medPopClose,true);
+      document.removeEventListener('keydown',_medPopEsc,true);
+    }
+    pop._closeMedPopup=_finishMedPopup;
+    pop._disposeMedPopupListeners=function(){document.removeEventListener('mousedown',_medPopClose,true);document.removeEventListener('keydown',_medPopEsc,true);};
     function _medPopClose(e){
       const p=document.getElementById('symMedPopup');
       if(!p){document.removeEventListener('mousedown',_medPopClose,true);document.removeEventListener('keydown',_medPopEsc,true);return;}
@@ -4832,16 +5108,17 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
       if(_setOv&&_setOv.classList.contains('show'))return;
       /* 단위 드롭다운 메뉴는 body 로 옮겨져 있어 popup 외부로 인식됨 — 메뉴 안 클릭 시 popup 유지 */
       if(e.target.closest && e.target.closest('.sym-med-unit-menu'))return;
+      if(isFocusedMedication(p))return;
       if(!p.contains(e.target)){
         e.stopImmediatePropagation();e.preventDefault();
-        const doClose=function(){if(typeof _symRenderTreatPanel==='function')_symRenderTreatPanel();};
-        if(p._animClose)p._animClose(doClose);else{p.remove();doClose();}
+        _finishMedPopup();
         document.removeEventListener('mousedown',_medPopClose,true);
         document.removeEventListener('keydown',_medPopEsc,true);
       }
     }
     function _medPopEsc(e){
       if(e.key==='Escape'){
+        if(e.target.closest&&e.target.closest('.sym-med-unit-menu,[data-sym-focus-local-editor]'))return;
         /* 약 정보 팝업이 떠 있으면 그것이 먼저 닫히도록 투약 팝업은 유지 */
         if(document.getElementById('drugInfoPopup'))return;
         /* 설정 모달이 떠 있으면 ESC 는 설정 닫기 우선 */
@@ -4850,8 +5127,7 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
         e.stopImmediatePropagation();e.preventDefault();
         const p=document.getElementById('symMedPopup');
         if(p){
-          const doClose=function(){if(typeof _symRenderTreatPanel==='function')_symRenderTreatPanel();};
-          if(p._animClose)p._animClose(doClose);else{p.remove();doClose();}
+          _finishMedPopup();
         }
         document.removeEventListener('mousedown',_medPopClose,true);
         document.removeEventListener('keydown',_medPopEsc,true);
@@ -4863,6 +5139,8 @@ function _symOpenMedPopup(type, symKey, _isRefresh){
 }
 
 function _symMedSearchFilter(type){
+  const browsePop=document.getElementById('symMedPopup');
+  if(type==='med'&&browsePop&&browsePop._medBrowse){_symMedBrowseRender(browsePop,false);return;}
   const input=document.getElementById('symMedSearch');
   const q=(input&&input.value.trim().toLowerCase())||'';
   if(!q){
@@ -4965,12 +5243,30 @@ function _symRefreshSelectedChips(type){
   const chipBox=document.getElementById('symMedSelectedChips');
   if(!chipBox)return;
   const chipType=chipBox.dataset.medType||type;
+  const focusedPop=document.getElementById('symMedPopup');
+  if(chipType==='med'&&isFocusedMedication(focusedPop)){
+    renderFocusedMedicationSelection(focusedPop,_symSelectedMeds,_symMedDoses,focusedPop._medBrowse.renames,_buildMedDoseInput);
+    _symAttachUnitHover(chipBox);
+    return;
+  }
   if(!_symSelectedMeds.length){
     chipBox.innerHTML='';
     chipBox.style.padding='0';
     chipBox.style.borderBottom='none';
     chipBox.style.display='none';
     return;
+  }
+  const browsePop=document.getElementById('symMedPopup');
+  if(chipType==='med'&&browsePop&&browsePop._medBrowse){
+    const renames=browsePop._medBrowse.renames;
+    let html='<span style="font-size:10px;color:var(--t3);font-weight:700;margin-right:3px">선택 '+_symSelectedMeds.length+'개:</span>';
+    _symSelectedMeds.forEach(function(name){
+      const display=renames[name]||name,dose=_symMedDoses[name]||'';
+      html+='<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:8px;background:rgba(6,182,212,.08);color:var(--cyan);font-size:11px;border:1px solid rgba(6,182,212,.2)">'
+        +'<button type="button" data-action="scrollToMed" data-med="'+escHtml(name)+'" data-med-type="med" style="border:0;background:transparent;color:inherit;padding:0;font:inherit;cursor:pointer;text-align:left" title="선택한 약품 위치로 이동">'+escHtml(display)+(dose?' ('+escHtml(dose)+')':'')+'</button>'
+        +'<button type="button" data-action="deselectMedChip" data-med="'+escHtml(name)+'" data-med-type="med" aria-label="'+escHtml(display)+' 선택 해제" style="border:0;background:transparent;color:inherit;padding:0 2px;font:inherit;cursor:pointer">×</button></span>';
+    });
+    chipBox.innerHTML=html;chipBox.style.padding='8px 16px';chipBox.style.borderBottom='1px solid var(--bdr)';chipBox.style.display='flex';return;
   }
   let _chipH='<span style="font-size:9px;color:var(--t3);font-weight:700;margin-right:2px">선택:</span>';
   _symSelectedMeds.forEach(function(m){
@@ -5004,6 +5300,10 @@ function _symSelectMed(item,type){
   }
   _symAutoSave();
   _symRenderTreatPanel();
+  const browsePop=document.getElementById('symMedPopup');
+  if(type==='med'&&browsePop&&browsePop._medBrowse){
+    _symMedBrowseRender(browsePop,true);
+  } else {
   /* 검색창 아래 선택된 약품 칩 영역 즉시 갱신 (X 클릭이든 행 클릭이든 동일하게) */
   const chipBox=document.getElementById('symMedSelectedChips');
   if(chipBox){
@@ -5050,6 +5350,7 @@ function _symSelectMed(item,type){
       });
       _symAttachUnitHover(list);
     }
+  }
   }
   /* 약을 새로 선택하면 그 약의 투여량 입력칸에 커서 자동 포커스 — 바로 숫자 입력 (사용자 요청 2026-06-04) */
   if(idx===-1){
@@ -5118,7 +5419,7 @@ function _symComplete(){
       window.electronAPI.recordsDailyDelete(_delId).catch(function(e){console.warn('[sym] 빈 레코드 삭제 실패:',e);});
     }
   }
-  const medPop=document.getElementById('symMedPopup');if(medPop)medPop.remove();
+  const medPop=document.getElementById('symMedPopup');if(medPop){_symCleanupMedUnitMenus(medPop);medPop.remove();}
   /* 사이드바 방문이력 정책 (사용자 요청 2026-05-19):
    *  - 팝업이 닫혀도 그 학생의 최근 보건실 방문이력 카드는 사이드바에 그대로 유지 (hide 안 함).
    *  - 잠금은 해제하여 사용자가 일반 일지의 다른 사람 이름에 호버 시 그 학생의 이력으로 즉시 교체되게.

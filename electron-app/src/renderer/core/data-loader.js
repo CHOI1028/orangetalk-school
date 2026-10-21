@@ -15,6 +15,7 @@ import { persistenceOrchestrator } from './persistence-orchestrator.js';
 import { refreshSharedSettings } from './shared-settings-sync.js';
 import { _reloadStudentsFromDB } from './student-utils.js';
 import { _recToDbRow } from './record-utils.js';
+import { saveDailyRecord } from './daily-record-persistence.js';
 import { _pushRosterToRelay, _checkKioskRosterStale, _scheduleDailyRosterCheck } from './kiosk-roster.js';
 import { getSvWorkspaceCache } from '../features/survey/survey-view.js';
 import { loadPublicDataApiKey } from './public-data-settings.js';
@@ -198,6 +199,7 @@ function _mergeRecordsFromDB(apiGet, stateKey, yearArg){
     const NOW=Date.now();
     const GRACE_MS=7000;/* 최근 로컬 변경 유예 시간 */
     const deletedMap=window._recentlyDeletedRecs||{};
+    const pendingDeletes=window._pendingDailyDeletes||{};
     const dbList=res.data.map(function(r){if(r.personUid!==undefined&&r.studentId===undefined)r.studentId=r.personUid;return r;});
     const current=Array.isArray(S[stateKey])?S[stateKey]:[];
     const dbById={};dbList.forEach(function(r){if(r.id!=null)dbById[r.id]=r;});
@@ -207,7 +209,7 @@ function _mergeRecordsFromDB(apiGet, stateKey, yearArg){
        dbList 단계에서 cur 로 push 되므로 여기서 제외해야 한다 (이중 push 방지). */
     const keepLocal=current.filter(function(r){
       if(dbById[r.id])return false;/* DB에 있는 건 dbList 단계가 처리 */
-      if(r._dirty||r._isDummy)return true;
+      if(r._dirty||r._isDummy||r._saving||r._inserting||r._pendingUpdate)return true;
       if(r._savedAt&&(NOW-r._savedAt<GRACE_MS))return true;/* 최근 저장 → 유예 */
       changed=true;
       return false;
@@ -217,10 +219,11 @@ function _mergeRecordsFromDB(apiGet, stateKey, yearArg){
     keepLocal.forEach(function(r){merged.push(r);});
     dbList.forEach(function(dbRec){
       /* 최근 삭제한 레코드가 DB에 아직 남아있으면 무시 (삭제 트랜잭션 완료 대기) */
-      if(deletedMap[dbRec.id]&&(NOW-deletedMap[dbRec.id]<GRACE_MS))return;
+      if(pendingDeletes[dbRec.id]||(deletedMap[dbRec.id]&&(NOW-deletedMap[dbRec.id]<GRACE_MS)))return;
       const cur=curById[dbRec.id];
-      if(cur&&cur._dirty){merged.push(cur);return;}
+      if(cur&&(cur._dirty||cur._saving||cur._inserting||cur._pendingUpdate)){merged.push(cur);return;}
       if(cur&&cur._savedAt&&(NOW-cur._savedAt<GRACE_MS)){merged.push(cur);return;}
+      if(cur&&cur._localIds)dbRec._localIds=cur._localIds.slice();
       merged.push(dbRec);
       if(!cur||JSON.stringify(cur)!==JSON.stringify(dbRec))changed=true;
     });
@@ -1065,71 +1068,27 @@ let _jsonStuTimer=null;
 export function saveData(opts){
   if(_jsonSaveTimer)clearTimeout(_jsonSaveTimer);
   _jsonSaveTimer=setTimeout(function(){
-    if(window.electronAPI&&window.electronAPI.recordsDailyUpdate){
-      const dirty=S.records.filter(function(r){return r._dirty&&!r._isDummy;});
-      dirty.forEach(function(r){
-        window.electronAPI.recordsDailyUpdate(_recToDbRow(r)).catch(function(err){console.error('[DB] daily update 실패:',err);});
-        delete r._dirty;
-      });
-    }
+    _jsonSaveTimer=null;
+    S.records.filter(function(r){return r._dirty&&!r._isDummy&&!r._deleted;}).forEach(function(r){saveRecordNow(r);});
     if(window.electronAPI&&window.electronAPI.peopleSaveAll){
       window.electronAPI.peopleSaveAll(S.people).then(function(){
         _pushRosterToRelay();
         _checkKioskRosterStale();
-      }).catch(function(err){console.error('[DB] people 저장 실패:',err);});
+      }).catch(function(){console.error('[DB] people save failed');});
     }
   },1000);
   if(opts&&opts.silent)return;
-  /* 실제로 저장할 dirty 레코드가 없으면 토스트를 띄우지 않음 */
-  const hasDirty=Array.isArray(S.records)&&S.records.some(function(r){return r._dirty&&!r._isDummy;});
-  if(!hasDirty)return;
-  const ecOpen=document.getElementById('ecFormOverlay');
-  const infOpen=document.getElementById('infFormOverlay');
-  if((ecOpen&&ecOpen.classList.contains('show'))||(infOpen&&infOpen.classList.contains('show')))return;
-  const svTab=document.getElementById('dailyCat-survey');
-  if(svTab&&svTab.classList.contains('active'))return;
-  const svWizard=document.getElementById('sv-wizard');
-  if(svWizard&&svWizard.style.display!=='none')return;
+  if(!S.records.some(function(r){return r._dirty&&!r._isDummy&&!r._deleted;}))return;
   const toast=document.getElementById('globalSaveToast');
   if(toast){
-    toast.textContent='저장 중…';
-    toast.className='global-save-toast show saving';
     if(_saveDataTimer)clearTimeout(_saveDataTimer);
-    _saveDataTimer=setTimeout(function(){
-      toast.textContent='모든 내용이 저장되었습니다.';
-      toast.className='global-save-toast show';
-      setTimeout(function(){toast.className='global-save-toast';},3000);
-    },300);
+    toast.textContent='일지 저장 대기 중…';
+    toast.className='global-save-toast show saving';
   }
 }
 export function saveRecordNow(rec){
-  if(!rec)return;
-  /* 삭제된 레코드는 절대 재저장(재삽입)하지 않는다 — "삭제는 영구" (2026-06-07 협업 동기화).
-   * 삭제 후 남아있던 closure 가 saveRecordNow 를 늦게 호출해 _dbId 없는 사본을 새로 INSERT → 재생성되던 경로 차단. */
-  if(rec._deleted)return;
-  rec._dirty=false;
-  /* 최근 저장 타임스탬프 — 실시간 머지가 이 레코드를 7초간 덮어쓰지 않도록 */
-  rec._savedAt=Date.now();
-  if(!window.electronAPI)return;
-  /* 실제 기록 저장 → "저장 중→모든 내용이 저장되었습니다" 토스트 (셀편집·V/S·바디맵·증상·재상담일 등 일괄).
-     검색·필터·조회는 saveRecordNow 를 호출하지 않으므로 거짓 신호 없음 (사용자 지시 2026-06-15). */
-  try{ bus.emit('toast:saveLater'); }catch(_){}
-  /* 레코드가 DB 에 아직 삽입되지 않았거나 삽입 진행 중이면 — pending 플래그로 이어서 처리 */
-  if(rec._inserting){rec._pendingUpdate=true;return;}
-  if(!rec._dbId&&window.electronAPI.recordsDailyInsert){
-    rec._inserting=true;
-    const row=_recToDbRow(rec);
-    row.school_year=String(_academicYear(rec.date)); /* 방문 날짜 기준 학년도(3/1) — 현재날짜로 덮어쓰면 과거날짜 기록이 잘못 박힘 (사용자 지시 2026-06-20) */
-    window.electronAPI.recordsDailyInsert(row).then(function(res){
-      rec._inserting=false;
-      if(res&&res.success&&res.id){rec._dbId=res.id;rec.id=res.id;rec._savedAt=Date.now();}
-      if(rec._pendingUpdate){rec._pendingUpdate=false;saveRecordNow(rec);}
-    }).catch(function(err){rec._inserting=false;console.error('[DB] daily insert 실패:',err);});
-    return;
-  }
-  if(window.electronAPI.recordsDailyUpdate){
-    window.electronAPI.recordsDailyUpdate(_recToDbRow(rec)).then(function(){rec._savedAt=Date.now();}).catch(function(err){console.error('[DB] daily update 실패:',err);});
-  }
+  if(!rec||rec._deleted)return Promise.resolve({success:false,reason:'deleted'});
+  return saveDailyRecord(rec);
 }
 /* 전역 삭제 완료 레코드 ID 목록 — 머지가 다시 복원시키지 않도록 */
 if(!window._recentlyDeletedRecs)window._recentlyDeletedRecs={};

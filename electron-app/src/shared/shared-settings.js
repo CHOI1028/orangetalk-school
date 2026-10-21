@@ -60,6 +60,26 @@
         }catch(_){report({success:false,pending:true,key});return {success:false,pending:true,error:'shared_settings_unavailable'};}
       });
     }
+    function writeMany(items){
+      items=clone(items);
+      if(!Array.isArray(items)||!items.length||items.length>6||new Set(items.map(x=>x?.key)).size!==items.length||items.some(x=>!isShared(x?.key)))return Promise.resolve({success:false,error:'invalid_medication_batch'});
+      const selected=items.map(item=>state(item.key));
+      const waiting=selected.map(s=>s.tail);
+      selected.forEach(s=>{s.busy++;s.generation++;});
+      const run=Promise.all(waiting).then(async()=>{
+        // Never replay a destructive batch as separate pending writes.
+        if(items.some(item=>pending[item.key]))return {success:false,pending:true};
+        try{
+          const result=await send({action:'write-medications',items});
+          if(!result?.success||result.conflict||result.pending)return result||{success:false,error:'medication_batch_unavailable'};
+          if(items.some(item=>!result.entries?.[item.key]?.success||result.entries[item.key].exists!==true))return {success:false,error:'invalid_medication_batch_response'};
+          items.forEach(item=>accept(state(item.key),result.entries[item.key]));
+          return result;
+        }catch(_){return {success:false,error:'medication_batch_unavailable'};}
+      });
+      const tail=run.catch(()=>{});selected.forEach(s=>{s.tail=tail;});
+      return run.finally(()=>{selected.forEach(s=>{s.busy--;});});
+    }
     async function sync(values){
       const entries={},errors=[];
       const keys=Object.keys(values||{}).filter(k=>isShared(k)&&k!=='kiosk_settings');
@@ -84,7 +104,7 @@
       }
       return {success:!errors.length,entries,errors};
     }
-    return {read,write,sync};
+    return {read,write,writeMany,sync};
   }
   function wrap(api,send,storage,notify){
     const client=createClient(send,storage,notify);
@@ -104,6 +124,7 @@
       const rest=items.filter(x=>!x.common||!isShared(x.key));if(rest.length)results.push(await original.jsonFlush(rest));
       return {success:results.every(r=>r&&r.success!==false),results};
     };
+    api.medicationSettingsWriteMany=items=>client.writeMany(items);
     api.sharedSettingsKeys=()=>KEYS.slice();
     api.sharedSettingsSync=values=>client.sync(values);
     return api;

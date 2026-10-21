@@ -38,8 +38,12 @@ function harness(extra = {}) {
     toDateStr: date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'),
     dateObj: date => new Date(date + 'T12:00:00'),
     document: { getElementById: () => null, querySelectorAll: () => [], querySelector: () => null },
+    bus: {emit(){}}, window: {},
     ...extra
   });
+  vm.runInContext(named(read('core/record-utils.js'),'_recToDbRow')+
+    read('core/daily-record-persistence.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'')+
+    '\nfunction saveRecordNow(rec){return saveDailyRecord(rec);}',context);
   return { state, events, context };
 }
 

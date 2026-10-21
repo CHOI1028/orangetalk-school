@@ -11,6 +11,7 @@ function harness(records=[]){
   getStu:id=>({id,name:'검증 학생',type:'student',grade:6,cls:2,num:22,gender:'남'}),
  });
  install(context);
+ vm.runInContext(read('src/renderer/core/daily-record-persistence.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,''),context);
  vm.runInContext(section(read('src/renderer/core/data-loader.js'),'export function saveRecordNow(rec){','/* 전역 삭제 완료'),context);
  return {context,updates,inserts,records};
 }

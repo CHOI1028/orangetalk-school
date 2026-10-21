@@ -101,6 +101,9 @@ class HealthRecordDBService {
       bst: r.bst || '',
       result: r.result_code || '',
       nurse: r.nurse_name || '',
+      nurseId: r.nurse_id != null ? r.nurse_id : null,
+      school_year: r.school_year,
+      extra_json: JSON.stringify(_ej),
       dept: r.department || '',
       memo: r.memo || '',
       bodymapData: bm || [],
@@ -231,27 +234,31 @@ class HealthRecordDBService {
        단순 SELECT-then-INSERT 는 두 프로세스 사이 race 가 가능 → BEGIN IMMEDIATE 트랜잭션으로
        RESERVED 락을 잡고 SELECT-INSERT 를 원자적으로 수행. 한쪽 프로세스가 락을 잡고 있으면
        다른 쪽은 락 해제까지 대기 후 SELECT 시점에 기존 레코드를 발견하여 already_handled 반환. */
-    let _receptionId = null;
+    let _receptionId = null, _requestId = null;
     try {
-      const _ej = (r.extra_json && typeof r.extra_json === 'string') ? JSON.parse(r.extra_json) : (r.extra_json || {});
-      if (_ej && _ej.fromKiosk && _ej.receptionId) _receptionId = String(_ej.receptionId);
+      const extra = typeof r.extra_json === 'string' ? JSON.parse(r.extra_json) : (r.extra_json || {});
+      if (extra.fromKiosk && extra.receptionId) _receptionId = String(extra.receptionId);
+      if (typeof extra.diary_request_id === 'string' && extra.diary_request_id.length <= 128) _requestId = extra.diary_request_id;
     } catch (_) {}
-    if (_receptionId) {
-      const _sy = r.school_year || this._yr();
-      const _findStmt = this._db.db.prepare(
-        "SELECT id, nurse_name FROM daily_records WHERE school_year = ? AND " +
-        "CASE WHEN json_valid(extra_json) THEN CAST(json_extract(extra_json, '$.receptionId') AS TEXT) ELSE NULL END = ? LIMIT 1"
-      );
-      const _txn = this._db.db.transaction(() => {
-        const existing = _findStmt.get(_sy, _receptionId);
-        if (existing) return { duplicate: true, id: existing.id, handler: existing.nurse_name || '' };
-        return { duplicate: false, id: _doInsert() };
+    if (_receptionId || _requestId) {
+      const txn = this._db.db.transaction(() => {
+        if (_requestId) {
+          const retry = this._db.db.prepare(
+            "SELECT id FROM daily_records WHERE person_uid IS ? AND " +
+            "CASE WHEN json_valid(extra_json) THEN json_extract(extra_json, '$.diary_request_id') ELSE NULL END = ? LIMIT 1"
+          ).get(r.person_uid || r.personUid || null, _requestId);
+          if (retry) return { success: true, id: retry.id, duplicate: true };
+        }
+        if (_receptionId) {
+          const existing = this._db.db.prepare(
+            "SELECT id, nurse_name FROM daily_records WHERE school_year = ? AND " +
+            "CASE WHEN json_valid(extra_json) THEN CAST(json_extract(extra_json, '$.receptionId') AS TEXT) ELSE NULL END = ? LIMIT 1"
+          ).get(r.school_year || this._yr(), _receptionId);
+          if (existing) return { success: false, reason: 'already_handled', id: existing.id, handler: existing.nurse_name || '' };
+        }
+        return { success: true, id: _doInsert() };
       });
-      const result = _txn.immediate();
-      if (result.duplicate) {
-        return { success: false, reason: 'already_handled', id: result.id, handler: result.handler };
-      }
-      return { success: true, id: result.id };
+      return txn.immediate();
     }
     return { success: true, id: _doInsert() };
   }

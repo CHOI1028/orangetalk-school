@@ -5,7 +5,7 @@ import { bus } from '../../core/event-bus.js';
 import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { renderSettingsPanel, openAccordion } from './settings-view.js';
 import { matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
-import { getSymData, _symPrompt, getMedSystemSyms, refreshMedHidden, getEffectiveSymCats, getEffectiveSymCatById } from '../symptom/symptom-view.js';
+import { getSymData, _symPrompt, getMedSystemSyms, refreshMedHidden, getEffectiveSymCats, getEffectiveSymCatById, getMedicationBrowseMeta, getMedicationCategoryText, getMedicationCategoryOptions } from '../symptom/symptom-view.js';
 import { dailyColEyeIcon } from '../emergency/emergency-view.js';
 import { S, ensureHolidayYear } from '../../core/app-state.js';
 import { medicationSettings } from '../../core/medication-settings.js';
@@ -181,31 +181,28 @@ export function _renderDiaryTab(){
    *  · 아래 full-width: 등록된 약품 카드(증상 매칭 편집) + 시스템 약품 일괄 조회 */
   html+='<div class="set-accordion" data-action="accordion"><span>💊 증상에 따른 투약 리스트 관리</span><span class="set-acc-arrow">▼</span></div>';
   html+='<div class="set-accordion-body">';
-  html+='<div style="font-size:10px;color:var(--t3);margin-bottom:10px;line-height:1.7">왼쪽에서 약품을 검색·토글로 숨기거나 보이게 하고, 오른쪽에서 새 약품을 검색해 결과가 없으면 그대로 등록하거나 ✏️ 로 기존 약품 이름을 수정합니다.<br>아래 카드에서 약품별 매칭 증상을 편집하고, 시스템 약품 일괄 조회로 e약은요 API 정보를 미리 캐시할 수 있습니다.</div>';
-  /* ── 2단 grid: 좌(숨기기) | 우(추가/수정) ──
-   *  · 카드 자체는 grid stretch 로 동일 높이.
-   *  · 내부는 flex column + list 에 flex:1 — 카드 안에서도 리스트가 늘어나 같은 비주얼. */
-  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
-  /* 좌측 — 약품 숨기거나 보이게 하기 (id="setMedSubHide" — 투약 팝업 "+" > "약품 숨기거나 보이게 하기" 메뉴가 이 위치로 스크롤) */
-  html+='<div id="setMedSubHide" style="padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);display:flex;flex-direction:column;min-height:380px">';
-  html+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px;display:flex;align-items:center;gap:5px"><span style="display:inline-flex;color:var(--cyan)">'+dailyColEyeIcon(true)+'</span>약품 숨기거나 보이게 하기</div>';
-  /* 우측 안내문(4~5줄)에 맞춰 검색창·리스트 시작점이 위로 떠 보이지 않도록 min-height 확보 (사용자 요청 2026-05-27).
-   * id 부여 — _setMedInitInput 에서 JS 로 우측 height 측정 후 동적 sync 수행. */
-  html+='<div id="setMedSubHideHint" style="font-size:10px;color:var(--t3);margin-bottom:8px;line-height:1.6;min-height:80px"><span style="color:#ea580c;font-weight:700">아래 약품은 오렌지팜에서 판매중인 약품 리스트입니다.</span><br>검색창에 글자를 입력하면서 숨기거나 숨겨진 약을 다시 보이게 할 수 있습니다.</div>';
-  html+='<input class="form-input" id="setMedHideSearch" placeholder="약품명 검색 (초성 가능)" style="width:100%;font-size:11px;padding:6px 9px;margin-bottom:8px;background:var(--card);border:1px solid var(--bdr)" data-no-auto-save>';
-  html+='<div id="setMedHideList" style="flex:1;min-height:0;max-height:340px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;padding:4px;background:var(--card);scrollbar-width:thin"></div>';
-  html+='</div>';
-  /* 우측 — 상용 약품 추가 및 수정 (id="setMedSubAdd" — 투약 팝업 "+" > "상용 약품 추가 및 수정" 메뉴가 이 위치로 스크롤) */
-  html+='<div id="setMedSubAdd" style="padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);display:flex;flex-direction:column;min-height:380px">';
-  html+='<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px">📥 상용 약품 추가 및 수정</div>';
-  html+='<div id="setMedSubAddHint" style="font-size:10px;color:var(--t3);margin-bottom:8px;line-height:1.6">검색해서 같은 이름의 약품이 없으면 우측 <b>+ 추가</b> 버튼으로 그대로 등록하세요. 기존 약품은 ✏️ 로 명칭 수정이 가능하며 효능을 최대 4개까지 등록하여 증상 선택 시 추천받을 수 있습니다.</div>';
-  html+='<div style="display:flex;gap:6px;margin-bottom:8px">';
-  html+='<input class="form-input" id="setMedAddEditSearch" placeholder="약품 검색 / 새 약품명" style="flex:1;min-width:0;font-size:11px;padding:6px 9px;background:var(--card);border:1px solid var(--bdr)" data-no-auto-save>';
-  html+='<button id="setMedAddBtn" data-action="med-add-from-search" disabled style="padding:5px 8px;font-size:11px;font-weight:700;border:1px solid var(--cyan);border-radius:6px;background:rgba(6,182,212,0.08);color:var(--cyan);cursor:pointer;white-space:nowrap;font-family:var(--f);opacity:0.4;flex-shrink:0">+ 추가</button>';
-  html+='</div>';
-  html+='<div id="setMedAddEditList" style="flex:1;min-height:0;max-height:340px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;padding:4px;background:var(--card);scrollbar-width:thin"></div>';
-  html+='</div>';
-  html+='</div>';
+  html+='<section id="setMedManager" class="med-settings-manager" data-visibility="all" aria-label="투약 목록 관리">';
+  html+='<div class="med-settings-intro"><strong>학교에서 사용하는 약품을 정리하세요</strong><p>투약 선택창과 같은 분류로 찾고, 표시 여부와 약품 정보를 관리할 수 있습니다.</p></div>';
+  html+='<div class="med-settings-filterbar"><div class="med-browser-filter-row">';
+  html+='<label>약품 분류<select id="setMedCategory" class="form-input" data-no-auto-save><option value="">전체 분류</option></select></label>';
+  html+='<label>등록 구분<select id="setMedOrigin" class="form-input" data-no-auto-save><option value="all">전체 등록 약품</option><option value="system">기본 제공</option><option value="user">사용자 추가</option></select></label>';
+  html+='</div><button type="button" class="btn btn-sm" data-med-settings-reset>분류 초기화</button></div>';
+  html+='<div class="med-settings-grid">';
+  html+='<section id="setMedSubHide" class="med-settings-card"><div class="med-settings-card-heading"><h4>약품 표시 관리</h4><span class="med-settings-badge">투약 목록</span></div>';
+  html+='<p id="setMedSubHideHint" class="med-settings-hint">쓰지 않는 약품은 숨겨 두세요. 삭제되지 않으며 언제든 다시 표시할 수 있습니다.</p>';
+  html+='<div class="med-settings-bulk-start"><div class="med-settings-bulk-copy"><strong>전체 약품 숨김</strong><span data-med-bulk-status role="status" aria-live="polite">목록을 확인하고 있습니다.</span><small id="setMedBulkToggleHint">켜면 전체 숨김 · 끄면 전체 표시. 일부만 숨겨져 있으면 켤 때 전체를 숨깁니다.</small></div><button type="button" class="btn btn-sm med-settings-bulk-switch" role="switch" aria-checked="false" aria-label="전체 약품 숨김" aria-describedby="setMedBulkToggleHint" data-med-bulk="toggle-all" data-state="visible" disabled><span class="med-settings-switch-track" aria-hidden="true"></span></button></div>';
+  html+='<div class="med-settings-visibility" role="group" aria-label="약품 표시 상태"><button type="button" class="btn btn-sm" data-med-visibility="all" aria-pressed="true">전체</button><button type="button" class="btn btn-sm" data-med-visibility="visible" aria-pressed="false">표시 중</button><button type="button" class="btn btn-sm" data-med-visibility="hidden" aria-pressed="false">숨김</button></div>';
+  html+='<input class="form-input" id="setMedHideSearch" aria-label="표시 관리 약품 검색" placeholder="약품명 · 변경한 이름 · 초성 검색" data-no-auto-save>';
+  html+='<div class="med-settings-bulk-results" role="group" aria-label="현재 검색 및 분류 결과 일괄 변경"><button type="button" class="btn btn-sm" data-med-bulk="hide-results" disabled>결과 숨김</button><button type="button" class="btn btn-sm" data-med-bulk="show-results" disabled>결과 표시</button></div>';
+  html+='<p class="med-settings-bulk-note">결과 숨김·표시는 현재 검색·분류·표시 상태에 맞는 약품에만 적용합니다.</p>';
+  html+='<div id="setMedHideCount" class="med-settings-count" role="status" aria-live="polite"></div>';
+  html+='<div id="setMedHideList" class="med-settings-list"></div></section>';
+  html+='<section id="setMedSubAdd" class="med-settings-card"><div class="med-settings-card-heading"><h4>약품 추가·수정·삭제</h4><span class="med-settings-badge">이름·매칭 증상</span></div>';
+  html+='<p id="setMedSubAddHint" class="med-settings-hint">사용자 추가 약품은 수정·삭제할 수 있습니다. 기본 제공 약품은 숨김으로 관리하며, 기존 보건일지의 투약 기록은 유지됩니다.</p>';
+  html+='<div class="med-settings-add-note">매칭 증상을 등록하면 투약 선택 시 추천에 반영됩니다.</div>';
+  html+='<div class="med-settings-search-row"><input class="form-input" id="setMedAddEditSearch" aria-label="수정할 약품 검색 또는 새 약품명" placeholder="약품 검색 / 새 약품명" data-no-auto-save><button type="button" id="setMedAddBtn" class="btn btn-sm" data-action="med-add-from-search" disabled>+ 추가</button></div>';
+  html+='<div id="setMedAddEditCount" class="med-settings-count" role="status" aria-live="polite"></div>';
+  html+='<div id="setMedAddEditList" class="med-settings-list"></div></section></div></section>';
   /* 사용자 추가 약품 카드 — 자체 아코디언(접기 가능). 약품 많이 등록 시 스크롤 길어지는 것 방지.
    *  openAccordion 은 closeAll 이라 중첩 불가 → data-action="toggle-medcardlist" 자체 토글(_bindDiaryTabEvents). 기본 열림. */
   html+='<div class="set-accordion open" data-action="toggle-medcardlist" id="setMedCardListHeader"><span>📋 등록된 약품 (사용자 추가) — 약품별 매칭 증상 편집</span><span class="set-acc-arrow">▼</span></div>';
@@ -358,6 +355,25 @@ export function _bindDiaryTabEvents(){
   _setMedCacheStatusUpdate();
   /* med 삭제 검색 입력란은 통합 후 제거됨 — 카드별 ✕ 로 일관화 */
   /* 좌측 — 약품 숨기거나 보이게 하기 검색 input */
+  const medManager=document.getElementById('setMedManager');
+  if(medManager&&!medManager._filtersBound){
+    medManager._filtersBound=true;
+    medManager.addEventListener('change',function(e){
+      if(e.target.id==='setMedCategory'||e.target.id==='setMedOrigin')_setMedSearchRender();
+    });
+    medManager.addEventListener('click',function(e){
+      const bulk=e.target.closest('[data-med-bulk]');
+      if(bulk){e.preventDefault();if(!bulk.disabled)_setMedBulk(bulk.dataset.medBulk);return;}
+      const visibility=e.target.closest('[data-med-visibility]');
+      if(visibility){medManager.dataset.visibility=visibility.dataset.medVisibility;_setMedSearchRender();return;}
+      if(e.target.closest('[data-med-settings-reset]')){
+        medManager.dataset.visibility='all';
+        document.getElementById('setMedCategory').value='';
+        document.getElementById('setMedOrigin').value='all';
+        _setMedSearchRender();
+      }
+    });
+  }
   const medHide=document.getElementById('setMedHideSearch');
   if(medHide)medHide.addEventListener('input',function(){_setMedHideRender();});
   /* 우측 — 상용 약품 추가 및 수정 검색 input + "+ 약품 추가" 버튼.
@@ -601,6 +617,8 @@ bus.on('classpopup:changed',function(){ const l=document.getElementById('setClas
 let _medEditTail=Promise.resolve();
 let _medPopupRequest=0;
 let _medLoadState='idle';
+let _medBulkBusy=false;
+let _medRemovalBusy=false;
 function _setMedSaveWarning(){
   bus.emit('toast:show',{text:'약품 설정의 불러오기 또는 저장 완료를 확인하지 못했습니다. 기존 목록을 초기화하지 말고 연결을 확인한 뒤 다시 시도해 주세요.'});
 }
@@ -615,9 +633,15 @@ function _setRunMedEdit(work,notify=true){
       try{refreshMedHidden();}catch(_){}
       if(notify)bus.emit('toast:save');
       return true;
-    }catch(_){
+    }catch(error){
       if(!loaded)_medLoadState='error';
-      _setMedRenderCards();_setMedSaveWarning();return false;
+      _setMedRenderCards();
+      if(error?.code==='medication_name_duplicate'){
+        bus.emit('toast:show',{text:'이미 등록된 약품 이름입니다. 다른 약품의 원래 이름과 표시 이름을 확인해 주세요.'});
+      }else if(error?.code==='medication_missing'){
+        bus.emit('toast:show',{text:'다른 화면에서 삭제된 약품입니다. 목록을 다시 확인해 주세요.'});
+      }else _setMedSaveWarning();
+      return false;
     }
   });
   _medEditTail=task.then(function(){});
@@ -690,14 +714,36 @@ async function _setUnmarkUserAddedMed(name){
    백그라운드 Promise 로 동작 — 사용자가 설정을 닫거나 다른 작업을 해도 완료까지 실행.
    시스템/사용자 JSON 은 분리 관리 (런타임에 검색 시 merge).
    (구 _setMedAdd 래퍼는 setMedAddInput 폐기와 함께 제거 — 호출자가 직접 _setMedAddDirect(name) 호출.) */
+function _setMedAssertUniqueName(name,except,settings){
+  const canonical=function(value){return String(value||'').normalize('NFC').trim().replace(/\s+/g,' ').toLowerCase();};
+  const requested=canonical(name),names=new Set(_setMedCollectPool());
+  // Include changes fetched after the visible catalogue was rendered, and hidden drugs.
+  ['user_added_meds','user_med_syms','med_renames'].forEach(function(key){Object.keys(settings[key]).forEach(function(value){names.add(value);});});
+  Object.values(settings.meddb_user).forEach(function(values){values.forEach(function(value){names.add(value);});});
+  for(const original of names){
+    if(original===except)continue;
+    if(canonical(original)===requested||canonical(settings.med_renames[original]||original)===requested){
+      const error=Error('Duplicate medication name');error.code='medication_name_duplicate';throw error;
+    }
+  }
+}
 function _setMedAddDirect(name){
   name=String(name||'').trim();if(!name)return Promise.resolve(false);
   return _setRunMedEdit(async function(){
-    await medicationSettings.update('user_med_syms',function(meds){if(!Object.prototype.hasOwnProperty.call(meds,name))meds[name]=[];});
-    await _setMarkUserAddedMed(name);
-    await medicationSettings.update('med_hidden',function(hidden){delete hidden[name];});
+    const values=await medicationSettings.updateMany(function(settings){
+      _setMedAssertUniqueName(name,null,settings);
+      const added=settings.user_added_meds;
+      if(!Object.keys(added).length){
+        Object.keys(settings.user_med_syms).forEach(function(med){if(!settings.user_med_syms_prefilled[med])added[med]=true;});
+      }
+      if(!Object.prototype.hasOwnProperty.call(settings.user_med_syms,name))settings.user_med_syms[name]=[];
+      added[name]=true;
+      delete settings.med_hidden[name];
+    });
+    S._medDbUser=values.meddb_user;
     _fetchAndCacheDrugFromEyakey(name);
-  });
+    bus.emit('toast:save');
+  },false);
 }
 
 /* ── 시스템 약품 전체 일괄 조회 ──
@@ -1040,7 +1086,35 @@ async function _fetchAndCacheDrugFromEyakey(drugName){
 /* 약품 삭제 — 사용자 JSON 캐시(medications_list) 에서도 함께 제거.
    큐에 대기중이었다면 큐에서도 제거.
    v3 (사용자 결정 2026-05-21) — 캐시 존재 여부에 따라 안내 메시지 분기. */
+function _setMedIsSystem(name){
+  const source=getSymData().medDb||{};
+  return Object.keys(source).some(function(category){return Array.isArray(source[category])&&source[category].includes(name);});
+}
+async function _setMedRequestRemove(name){
+  if(_medBulkBusy||_medRemovalBusy||!name)return false;
+  if(_setMedIsSystem(name)){
+    bus.emit('toast:show',{text:'기본 제공 약품은 삭제하지 않습니다. 왼쪽 표시 관리에서 숨겨 주세요.'});return false;
+  }
+  if(_medLoadState!=='ready'){_setMedSaveWarning();return false;}
+  const manager=document.getElementById('setMedManager');if(!manager)return false;
+  _medRemovalBusy=true;
+  try{
+    _setMedSearchRender();
+    const display=medicationSettings.snapshot('med_renames')[name]||name;
+    const ok=await appConfirmModal('<strong>'+escHtml(display)+'</strong> 약품을 사용자 목록에서 삭제할까요?<br><br>이 약품의 사용자 설정과 매칭 증상은 삭제되지만, 기존 보건일지에 작성한 투약 내역과 투여량은 유지됩니다.','사용자 추가 약품 삭제',{okLabel:'삭제',cancelLabel:'취소'});
+    if(!ok||!manager.isConnected||document.getElementById('setMedManager')!==manager)return false;
+    const popup=document.getElementById('setMedEditPopup');
+    if(popup&&!await _setMedEditPopupClose(true,popup))return false;
+    if(_setMedEditTarget===name){
+      const picker=document.getElementById('setMedSymPicker');if(picker)picker.remove();
+      _setMedEditTarget='';
+    }
+    return await _setMedRemove(name);
+  }catch(_){_setMedSaveWarning();return false;}
+  finally{_medRemovalBusy=false;try{_setMedSearchRender();_setMedRenderCards();}catch(_){_setMedSaveWarning();}}
+}
 async function _setMedRemove(name){
+  if(!name||_setMedIsSystem(name))return false;
   /* 캐시 존재 여부 비동기 확인 */
   let hasCache = false;
   try{
@@ -1049,11 +1123,19 @@ async function _setMedRemove(name){
       if(r && r.success && r.data && r.data.items && r.data.items[name]) hasCache = true;
     }
   }catch(_){}
-  /* 사용자 정책 (2026-05-22): 한 번 클릭으로 즉시 삭제 — 확인 모달 제거.
-   *  hasCache 는 아래 사용자 JSON 캐시 동기 제거 분기에서 사용. */
+  /* The visible delete action confirms first; history records are not changed. */
   const saved=await _setRunMedEdit(async function(){
-    await medicationSettings.update('user_med_syms',function(meds){delete meds[name];});
-    await _setUnmarkUserAddedMed(name);
+    const values=await medicationSettings.updateMany(function(settings){
+      const added=settings.user_added_meds;
+      if(!Object.keys(added).length){
+        Object.keys(settings.user_med_syms).forEach(med=>{if(!settings.user_med_syms_prefilled[med])added[med]=true;});
+      }
+      Object.keys(settings.meddb_user).forEach(category=>{
+        settings.meddb_user[category]=settings.meddb_user[category].filter(value=>value!==name);
+      });
+      ['med_renames','med_hidden','user_med_syms_prefilled','user_med_syms','user_added_meds'].forEach(key=>{delete settings[key][name];});
+    });
+    S._medDbUser=values.meddb_user;
   });
   if(!saved)return false;
   _eyakeyQueueRemove(name);
@@ -1116,7 +1198,7 @@ export function _setMedRenderCards(){
     }
     /* 우측 끝 ✕ 삭제 */
     h+='<span style="flex:1"></span>';
-    h+='<span data-action="med-remove" data-med="'+escHtml(med)+'" style="cursor:pointer;color:var(--rs);font-size:11px;font-weight:700;padding:0 4px" title="약품 삭제">✕</span>';
+    if(!_setMedIsSystem(med))h+='<button type="button" class="btn btn-sm med-settings-delete" data-action="med-remove" data-med="'+escHtml(med)+'" aria-label="'+escHtml(med)+' 삭제"'+((_medBulkBusy||_medRemovalBusy)?' disabled':'')+'>삭제</button>';
     h+='</div>';
   });
   el.innerHTML=h;
@@ -1126,7 +1208,7 @@ export function _setMedRenderCards(){
     el.addEventListener('click',function(e){
       const t=e.target.closest('[data-action]');if(!t)return;
       const act=t.dataset.action;
-      if(act==='med-remove'){e.stopPropagation();_setMedRemove(t.dataset.med);}
+      if(act==='med-remove'){e.stopPropagation();_setMedRequestRemove(t.dataset.med);}
       else if(act==='med-card-add-sym'){e.stopPropagation();_setMedOpenSymPicker(t.dataset.med, t);} /* 빈 슬롯 → 상분류→중분류 picker */
       else if(act==='med-card-rm-sym'){e.stopPropagation();_setMedRemoveSym(t.dataset.med, t.dataset.sym);}
     });
@@ -1369,28 +1451,136 @@ function _setMedFilterByQuery(pool, q, renames){
 /* ── 좌측: 약품 숨기거나 보이게 하기 (👁 토글 전용) ──
  * 사용자 요청(2026-05-27): 투약 선택 팝업과 동일 UX — 검색창 + 그 아래 약품 리스트 쭈욱 표시,
  * 글자 입력으로 후보를 줄여나가는 식. 검색어 없으면 전체 표시(이름순). */
+function _setMedBrowseModel(){
+  const items=_setMedCollectPool(),meta=getMedicationBrowseMeta(items);
+  const root=document.getElementById('setMedManager');
+  const categorySelect=document.getElementById('setMedCategory');
+  const category=categorySelect?categorySelect.value:'';
+  const origin=document.getElementById('setMedOrigin')?.value||'all';
+  const visibility=root?root.dataset.visibility||'all':'all';
+  const hidden=JSON.parse(localStorage.getItem('ec_med_hidden')||'{}');
+  const renames=JSON.parse(localStorage.getItem('ec_med_renames')||'{}');
+  if(categorySelect){
+    const counts=new Map();let uncategorized=0;
+    items.forEach(function(name){const cats=meta.get(name).categories;if(!cats.length)uncategorized++;cats.forEach(function(cat){counts.set(cat,(counts.get(cat)||0)+1);});});
+    categorySelect.innerHTML=getMedicationCategoryOptions(counts,items.length,uncategorized,category);
+    categorySelect.value=category;
+  }
+  if(root)root.querySelectorAll('[data-med-visibility]').forEach(function(button){button.setAttribute('aria-pressed',String(button.dataset.medVisibility===visibility));});
+  return {items,meta,category,origin,visibility,hidden,renames};
+}
+function _setMedBrowseFiltered(model){
+  return model.items.filter(function(name){
+    const info=model.meta.get(name);
+    if(model.category==='__uncategorized__'&&info.categories.length)return false;
+    if(model.category&&model.category!=='__uncategorized__'&&!info.categories.includes(model.category))return false;
+    if(model.origin==='system'&&info.user)return false;
+    if(model.origin==='user'&&!info.user)return false;
+    return true;
+  });
+}
+function _setMedHidePool(model,q){
+  return _setMedFilterByQuery(_setMedBrowseFiltered(model),q,model.renames).filter(function(name){
+    return model.visibility==='all'||(model.visibility==='hidden'?!!model.hidden[name]:!model.hidden[name]);
+  });
+}
+function _setMedBulkControls(model,pool){
+  const root=document.getElementById('setMedManager');if(!root)return;
+  const busy=_medBulkBusy||_medRemovalBusy;
+  root.setAttribute('aria-busy',String(busy));
+  const total=model.items.length;
+  const hiddenTotal=model.items.filter(function(name){return !!model.hidden[name];}).length;
+  const allHidden=total>0&&hiddenTotal===total;
+  const hideCount=pool.filter(function(name){return !model.hidden[name];}).length;
+  const status=root.querySelector('[data-med-bulk-status]');
+  if(status)status.textContent=!total?'등록된 약품이 없습니다.':allHidden?'모두 숨김 · '+total+'개':!hiddenTotal?'모두 표시 · '+total+'개':'일부 숨김 · 표시 '+(total-hiddenTotal)+'개 / 숨김 '+hiddenTotal+'개';
+  root.querySelectorAll('[data-med-bulk]').forEach(function(button){
+    const action=button.dataset.medBulk;
+    if(action==='toggle-all'){
+      button.disabled=busy||_medLoadState!=='ready'||total===0;
+      button.setAttribute('aria-checked',String(allHidden));
+      button.dataset.state=allHidden?'hidden':hiddenTotal?'mixed':'visible';
+      button.title=allHidden?'끄면 전체 약품을 다시 표시합니다.':'켜면 전체 약품을 숨깁니다.';
+    }else{
+      const count=action==='hide-results'?hideCount:pool.length-hideCount;
+      button.disabled=busy||_medLoadState!=='ready'||count===0;
+      button.textContent=(action==='hide-results'?'결과 숨김':'결과 표시')+' ('+count+')';
+    }
+  });
+  root.querySelectorAll('[data-action="med-toggle"], [data-action="med-remove"], [data-action="med-rename"]').forEach(function(button){button.disabled=busy;});
+}
+async function _setMedBulk(action){
+  if(_medBulkBusy||_medRemovalBusy||!['toggle-all','hide-results','show-results'].includes(action))return;
+  if(_medLoadState!=='ready'){_setMedSaveWarning();return;}
+  const manager=document.getElementById('setMedManager');if(!manager)return;
+  const all=action==='toggle-all';
+  let model,pool,targets,hide;
+  try{
+    model=_setMedBrowseModel();
+    pool=_setMedHidePool(model,(document.getElementById('setMedHideSearch')?.value||'').trim());
+    hide=all?model.items.some(function(name){return !model.hidden[name];}):action==='hide-results';
+    targets=(all?model.items:pool).filter(function(name){return hide?!model.hidden[name]:!!model.hidden[name];});
+  }catch(_){_setMedSaveWarning();return;}
+  if(!targets.length)return;
+  _medBulkBusy=true;
+  _setMedBulkControls(model,pool);
+  try{
+    const scope=(all?'검색·분류 조건과 관계없이 전체 목록에서 ':'현재 검색·분류·표시 상태에 맞는 결과에서 ')+(hide?'표시 중인':'숨겨진')+' 약품';
+    const ok=await appConfirmModal(
+      scope+' <strong>'+targets.length+'개</strong>를 '+(hide?'숨길까요?':'다시 표시할까요?')
+        +'<br><br>약품 정보와 기존 보건일지·투약 기록은 삭제하거나 변경하지 않습니다.'
+        +(hide?'<br>숨긴 약품은 투약 선택 목록에서 제외되며, 이 화면에서 언제든 다시 표시할 수 있습니다.':'')
+        +(all&&hide?'<br>완료 후 숨김 목록에서 사용하는 약품을 검색해 다시 표시해 주세요.':''),
+      all?(hide?'전체 약품 숨기기':'전체 약품 다시 표시'):hide?'검색 결과 일괄 숨김':'검색 결과 일괄 표시',
+      {okLabel:hide?'숨기기':'다시 표시',cancelLabel:'취소'}
+    );
+    if(!ok||!manager.isConnected||document.getElementById('setMedManager')!==manager)return;
+    const saved=await _setRunMedEdit(async function(){
+      const hidden=await medicationSettings.update('med_hidden',function(map){
+        targets.forEach(function(name){if(hide)map[name]=true;else delete map[name];});
+      });
+      S._medHidden=hidden;
+    },false);
+    if(!saved)return;
+    if(all&&manager.isConnected&&document.getElementById('setMedManager')===manager){
+      manager.dataset.visibility=hide?'hidden':'all';
+      document.getElementById('setMedCategory').value='';
+      document.getElementById('setMedOrigin').value='all';
+      document.getElementById('setMedHideSearch').value='';
+      _setMedSearchRender();
+    }
+    bus.emit('toast:show',{text:all?(hide?'약품을 숨겼습니다. 사용하는 약품을 검색해 다시 표시해 주세요.':'전체 약품을 다시 표시했습니다.'):hide?'선택한 범위의 약품을 숨겼습니다.':'선택한 범위의 약품을 다시 표시했습니다.'});
+  }catch(_){_setMedSaveWarning();}
+  finally{
+    _medBulkBusy=false;
+    try{_setMedSearchRender();}catch(_){_setMedSaveWarning();}
+  }
+}
 function _setMedHideRender(){
   const inp=document.getElementById('setMedHideSearch');
   const list=document.getElementById('setMedHideList');
   if(!inp||!list)return;
   const q=inp.value.trim();
-  const hidden=JSON.parse(localStorage.getItem('ec_med_hidden')||'{}');
-  const renames=JSON.parse(localStorage.getItem('ec_med_renames')||'{}');
-  const pool=_setMedFilterByQuery(_setMedCollectPool(), q, renames);
+  const model=_setMedBrowseModel(),hidden=model.hidden,renames=model.renames;
+  const pool=_setMedHidePool(model,q);
+  _setMedBulkControls(model,pool);
+  const count=document.getElementById('setMedHideCount');
+  if(count){
+    const hiddenCount=pool.filter(function(m){return !!hidden[m];}).length;
+    count.textContent=(q?'검색 결과 ':'전체 ')+pool.length+'개 · 숨김 '+hiddenCount+'개 포함';
+  }
   if(!pool.length){
     list.innerHTML='<div style="text-align:center;padding:12px;color:var(--t3);font-size:10px">검색 결과가 없습니다.</div>';
     return;
   }
   let h='';
-  pool.slice(0,200).forEach(function(m){
+  pool.forEach(function(m){
     const isHidden=!!hidden[m];
     const display=renames[m]||m;
-    h+='<div class="set-med-hide-row" data-med-orig="'+escHtml(m)+'" style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:4px;font-size:11px;transition:background .1s">'
-      +'<span style="flex:1;color:'+(isHidden?'var(--t3)':'var(--t1)')+';font-weight:600;'+(isHidden?'text-decoration:line-through;opacity:0.5':'')+'">'+escHtml(display)+'</span>'
-      +'<span data-action="med-toggle" data-med="'+escHtml(m)+'" style="cursor:pointer;font-size:13px;color:'+(isHidden?'var(--t3)':'var(--cyan)')+'" title="'+(isHidden?'다시 표시':'숨기기')+'">'+dailyColEyeIcon(!isHidden)+'</span>'
-      +'</div>';
+    h+='<div class="set-med-hide-row med-settings-row'+(isHidden?' is-hidden':'')+'" data-med-orig="'+escHtml(m)+'">'
+      +'<span class="med-settings-drug"><span class="med-settings-drug-name">'+escHtml(display)+'</span><span class="med-settings-drug-meta">'+escHtml(getMedicationCategoryText(model.meta.get(m)))+'</span></span>'
+      +'<button type="button" class="btn btn-sm med-settings-state" data-action="med-toggle"'+((_medBulkBusy||_medRemovalBusy)?' disabled':'')+' data-med="'+escHtml(m)+'" aria-label="'+escHtml(display)+(isHidden?' 다시 표시':' 숨기기')+'" title="'+(isHidden?'누르면 다시 표시합니다':'누르면 투약 목록에서 숨깁니다')+'">'+dailyColEyeIcon(!isHidden)+'<span>'+(isHidden?'숨김':'표시 중')+'</span></button></div>';
   });
-  if(pool.length>200)h+='<div style="text-align:center;padding:8px;color:var(--t3);font-size:10px">결과가 많습니다. 더 구체적으로 검색하세요.</div>';
   list.innerHTML=h;
   list.querySelectorAll('.set-med-hide-row').forEach(function(row){
     row.addEventListener('mouseenter',function(){this.style.background='var(--bg2)';});
@@ -1413,28 +1603,28 @@ function _setMedAddEditRender(){
   const list=document.getElementById('setMedAddEditList');
   if(!inp||!list)return;
   const q=inp.value.trim();
-  const renames=JSON.parse(localStorage.getItem('ec_med_renames')||'{}');
-  /* 사용자 요청 2026-05-27: 양쪽 컬럼 동기화 — 좌측에서 숨긴 약품은 우측에서도 제외. */
-  const hidden=JSON.parse(localStorage.getItem('ec_med_hidden')||'{}');
-  const pool=_setMedFilterByQuery(_setMedCollectPool(), q, renames).filter(function(m){ return !hidden[m]; });
+  const model=_setMedBrowseModel(),renames=model.renames,hidden=model.hidden;
+  const pool=_setMedFilterByQuery(_setMedBrowseFiltered(model),q,renames);
+  const count=document.getElementById('setMedAddEditCount');
+  if(count)count.textContent=(q?'검색 결과 ':'관리 약품 ')+pool.length+'개 · 숨김 약품 포함';
   if(!pool.length){
-    if(q){
-      list.innerHTML='<div style="text-align:center;padding:12px;color:var(--t3);font-size:10.5px;line-height:1.8">"<b style="color:var(--t2)">'+escHtml(q)+'</b>" 와 일치하는 약품이 없습니다.<br>위쪽 검색창 우측의 <b style="color:var(--cyan)">+ 추가</b> 버튼으로 이 이름을 그대로 등록하세요.</div>';
-    } else {
-      list.innerHTML='<div style="text-align:center;padding:12px;color:var(--t3);font-size:10px">등록된 약품이 없습니다.</div>';
-    }
+    const fullMatches=q?_setMedFilterByQuery(model.items,q,renames):[];
+    let message='현재 분류에 약품이 없습니다. 분류를 바꿔 주세요.';
+    if(q&&fullMatches.length)message='다른 분류에 검색한 약품이 있습니다. 분류를 초기화해 주세요.';
+    else if(q)message='검색한 이름과 일치하는 약품이 없습니다. 새 약품이라면 추가 버튼으로 등록할 수 있습니다.';
+    list.innerHTML='<div class="med-settings-empty">'+escHtml(message)+'</div>';
     return;
   }
   let h='';
-  pool.slice(0,200).forEach(function(m){
+  pool.forEach(function(m){
     const display=renames[m]||m;
     const renamed=renames[m]&&renames[m]!==m;
-    h+='<div class="set-med-edit-row" data-med-orig="'+escHtml(m)+'" style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:4px;font-size:11px;transition:background .1s">'
-      +'<span class="set-med-name" style="flex:1;color:var(--t1);font-weight:600">'+escHtml(display)+(renamed?' <span style="font-size:9px;font-weight:500;color:var(--t3)">(원본: '+escHtml(m)+')</span>':'')+'</span>'
-      +'<span data-action="med-rename" data-med="'+escHtml(m)+'" style="cursor:pointer;font-size:13px;color:#d97706" title="이름 수정">✏️</span>'
-      +'</div>';
+    h+='<div class="set-med-edit-row med-settings-row" data-med-orig="'+escHtml(m)+'">'
+      +'<span class="set-med-name med-settings-drug"><span class="med-settings-drug-name">'+escHtml(display)+'</span><span class="med-settings-drug-meta">'+escHtml(getMedicationCategoryText(model.meta.get(m)))+'</span>'+(renamed?'<span class="med-settings-drug-meta">원본: '+escHtml(m)+'</span>':'')+'</span>'
+      +'<span class="med-settings-row-actions">'+(hidden[m]?'<span class="med-settings-hidden-label">숨김</span>':'')
+      +'<button type="button" class="btn btn-sm" data-action="med-rename" data-med="'+escHtml(m)+'" aria-label="'+escHtml(display)+' 수정"'+((_medBulkBusy||_medRemovalBusy)?' disabled':'')+'>수정</button>'
+      +(!_setMedIsSystem(m)?'<button type="button" class="btn btn-sm med-settings-delete" data-action="med-remove" data-med="'+escHtml(m)+'" aria-label="'+escHtml(display)+' 삭제"'+((_medBulkBusy||_medRemovalBusy)?' disabled':'')+'>삭제</button>':'<span class="med-settings-system-label">기본 제공</span>')+'</span></div>';
   });
-  if(pool.length>200)h+='<div style="text-align:center;padding:8px;color:var(--t3);font-size:10px">결과가 많습니다. 더 구체적으로 검색하세요.</div>';
   list.innerHTML=h;
   list.querySelectorAll('.set-med-edit-row').forEach(function(row){
     row.addEventListener('mouseenter',function(){this.style.background='var(--bg2)';});
@@ -1443,6 +1633,8 @@ function _setMedAddEditRender(){
   if(!list._medClickBound){
     list._medClickBound=true;
     list.addEventListener('click',function(e){
+      const remove=e.target.closest('[data-action="med-remove"]');
+      if(remove){e.stopPropagation();if(!remove.disabled)_setMedRequestRemove(remove.dataset.med);return;}
       const rn=e.target.closest('[data-action="med-rename"]');
       if(rn){ e.stopPropagation(); _setMedEditPopupOpen(rn.dataset.med, rn.closest('.set-med-edit-row')); return; }
     });
@@ -1514,6 +1706,7 @@ async function _setMedEnsurePrefilled(name){
  *  · 저장: 이름 새 값 → ec_med_renames 갱신, 매칭은 picker / ✕ 가 이미 즉시 저장.
  *  · 외부 클릭/ESC → 저장 후 닫기 (이름 입력만 저장 필요, 매칭은 실시간 저장됨). */
 async function _setMedEditPopupOpen(origName, rowEl){
+  if(_medBulkBusy||_medRemovalBusy)return;
   /* 로드가 끝나기 전에 다른 약품을 선택하면 마지막 요청만 창을 연다. */
   const request=++_medPopupRequest;
   const panel=document.getElementById('setMedSubAdd');
@@ -1651,7 +1844,15 @@ async function _setMedEditPopupClose(save,expectedPopup,keepRequest=false){
       popup._saving=true;popup.setAttribute('aria-busy','true');
       if(ni)ni.readOnly=true;
       const ok=await _setRunMedEdit(async function(){
-        await medicationSettings.update('med_renames',function(map){if(!newName||newName===origName)delete map[origName];else map[origName]=newName;});
+        // A failed name edit must not enter the shared single-write replay queue.
+        const values=await medicationSettings.updateMany(function(settings){
+          const exists=_setMedIsSystem(origName)||Object.prototype.hasOwnProperty.call(settings.user_added_meds,origName)||Object.prototype.hasOwnProperty.call(settings.user_med_syms,origName)||Object.values(settings.meddb_user).some(function(names){return names.includes(origName);});
+          if(!exists){const error=Error('Medication no longer exists');error.code='medication_missing';throw error;}
+          _setMedAssertUniqueName(newName||origName,origName,settings);
+          const map=settings.med_renames;
+          if(!newName||newName===origName)delete map[origName];else map[origName]=newName;
+        });
+        S._medDbUser=values.meddb_user;
       });
       popup._saving=false;popup.removeAttribute('aria-busy');
       if(ni)ni.readOnly=false;
@@ -2129,6 +2330,7 @@ function _setSymStartDrag(chipEl,e){
 }
 
 function _setMedToggle(name){
+  if(_medBulkBusy||_medRemovalBusy)return Promise.resolve(false);
   return _setRunMedEdit(async function(){
     const hidden=await medicationSettings.update('med_hidden',function(map){if(map[name])delete map[name];else map[name]=true;});
     S._medHidden=hidden;
