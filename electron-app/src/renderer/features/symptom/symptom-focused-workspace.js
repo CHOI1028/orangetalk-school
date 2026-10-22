@@ -14,18 +14,34 @@ function installStyles() {
 
     #symCatBox.sym-shared-workspace { border-radius:16px; width:min(1200px,calc(var(--school-viewport-width,100vw) - 32px))!important; max-width:calc(var(--school-viewport-width,100vw) - 32px)!important; height:min(860px,calc(var(--school-viewport-height,100dvh) - 32px))!important; max-height:calc(var(--school-viewport-height,100dvh) - 32px)!important; left:max(16px,calc((var(--school-viewport-width,100vw) - 1200px)/2))!important; top:max(16px,calc((var(--school-viewport-height,100dvh) - 860px)/2))!important; }
     #symCatBox.sym-shared-workspace .sym-workspace-body { min-width:0;min-height:0; }
-    #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symCatList { width:clamp(132px,18vw,180px)!important;min-width:0; }
-    #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symSymList { width:clamp(180px,23vw,260px)!important;min-width:0; }
+    #symCatBox.sym-shared-workspace .sym-editor-title { font-size:15.6px; }
+    #symCatBox.sym-shared-workspace .sym-editor-date { font-size:14.4px; }
+    #symCatBox .sym-view-switch { display:inline-flex; align-items:center; gap:2px; padding:3px; border:1px solid var(--bdr); border-radius:9px; background:var(--bg2); }
+    #symCatBox .sym-view-switch .sym-focus-toggle { min-height:28px; padding:4px 9px; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--t2); font-weight:600; white-space:nowrap; box-shadow:none; }
+    #symCatBox .sym-view-switch .sym-focus-toggle[aria-pressed="true"] { background:var(--card); border-color:var(--bdr); color:var(--cyan); font-weight:700; }
+    #symCatBox .sym-view-switch .sym-focus-toggle:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+    #symCatBox.sym-shared-workspace .sym-split-selection { display:flex; flex-direction:column; flex:0 0 clamp(312px,41vw,440px); min-width:0; min-height:0; border-right:1px solid var(--bdr); background:color-mix(in srgb,var(--cyan) 3%,var(--card)); }
+    #symCatBox.sym-shared-workspace .sym-split-selection>.sym-focus-heading { flex:0 0 auto; padding:14px 16px 8px; font-size:14px; font-weight:700; color:var(--t1); }
+    #symCatBox.sym-shared-workspace .sym-split-lists { display:flex; flex:1 1 auto; min-width:0; min-height:0; overflow:hidden; }
+    #symCatBox.sym-focused-workspace .sym-split-selection { display:none; }
+    #symCatBox.sym-shared-workspace #symQuickSearchRow { margin:0!important; padding:0 14px 10px; flex:0 0 auto; min-width:0; }
+    #symCatBox.sym-shared-workspace #symQuickSearchInput { min-height:40px; font-size:14px!important; line-height:1.5; padding:8px 11px!important; background:var(--card); }
+    #symCatBox.sym-shared-workspace #symQuickSearchInput:focus-visible { outline:2px solid var(--cyan)!important; outline-offset:2px; }
+    #symCatBox.sym-shared-workspace #symQuickSearchList { left:14px!important; right:14px!important; }
+    #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symCatList { width:41%!important;flex:0 0 41%!important;min-width:0;box-sizing:border-box; }
+    #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symSymList { width:0!important;flex:1 1 0!important;min-width:0;border-right:0!important;box-sizing:border-box; }
     #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symTreatPanel { min-width:0;overflow-wrap:anywhere; }
     @media(max-width:760px){
-      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace)>.sym-workspace-body { display:grid!important;grid-template-columns:minmax(120px,1fr) minmax(0,1.7fr);grid-template-rows:minmax(240px,auto) minmax(240px,auto);overflow:auto!important; }
+      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace)>.sym-workspace-body { display:flex!important;flex-direction:column;overflow:auto!important; }
+      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) .sym-split-selection { flex:0 0 330px; width:100%; border-right:0; border-bottom:1px solid var(--bdr); }
+      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symQuickSearchList { max-height:220px!important; }
       #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symCatList,
-      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symSymList { width:100%!important;max-height:300px;box-sizing:border-box; }
-      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symTreatPanel { grid-column:1/-1;min-height:240px; }
+      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symSymList { max-height:none;box-sizing:border-box; }
+      #symCatBox.sym-shared-workspace:not(.sym-focused-workspace) #symTreatPanel { flex:0 0 auto!important;min-height:240px;overflow:visible!important; }
       #symCatBox.sym-shared-workspace .sym-editor-header { max-height:42%;overflow:auto; }
     }
     #symCatBox.sym-focused-workspace .sym-editor-header { padding:14px 20px 10px; }
-    #symCatBox.sym-focused-workspace .sym-editor-title { font-size:15px; color:var(--t1); }
+    #symCatBox.sym-focused-workspace .sym-editor-title { font-size:18px; color:var(--t1); }
     #symCatBox .sym-focus-toggle { font-size:12px; min-height:32px; }
     #symCatBox.sym-focused-workspace .sym-editor-name { font-size:22px; }
     #symCatBox.sym-focused-workspace .sym-focus-tools { margin-top:8px; }
@@ -50,8 +66,8 @@ function installStyles() {
     #symCatBox.sym-focused-workspace #symTreatPanel .sym-block-pair { margin-bottom:10px; padding:14px; }
     #symCatBox.sym-focused-workspace #symFocusMedicationDock { min-width:0; flex:0 0 auto; }
     #symCatBox.sym-focused-workspace .sym-focus-work.has-medication #symFocusMedicationDock { flex:1 0 540px; display:flex; min-height:540px; }
-    #symCatBox.sym-focused-workspace .sym-focus-med-hint { border:1px dashed var(--bdr); border-radius:12px; padding:14px; color:var(--t2); font-size:13px; background:var(--bg2); }
-    #symCatBox.sym-focused-workspace #symFocusMedicationDock:has(#symMedPopup)>.sym-focus-med-hint { display:none; }
+    #symCatBox.sym-focused-workspace #symFocusMedicationDock:empty { display:none; }
+
     #symCatBox.sym-focused-workspace #symMedPopup[data-sym-focus-dock="1"] { position:relative!important; top:auto!important; left:auto!important; transform:none!important; opacity:1!important; width:100%!important; height:auto!important; max-height:none!important; min-width:0; flex:1 1 auto; border:1px solid var(--bdr)!important; box-shadow:none!important; border-radius:12px!important; overflow:hidden!important; z-index:auto!important; transition:none!important; }
     #symCatBox.sym-focused-workspace #symMedPopup>.sym-focus-med-head { padding:10px 14px!important; border-radius:12px 12px 0 0; background:color-mix(in srgb,var(--cyan) 8%,var(--card))!important; flex-wrap:wrap; }
     #symCatBox.sym-focused-workspace .sym-focus-med-context { color:var(--cyan); font-size:12px; font-weight:600; overflow-wrap:anywhere; padding:8px 14px 0; }
@@ -120,6 +136,8 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
   installSymptomTreatmentStyles();
   const body = categories.parentElement;
   const header = box.querySelector('.sym-editor-header');
+  const dragHandle = box.querySelector('.sym-editor-topline');
+  if (dragHandle) dragHandle.setAttribute('data-drag-handle','');
   const search = box.querySelector('#symQuickSearchRow');
   const history = box.querySelector('[aria-label="학생 이력"]');
   const tools = box.querySelector('#symChipRow2');
@@ -134,6 +152,16 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
   };
   box.classList.add('sym-shared-workspace');body.classList.add('sym-workspace-body');
   Object.entries(sharedGeometry).forEach(([key,value]) => { box.style[key]=value; });
+  // Keep the same search and list nodes in the selection area in either layout.
+  const splitLeft = document.createElement('section'); splitLeft.className = 'sym-split-selection'; splitLeft.setAttribute('aria-label','증상 선택');
+  const splitHeading = document.createElement('div'); splitHeading.className = 'sym-focus-heading'; splitHeading.textContent = '증상 선택';
+  const splitLists = document.createElement('div'); splitLists.className = 'sym-split-lists';
+  body.insertBefore(splitLeft,categories);
+  splitLeft.appendChild(splitHeading);
+  if (search) splitLeft.appendChild(search);
+  splitLeft.appendChild(splitLists); splitLists.append(categories,symptoms);
+  const searchInput = search?.querySelector('#symQuickSearchInput');
+  if (searchInput) searchInput.setAttribute('aria-label','등록된 증상 검색');
   const left = document.createElement('section'); left.className = 'sym-focus-left'; left.setAttribute('aria-label','증상 선택');
   left.innerHTML = '<div class="sym-focus-heading">증상 선택</div>';
   const categoryLabel = document.createElement('label'); categoryLabel.className = 'sym-focus-category'; categoryLabel.textContent = '증상 분류';
@@ -148,18 +176,23 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
   const work = document.createElement('section'); work.className = 'sym-focus-work'; work.setAttribute('aria-label','처치 및 투약 입력');
   work.innerHTML = '<div class="sym-focus-heading">처치 · 투약</div>';
   const dock = document.createElement('section'); dock.id = 'symFocusMedicationDock'; dock.setAttribute('aria-label','투약 입력 영역');
-  dock.innerHTML = '<div class="sym-focus-med-hint">처치에서 투약을 선택하면 이곳에서 약품과 투여량을 함께 입력합니다.</div>';
-  const secondary = document.createElement('details'); secondary.className = 'sym-focus-tools'; secondary.dataset.symFocusNative = '1';
-  secondary.open = true;
-  secondary.innerHTML = '<summary aria-expanded="true">이력 · 업무 도구 접기</summary>';
-  secondary.addEventListener('toggle', () => {
-    const summary = secondary.querySelector('summary');
-    summary.textContent = '이력 · 업무 도구 ' + (secondary.open ? '접기' : '펼치기');
-    summary.setAttribute('aria-expanded',String(secondary.open));
+  // Keep the medication dock empty until a treatment opens it.
+  const secondary = document.createElement('section'); secondary.className = 'sym-focus-tools'; secondary.setAttribute('aria-label','이력 및 업무 도구');
+  const viewSwitch = document.createElement('div'); viewSwitch.className = 'sym-view-switch'; viewSwitch.setAttribute('role','group'); viewSwitch.setAttribute('aria-label','화면 배치');
+  const viewButtons = [
+    {focused:true,label:'2열 보기',description:'증상 선택과 처치·투약을 두 영역으로 표시합니다.'},
+    {focused:false,label:'3열 보기',description:'증상 분류, 증상 목록, 처치를 세 영역으로 표시합니다.'}
+  ].map(mode => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'btn btn-sm sym-focus-toggle'; button.dataset.symFocusNative = '1';
+    button.textContent = mode.label; button.title = mode.description;
+    viewSwitch.appendChild(button);
+    return {button,focused:mode.focused};
   });
-  const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'btn btn-sm sym-focus-toggle'; toggle.dataset.symFocusNative = '1';
-  actions.insertBefore(toggle,actions.querySelector('[data-action="closeSymptomPopup"]'));
+  actions.insertBefore(viewSwitch,actions.querySelector('[data-action="closeSymptomPopup"]'));
   let active = false;
+  function updateViewButtons() {
+    viewButtons.forEach(({button,focused}) => button.setAttribute('aria-pressed',String(active === focused)));
+  }
   function move(node,parent) {
     if (!node) return;
     const marker = document.createComment('focused-workspace-original-position');
@@ -188,21 +221,26 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
       box.style.width = 'min(1200px, calc(var(--school-viewport-width, 100vw) - 32px))';
       box.style.maxWidth = 'calc(var(--school-viewport-width, 100vw) - 32px)';
       box.style.height = 'min(860px, calc(var(--school-viewport-height, 100dvh) - 32px))';
-      box.style.left = 'max(16px, calc((var(--school-viewport-width, 100vw) - 1200px) / 2))';
-      box.style.top = 'max(16px, calc((var(--school-viewport-height, 100dvh) - 860px) / 2))';
+      if (box.dataset.popupDragged !== '1') {
+        box.style.left = 'max(16px, calc((var(--school-viewport-width, 100vw) - 1200px) / 2))';
+        box.style.top = 'max(16px, calc((var(--school-viewport-height, 100dvh) - 860px) / 2))';
+      }
       syncCategory();
     } else {
       moved.splice(0).reverse().forEach(({node,marker}) => { marker.replaceWith(node); });
       left.remove(); work.remove(); secondary.remove();
       body.classList.remove('sym-focus-body'); box.classList.remove('sym-focused-workspace');
-      Object.entries(sharedGeometry).forEach(([key,value]) => { box.style[key] = value; });
+      Object.entries(sharedGeometry).forEach(([key,value]) => {
+        if (box.dataset.popupDragged === '1' && (key === 'left' || key === 'top')) return;
+        box.style[key] = value;
+      });
     }
-    toggle.textContent = active ? '분리 보기로 전환' : '통합 보기로 전환';
-    toggle.setAttribute('aria-pressed',String(active));
-    toggle.title = active ? '현재 통합 보기: 투약을 같은 창에서 입력합니다. 분류 목록을 펼쳐 보는 화면으로 전환합니다.' : '현재 분리 보기: 분류·증상·처치를 나란히 봅니다. 투약을 같은 창에서 입력하는 화면으로 전환합니다.';
+    updateViewButtons();
   }
-  toggle.addEventListener('click', event => { event.stopPropagation(); setMode(!active); });
-  toggle.addEventListener('keydown', event => { if (event.key !== 'Escape') event.stopPropagation(); });
+  viewButtons.forEach(({button,focused}) => {
+    button.addEventListener('click', event => { event.stopPropagation(); setMode(focused); });
+    button.addEventListener('keydown', event => { if (event.key !== 'Escape') event.stopPropagation(); });
+  });
   const categoryWatcher = new MutationObserver(syncCategory);
   categoryWatcher.observe(categories,{attributes:true,subtree:true,attributeFilter:['style'],childList:true});
   const dockWatcher = new MutationObserver(() => work.classList.toggle('has-medication',!!dock.querySelector('#symMedPopup')));
@@ -213,7 +251,7 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
   });
   lifetime.observe(document.body,{childList:true});
   box._focusedWorkspace = {setMode};
-  toggle.textContent = '통합 보기로 전환'; toggle.setAttribute('aria-pressed','false');
+  updateViewButtons();
   if (preferFocusedWorkspace) setMode(true);
 }
 

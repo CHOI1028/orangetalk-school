@@ -94,7 +94,8 @@ function _markOverlayAndChildren(el){
   /* 자손 마킹 — standalone 팝업은 자식까지 마킹하지 않음 (좌표 충돌 회피) */
   if(!isStandalone && el.querySelectorAll){
     el.querySelectorAll('[style*="position"]').forEach(function(child){
-      if(_hasInlineFixed(child)){
+      // Drag-managed dialogs already convert visual coordinates and clamp on zoom.
+      if(_hasInlineFixed(child) && !child._autoDragApplied){
         child.setAttribute('data-ec-zoom-rebound','card');
         _adjustCardPosition(child);
       }

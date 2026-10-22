@@ -28,8 +28,8 @@ function keepPopupsInView(zoom) {
     const left = Number.parseFloat(style.left), top = Number.parseFloat(style.top);
     const nextLeft = Math.max(margin, Math.min(rect.left, window.innerWidth - margin - rect.width));
     const nextTop = Math.max(margin, Math.min(rect.top, window.innerHeight - margin - rect.height));
-    if (Number.isFinite(left) && Math.abs(nextLeft - rect.left) > 1) box.style.left = (left + (nextLeft - rect.left) / zoom) + 'px';
-    if (Number.isFinite(top) && Math.abs(nextTop - rect.top) > 1) box.style.top = (top + (nextTop - rect.top) / zoom) + 'px';
+    if (Number.isFinite(left) && Math.abs(nextLeft - rect.left) > 1) box.style.setProperty('left', (left + (nextLeft - rect.left) / zoom) + 'px', box.style.getPropertyPriority('left'));
+    if (Number.isFinite(top) && Math.abs(nextTop - rect.top) > 1) box.style.setProperty('top', (top + (nextTop - rect.top) / zoom) + 'px', box.style.getPropertyPriority('top'));
   });
 }
 

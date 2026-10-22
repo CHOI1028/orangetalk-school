@@ -2806,12 +2806,12 @@ function _symRenderSingleBlock(recId, opts){
     /* 사용자 요청 2026-06-05 — 브레드크럼 클릭 시 좌측 패널을 이 증상의 대분류-중분류로 전환.
      *  cat 매칭(기본 중분류 증상)일 때만 네비 가능 (사용자 추가/자유 기입 증상은 분류 매칭 불가). */
     const _navAttr = cat
-      ? (' data-action="symNavCat" data-nav-cat="'+escHtml(cat.id)+'" data-sym-base="'+escHtml(split.base)+'" data-tooltip="클릭하면 이 증상의 분류로 이동합니다." data-tooltip-instant="1" style="display:flex;flex-direction:column;align-items:flex-start;width:100%;min-width:0;cursor:pointer"')
+      ? (' data-action="symNavCat" data-nav-cat="'+escHtml(cat.id)+'" data-sym-base="'+escHtml(split.base)+'" data-tooltip="클릭하면 이 증상의 분류로 이동합니다." style="display:flex;flex-direction:column;align-items:flex-start;width:100%;min-width:0;cursor:pointer"')
       : ' style="display:flex;flex-direction:column;align-items:flex-start;width:100%;min-width:0"';
     /* 사용자 요청 2026-06-05 — 중분류 증상 글자 오른편 ✕ : 이 증상 전체 삭제(바디맵·자유 기술·처치 포함 + 대분류-중분류 선택 해제).
      *  호버 시 노출(빈 자리는 항상 확보). _symRemoveSym 이 마커·treatmentBySym·선택 모두 정리. */
     headerHtml+='<span class="sym-breadcrumb"'+_navAttr+'>'
-      + '<span style="word-break:keep-all;overflow-wrap:break-word">'+catHtml+'<b>'+escHtml(split.base)+'</b>'
+      + '<span style="word-break:keep-all;overflow-wrap:break-word">'+catHtml+'<b>'+escHtml(split.base)+'</b><span class="sym-treatment-heading-suffix">에 대한 처치</span>'
       + '<span class="sym-breadcrumb-del" data-action="removeSym" data-sym="'+escHtml(split.base)+'" data-tooltip="이 증상 전체 삭제 (바디맵·자유 기술 포함, 선택 해제)" data-tooltip-instant="1">✕</span>'
       + '</span>';
     if(split.memo){
@@ -2899,12 +2899,16 @@ function _symRenderSingleBlock(recId, opts){
   const _displayTreatments = isLegacy ? treatments : _recordLevelTrtFromFlat.concat(_symLevelTrt);
   let treatChipsHtml='';
   let hasMedTreat=false;
+  const _chosenTreatmentBases=new Set();
   _displayTreatments.forEach(function(t){
     let _base=t, _memo='';
     const _bm=t.match(/^(.+?)\s*\((.*)\)\s*$/);
     if(_bm){_base=_bm[1].trim();_memo=_bm[2];}
+    _chosenTreatmentBases.add(_base);
     if(_base==='투약'){hasMedTreat=true; return;}
-    const _sumAction=(_base==='침상 이용'||_base==='침상 안정')?'bedRest':'toggleTreat';
+    const _sumAction=(_base==='침상 이용'||_base==='침상 안정')?'bedRest':(_base==='V/S 측정'?'openVs':(_base==='신체사정'?'openPhysAssess':'toggleTreat'));
+    const _opensTreatEditor=_sumAction!=='toggleTreat';
+    const _sumEditorAttrs=_opensTreatEditor?' role="button" tabindex="0" data-is-fixed="1" aria-label="'+escHtml(_treatDisplayName(_base)+' 입력창 다시 열기')+'"':'';
     const _isFixedSum=_base==='침상 이용'||_base==='침상 안정'||_base==='V/S 측정';
     /* v3 (사용자 결정 2026-05-21) — 자유 기술 처치 식별 (recommended Set 에 없는 처치).
      * 펜 클릭 시: 자유 기술 → 처치명 자체 수정 (editFreeText), 일반 → 메모 부착 (openTreatMemo). */
@@ -2935,7 +2939,7 @@ function _symRenderSingleBlock(recId, opts){
       h=h.replace(/침상 안정/g,'<span data-sub-action="bedRest" data-rec-id="'+recId+'" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" data-tooltip="침상 설정" data-tooltip-instant="1">침상 안정</span>');
       return h;
     };
-    treatChipsHtml+='<span class="sym-sel-chip sym-treat-chip" data-action="'+_sumAction+'" data-treat="'+escHtml(_base)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 10px;border-radius:12px;background:rgba(6,182,212,0.10);color:var(--cyan);border:1px solid rgba(6,182,212,0.28);font-size:12px;font-weight:700;cursor:pointer">'+_renderDispChip(_dispChip)+_penSum+'<span class="sym-chip-del" data-action="removeTreat" data-treat="'+escHtml(_base)+'" data-sym-key="'+escHtml(symKey)+'" data-tooltip="이 칩을 삭제" data-tooltip-instant="1">✕</span></span>';
+    treatChipsHtml+='<span class="sym-sel-chip sym-treat-chip'+(_opensTreatEditor?' sym-card-action':'')+'"'+_sumEditorAttrs+' data-action="'+_sumAction+'" data-treat="'+escHtml(_base)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 10px;border-radius:12px;background:rgba(6,182,212,0.10);color:var(--cyan);border:1px solid rgba(6,182,212,0.28);font-size:12px;font-weight:700;cursor:pointer">'+_renderDispChip(_dispChip)+_penSum+'<span class="sym-chip-del" data-action="removeTreat" data-treat="'+escHtml(_base)+'" data-sym-key="'+escHtml(symKey)+'" data-tooltip="이 칩을 삭제" data-tooltip-instant="1">✕</span></span>';
   });
 
   /* 투약 칩 — 약품 리스트 표시.
@@ -2956,7 +2960,7 @@ function _symRenderSingleBlock(recId, opts){
     } else {
       medInner='<span style="opacity:.7;font-style:italic">약품 미선택</span>';
     }
-    treatChipsHtml+='<span class="sym-sel-chip sym-treat-chip" data-action="openMedFromChip" data-treat="투약" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="클릭하여 약품 선택" data-tooltip-instant="1" style="position:relative;display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:3px 10px;border-radius:12px;background:rgba(168,85,247,0.10);color:#a855f7;border:1px solid rgba(168,85,247,0.28);font-size:12px;font-weight:700;cursor:pointer;max-width:100%">💊 '+escHtml(_treatDisplayName('투약'))+' ['+medInner+']<span class="sym-chip-del" data-action="removeTreat" data-treat="투약" data-sym-key="'+escHtml(symKey)+'" data-tooltip="이 투약 칩 삭제" data-tooltip-instant="1">✕</span></span>';
+    treatChipsHtml+='<span class="sym-sel-chip sym-treat-chip sym-card-action" role="button" tabindex="0" data-is-fixed="1" aria-label="투약 입력창 다시 열기" data-action="openMedFromChip" data-treat="투약" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="클릭하여 약품 선택" data-tooltip-instant="1" style="position:relative;display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:3px 10px;border-radius:12px;background:rgba(168,85,247,0.10);color:#a855f7;border:1px solid rgba(168,85,247,0.28);font-size:12px;font-weight:700;cursor:pointer;max-width:100%">💊 '+escHtml(_treatDisplayName('투약'))+' ['+medInner+']<span class="sym-chip-del" data-action="removeTreat" data-treat="투약" data-sym-key="'+escHtml(symKey)+'" data-tooltip="이 투약 칩 삭제" data-tooltip-instant="1">✕</span></span>';
   }
 
   /* === Favorites — 자주 쓰는 처치. 변수들(FIXED_FAVS·CORE_FIXED·recommended 등) 은 위에서 이미 정의됨.
@@ -2984,9 +2988,17 @@ function _symRenderSingleBlock(recId, opts){
   let favToolsHtml='';
   favToolsHtml+='<span class="sym-sel-chip sym-card-action" role="button" tabindex="0" aria-label="처치 추가" data-action="addUserTreat" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-tooltip="이 증상에 새 처치 칩을 추가합니다." data-tooltip-instant="1" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:800;border-radius:12px;cursor:pointer;border:1.5px dashed #f97316;background:rgba(249,115,22,0.12);color:#f97316;font-family:var(--f)">+ 추가</span>';
   favToolsHtml+='<span class="sym-sel-chip sym-card-action" role="button" tabindex="0" aria-label="처치 자유 기입" data-action="openFreeText" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.08);color:#d97706;font-family:var(--f)" data-tooltip="일회성으로 처치를 자유롭게 적을 수 있습니다." data-tooltip-instant="1">✏️ 처치 자유 기입</span>';
-  recArr.forEach(function(t){
+  /* Filter only this rendered list. Never modify saved favorites or medication/dose state. */
+  const _remainingFavs=recArr.filter(function(t){
+    if(_chosenTreatmentBases.has(t))return false;
+    if(_displayTreatments.some(function(selected){return selected===t||String(selected).indexOf(t+' (')===0;}))return false;
+    if((t==='침상 이용'||t==='침상 안정')&&(_chosenTreatmentBases.has('침상 이용')||_chosenTreatmentBases.has('침상 안정')))return false;
+    return true;
+  });
+  _remainingFavs.forEach(function(t){
     const isFixed=FIXED_FAVS.indexOf(t)!==-1;
     const isCore=CORE_FIXED.indexOf(t)!==-1;
+
     const _disp=_treatDisplayName(t);
     let treatAction='toggleTreat';
     if(t==='침상 이용')treatAction='bedRest';
@@ -2998,7 +3010,7 @@ function _symRenderSingleBlock(recId, opts){
     else if(t==='신체사정')_tipAttr=' data-tooltip="시진·촉진·타진·청진을 선택하고 소견을 적을 수 있습니다." data-tooltip-instant="1"';
     else if(t==='투약')_tipAttr=' data-tooltip="일반의약품을 선택할 수 있습니다." data-tooltip-instant="1"';
     else if(t==='침상 이용'||t==='침상 안정')_tipAttr=' data-tooltip="침상 선택, 시간과 알람 지정을 할 수 있습니다." data-tooltip-instant="1"';
-    favChipsHtml+='<span class="sym-sel-chip sym-fav-chip" data-action="'+treatAction+'" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-is-fixed="'+(isFixed?'1':'0')+'"'+_tipAttr+' style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;transition:all .12s;border:1px solid var(--bdr);background:transparent;color:var(--t2);font-family:var(--f)'+(isFixed?';border-style:dashed':'')+'"><span class="sym-treatment-name"><button type="button" class="sym-treatment-choice">'+_disp+'</button></span>'+delBtn+'</span>';
+    favChipsHtml+='<span class="sym-sel-chip sym-fav-chip" data-action="'+treatAction+'" data-treat="'+escHtml(t)+'" data-sym-key="'+escHtml(symKey)+'" data-rec-id="'+recId+'" data-is-fixed="'+(isFixed?'1':'0')+'"'+_tipAttr+' style="position:relative;display:inline-flex;align-items:center;padding:3px 11px;font-size:12px;font-weight:700;border-radius:12px;cursor:pointer;transition:all .12s;border:1px solid var(--bdr);background:transparent;color:var(--t2);font-family:var(--f)'+(isFixed?';border-style:dashed':'')+'"><span class="sym-treatment-name"><button type="button" class="sym-treatment-choice" aria-label="'+escHtml(_disp)+'">'+_disp+'</button></span>'+delBtn+'</span>';
   });
 
   /* === 블록 조립 === */
@@ -3010,7 +3022,7 @@ function _symRenderSingleBlock(recId, opts){
     if(_bnCat)_blockNavCatId=_bnCat.id;
   }
   const _labelNavAttr=_blockNavCatId
-    ? (' data-action="symNavCat" data-nav-cat="'+escHtml(_blockNavCatId)+'" data-tooltip="클릭하면 이 증상의 분류로 이동합니다." data-tooltip-instant="1" style="cursor:pointer"')
+    ? (' data-action="symNavCat" data-nav-cat="'+escHtml(_blockNavCatId)+'" data-tooltip="클릭하면 이 증상의 분류로 이동합니다." style="cursor:pointer"')
     : '';
   let blockHtml='';
   blockHtml+='<div class="sym-block-pair" data-sym-key="'+escHtml(symKey)+'">';
@@ -3027,10 +3039,10 @@ function _symRenderSingleBlock(recId, opts){
   blockHtml+='<div class="sym-fav-acc open">';
   blockHtml+='<div class="sym-fav-acc-head"><span class="chev">▼</span><span class="title">자주 쓰는 처치 목록</span>';
   if(_catLabel)blockHtml+='<span class="cat">'+_catLabel+'</span>';
-  blockHtml+='<span class="count">'+recArr.length+'개</span>';
+  blockHtml+='<span class="count">'+_remainingFavs.length+'개</span>';
   blockHtml+='</div>';
   /* 안내 — "자" 글자 위치에 맞춤 (chev 10px + gap 8px + padding 12px = ~30px) */
-  blockHtml+='<div class="sym-fav-hint">처치를 선택하세요.</div>';
+  blockHtml+='<div class="sym-fav-hint">'+(_remainingFavs.length?'추가할 처치를 선택하세요.':'모두 추가했습니다.')+'</div>';
   blockHtml+='<div class="sym-fav-acc-body sym-fav-wrap">';
   blockHtml+=favChipsHtml;
   blockHtml+='</div>';
