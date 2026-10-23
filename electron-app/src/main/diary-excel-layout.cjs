@@ -44,6 +44,14 @@ function cleanTitle(value) {
   return text(value).replace(/^[\s\p{Extended_Pictographic}\uFE0F]+/u, '');
 }
 
+function treatmentOutput(value, header) {
+  // Remove only standalone renderer placeholders, before wrapping. Meaningful
+  // arrows, zeroes, intentional blank lines and the caller's data stay intact.
+  if (typeof value !== 'string' || !/처치|투약/.test(header)) return value;
+  return value.replace(/\r\n?/g, '\n').split('\n')
+    .filter(line => !/^\s*→(?:\s*→)*\s*$/.test(line)).join('\n');
+}
+
 function pixelsForWidth(width) {
   // Include cell padding; narrow Excel columns use a different pixel slope.
   const n = Number(width) || 8.43;
@@ -180,7 +188,7 @@ function writeRow(sheet, values, rowSpans, style = {}, height) {
     cell.value = typeof value === 'number' ? value : wrapped.join('\n');
     lines = Math.max(lines, wrapped.length);
   });
-  row.height = height || (compact ? Math.max(18, lines * 14 + 4) : Math.max(23, lines * LEADING + 10));
+  row.height = height || (compact ? Math.max(18, lines * 14 + 4) : Math.max(23, lines * LEADING + 6));
   if (compact) {
     if (!sheet.diaryCompactRows) sheet.diaryCompactRows = new Set();
     sheet.diaryCompactRows.add(row.number);
@@ -197,7 +205,7 @@ function fullRow(sheet, value, style = {}, minHeight = 23) {
   for (let offset = 0; offset < lines.length; offset += MAX_LINES) {
     const part = lines.slice(offset, offset + MAX_LINES);
     const shown = lines.length <= MAX_LINES ? value : part.join('\n');
-    writeRow(sheet, [shown], [span], { border: false, ...style }, Math.max(minHeight, part.length * Math.max(LEADING, size * 1.6) + 8));
+    writeRow(sheet, [shown], [span], { border: false, ...style }, Math.max(minHeight, part.length * Math.max(LEADING, size * 1.6) + 6));
   }
   return first;
 }
@@ -214,7 +222,7 @@ function continuationRows(sheet, values, rowSpans, style, firstColumnLabel) {
       return wrapped[i].slice(part * MAX_LINES, (part + 1) * MAX_LINES).join('\n');
     });
     const rows = Math.max(1, ...shown.map((value, i) => wrapLines(value, spanWidth(sheet, rowSpans[i]), BODY_SIZE, compact ? 2 : 12).length));
-    writeRow(sheet, shown, rowSpans, style, compact ? Math.max(18, rows * 14 + 4) : Math.max(24, rows * LEADING + 10));
+    writeRow(sheet, shown, rowSpans, style, compact ? Math.max(18, rows * 14 + 4) : Math.max(24, rows * LEADING + 6));
   }
   range.last = sheet.rowCount;
   return range;
@@ -229,7 +237,7 @@ function addApproval(sheet, roles) {
     writeRow(sheet, values, roleSpans, { bold: true, align: 'center', fill: FILL });
   }
   writeRow(sheet, ['', '', ''], roleSpans, { align: 'center' }, 36);
-  sheet.addRow([]).height = 10;
+  sheet.addRow([]).height = 4;
 }
 
 function createSheet(workbook, name, headers, widths, options) {
@@ -237,12 +245,13 @@ function createSheet(workbook, name, headers, widths, options) {
     views: [{ state: 'normal', showGridLines: false, zoomScale: 100 }],
     pageSetup: {
       paperSize: 9, orientation: options.orientation,
-      fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      fitToPage: false, scale: 100, fitToWidth: 1, fitToHeight: 0,
       margins: marginValues(options.margins), horizontalCentered: true
     }
   });
   sheet.columns = columnsFor(headers, widths, options).map(width => ({ width }));
   sheet.properties.defaultRowHeight = 23;
+  sheet.diaryTables = [];
   sheet.headerFooter.oddFooter = '&C&"맑은 고딕,Regular"&8&P / &N';
   return sheet;
 }
@@ -277,7 +286,7 @@ function approvalHeading(sheet, payload, options) {
   writeRow(sheet, [payload.schoolText || '', '', '', ''], groups,
     i => i === 0 ? {bold:true,border:false} : {align:'center'}, Math.max(36,schoolLines*LEADING+10));
   fullRow(sheet, payload.periodText || '', {}, 24);
-  sheet.addRow([]).height = 10;
+  sheet.addRow([]).height = 4;
   return true;
 }
 
@@ -287,23 +296,26 @@ function documentHeading(sheet, payload, options) {
   fullRow(sheet, cleanTitle(payload.titleText || '보건일지'), { bold: true, size: 18, align: 'center' }, 38);
   fullRow(sheet, payload.schoolText || '', { bold: true }, 24);
   fullRow(sheet, payload.periodText || '', {}, 24);
-  sheet.addRow([]).height = 10;
+  sheet.addRow([]).height = 4;
 }
 
 function sectionTitle(sheet, value) {
-  sheet.addRow([]).height = 8;
+  sheet.addRow([]).height = 4;
   fullRow(sheet, cleanTitle(value), { bold: true, size: 11 }, 24);
 }
 
 function addMemo(sheet, memo) {
   if (!memo || !Array.isArray(memo.titles) || !memo.titles.length) return;
+  const first = sheet.rowCount + 1;
   sectionTitle(sheet, '오늘의 메모');
+  const headerLast = sheet.rowCount;
   const split = Math.max(1, Math.floor(sheet.columns.length / 4));
   const memoSpans = [[1, split], [split + 1, sheet.columns.length]];
-  memo.titles.forEach((title, i) => {
-    continuationRows(sheet, [title, memo.cells && memo.cells[i] != null ? memo.cells[i] : ''], memoSpans,
+  const units = memo.titles.map((title, i) => {
+    return continuationRows(sheet, [title, memo.cells && memo.cells[i] != null ? memo.cells[i] : ''], memoSpans,
       index => ({ bold: index === 0, fill: index === 0 ? FILL : undefined, top: true }));
   });
+  sheet.diaryTables.push({kind:'memo', first, last:sheet.rowCount, header:{first,last:headerLast}, units});
 }
 
 // A shared boundary grid gives each table independent column widths. It does
@@ -360,13 +372,16 @@ function addStats(sheet, sections) {
   for (const plan of plans) {
     const section = plan.section, labels = section.header;
     plan.panels.forEach((panel, panelIndex) => {
-      sheet.addRow([]).height = 4;
+      const first = sheet.rowCount + 1;
+      sheet.addRow([]).height = 2;
       const title = cleanTitle(section.title || '방문 집계') + (plan.panels.length > 1 ? ' (' + (panelIndex + 1) + '/' + plan.panels.length + ')' : '');
       writeRow(sheet, [title], [[1,sheet.columns.length]], {bold:true,border:false,compact:true});
       const indices = panel.indices, groupSpans = panel.spans;
       continuationRows(sheet, indices.map(i => labels[i]), groupSpans, {bold:true,align:'center',fill:FILL,compact:true});
-      (section.rows || []).forEach(values => continuationRows(sheet, indices.map(i => values[i]), groupSpans, {align:'center',compact:true}));
-      if (section.totalsRow) continuationRows(sheet, indices.map(i => section.totalsRow[i]), groupSpans, {bold:true,align:'center',fill:'FFF7F8F9',compact:true});
+      const headerLast = sheet.rowCount;
+      const units = (section.rows || []).map(values => continuationRows(sheet, indices.map(i => values[i]), groupSpans, {align:'center',compact:true}));
+      if (section.totalsRow) units.push({...continuationRows(sheet, indices.map(i => section.totalsRow[i]), groupSpans, {bold:true,align:'center',fill:'FFF7F8F9',compact:true}),keepWithPrevious:true});
+      sheet.diaryTables.push({kind:'statistics',first,last:sheet.rowCount,header:{first,last:headerLast},units});
     });
   }
 }
@@ -377,20 +392,214 @@ function finishSheet(sheet) {
 
 function appendDetailSection(sheet, payload, options, detailSpans) {
   const headers = payload.headerLabels;
+  const headingFirst = sheet.rowCount + 1;
   documentHeading(sheet, payload, options);
+  const headingRange = {first:headingFirst,last:sheet.rowCount};
   addMemo(sheet, payload.todayMemo);
   addStats(sheet, payload.preambleSections && payload.preambleSections.sections);
+  const tableFirst = sheet.rowCount + 1;
   sectionTitle(sheet, '방문 상세');
   const headerRange = continuationRows(sheet, headers, detailSpans, {bold:true,align:'center',fill:FILL});
   const rowRanges = [];
   (payload.dataRows || []).forEach(values => {
     if (values.length > headers.length) throw new Error('출력 항목과 기록의 열 수가 다릅니다. 미리보기를 다시 실행해 주세요.');
-    const padded = headers.map((_,i) => values[i] == null ? '' : values[i]);
-    rowRanges.push(continuationRows(sheet, padded, detailSpans, i => ({
+    const padded = headers.map((header,i) => treatmentOutput(values[i] == null ? '' : values[i], header));
+    const style = i => ({
       align:/증상|처치|내용|메모|투약|V\/S|바디맵|이름|성명/.test(headers[i]) ? 'left' : 'center',top:true
-    }), headers[0]));
+    });
+    const range = continuationRows(sheet, padded, detailSpans, style, headers[0]);
+    // Scratch rows are for table construction only. The final page planner
+    // places the original wrapped lines, not these arbitrary eight-line chunks.
+    Object.defineProperty(range, 'flow', {value:{values:padded,spans:detailSpans,style,label:headers[0]}});
+    rowRanges.push(range);
   });
-  return {rowRanges,headerRange};
+  sheet.diaryTables.push({kind:'detail',first:tableFirst,last:sheet.rowCount,header:{first:tableFirst,last:headerRange.last},units:rowRanges});
+  return {rowRanges,headerRange,headingRange};
+}
+
+// Use real row breaks at a fixed scale, rather than relying on Fit to Page:
+// Excel may ignore manual breaks in that mode. Column widths already fit A4.
+// This planner is deliberately conservative, but does not emulate Excel.
+function paginateWorkbook(ExcelJS, sourceBook, layout) {
+  const source = sourceBook.worksheets[0];
+  const result = new ExcelJS.Workbook();
+  result.creator = sourceBook.creator;
+  result.views = [{activeTab:0,firstSheet:0}];
+  const sheet = result.addWorksheet(source.name, {
+    views: source.views,
+    pageSetup: {...source.pageSetup, fitToPage:false, scale:100}
+  });
+  delete sheet.pageSetup.printTitlesRow;
+  sheet.columns = source.columns.map(column => ({width:column.width}));
+  sheet.properties.defaultRowHeight = source.properties.defaultRowHeight;
+  sheet.headerFooter = {...source.headerFooter};
+  sheet.diaryCompactRows = new Set();
+  const margins = sheet.pageSetup.margins;
+  const paperHeight = sheet.pageSetup.orientation === 'portrait' ? 841.89 : 595.28;
+  const paperWidth = sheet.pageSetup.orientation === 'portrait' ? 595.28 : 841.89;
+  const width = spanWidth(sheet, [1,sheet.columns.length]);
+  if (width > paperWidth - (margins.left + margins.right)*72 - 10) {
+    throw new Error('엑셀 열 너비가 인쇄 가능한 폭을 넘습니다. 출력 항목을 확인해 주세요.');
+  }
+  const available = paperHeight - (margins.top + margins.bottom)*72 - 18;
+  // Account for rounding to screen/printer pixels, plus a small per-row reserve.
+  const cost = height => Math.ceil(height / .75)*.75 + .75;
+  const rowCost = row => cost(source.getRow(row).height || 23);
+  const rangeCost = range => {
+    let total = 0;
+    for (let row = range.first; row <= range.last; row++) total += rowCost(row);
+    return total;
+  };
+  const mapping = new Map(), pages = [];
+  let page;
+  const copyRow = (number, original) => {
+    const input = source.getRow(number), output = sheet.addRow([]);
+    output.height = input.height || 23;
+    input.eachCell(cell => {
+      if (cell.isMerged && cell.master.address !== cell.address) return;
+      let end = cell.col;
+      while (end < source.columnCount && source.getCell(number,end+1).isMerged && source.getCell(number,end+1).master.address === cell.address) end++;
+      const target = output.getCell(cell.col);
+      target.value = cell.value;
+      target.style = JSON.parse(JSON.stringify(cell.style));
+      if (end > cell.col) sheet.mergeCells(output.number,cell.col,output.number,end);
+    });
+    if (source.diaryCompactRows && source.diaryCompactRows.has(number)) sheet.diaryCompactRows.add(output.number);
+    if (original) {
+      if (mapping.has(number)) throw new Error('엑셀 기록이 중복 배치되어 저장을 중단했습니다.');
+      mapping.set(number,[output.number]);
+    }
+    page.usedHeight += rowCost(number);
+    return output.number;
+  };
+  const copyRange = (range, original) => {
+    const first = sheet.rowCount + 1;
+    for (let row = range.first; row <= range.last; row++) copyRow(row,original);
+    return {first,last:sheet.rowCount};
+  };
+  const caption = item => item.date ? '기록일: ' + dateLabel(item.date) + ' (계속)' : '선택 기간 보건일지 (계속)';
+  const contextCost = item => {
+    const lines = wrapLines(caption(item),width,11);
+    let height = 0;
+    for (let offset = 0; offset < lines.length; offset += MAX_LINES) height += cost(Math.max(26,Math.min(MAX_LINES,lines.length-offset)*17.6+6));
+    return height;
+  };
+  const startPage = (item, index, continued, table) => {
+    if (page) {
+      page.last = sheet.rowCount;
+      sheet.getRow(sheet.rowCount).addPageBreak(1,sheet.columns.length);
+    }
+    page = {first:sheet.rowCount+1,last:0,documentIndex:index,date:item.date || '',continued,usedHeight:0,availableHeight:available,headers:[]};
+    pages.push(page);
+    if (continued) {
+      const first = sheet.rowCount + 1;
+      fullRow(sheet,caption(item),{bold:true,size:11},26);
+      for (let row = first; row <= sheet.rowCount; row++) page.usedHeight += cost(sheet.getRow(row).height);
+      page.context = {first,last:sheet.rowCount};
+    }
+    if (table) page.headers.push(copyRange(table.header,false));
+  };
+  const ensureFits = value => {
+    if (value > available) throw new Error('제목·결재란 또는 표 머리글이 한 페이지보다 큽니다. 긴 제목이나 결재란 명칭을 확인해 주세요.');
+  };
+  const flowUnit = (unit, item, index, table) => {
+    const flow = unit.flow;
+    const lines = flow.spans.map((span,i) => wrapLines(flow.values[i],spanWidth(sheet,span)));
+    const length = Math.max(1,...lines.map(value => value.length));
+    const numbered = /^순(?:번)?$/.test(flow.label || '');
+    const printedRows = [];
+    let offset = 0, lastPage;
+    ensureFits(contextCost(item) + rangeCost(table.header) + cost(24));
+    while (offset < length) {
+      let room = available - page.usedHeight;
+      if (room < cost(24)) {
+        startPage(item,index,true,table);
+        room = available - page.usedHeight;
+      }
+      // Excel limits a row to 409 points. Multiple physical rows on a tall
+      // page are necessary only for that limit, not for a fixed line count.
+      let take = Math.min(length-offset,Math.floor((Math.min(409,room)-6)/LEADING));
+      while (take > 0 && cost(Math.max(24,take*LEADING+6)) > room) take--;
+      if (take < 1) throw new Error('방문 기록 한 줄을 배치할 공간이 없어 저장을 중단했습니다.');
+      const shown = flow.values.map((value,i) => {
+        if (offset > 0 && i === 0 && numbered && offset >= lines[i].length) {
+          return page !== lastPage ? text(value) + ' (계속)' : '';
+        }
+        if (offset === 0 && lines[i].length <= take && typeof value === 'number') return value;
+        return lines[i].slice(offset,offset+take).join('\n');
+      });
+      const count = Math.max(1,...shown.map((value,i) => wrapLines(value,spanWidth(sheet,flow.spans[i])).length));
+      const height = Math.max(24,count*LEADING+6);
+      ensureFits(contextCost(item) + rangeCost(table.header) + cost(height));
+      if (cost(height) > room) throw new Error('방문 기록의 계속 표시가 페이지 높이를 넘어 저장을 중단했습니다.');
+      const row = writeRow(sheet,shown,flow.spans,flow.style,height);
+      page.usedHeight += cost(height);
+      printedRows.push(row.number);
+      lastPage = page;
+      offset += take;
+    }
+    for (let row = unit.first; row <= unit.last; row++) {
+      if (mapping.has(row)) throw new Error('엑셀 기록이 중복 배치되어 저장을 중단했습니다.');
+      mapping.set(row,printedRows);
+    }
+  };
+  const mapRange = range => {
+    const unique = new Set();
+    for (let row = range.first; row <= range.last; row++) {
+      if (!mapping.has(row)) throw new Error('엑셀 기록 배치가 누락되어 저장을 중단했습니다.');
+      for (const printed of mapping.get(row)) unique.add(printed);
+    }
+    const printedRows = [...unique].sort((a,b) => a-b);
+    return {...range,...(range.flow ? {chunks:printedRows.length} : {}),first:printedRows[0],last:printedRows[printedRows.length-1],printedRows};
+  };
+  const outputLayout = [];
+  layout.forEach((item,index) => {
+    const firstTable = item.tables[0];
+    const prefix = firstTable ? rangeCost(firstTable.header) + (firstTable.units.length ? (firstTable.kind === 'detail' ? cost(24) : rowCost(firstTable.units[0].first)) : 0) : 0;
+    ensureFits(rangeCost(item.heading) + prefix);
+    startPage(item,index,false);
+    copyRange(item.heading,true);
+    item.tables.forEach((table,tableIndex) => {
+      const whole = rangeCost(table), head = rangeCost(table.header);
+      const firstRow = table.units.length ? (table.kind === 'detail' ? cost(24) : rowCost(table.units[0].first)) : 0;
+      const continuedBody = available - contextCost(item) - head;
+      ensureFits(contextCost(item) + head + firstRow);
+      // Small summary/memo tables travel as a unit when possible. The first
+      // table must start with its document heading, even when its body is long.
+      if (tableIndex > 0 && table.kind !== 'detail' && whole <= available-contextCost(item) && whole > available-page.usedHeight) {
+        startPage(item,index,true);
+      }
+      if (head + firstRow > available-page.usedHeight) startPage(item,index,true);
+      page.headers.push(copyRange(table.header,true));
+      table.units.forEach((unit,unitIndex) => {
+        if (unit.flow) {
+          flowUnit(unit,item,index,table);
+          return;
+        }
+        const next = table.units[unitIndex+1];
+        const groupCost = rangeCost(unit) + (next && next.keepWithPrevious ? rangeCost(next) : 0);
+        if (unitIndex > 0 && groupCost <= continuedBody && groupCost > available-page.usedHeight) startPage(item,index,true,table);
+        for (let row = unit.first; row <= unit.last; row++) {
+          ensureFits(contextCost(item) + head + rowCost(row));
+          if (rowCost(row) > available-page.usedHeight) startPage(item,index,true,table);
+          copyRow(row,true);
+        }
+      });
+    });
+    const mapped = {...item,heading:mapRange(item.heading),sectionRows:mapRange(item.sectionRows),tables:item.tables.map(table => ({
+      ...table,...mapRange(table),header:mapRange(table.header),units:table.units.map(mapRange)
+    }))};
+    if (item.rows) mapped.rows = item.rows.map(mapRange);
+    if (item.header) mapped.header = mapRange(item.header);
+    outputLayout.push(mapped);
+  });
+  if (page) page.last = sheet.rowCount;
+  if (mapping.size !== source.rowCount) throw new Error('엑셀 출력 영역에 배치되지 않은 기록이 있어 저장을 중단했습니다.');
+  if (pages.some(value => value.usedHeight > available || value.last < value.first)) throw new Error('엑셀 페이지 크기 계산에 실패해 저장을 중단했습니다.');
+  finishSheet(sheet);
+  result.diaryLayout = outputLayout;
+  result.diaryPagination = {scale:100,fitToPage:false,pages};
+  return result;
 }
 
 function buildWorkbook(ExcelJS, payload) {
@@ -420,34 +629,34 @@ function buildWorkbook(ExcelJS, payload) {
   const plans = configurePeriodGrid(sheet, documents, options);
   const layout = [];
   documents.forEach((document,index) => {
-    if (index) sheet.addRow([]).height = 16;
     const sectionFirst = sheet.rowCount + 1;
+    const tableFirst = sheet.diaryTables.length;
     sheet.diaryStatsPlans = plans[index].stats;
     if (document.isStatisticsCover) {
       documentHeading(sheet,document,options);
+      const heading = {first:sectionFirst,last:sheet.rowCount};
       addStats(sheet,document.preambleSections.sections);
-      layout.push({sheet:sheet.name,type:'statistics',sectionRows:{first:sectionFirst,last:sheet.rowCount}});
+      layout.push({sheet:sheet.name,type:'statistics',heading,tables:sheet.diaryTables.slice(tableFirst),sectionRows:{first:sectionFirst,last:sheet.rowCount}});
     } else {
       const detail = appendDetailSection(sheet,document,options,plans[index].detailSpans);
       layout.push({sheet:sheet.name,date:document.date,records:(document.dataRows || []).length,
         rows:detail.rowRanges,header:detail.headerRange,columns:plans[index].detailSpans,
+        heading:detail.headingRange,tables:sheet.diaryTables.slice(tableFirst),
         sectionRows:{first:sectionFirst,last:sheet.rowCount}});
-      if (documents.length === 1) sheet.pageSetup.printTitlesRow = detail.headerRange.first + ':' + detail.headerRange.last;
     }
   });
   // Use one visible worksheet and one continuous print area. An active-sheet
   // preview now includes the entire period, including an optional statistics
   // cover. Do not depend on grouped tabs, macro execution or Excel print scope.
-  // Do not force a whole semester onto one page or rely on manual page breaks
-  // that some Excel engines ignore when fit-to-width is enabled.
+  // The pagination pass keeps this single sheet, using explicit row breaks
+  // with Fit to Page disabled so date headings do not drift between pages.
   sheet.diaryStatsPlans = plans.flatMap(plan => plan.stats);
   finishSheet(sheet);
   const fallbackPeriod = days.length ? '기간: ' + dateLabel(days[0].date) + ' ~ ' + dateLabel(days[days.length-1].date) : '';
   const selectedPeriod = text(payload.periodText || fallbackPeriod).replace(/&/g,'&&').replace(/\n/g,' ');
   sheet.headerFooter.oddFooter = '&C&"맑은 고딕,Regular"&8' + selectedPeriod + '\n선택 기간 전체 인쇄  |  &P / &N';
   // Diagnostics are transient; they are not saved to user records/settings.
-  workbook.diaryLayout = layout;
-  return workbook;
+  return paginateWorkbook(ExcelJS,workbook,layout);
 }
 
 module.exports = { normalizeOptions, buildWorkbook, wrapLines, pixelsForWidth, marginValues };

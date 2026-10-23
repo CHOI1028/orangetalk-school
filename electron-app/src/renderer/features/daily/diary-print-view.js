@@ -1190,105 +1190,7 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
   };
 }
 
-/* Excel-only choices: no saved preferences, record writes or PDF layout changes. */
-function _dpShowExcelGuide(){
-  return new Promise(function(resolve){
-    const old=document.getElementById('dpExcelGuideOverlay');
-    if(old)old.dispatchEvent(new Event('dp-excel-cancel'));
-    const previousFocus=document.activeElement;
-    const individual=typeof _dpIsCounselIndividual==='function'&&_dpIsCounselIndividual();
-    const ov=document.createElement('div');
-    ov.id='dpExcelGuideOverlay';
-    ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(15,23,42,.36);z-index:13000';
-    ov.innerHTML=`<style>
-      #dpExcelGuideBox{box-sizing:border-box;width:570px;max-width:100%;max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden;background:var(--card,#fff);color:var(--t1,#17243a);border:1px solid var(--bdr,#cbd5e1);border-radius:14px;box-shadow:0 16px 44px #0003;font:13px/1.65 var(--f,'Malgun Gothic',sans-serif)}
-      #dpExcelGuideBox *{box-sizing:border-box;min-width:0}
-      #dpExcelGuideBox .dp-excel-heading,#dpExcelGuideBox .dp-excel-actions{padding:15px 20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card,#fff)}
-      #dpExcelGuideBox .dp-excel-heading{border-bottom:1px solid var(--bdr,#cbd5e1)}
-      #dpExcelGuideBox h2{margin:0;font-size:18px}
-      #dpExcelGuideBox .dp-excel-body{padding:16px 20px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
-      #dpExcelGuideBox fieldset{margin:0 0 14px;padding:0;border:0}
-      #dpExcelGuideBox legend{font-weight:800;margin-bottom:7px}
-      #dpExcelGuideBox .dp-excel-templates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:8px}
-      #dpExcelGuideBox .dp-excel-choice{display:block;border:1px solid var(--bdr,#cbd5e1);border-radius:9px;padding:11px 10px;cursor:pointer}
-      #dpExcelGuideBox .dp-excel-choice:has(input:checked){border-color:var(--cyan,#0786a2);background:rgba(6,182,212,.08)}
-      #dpExcelGuideBox .dp-excel-choice small{display:block;margin:4px 0 0 19px;color:var(--t2,#46526a);line-height:1.5}
-      #dpExcelGuideBox .dp-excel-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:10px}
-      #dpExcelGuideBox select,#dpExcelGuideBox input[type=text]{display:block;width:100%;margin-top:5px;padding:8px;border:1px solid var(--bdr,#cbd5e1);border-radius:7px;color:inherit;background:var(--card,#fff);font:inherit}
-      #dpExcelGuideBox p{margin:8px 0;overflow-wrap:anywhere}
-      #dpExcelGuideBox .dp-excel-note{padding:10px 12px;border-radius:8px;background:rgba(148,163,184,.10);color:var(--t2,#46526a)}
-      #dpExcelGuideBox button{padding:8px 14px;border:1px solid var(--bdr,#cbd5e1);border-radius:8px;font:700 13px var(--f,'Malgun Gothic',sans-serif);background:var(--card,#fff);color:inherit;cursor:pointer}
-      #dpExcelGuideBox button:focus-visible,#dpExcelGuideBox input:focus-visible,#dpExcelGuideBox select:focus-visible{outline:2px solid var(--cyan,#0786a2);outline-offset:2px}
-      #dpExcelGuideBox [disabled]{opacity:.6;cursor:default}
-      #dpExcelGuideBox .dp-excel-actions{border-top:1px solid var(--bdr,#cbd5e1);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:10px;box-shadow:0 -4px 12px rgba(15,23,42,.04)}#dpExcelGuideBox .dp-excel-actions button{width:100%;min-height:42px}
-      #dpExcelGuideYes{background:var(--cyan,#0786a2)!important;border-color:transparent!important;color:white!important}
-    </style><section id="dpExcelGuideBox" role="dialog" aria-modal="true" aria-labelledby="dpExcelGuideTitle" aria-describedby="dpExcelGuideDescription" tabindex="-1">
-      <div class="dp-excel-heading"><h2 id="dpExcelGuideTitle">엑셀 양식 선택</h2><button type="button" id="dpExcelGuideClose" aria-label="엑셀 저장 취소">닫기</button></div>
-      <div class="dp-excel-body">
-        <p id="dpExcelGuideDescription">선택한 양식은 엑셀 저장 파일에만 적용됩니다. PDF·인쇄 미리보기와 기존 기록은 바뀌지 않습니다.</p>
-        <fieldset><legend>문서 양식</legend><div class="dp-excel-templates">
-          <label class="dp-excel-choice"><input type="radio" name="dpExcelTemplate" value="legacy" checked> <strong>기존 양식</strong><small>기존 구성과 인쇄 설정 유지</small></label>
-          <label class="dp-excel-choice"><input type="radio" name="dpExcelTemplate" value="official"> <strong>공문서형</strong><small>흑백 중심의 간결한 문서</small></label>
-          <label class="dp-excel-choice"><input type="radio" name="dpExcelTemplate" value="approval"> <strong>결재 문서형</strong><small>공문서형 본문에 결재란 추가</small></label>
-        </div></fieldset>
-        <p id="dpExcelStructure" class="dp-excel-note" aria-live="polite"></p>
-        <div id="dpExcelAllDates" class="dp-excel-note" role="note" hidden><strong>선택 기간 전체 인쇄</strong><p id="dpExcelSelectedPeriod"></p><p>선택 기간의 모든 기록을 하나의 시트에 이어서 저장합니다. Excel 기본 ‘활성 시트’ 인쇄에서도 기간 전체가 표시되므로 인쇄 범위를 따로 바꿀 필요가 없습니다.</p><p>기록이 없는 날짜는 빈 영역을 만들지 않습니다. 통계 표지를 선택하면 같은 시트의 맨 앞에 포함합니다. 기록이 많으면 다음 페이지로 자연스럽게 이어집니다.</p></div>
-        <fieldset id="dpExcelPrintFields" disabled><legend>새 양식 인쇄 설정</legend><div class="dp-excel-fields">
-          <label>용지 방향<select id="dpExcelOrientation"><option value="landscape">A4 가로 (권장)</option><option value="portrait">A4 세로</option></select></label>
-          <label>페이지 여백<select id="dpExcelMargins"><option value="narrow">좁게</option><option value="normal">기본</option></select></label>
-        </div><p>가로는 한 페이지에 모든 열을 맞추고, 세로는 기록량에 따라 다음 페이지로 이어집니다. 열이 많으면 가로 방향을 권장합니다.</p></fieldset>
-        <fieldset id="dpExcelApprovalFields" hidden><legend>결재란 명칭</legend><div class="dp-excel-fields">
-          <label>첫 번째<input type="text" id="dpExcelRole1" maxlength="40" value="작성"></label>
-          <label>두 번째<input type="text" id="dpExcelRole2" maxlength="40" value="검토"></label>
-          <label>세 번째<input type="text" id="dpExcelRole3" maxlength="40" value="결재"></label>
-        </div><p>학교에서 쓰는 명칭으로 바꿀 수 있으며, 서명란은 비워 둡니다.</p></fieldset>
-        <p class="dp-excel-note">새 양식의 인쇄 설정은 파일에 포함됩니다. Excel 종류·프린터에 따라 표시가 달라질 수 있으므로 실제 출력 전 미리보기를 확인해 주세요.</p>
-      </div><div class="dp-excel-actions"><button type="button" id="dpExcelGuideCancel">취소</button><button type="button" id="dpExcelGuideYes">이 양식으로 저장</button></div>
-    </section>`;
-    document.body.appendChild(ov);
-    const box=ov.querySelector('#dpExcelGuideBox');
-    const radios=Array.from(ov.querySelectorAll('input[name=dpExcelTemplate]'));
-    if(individual)radios.forEach(function(r){r.disabled=r.value!=='legacy';});
-    function update(){
-      const type=ov.querySelector('input[name=dpExcelTemplate]:checked').value;
-      const daily=typeof _dpFormat!=='undefined'&&_dpFormat==='daily';
-      const rangeNotice=ov.querySelector('#dpExcelAllDates');
-      rangeNotice.hidden=individual||type==='legacy';
-      const from=document.getElementById('dpFrom'),to=document.getElementById('dpTo');
-      ov.querySelector('#dpExcelSelectedPeriod').textContent='선택 기간: '+(from&&from.value||'시작일')+' ~ '+(to&&to.value||'종료일')+'. 이 기간에 기록이 있는 모든 날짜를 하나의 인쇄 시트에 저장합니다.';
-      ov.querySelector('#dpExcelPrintFields').disabled=type==='legacy';
-      ov.querySelector('#dpExcelApprovalFields').hidden=type!=='approval';
-      ov.querySelector('#dpExcelStructure').textContent=individual?'개별 상담 기록지는 기존 전용 양식으로 저장합니다.':type==='legacy'?'기존 양식이 기본값입니다. 일별 출력의 단일 시트 구성도 그대로 유지합니다.':(daily?'일별 출력은 선택 기간 전체를 한 시트에 날짜순으로 이어서 저장합니다.':'현재 출력의 기록과 선택한 표시 항목을 새 양식으로 저장합니다.')+' 집계 대상·빈 메모 생략 등 현재 선택한 출력 항목은 유지합니다.';
-    }
-    radios.forEach(function(r){r.addEventListener('change',update);});update();
-    let settled=false;
-    function close(result){
-      if(settled)return;settled=true;
-      document.removeEventListener('keydown',onKey,true);
-      ov.remove();
-      if(previousFocus&&previousFocus.isConnected)previousFocus.focus();
-      resolve(result);
-    }
-    function onKey(e){
-      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close(null);return;}
-      if(e.key!=='Tab')return;
-      const items=Array.from(box.querySelectorAll('button,input,select,[tabindex="0"]')).filter(function(el){return !el.matches(':disabled')&&el.getClientRects().length;});
-      const first=items[0],last=items[items.length-1];
-      if(!first){e.preventDefault();box.focus();return;}
-      if(!box.contains(document.activeElement)||(e.shiftKey&&document.activeElement===first)||(!e.shiftKey&&document.activeElement===last)){
-        e.preventDefault();(e.shiftKey?last:first).focus();
-      }
-    }
-    document.addEventListener('keydown',onKey,true);
-    ov.addEventListener('dp-excel-cancel',function(){close(null);});
-    ov.addEventListener('mousedown',function(e){if(e.target===ov)close(null);});
-    ['dpExcelGuideClose','dpExcelGuideCancel'].forEach(function(id){ov.querySelector('#'+id).addEventListener('click',function(){close(null);});});
-    ov.querySelector('#dpExcelGuideYes').addEventListener('click',function(){
-      close({template:ov.querySelector('input[name=dpExcelTemplate]:checked').value,orientation:ov.querySelector('#dpExcelOrientation').value,margins:ov.querySelector('#dpExcelMargins').value,roles:[1,2,3].map(function(i){return ov.querySelector('#dpExcelRole'+i).value.trim()||['작성','검토','결재'][i-1];})});
-    });
-    ov.querySelector('#dpExcelGuideClose').focus();
-  });
-}
+
 
 
 /* 상담 내역 개별 양식 — 상담 기록지(PDF 폼과 동일 레이아웃)를 기록당 워크시트 1장으로 Excel 출력 (사용자 요청 2026-06-25) */
@@ -1308,11 +1210,10 @@ async function _dpExportCounselExcel(){
 }
 async function exportDiaryExcel(){
   if(!window.electronAPI||!window.electronAPI.xlsxBuildDiary){bus.emit('toast:show',{text:'Excel 빌드 IPC 미구성'});return;}
-  const diaryExcelOptions=await _dpShowExcelGuide();
-  if(!diaryExcelOptions)return;
-  /* 매일 한 페이지 형식: 날짜마다 별도 워크시트 */
+  const diaryExcelOptions={template:'legacy'};
+  /* 매일 한 페이지 형식: 기존 단일 워크시트 출력 */
   if(_dpFormat==='daily'){
-    return _exportDailyExcel(diaryExcelOptions);
+    return _exportDailyExcel();
   }
   /* 상담 내역 개별 양식: 상담 기록 요약표 워크시트 (상담기록지 자체는 PDF/인쇄로) (사용자 요청 2026-06-25) */
   if(_dpIsCounselIndividual()){
@@ -1479,7 +1380,8 @@ async function _buildDailyContinuousData(from,to){
 
 /* 매일 한 페이지 Excel — 단일 워크시트에 위 색상바·제목·색상바만 고정,
    이후 날짜별 방문 통계 + 방문 상세가 연속으로 쌓이며 각 날짜 전에 자동 페이지 나눔 */
-async function _exportDailyExcel(diaryExcelOptions){
+async function _exportDailyExcel(){
+  const diaryExcelOptions={template:'legacy'};
   const from=document.getElementById('dpFrom').value;
   const to=document.getElementById('dpTo').value;
   if(!from||!to){alert('먼저 미리보기를 실행하세요.');return;}

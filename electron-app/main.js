@@ -3040,13 +3040,8 @@ app.whenReady().then(() => {
   ipcMain.handle('xlsx-build-diary', async (_, payload) => {
     try {
       const ExcelJS = require('exceljs');
-      // Optional document layouts only; legacy and other callers keep their existing path.
-      if (payload && payload.diaryExcelOptions && ['official', 'approval'].includes(payload.diaryExcelOptions.template)) {
-        const layout = require('./src/main/diary-excel-layout.cjs');
-        const document = layout.buildWorkbook(ExcelJS, payload);
-        const bytes = await document.xlsx.writeBuffer();
-        return { success: true, bytes: Array.from(new Uint8Array(bytes)) };
-      }
+      // 1.1.16 uses the established layout, including requests from stale clients.
+      // The optional layout module is intentionally not loaded in this release.
       const wb = new ExcelJS.Workbook();
       wb.creator = '오렌지톡';
       /* Excel 전용 좌측 정렬 열 — 증상·처치 내용(상담 형식은 상담 주제/상담 내용)만. PDF/인쇄는 무관 (사용자 지시 2026-08-27) */
