@@ -130,18 +130,20 @@ window.addEventListener('beforeunload', _flushSave);
  *  비동기 로드가 안 끝났으면 '' (print 직전 tmEnsureLoaded() 로 선로드 권장). */
 export function tmEnsureLoaded(){ return _loadData(); }
 /* Excel 내보내기용 — 토글 ON 이면 {titles, cells} 반환 (빈 칸 포함, 양식 그대로). OFF 면 null. (2026-06-11) */
-export function tmGetMemoForExport(date){
+export function tmGetMemoForExport(date,options){
   const st = _settings();
   if(!st.on) return null;
   const arr = (_data && Array.isArray(_data[date])) ? _data[date] : [];
   const titles = [], cells = [];
   for(let i = 0; i < st.cols; i++){
     titles.push(st.titles[i] || DEFAULT_TITLES[i] || ('칸 ' + (i+1)));
-    cells.push(String(arr[i] || ''));
+    cells.push(String(arr[i]==null?'':arr[i]));
   }
+  if(options&&options.omitEmpty&&!cells.some(function(value){return value.trim().length>0;}))return null;
   return { titles: titles, cells: cells };
 }
-export function tmGetPrintBlock(date){
+export function tmGetPrintBlock(date,options){
+  if(options&&options.omitEmpty&&!tmGetMemoForExport(date,options))return '';
   const st = _settings();
   if(!st.on) return '';
   /* 내용이 없어도 빈 칸 그대로 표를 출력 — 양식으로서 항상 표시 (사용자 결정 2026-06-10).
@@ -153,7 +155,7 @@ export function tmGetPrintBlock(date){
     /* contenteditable + data 식별자 — 미리보기에서 직접 클릭·수정 가능 (사용자 요청 2026-06-11).
      * 수정은 아래 전역 input 위임이 DB(today_memos)와 일반 일지 아코디언에 즉시 동기화.
      * PDF 인쇄 시 contenteditable 속성은 시각 영향 0. */
-    tds += '<td contenteditable="true" data-tm-date="' + _esc(date) + '" data-tm-i="' + i + '" style="background:#fff;border:1px solid #cbd5e1;padding:6px 8px;font-size:11pt;line-height:1.6;vertical-align:top;white-space:pre-wrap;word-break:break-all;color:#0f172a;outline:none">' + _esc(arr[i] || '') + '</td>';
+    tds += '<td contenteditable="true" data-tm-date="' + _esc(date) + '" data-tm-i="' + i + '" style="background:#fff;border:1px solid #cbd5e1;padding:6px 8px;font-size:11pt;line-height:1.6;vertical-align:top;white-space:pre-wrap;word-break:break-all;color:#0f172a;outline:none">' + _esc(arr[i]==null?'':arr[i]) + '</td>';
   }
   return '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:6px 0 10px"><tr>' + ths + '</tr><tr style="height:52px">' + tds + '</tr></table>';
 }

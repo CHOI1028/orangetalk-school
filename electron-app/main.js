@@ -3040,6 +3040,13 @@ app.whenReady().then(() => {
   ipcMain.handle('xlsx-build-diary', async (_, payload) => {
     try {
       const ExcelJS = require('exceljs');
+      // Optional document layouts only; legacy and other callers keep their existing path.
+      if (payload && payload.diaryExcelOptions && ['official', 'approval'].includes(payload.diaryExcelOptions.template)) {
+        const layout = require('./src/main/diary-excel-layout.cjs');
+        const document = layout.buildWorkbook(ExcelJS, payload);
+        const bytes = await document.xlsx.writeBuffer();
+        return { success: true, bytes: Array.from(new Uint8Array(bytes)) };
+      }
       const wb = new ExcelJS.Workbook();
       wb.creator = '오렌지톡';
       /* Excel 전용 좌측 정렬 열 — 증상·처치 내용(상담 형식은 상담 주제/상담 내용)만. PDF/인쇄는 무관 (사용자 지시 2026-08-27) */
@@ -3532,7 +3539,19 @@ app.whenReady().then(() => {
            *  다음 페이지 맨 위에 열 제목을 다시 깔아 표 박스가 페이지마다 완전히 닫히게 한다.
            *  PAGE_H 는 A4 가로 가용 높이(~537pt)보다 보수적으로(500) 잡아 fitToWidth 축소 시에도 항상
            *  Excel 자동 나눔보다 먼저 나눠 빈 공간/잘림을 방지한다. pageY 는 실제 행 높이 합으로 정확히 추적. */
-          const PAGE_H = 500;
+          // Use the actual A4 printable area and an explicit scale, not a fixed 500pt cutoff.
+      // Open XML widths already include padding. Convert the serialized width, not the UI character count.
+      // Normal style: Calibri 11, maximum digit width 7px at 96dpi (ISO/IEC 29500 column.width).
+      const _microWidthPx=Math.floor(((256*Math.max(1,unit/7)+Math.floor(128/7))/256)*7);
+      const _sheetWidthPt=totalBase*_microWidthPx*0.75;
+      const _printWidthPt=841.89-(0.3+0.16)*72;
+      const _printHeightPt=595.28-(0.4+0.4)*72;
+      const _scalePct=Math.max(10,Math.min(100,Math.floor(_printWidthPt/_sheetWidthPt*100)));
+      wsMain.pageSetup.fitToPage=false;
+      wsMain.pageSetup.scale=_scalePct;
+      delete wsMain.pageSetup.fitToWidth;
+      delete wsMain.pageSetup.fitToHeight;
+      const PAGE_H=_printHeightPt/(_scalePct/100)-12;
           const _rowH = function(n){ const h = wsMain.getRow(n).height; return (typeof h === 'number' && h > 0) ? h : 15; };
           let pageY = 0;
           for (let n = dayTitleRow.number; n <= wsMain.lastRow.number; n++) pageY += _rowH(n);

@@ -13,6 +13,7 @@ import { openPersonSearch } from '../../core/person-search-ui.js';
 import { openA4PrintDialog, prepareA4PrintDocument } from '../../core/a4-print-dialog.js';
 import { tmGetPrintBlock, tmEnsureLoaded, tmGetMemoForExport } from './today-memo.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
+import { diaryVitalsHistory, diaryVitalsText, diaryTreatmentText, diarySummary } from './diary-export-data.js';
 
 /* ── 공통 달력 렌더러 (사이드바 달력과 동일 스타일) ── */
 /* ── 공유 달력(_commonCalRender) 방향키 이동 (2026-06-08) ──
@@ -585,45 +586,9 @@ async function dpShowPreview(){
       var _hasBySym=r.treatmentBySym&&typeof r.treatmentBySym==='object'&&!Array.isArray(r.treatmentBySym)&&Object.keys(r.treatmentBySym).length>0;
       var _isMulti=_arr.length>1&&_hasBySym&&r.treatmentBranched!==false;
       return _arr.join(_isMulti?'\n':', ')||'-';
-    })(),dept:r.dept||'-',treatment:(function(){
-      var arr=(r.treatment||[]);
-      var medDisp=r.medication?formatMedicationDisplay(r.medication):'';
-      var m=r.treatmentMemo||'';
-      var _hasBySym=r.treatmentBySym&&typeof r.treatmentBySym==='object'&&!Array.isArray(r.treatmentBySym)&&Object.keys(r.treatmentBySym).length>0;
-      var _isLegacyFlat=!_hasBySym&&arr.length>0;
-      var _isMulti=r.symptoms&&r.symptoms.length>1&&!_isLegacyFlat&&r.treatmentBranched!==false;
-      if(_isMulti){
-        var _medDispForSym=function(sym){
-          if(!r.medsBySym||!r.medsBySym[sym]||!r.medsBySym[sym].length)return '';
-          var dm=(r.medDosesBySym&&r.medDosesBySym[sym])||{};
-          var str=r.medsBySym[sym].map(function(mm){var d=dm[mm]||'';return d?(mm+'('+d+')'):mm;}).join(', ');
-          return formatMedicationDisplay(str);
-        };
-        /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
-        var _clT=counselTreatText(r);
-        var _clIdx=_clT?r.symptoms.findIndex(isCounselSymLabel):-1;
-        var lines=r.symptoms.map(function(sym,idx){
-          var symTreats=(r.treatmentBySym[sym]||[]);
-          var medDispForSym=_medDispForSym(sym);
-          var _lbl=symTreats.map(function(t){
-            var b=t;var mt=t.match(/^(.+?)\s*\((.*)\)\s*$/);if(mt)b=mt[1].trim();
-            if(b==='투약'&&medDispForSym)return medDispForSym;
-            return t;
-          });
-          if(idx===_clIdx)_lbl.push(_clT);
-          return '→ '+_lbl.join(', ');
-        });
-        if(m)lines[0]=(lines[0]?lines[0]+' / ':'')+m;
-        return lines.join('\n')||'-';
-      }
-      var labeled=arr.map(function(t){return (t==='투약'&&medDisp)?medDisp:t;});
-      var b=labeled.join(', ');
-      var hasMedTreat=arr.indexOf('투약')!==-1;
-      if(!hasMedTreat&&medDisp)b=(b?b+' / ':'')+medDisp;
-      var out=(b+(m?(b?' / ':'')+m:'')).trim();return out||'-';
-    })(),medication:r.medication||'-',bedUsage:_dpIsBedUsed(r)?'O':'',vitals:[r.temp?'T: '+r.temp:'',r.bp?'BP: '+r.bp:'',r.pulse?'P: '+r.pulse:'',(r.respiration||r.resp)?'R: '+(r.respiration||r.resp):'',r.spo2?'SpO₂: '+r.spo2:'',r.bst?'BST: '+r.bst:''].filter(Boolean).join(', ')||'-',nurse:r.nurse||'-'};
+    })(),dept:r.dept||'-',treatment:diaryTreatmentText(r,{formatMedicationDisplay,counselTreatText,isCounselSymLabel}),medication:r.medication||'-',bedUsage:_dpIsBedUsed(r)?'O':'',vitals:[r.temp?'T: '+r.temp:'',r.bp?'BP: '+r.bp:'',r.pulse?'P: '+r.pulse:'',(r.respiration||r.resp)?'R: '+(r.respiration||r.resp):'',r.spo2?'SpO₂: '+r.spo2:'',r.bst?'BST: '+r.bst:''].filter(Boolean).join(', ')||'-',nurse:r.nurse||'-'};
     html+='<tr class="dpx-tr">';
-    activeCols.forEach(function(c){html+='<td class="dpx-td '+(dpAlign[c]==='center'?'dpx-c':'dpx-l')+'">'+(cellData[c]||'-')+'</td>';});
+    activeCols.forEach(function(c){html+='<td class="dpx-td '+(dpAlign[c]==='center'?'dpx-c':'dpx-l')+'">'+escHtml(cellData[c]==null||cellData[c]===''?'-':String(cellData[c]))+'</td>';});
     html+='</tr>';
     /* ── V/S 값이 있으면 처치 칸 자리에 표로 인쇄 (항상 표 형식, 단일 측정도 1행 표). 2026-07-21 ── */
     {
@@ -1020,12 +985,8 @@ const _DPX_CSS=''
   +'.dpx-tr:has(+ tr.dp-vs-subrow),.dpx-tr:has(+ tr.dp-pa-subrow){border-bottom:none}';
 
 function _dpVsTsTableHtml(r){
-  let hist=(r&&Array.isArray(r.vsHistory))?r.vsHistory.slice():[];
-  /* 시간대별 기록이 없고 단일 V/S 값만 있으면 1행 표로(인쇄는 항상 표 형식). 2026-07-21 */
-  if(!hist.length && r && (r.temp||r.bp||r.pulse||r.resp||r.respiration||r.spo2||r.bst)){
-    hist=[{t:(r.timeIn||''),temp:r.temp||'',bp:r.bp||'',pulse:r.pulse||'',resp:(r.respiration||r.resp||''),spo2:r.spo2||'',bst:r.bst||''}];
-  }
-  if(!hist.length) return '';
+  const hist=diaryVitalsHistory(r);
+  if(!hist.length)return '';
   const _hms=function(t){const m=String(t||'').match(/(\d{1,2}):(\d{2})/);return m?(parseInt(m[1],10)*60+parseInt(m[2],10)):999999;};
   hist.sort(function(a,b){return _hms(a.t)-_hms(b.t);});
   const allCols=[['t','시각'],['temp','체온'],['bp','혈압'],['pulse','맥박'],['resp','호흡'],['spo2','SpO₂'],['bst','BST']];
@@ -1068,22 +1029,32 @@ function _dpPaTableHtml(r){
 /* ── Excel·Sheets 용 V/S·신체사정 텍스트 직렬화 (사용자 요청 2026-08-27) ──
  * PDF/인쇄는 서브행 미니표(dp-vs-subrow/dp-pa-subrow)로 포함되지만 Excel/Sheets 추출은
  * 서브행을 제외해 V/S·신체사정이 통째로 빠졌다 → 셀에 줄바꿈 텍스트로 병합한다. */
-function _dpVsTextForExcel(r){
-  let hist=(r&&Array.isArray(r.vsHistory))?r.vsHistory.slice():[];
-  if(!hist.length && r && (r.temp||r.bp||r.pulse||r.resp||r.respiration||r.spo2||r.bst)){
-    hist=[{t:(r.timeIn||''),temp:r.temp||'',bp:r.bp||'',pulse:r.pulse||'',resp:(r.respiration||r.resp||''),spo2:r.spo2||'',bst:r.bst||''}];
-  }
-  if(!hist.length)return '';
-  const _hms=function(t){const m=String(t||'').match(/(\d{1,2}):(\d{2})/);return m?(parseInt(m[1],10)*60+parseInt(m[2],10)):999999;};
-  hist.sort(function(a,b){return _hms(a.t)-_hms(b.t);});
-  const lab=[['temp','체온'],['bp','혈압'],['pulse','맥박'],['resp','호흡'],['spo2','SpO₂'],['bst','BST']];
-  const lines=hist.map(function(rw){
-    const vals=lab.map(function(c){const v=String(rw[c[0]]==null?'':rw[c[0]]).trim();return v?(c[1]+' '+v):'';}).filter(Boolean);
-    if(!vals.length)return '';
-    return '['+String(rw.t||'-')+'] '+vals.join(', ');
-  }).filter(Boolean);
-  if(!lines.length)return '';
-  return (lines.length>=2?'[시간대별 V/S]':'[V/S]')+'\n'+lines.join('\n');
+function _dpVsTextForExcel(r){ return diaryVitalsText(r); }
+function _dpDailySummary(stats){
+  const choice=document.getElementById('dpDailyStatsScope');
+  return diarySummary(stats,choice?choice.value:'legacy');
+}
+function _dpOmitEmptyMemo(){
+  const choice=document.getElementById('dpDailyOmitEmptyMemo');
+  return !!(choice&&choice.checked);
+}
+function _dpDailyOutputOptionsHtml(){
+  return '<div id="dpDailyStatsOptions" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<label for="dpDailyStatsScope" style="font-size:12px;font-weight:700">일간 방문 집계</label>'
+    +'<select id="dpDailyStatsScope" aria-describedby="dpDailyOutputHelp" style="max-width:100%;padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--t1);font:inherit;font-size:12px">'
+    +'<option value="legacy">기존 방식 (학생·교직원·전체 각각)</option>'
+    +'<option value="all">학생·교직원 (한 표)</option>'
+    +'<option value="students">학생만 (한 표)</option></select>'
+    +'<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="dpDailyOmitEmptyMemo" aria-describedby="dpDailyOutputHelp">빈 메모 생략</label>'
+    +'<span id="dpDailyOutputHelp" style="flex-basis:100%;font-size:11px;color:var(--t3)">집계 대상은 방문 상세 기록에 영향을 주지 않습니다. 빈 메모 생략은 오늘의 메모를 켠 경우에만 적용됩니다.</span></div>';
+}
+function _dpBindDailyOutputOptions(){
+  ['dpDailyStatsScope','dpDailyOmitEmptyMemo'].forEach(function(id){
+    const choice=document.getElementById(id);
+    if(choice)choice.addEventListener('change',function(){
+      if(_dpFormat==='daily')dpShowDailyPreview({reuse:true});
+    });
+  });
 }
 function _dpPaTextForExcel(r){
   const pa=r&&r.physicalAssessment;
@@ -1174,46 +1145,7 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
          · '투약' 칩이 있으면 약품명과 결합 (예: "투약[타이레놀 (1정)]")
          · '투약' 칩 없이 medication 만 있는 옛 기록도 약품 별도 표시 (4월 칩 통합 이전 데이터 호환)
          · 다중 증상 + treatmentBySym → 증상별 줄바꿈 분층 (v3+ 사용자 결정 2026-05-20) */
-      treatment:(function(){
-        var arr=(r.treatment||[]);
-        var medDisp=r.medication?formatMedicationDisplay(r.medication):'';
-        var m=r.treatmentMemo||'';
-        var _hasBySym = r.treatmentBySym && typeof r.treatmentBySym==='object' && !Array.isArray(r.treatmentBySym) && Object.keys(r.treatmentBySym).length>0;
-        /* 증상 2개 이상이면 분기 출력 — 옛 일지/외부 import(평면만) 는 단일 행 유지 (사용자 결정 2026-05-28). */
-        var _isLegacyFlat = !_hasBySym && arr.length>0;
-        var _isMulti = r.symptoms && r.symptoms.length>1 && !_isLegacyFlat && r.treatmentBranched !== false; /* 미분기면 콤마 한 줄(2026-06-09) */
-        if(_isMulti){
-          /* v3 (2026-05-28) — V/S·침상도 per-symptom. 각 증상 행에 그 증상 처치만 (record-level 공유 폐지).
-           * sym 별 약품은 r.medsBySym[sym] 사용. */
-          var _medDispForSym = function(sym){
-            if(!r.medsBySym || !r.medsBySym[sym] || !r.medsBySym[sym].length) return '';
-            var dm = (r.medDosesBySym && r.medDosesBySym[sym]) || {};
-            var str = r.medsBySym[sym].map(function(mm){var d=dm[mm]||''; return d?(mm+'('+d+')'):mm;}).join(', ');
-            return formatMedicationDisplay(str);
-          };
-          /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
-          var _clT2=counselTreatText(r);
-          var _clIdx2=_clT2?r.symptoms.findIndex(isCounselSymLabel):-1;
-          var lines = r.symptoms.map(function(sym, idx){
-            var symTreats = (r.treatmentBySym[sym]||[]);
-            var medDispForSym = _medDispForSym(sym);
-            var symLabeled = symTreats.map(function(t){
-              var b=t; var mt=t.match(/^(.+?)\s*\((.*)\)\s*$/); if(mt)b=mt[1].trim();
-              if(b==='투약' && medDispForSym) return medDispForSym;
-              return t;
-            });
-            if(idx===_clIdx2)symLabeled.push(_clT2);
-            return '→ '+symLabeled.join(', ');
-          });
-          if(m) lines[0] = (lines[0]?lines[0]+' / ':'')+m;
-          return lines.join('\n');
-        }
-        var labeled=arr.map(function(t){return (t==='투약'&&medDisp)?medDisp:t;});
-        var b=labeled.join(', ');
-        var hasMedTreat=arr.indexOf('투약')!==-1;
-        if(!hasMedTreat&&medDisp) b=(b?b+' / ':'')+medDisp;
-        return (b+(m?(b?' / ':'')+m:'')).trim();
-      })(),
+      treatment:diaryTreatmentText(r,{formatMedicationDisplay,counselTreatText,isCounselSymLabel}),
       medication:r.medication||'',
       bedUsage:_dpIsBedUsed(r)?'O':'',
       vitals:(function(){
@@ -1227,7 +1159,7 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
     };
     /* 신체사정은 처치 열에 병합 (사용자 요청 2026-08-27) */
     (function(){
-      const _paX=_dpPaTextForExcel(r);
+      const _paX=[_dpVsTextForExcel(r),_dpPaTextForExcel(r)].filter(Boolean).join('\n');
       if(_paX)cd.treatment=(cd.treatment&&cd.treatment!=='-'?cd.treatment+'\n':'')+_paX;
     })();
     return _activeCols.map(function(c){const v=cd[c];return v==null||v===''?'':String(v);});
@@ -1243,10 +1175,7 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
   acc=0;let bot1=0;
   for(let i=0;i<colWidths.length;i++){acc+=colWidths[i];bot1++;if(acc>=th30)break;}
   /* 일간 방문 통계 3섹션 (학생 학년별 / 교직원 / 전체) → preambleSections 로 전달 */
-  const preambleSections=(dayStats&&dayStats.sections&&dayStats.sections.length)?{
-    sections:dayStats.sections,
-    colCount:dayStats.colCount
-  }:null;
+  const preambleSections=_dpDailySummary(dayStats);
   return {
     colCount:colCount,
     colWidths:colWidths,
@@ -1261,34 +1190,106 @@ function _dpBuildDailyDayPayload(dt, dayRecs, schoolName, dayStats){
   };
 }
 
-/* ── 엑셀 저장 시 인쇄/PDF 안내 팝업 (사용자 요청 2026-06-16) ──
- *  먼저 이 안내가 뜨고, "예 & 클립보드에 위 내용 복사"(복사+닫힘) 또는 외부 클릭(복사 없이 닫힘) 으로
- *  닫아야 그 다음에 저장 경로 선택 다이얼로그가 진행된다(Promise resolve 후 export 진행). */
+/* Excel-only choices: no saved preferences, record writes or PDF layout changes. */
 function _dpShowExcelGuide(){
   return new Promise(function(resolve){
-    const _txt="인쇄 할 때 용지는 'A4', 방향은 '가로', 여백은 '기본' 또는 '좁게', '한 페이지에 모든 열 맞추기'로 설정하여야 합니다.";
-    const old=document.getElementById('dpExcelGuideOverlay'); if(old)old.remove();
+    const old=document.getElementById('dpExcelGuideOverlay');
+    if(old)old.dispatchEvent(new Event('dp-excel-cancel'));
+    const previousFocus=document.activeElement;
+    const individual=typeof _dpIsCounselIndividual==='function'&&_dpIsCounselIndividual();
     const ov=document.createElement('div');
     ov.id='dpExcelGuideOverlay';
-    ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32);z-index:13000;opacity:0;transition:opacity 0.15s ease';
-    ov.innerHTML='<div id="dpExcelGuideBox" style="background:var(--card);border-radius:14px;width:470px;max-width:92vw;box-shadow:0 16px 44px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.96);transition:opacity 0.18s ease,transform 0.18s ease">'
-      +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(6,182,212,0.10);font-size:14px;font-weight:800;color:var(--t1)">📄 인쇄 또는 PDF로 저장 시 안내</div>'
-      +'<div style="padding:18px 22px;font-size:13px;color:var(--t1);line-height:1.75">'+escHtmlDp(_txt)+'</div>'
-      +'<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--bdr)">'
-      +'<button id="dpExcelGuideYes" type="button" style="padding:9px 16px;font-size:12.5px;font-weight:700;border-radius:8px;border:none;background:var(--cyan);color:#fff;cursor:pointer;font-family:var(--f)">예 &amp; 클립보드에 위 내용 복사</button>'
-      +'</div></div>';
+    ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(15,23,42,.36);z-index:13000';
+    ov.innerHTML=`<style>
+      #dpExcelGuideBox{box-sizing:border-box;width:570px;max-width:100%;max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden;background:var(--card,#fff);color:var(--t1,#17243a);border:1px solid var(--bdr,#cbd5e1);border-radius:14px;box-shadow:0 16px 44px #0003;font:13px/1.65 var(--f,'Malgun Gothic',sans-serif)}
+      #dpExcelGuideBox *{box-sizing:border-box;min-width:0}
+      #dpExcelGuideBox .dp-excel-heading,#dpExcelGuideBox .dp-excel-actions{padding:15px 20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card,#fff)}
+      #dpExcelGuideBox .dp-excel-heading{border-bottom:1px solid var(--bdr,#cbd5e1)}
+      #dpExcelGuideBox h2{margin:0;font-size:18px}
+      #dpExcelGuideBox .dp-excel-body{padding:16px 20px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+      #dpExcelGuideBox fieldset{margin:0 0 14px;padding:0;border:0}
+      #dpExcelGuideBox legend{font-weight:800;margin-bottom:7px}
+      #dpExcelGuideBox .dp-excel-templates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:8px}
+      #dpExcelGuideBox .dp-excel-choice{display:block;border:1px solid var(--bdr,#cbd5e1);border-radius:9px;padding:11px 10px;cursor:pointer}
+      #dpExcelGuideBox .dp-excel-choice:has(input:checked){border-color:var(--cyan,#0786a2);background:rgba(6,182,212,.08)}
+      #dpExcelGuideBox .dp-excel-choice small{display:block;margin:4px 0 0 19px;color:var(--t2,#46526a);line-height:1.5}
+      #dpExcelGuideBox .dp-excel-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:10px}
+      #dpExcelGuideBox select,#dpExcelGuideBox input[type=text]{display:block;width:100%;margin-top:5px;padding:8px;border:1px solid var(--bdr,#cbd5e1);border-radius:7px;color:inherit;background:var(--card,#fff);font:inherit}
+      #dpExcelGuideBox p{margin:8px 0;overflow-wrap:anywhere}
+      #dpExcelGuideBox .dp-excel-note{padding:10px 12px;border-radius:8px;background:rgba(148,163,184,.10);color:var(--t2,#46526a)}
+      #dpExcelGuideBox button{padding:8px 14px;border:1px solid var(--bdr,#cbd5e1);border-radius:8px;font:700 13px var(--f,'Malgun Gothic',sans-serif);background:var(--card,#fff);color:inherit;cursor:pointer}
+      #dpExcelGuideBox button:focus-visible,#dpExcelGuideBox input:focus-visible,#dpExcelGuideBox select:focus-visible{outline:2px solid var(--cyan,#0786a2);outline-offset:2px}
+      #dpExcelGuideBox [disabled]{opacity:.6;cursor:default}
+      #dpExcelGuideBox .dp-excel-actions{border-top:1px solid var(--bdr,#cbd5e1);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:10px;box-shadow:0 -4px 12px rgba(15,23,42,.04)}#dpExcelGuideBox .dp-excel-actions button{width:100%;min-height:42px}
+      #dpExcelGuideYes{background:var(--cyan,#0786a2)!important;border-color:transparent!important;color:white!important}
+    </style><section id="dpExcelGuideBox" role="dialog" aria-modal="true" aria-labelledby="dpExcelGuideTitle" aria-describedby="dpExcelGuideDescription" tabindex="-1">
+      <div class="dp-excel-heading"><h2 id="dpExcelGuideTitle">엑셀 양식 선택</h2><button type="button" id="dpExcelGuideClose" aria-label="엑셀 저장 취소">닫기</button></div>
+      <div class="dp-excel-body">
+        <p id="dpExcelGuideDescription">선택한 양식은 엑셀 저장 파일에만 적용됩니다. PDF·인쇄 미리보기와 기존 기록은 바뀌지 않습니다.</p>
+        <fieldset><legend>문서 양식</legend><div class="dp-excel-templates">
+          <label class="dp-excel-choice"><input type="radio" name="dpExcelTemplate" value="legacy" checked> <strong>기존 양식</strong><small>기존 구성과 인쇄 설정 유지</small></label>
+          <label class="dp-excel-choice"><input type="radio" name="dpExcelTemplate" value="official"> <strong>공문서형</strong><small>흑백 중심의 간결한 문서</small></label>
+          <label class="dp-excel-choice"><input type="radio" name="dpExcelTemplate" value="approval"> <strong>결재 문서형</strong><small>공문서형 본문에 결재란 추가</small></label>
+        </div></fieldset>
+        <p id="dpExcelStructure" class="dp-excel-note" aria-live="polite"></p>
+        <div id="dpExcelAllDates" class="dp-excel-note" role="note" hidden><strong>선택 기간 전체 인쇄</strong><p id="dpExcelSelectedPeriod"></p><p>선택 기간의 모든 기록을 하나의 시트에 이어서 저장합니다. Excel 기본 ‘활성 시트’ 인쇄에서도 기간 전체가 표시되므로 인쇄 범위를 따로 바꿀 필요가 없습니다.</p><p>기록이 없는 날짜는 빈 영역을 만들지 않습니다. 통계 표지를 선택하면 같은 시트의 맨 앞에 포함합니다. 기록이 많으면 다음 페이지로 자연스럽게 이어집니다.</p></div>
+        <fieldset id="dpExcelPrintFields" disabled><legend>새 양식 인쇄 설정</legend><div class="dp-excel-fields">
+          <label>용지 방향<select id="dpExcelOrientation"><option value="landscape">A4 가로 (권장)</option><option value="portrait">A4 세로</option></select></label>
+          <label>페이지 여백<select id="dpExcelMargins"><option value="narrow">좁게</option><option value="normal">기본</option></select></label>
+        </div><p>가로는 한 페이지에 모든 열을 맞추고, 세로는 기록량에 따라 다음 페이지로 이어집니다. 열이 많으면 가로 방향을 권장합니다.</p></fieldset>
+        <fieldset id="dpExcelApprovalFields" hidden><legend>결재란 명칭</legend><div class="dp-excel-fields">
+          <label>첫 번째<input type="text" id="dpExcelRole1" maxlength="40" value="작성"></label>
+          <label>두 번째<input type="text" id="dpExcelRole2" maxlength="40" value="검토"></label>
+          <label>세 번째<input type="text" id="dpExcelRole3" maxlength="40" value="결재"></label>
+        </div><p>학교에서 쓰는 명칭으로 바꿀 수 있으며, 서명란은 비워 둡니다.</p></fieldset>
+        <p class="dp-excel-note">새 양식의 인쇄 설정은 파일에 포함됩니다. Excel 종류·프린터에 따라 표시가 달라질 수 있으므로 실제 출력 전 미리보기를 확인해 주세요.</p>
+      </div><div class="dp-excel-actions"><button type="button" id="dpExcelGuideCancel">취소</button><button type="button" id="dpExcelGuideYes">이 양식으로 저장</button></div>
+    </section>`;
     document.body.appendChild(ov);
-    requestAnimationFrame(function(){ ov.style.opacity='1'; const b=document.getElementById('dpExcelGuideBox'); if(b){b.style.opacity='1';b.style.transform='scale(1)';} });
-    let _settled=false;
-    function _close(){ if(_settled)return;_settled=true; ov.style.opacity='0'; const b=document.getElementById('dpExcelGuideBox'); if(b){b.style.opacity='0';b.style.transform='scale(0.96)';} setTimeout(function(){ if(ov.parentNode)ov.parentNode.removeChild(ov); resolve(); },180); }
-    document.getElementById('dpExcelGuideYes').addEventListener('click',function(e){
-      e.stopPropagation();
-      try{ navigator.clipboard.writeText(_txt); bus.emit('toast:show',{text:'안내 문구가 클립보드에 복사되었습니다.'}); }catch(_){}
-      _close();
+    const box=ov.querySelector('#dpExcelGuideBox');
+    const radios=Array.from(ov.querySelectorAll('input[name=dpExcelTemplate]'));
+    if(individual)radios.forEach(function(r){r.disabled=r.value!=='legacy';});
+    function update(){
+      const type=ov.querySelector('input[name=dpExcelTemplate]:checked').value;
+      const daily=typeof _dpFormat!=='undefined'&&_dpFormat==='daily';
+      const rangeNotice=ov.querySelector('#dpExcelAllDates');
+      rangeNotice.hidden=individual||type==='legacy';
+      const from=document.getElementById('dpFrom'),to=document.getElementById('dpTo');
+      ov.querySelector('#dpExcelSelectedPeriod').textContent='선택 기간: '+(from&&from.value||'시작일')+' ~ '+(to&&to.value||'종료일')+'. 이 기간에 기록이 있는 모든 날짜를 하나의 인쇄 시트에 저장합니다.';
+      ov.querySelector('#dpExcelPrintFields').disabled=type==='legacy';
+      ov.querySelector('#dpExcelApprovalFields').hidden=type!=='approval';
+      ov.querySelector('#dpExcelStructure').textContent=individual?'개별 상담 기록지는 기존 전용 양식으로 저장합니다.':type==='legacy'?'기존 양식이 기본값입니다. 일별 출력의 단일 시트 구성도 그대로 유지합니다.':(daily?'일별 출력은 선택 기간 전체를 한 시트에 날짜순으로 이어서 저장합니다.':'현재 출력의 기록과 선택한 표시 항목을 새 양식으로 저장합니다.')+' 집계 대상·빈 메모 생략 등 현재 선택한 출력 항목은 유지합니다.';
+    }
+    radios.forEach(function(r){r.addEventListener('change',update);});update();
+    let settled=false;
+    function close(result){
+      if(settled)return;settled=true;
+      document.removeEventListener('keydown',onKey,true);
+      ov.remove();
+      if(previousFocus&&previousFocus.isConnected)previousFocus.focus();
+      resolve(result);
+    }
+    function onKey(e){
+      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close(null);return;}
+      if(e.key!=='Tab')return;
+      const items=Array.from(box.querySelectorAll('button,input,select,[tabindex="0"]')).filter(function(el){return !el.matches(':disabled')&&el.getClientRects().length;});
+      const first=items[0],last=items[items.length-1];
+      if(!first){e.preventDefault();box.focus();return;}
+      if(!box.contains(document.activeElement)||(e.shiftKey&&document.activeElement===first)||(!e.shiftKey&&document.activeElement===last)){
+        e.preventDefault();(e.shiftKey?last:first).focus();
+      }
+    }
+    document.addEventListener('keydown',onKey,true);
+    ov.addEventListener('dp-excel-cancel',function(){close(null);});
+    ov.addEventListener('mousedown',function(e){if(e.target===ov)close(null);});
+    ['dpExcelGuideClose','dpExcelGuideCancel'].forEach(function(id){ov.querySelector('#'+id).addEventListener('click',function(){close(null);});});
+    ov.querySelector('#dpExcelGuideYes').addEventListener('click',function(){
+      close({template:ov.querySelector('input[name=dpExcelTemplate]:checked').value,orientation:ov.querySelector('#dpExcelOrientation').value,margins:ov.querySelector('#dpExcelMargins').value,roles:[1,2,3].map(function(i){return ov.querySelector('#dpExcelRole'+i).value.trim()||['작성','검토','결재'][i-1];})});
     });
-    ov.addEventListener('mousedown',function(e){ if(e.target===ov) _close(); });   /* 외부 클릭 = 복사 없이 닫기 */
+    ov.querySelector('#dpExcelGuideClose').focus();
   });
 }
+
 
 /* 상담 내역 개별 양식 — 상담 기록지(PDF 폼과 동일 레이아웃)를 기록당 워크시트 1장으로 Excel 출력 (사용자 요청 2026-06-25) */
 async function _dpExportCounselExcel(){
@@ -1307,10 +1308,11 @@ async function _dpExportCounselExcel(){
 }
 async function exportDiaryExcel(){
   if(!window.electronAPI||!window.electronAPI.xlsxBuildDiary){bus.emit('toast:show',{text:'Excel 빌드 IPC 미구성'});return;}
-  await _dpShowExcelGuide();   /* 안내 팝업을 닫은 뒤에야 저장 진행 (사용자 요청 2026-06-16) — 모든 형식 공통 */
+  const diaryExcelOptions=await _dpShowExcelGuide();
+  if(!diaryExcelOptions)return;
   /* 매일 한 페이지 형식: 날짜마다 별도 워크시트 */
   if(_dpFormat==='daily'){
-    return _exportDailyExcel();
+    return _exportDailyExcel(diaryExcelOptions);
   }
   /* 상담 내역 개별 양식: 상담 기록 요약표 워크시트 (상담기록지 자체는 PDF/인쇄로) (사용자 요청 2026-06-25) */
   if(_dpIsCounselIndividual()){
@@ -1402,6 +1404,7 @@ async function exportDiaryExcel(){
   }
   /* (오버레이는 위에서 이미 표시 — 여기서 다시 열면 카운터가 리셋됨) */
   window.electronAPI.xlsxBuildDiary(Object.assign({
+    diaryExcelOptions:diaryExcelOptions,
     colCount:colCount,
     colWidths:colWidths,
     headerLabels:headerLabels,
@@ -1448,8 +1451,12 @@ async function _buildDailyContinuousData(from,to){
   let filtered=[];
   try{
     const res=await window.electronAPI.recordsDailyByDateRange(from,to);
-    if(res&&res.success)filtered=res.data||[];
-  }catch(e){filtered=S.records.filter(function(r){return r.date>=from&&r.date<=to;}).sort(function(a,b){return a.date.localeCompare(b.date)||a.timeIn.localeCompare(b.timeIn);});}
+    if(!res||!res.success||!Array.isArray(res.data))throw new Error('기록 조회 실패');
+    filtered=_dpReconcileWithMemory(res.data,from,to);
+  }catch(e){
+    // A partial in-memory cache cannot establish completeness for the selected period.
+    throw new Error('선택한 기간의 기록을 모두 불러오지 못해 내보내기를 중단했습니다. 잠시 후 다시 시도해 주세요.');
+  }
   const byDate={};
   filtered.forEach(function(r){if(!byDate[r.date])byDate[r.date]=[];byDate[r.date].push(r);});
   const dates=Object.keys(byDate).sort();
@@ -1464,7 +1471,7 @@ async function _buildDailyContinuousData(from,to){
   const days=dates.map(function(dt){
     const p=_dpBuildDailyDayPayload(dt,byDate[dt],schoolName,dayStatsMap[dt]);
     let _memo=null;
-    if(_tmInclude){ try{ _memo=tmGetMemoForExport(dt); }catch(_){ _memo=null; } }
+    if(_tmInclude){ try{ _memo=tmGetMemoForExport(dt,{omitEmpty:_dpOmitEmptyMemo()}); }catch(_){ _memo=null; } }
     return Object.assign({date:dt, todayMemo:_memo},p);
   });
   return { schoolName:schoolName, from:from, to:to, days:days };
@@ -1472,13 +1479,20 @@ async function _buildDailyContinuousData(from,to){
 
 /* 매일 한 페이지 Excel — 단일 워크시트에 위 색상바·제목·색상바만 고정,
    이후 날짜별 방문 통계 + 방문 상세가 연속으로 쌓이며 각 날짜 전에 자동 페이지 나눔 */
-async function _exportDailyExcel(){
+async function _exportDailyExcel(diaryExcelOptions){
   const from=document.getElementById('dpFrom').value;
   const to=document.getElementById('dpTo').value;
   if(!from||!to){alert('먼저 미리보기를 실행하세요.');return;}
   /* Excel 도 PDF 와 동일한 진행 오버레이 — 날짜별 통계 집계·빌드 전 구간을 모두 덮는다 (사용자 요청 2026-08-12) */
   _dpShowExportProgress(_dpExportRecCount(),'Excel');
-  const data=await _buildDailyContinuousData(from,to);
+  let data;
+  try{
+    data=await _buildDailyContinuousData(from,to);
+  }catch(e){
+    _dpHideExportProgress();
+    _dpExportFailModal('Excel 저장',(e&&e.message)||'기간 기록 조회 실패');
+    return;
+  }
   if(!data.days.length){_dpHideExportProgress();bus.emit('toast:show',{text:'해당 기간에 기록이 없습니다.'});return;}
   /* (옵션) 진료과별 통계 표지 — 같은 기간 전체를 별도 워크시트로 */
   const _coverOpt=document.getElementById('dpOptCover');
@@ -1499,6 +1513,7 @@ async function _exportDailyExcel(){
   /* 첫 날의 colWidths/colCount 를 워크시트 기본 열 폭으로 사용 */
   const first=data.days[0];
   const payload=Object.assign({},{
+    diaryExcelOptions:diaryExcelOptions,
     colCount:first.colCount,
     colWidths:first.colWidths,
     titleText:'일일 보건일지',
@@ -1565,6 +1580,14 @@ function _dpBuildPrintDocHtml(landscape=_dpPrintLandscape){
   /* 미리보기 innerHTML 에서 중복 제목(보건실 방문자 현황 등) 제거 — 복제 후 조작 */
   const tmp=document.createElement('div');
   tmp.innerHTML=area.innerHTML;
+  // Let the shared paginator split daily tables by visit instead of treating their wrappers as one block.
+  if(_dpFormat==='daily'){
+    tmp.querySelectorAll('.dpx-box').forEach(function(box){box.replaceWith(...Array.from(box.childNodes));});
+    tmp.querySelectorAll('table.dp-daily-detail').forEach(function(table){
+      const box=table.parentElement;
+      if(box&&box!==tmp&&box.tagName==='DIV'&&box.children.length===1)box.replaceWith(table);
+    });
+  }
   tmp.querySelectorAll('div').forEach(function(d){
     const t=(d.textContent||'').trim();
     /* 방문자당 한 행 포맷의 기존 최상단 "보건실 방문자 현황" h1 제거 */
@@ -2146,10 +2169,11 @@ export function openDiaryPrint(){
     +'<span style="font-size:13px;font-weight:800;color:var(--t1);letter-spacing:-0.2px">추가 옵션</span>'
     +'<span style="font-size:10px;color:var(--t3);font-weight:500">— 필요한 항목을 켜세요</span>'
     +'</div>';
+  h+=_dpDailyOutputOptionsHtml();
   /* 추가 옵션 카드 — 2열 그리드 (오늘의 메모·진료과 표지·상담 표지·처치자별, 2026-06-25) */
   h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-items:stretch">';
   /* 오늘의 메모 — 매일 한 페이지 형식에서만 노출 (3번째 토글, 가장 왼쪽 — 사용자 요청 2026-06-10). _dpSwitchFormat 이 표시/숨김 제어 */
-  h+=_dpOptCardHtml('dpOptTodayMemoPv','<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>','오늘의 메모','그 날짜의 오늘의 메모 표를 함께 인쇄');
+  h+=_dpOptCardHtml('dpOptTodayMemoPv','<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>','오늘의 메모','메모 양식을 함께 인쇄 (빈 메모 생략은 별도 선택)');
   /* 진료과별 통계 표지 카드 — 2026-06-25 제거했다가 2026-08-12 사용자 요청으로 복원.
    * 방문자당 한 행·매일 한 페이지 = 전교 진료과별 통계 표지 / 특정 방문자 = 그 사람 전용 통계 표지.
    * 상담 내역 형식에서는 카드 숨김 + 렌더 조건에서도 제외 (복원 범위: row/daily/student 3형식). */
@@ -2170,7 +2194,7 @@ export function openDiaryPrint(){
   /* 액션 버튼 바 */
   h+='<div style="display:flex;align-items:center;gap:8px;padding:12px 24px;border-bottom:1px solid var(--bdr);background:rgba(99,102,241,0.06)">';
   h+='<button id="dpPreviewBackBtn" style="padding:8px 16px;font-size:12px;font-weight:700;background:rgba(249,115,22,0.12);color:#ea580c;border:1px solid rgba(249,115,22,0.4);border-radius:6px;cursor:pointer;font-family:var(--f);display:flex;align-items:center;gap:4px;animation:dpBackBlink 1.1s ease-in-out infinite">◀ 뒤로</button>';
-  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-left:8px">미리보기</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-left:8px">출력 내용 확인</div>';
   /* 로딩 점 애니메이션 + 안내 문구 — 두 포맷 모두에서 노출 (미리보기 실행 시 표시, 완료 시 숨김) */
   h+='<span id="dpDailySlowHint" style="font-size:11px;color:#dc2626;font-weight:600;margin-left:10px">'
     +'<span id="dpLoadingDots" style="display:none;color:#0891b2;margin-right:4px">로딩 중<span class="dp-dot1">.</span><span class="dp-dot2">.</span><span class="dp-dot3">.</span></span>'
@@ -2291,6 +2315,7 @@ export function openDiaryPrint(){
     const _cv0=document.querySelector('.dp-opt-card[data-dp-toggle="dpOptCoverPv"]');
     if(_cv0)_cv0.style.display=(_dpFormat!=='counsel')?'flex':'none';
   })();
+  _dpBindDailyOutputOptions();
   /* 엑셀 저장 */
   const xlsBtn=document.getElementById('dpSaveExcel');
   if(xlsBtn)xlsBtn.addEventListener('click',function(){exportDiaryExcel();});
@@ -2446,6 +2471,8 @@ function _dpSetCounselMode(mode){
 }
 /* 개별 양식(상담기록지) 모드에서는 추가옵션·표시항목 섹션 숨김. 그 외엔 표시. */
 function _dpUpdateOptionVisibility(){
+  const statsOptions=document.getElementById('dpDailyStatsOptions');
+  if(statsOptions)statsOptions.style.display=_dpFormat==='daily'?'flex':'none';
   const indiv=(_dpFormat==='counsel' && _dpCounselMode==='individual');
   /* 개별 양식도 추가옵션 섹션은 노출 — 상담 주제별 통계 표지 토글이 보여야 함 (사용자 요청 2026-06-25).
    *  오늘의 메모·처치자별 카드는 _dpSwitchFormat 에서 daily 전용으로 이미 숨김 → 개별 양식엔 상담 표지 토글만 노출. */
@@ -2569,7 +2596,7 @@ async function dpShowDailyPreview(opts){
        페이지 나눔 div 는 빈 채로 분리(새 페이지 상단에 점선이 찍히지 않게). (사용자 요청 2026-06-11) */
     if(di>0){
       html+='<div style="border-top:2px dashed var(--bdr);margin:20px 0 0"></div>';
-      html+='<div style="page-break-before:always"></div>';
+      html+='<div style="page-break-after:always;break-after:page"></div>';
     }
     /* ── 일자 헤더 — '보건일지' 제목·학교명은 문서 상단과 중복이라 제거, 날짜(페이지 식별용)+방문자 수만 (사용자 요청 2026-06-11) ── */
     /* 날짜마다 반복되는 인라인 스타일 → dpx- 클래스 (경량화 2026-08-12) */
@@ -2585,17 +2612,17 @@ async function dpShowDailyPreview(opts){
       html+='<div class="dpx-nl">👤 처치자: '+escHtml(nurseLine)+'</div>';
     }
 
-    /* ── 오늘의 메모 — 추가 옵션 토글(dpOptTodayMemo, 기본 ON) + 그 날짜에 내용이 있으면 함께 인쇄 (사용자 요청 2026-06-10) ── */
+    /* ── 오늘의 메모 — 추가 옵션 토글(dpOptTodayMemo, 기본 ON) + 빈 메모 생략은 별도 선택(기본 OFF) (사용자 요청 2026-06-10) ── */
     try{
       const _tmOptEl=document.getElementById('dpOptTodayMemo');
-      const _tmBlk=(!_tmOptEl||_tmOptEl.checked)?tmGetPrintBlock(dt):'';
+      const _tmBlk=(!_tmOptEl||_tmOptEl.checked)?tmGetPrintBlock(dt,{omitEmpty:_dpOmitEmptyMemo()}):'';
       if(_tmBlk){
         html+='<div class="dpx-sh"><span class="dpx-ico dpx-ico-memo">📝</span>오늘의 메모</div>'+_tmBlk;
       }
     }catch(_){}
 
     /* ── 방문 통계 (우리 앱의 '방문 통계'와 동일한 3섹션 구조) ── */
-    const dayStats=dayStatsMap[dt];
+    const dayStats=_dpDailySummary(dayStatsMap[dt]);
     if(dayStats&&dayStats.sections&&dayStats.sections.length){
       html+='<div class="dpx-sh"><span class="dpx-ico dpx-ico-stat">📊</span>일간 방문 통계</div>';
       dayStats.sections.forEach(function(sec){html+=_renderStatSection(sec.title,sec);});
@@ -2689,46 +2716,7 @@ async function dpShowDailyPreview(opts){
         /* 처치 칩 + 약품(medication) + 자유 서술형 메모 (daily-view 와 동일 규칙).
            '투약' 칩에 medication 결합, 옛 기록(medication 만 있는 경우)도 약품 별도 표시.
            다중 증상 + treatmentBySym 있으면 증상별로 줄바꿈 분층 (v3+ 사용자 결정 2026-05-20). */
-        treatment:(function(){
-          var arr=(r.treatment||[]);
-          var medDisp=r.medication?formatMedicationDisplay(r.medication):'';
-          var m=r.treatmentMemo||'';
-          var _hasBySym = r.treatmentBySym && typeof r.treatmentBySym==='object' && !Array.isArray(r.treatmentBySym) && Object.keys(r.treatmentBySym).length>0;
-          /* 증상 2개 이상이면 분기 출력 — 옛 일지/외부 import(평면만) 는 단일 행 유지 (사용자 결정 2026-05-28). */
-          var _isLegacyFlat = !_hasBySym && arr.length>0;
-          var _isMulti = r.symptoms && r.symptoms.length>1 && !_isLegacyFlat && r.treatmentBranched !== false; /* 미분기면 콤마 한 줄 — flat r.treatment 사용 (다른 형식과 동일, 2026-07-06 누락분 보정) */
-          if(_isMulti){
-            /* v3 (2026-05-28) — V/S·침상도 per-symptom. 각 증상 행에 그 증상 처치만 (record-level 공유 폐지). */
-            var _medDispForSym = function(sym){
-              if(!r.medsBySym || !r.medsBySym[sym] || !r.medsBySym[sym].length) return '';
-              var dm = (r.medDosesBySym && r.medDosesBySym[sym]) || {};
-              var str = r.medsBySym[sym].map(function(mm){var d=dm[mm]||''; return d?(mm+'('+d+')'):mm;}).join(', ');
-              return formatMedicationDisplay(str);
-            };
-            /* 상담 처치란 문구 — 맵에 없고 flat 에만 있으므로 상담 층에 직접 합류 (사용자 보고 2026-08-25) */
-            var _clT3=counselTreatText(r);
-            var _clIdx3=_clT3?r.symptoms.findIndex(isCounselSymLabel):-1;
-            var lines = r.symptoms.map(function(sym, idx){
-              var symTreats = (r.treatmentBySym[sym]||[]);
-              var medDispForSym = _medDispForSym(sym);
-              var symLabeled = symTreats.map(function(t){
-                var b=t; var mt=t.match(/^(.+?)\s*\((.*)\)\s*$/); if(mt)b=mt[1].trim();
-                if(b==='투약' && medDispForSym) return medDispForSym;
-                return t;
-              });
-              if(idx===_clIdx3)symLabeled.push(_clT3);
-              return '→ '+symLabeled.join(', ');
-            });
-            if(m) lines[0] = (lines[0]?lines[0]+' / ':'')+m;
-            return lines.join('\n');
-          }
-          /* 단일 증상 또는 옛 일지 — 기존 로직 */
-          var labeled=arr.map(function(t){return (t==='투약'&&medDisp)?medDisp:t;});
-          var b=labeled.join(', ');
-          var hasMedTreat=arr.indexOf('투약')!==-1;
-          if(!hasMedTreat&&medDisp) b=(b?b+' / ':'')+medDisp;
-          return (b+(m?(b?' / ':'')+m:'')).trim();
-        })(),
+        treatment:diaryTreatmentText(r,{formatMedicationDisplay,counselTreatText,isCounselSymLabel}),
         medication:r.medication||'',
         bedUsage:_dpIsBedUsed(r)?'O':'',
         vitals:[r.temp?'T: '+r.temp:'',r.bp?'BP: '+r.bp:'',r.pulse?'P: '+r.pulse:'',(r.respiration||r.resp)?'R: '+(r.respiration||r.resp):'',r.spo2?'SpO₂: '+r.spo2:'',r.bst?'BST: '+r.bst:''].filter(Boolean).join(', ')
@@ -3107,7 +3095,13 @@ async function _exportDailySheets(){
   if(!from||!to){alert('먼저 미리보기를 실행하세요.');return;}
   if(!(window.electronAPI&&window.sheetsExportWithConsent)){bus.emit('toast:show',{text:'Google Sheets 연동이 필요합니다.'});return;}
   bus.emit('toast:show',{text:'Google Sheets 보내는 중…'});
-  const data=await _buildDailyContinuousData(from,to);
+  let data;
+  try{
+    data=await _buildDailyContinuousData(from,to);
+  }catch(e){
+    bus.emit('toast:show',{text:'Sheets 내보내기 실패: '+((e&&e.message)||'기간 기록 조회 실패')});
+    return;
+  }
   if(!data.days.length){bus.emit('toast:show',{text:'해당 기간에 기록이 없습니다.'});return;}
   function fmtD(ds){const d=new Date(ds);const dow=['일','월','화','수','목','금','토'][d.getDay()];return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()+'.('+dow+')';}
   /* 첫 날의 colCount 를 시트 기준 — 모든 날짜가 동일한 DP_COLS 활성 세트를 공유 */
