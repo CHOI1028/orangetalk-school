@@ -805,10 +805,11 @@ export async function _setMedBulkFetchStart(isUpdate){
   let cache={items:{}, order:[]};
   try{
     if(window.electronAPI&&window.electronAPI.jsonLoadCommon){
-      const r=await window.electronAPI.jsonLoadCommon({key:'medications_list'});
+      const r=await window.electronAPI.jsonLoadCommon('medications_list');
+      if(!r||r.success!==true)throw new Error('약품 상세정보를 불러오지 못했습니다. 기존 정보는 변경하지 않습니다.');
       if(r&&r.success&&r.data&&typeof r.data==='object') cache=r.data;
     }
-  }catch(e){}
+  }catch(e){ alert(e.message||'약품 상세정보 불러오기 실패'); return; }
   cache.items=cache.items||{};
   cache.order=Array.isArray(cache.order)?cache.order:[];
   const targets = allNames.slice();   /* 시스템 약품 전체 — 빠진 건 채우고 있는 건 최신화 */
@@ -879,7 +880,8 @@ export async function _setMedBulkFetchStart(isUpdate){
     done++;
     /* 50건마다 중간 저장 (중단되어도 진행 결과 보존) */
     if(done%50===0 && window.electronAPI&&window.electronAPI.jsonSaveCommon){
-      await window.electronAPI.jsonSaveCommon({key:'medications_list', data:cache});
+      const saved=await window.electronAPI.jsonSaveCommon('medications_list', cache);
+      if(!saved||saved.success!==true){ _bulkFetchRunning=false; _bulkUpdateUI(done,targets.length); alert('약품 상세정보 저장에 실패했습니다. 완료되지 않은 항목은 다시 조회해 주세요.'); return; }
     }
     /* 1.2초 간격 — 식약처 API rate limit 대응 */
     await new Promise(function(r){ setTimeout(r, 1200); });
@@ -890,7 +892,8 @@ export async function _setMedBulkFetchStart(isUpdate){
     cache.cachedAt = new Date().toISOString();
   }
   if(window.electronAPI&&window.electronAPI.jsonSaveCommon){
-    await window.electronAPI.jsonSaveCommon({key:'medications_list', data:cache});
+    const saved=await window.electronAPI.jsonSaveCommon('medications_list', cache);
+    if(!saved||saved.success!==true){ _bulkFetchRunning=false; _bulkUpdateUI(done,targets.length); alert('약품 상세정보 저장에 실패했습니다. 완료되지 않은 항목은 다시 조회해 주세요.'); return; }
   }
 
   _bulkFetchRunning=false;
@@ -930,7 +933,7 @@ async function _setMedCacheStatusUpdate(){
   if(!badge) return;
   try{
     if(!window.electronAPI||!window.electronAPI.jsonLoadCommon){ badge.textContent='미지원'; return; }
-    const r=await window.electronAPI.jsonLoadCommon({key:'medications_list'});
+    const r=await window.electronAPI.jsonLoadCommon('medications_list');
     const cache=(r&&r.success&&r.data&&typeof r.data==='object')?r.data:null;
     const count = cache&&cache.items ? Object.keys(cache.items).length : 0;
     if(!cache || count===0){
@@ -1011,10 +1014,11 @@ async function _fetchAndCacheDrugFromEyakey(drugName){
     let cache={items:{}, order:[]};
     try{
       if(window.electronAPI&&window.electronAPI.jsonLoadCommon){
-        const r=await window.electronAPI.jsonLoadCommon({key:'medications_list'});
+        const r=await window.electronAPI.jsonLoadCommon('medications_list');
+        if(!r||r.success!==true)throw new Error('약품 상세정보를 불러오지 못했습니다. 기존 정보는 변경하지 않습니다.');
         if(r&&r.success&&r.data&&typeof r.data==='object') cache=r.data;
       }
-    }catch(e){}
+    }catch(e){ throw e; }
     cache.items=cache.items||{};
     cache.order=Array.isArray(cache.order)?cache.order:[];
 
@@ -1070,7 +1074,7 @@ async function _fetchAndCacheDrugFromEyakey(drugName){
 
     /* 6) 저장 */
     if(window.electronAPI&&window.electronAPI.jsonSaveCommon){
-      const sv=await window.electronAPI.jsonSaveCommon({key:'medications_list', data:cache});
+      const sv=await window.electronAPI.jsonSaveCommon('medications_list', cache);
       if(!sv||!sv.success){ _toast('💊 저장 실패: '+(sv&&sv.error||'알 수 없는 오류'), false); return; }
     }
     /* 성공 — 큐에서 제거 */
@@ -1119,7 +1123,7 @@ async function _setMedRemove(name){
   let hasCache = false;
   try{
     if(window.electronAPI && window.electronAPI.jsonLoadCommon){
-      const r = await window.electronAPI.jsonLoadCommon({key:'medications_list'});
+      const r = await window.electronAPI.jsonLoadCommon('medications_list');
       if(r && r.success && r.data && r.data.items && r.data.items[name]) hasCache = true;
     }
   }catch(_){}
@@ -1141,12 +1145,12 @@ async function _setMedRemove(name){
   _eyakeyQueueRemove(name);
   /* 사용자 JSON 캐시에서도 제거 — 비동기. 캐시 없으면 noop. */
   if(hasCache && window.electronAPI&&window.electronAPI.jsonLoadCommon&&window.electronAPI.jsonSaveCommon){
-    window.electronAPI.jsonLoadCommon({key:'medications_list'}).then(function(r){
+    window.electronAPI.jsonLoadCommon('medications_list').then(function(r){
       if(!r||!r.success||!r.data)return;
       const cache=r.data;
       if(cache.items && cache.items[name]) delete cache.items[name];
       if(Array.isArray(cache.order)) cache.order=cache.order.filter(function(n){return n!==name;});
-      return window.electronAPI.jsonSaveCommon({key:'medications_list', data:cache});
+      return window.electronAPI.jsonSaveCommon('medications_list', cache);
     }).catch(function(){});
   }
   _setMedRenderCards();
@@ -1167,7 +1171,7 @@ export function _setMedRenderCards(){
   if(!meds.length){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--t3);font-size:10px">등록된 약품이 없습니다. 위에서 새 약품을 추가하세요.</div>';return;}
   /* medications_list.json 캐시 비동기 로드 — "📖 정보" 배지 표시용 */
   if(window.electronAPI&&window.electronAPI.jsonLoadCommon){
-    window.electronAPI.jsonLoadCommon({key:'medications_list'}).then(function(r){
+    window.electronAPI.jsonLoadCommon('medications_list').then(function(r){
       if(r&&r.success&&r.data&&r.data.items){
         Object.keys(r.data.items).forEach(function(name){
           const badge=document.querySelector('[data-med-cache-badge="'+CSS.escape(name)+'"]');

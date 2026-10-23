@@ -1,6 +1,6 @@
 {
   "name": "my-health-diary",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "description": "오렌지톡 - 보건교사를 위한 보건실 업무 도구",
   "main": "main.js",
   "scripts": {

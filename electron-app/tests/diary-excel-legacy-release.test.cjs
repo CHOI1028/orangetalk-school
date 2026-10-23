@@ -97,8 +97,8 @@ test('release removes the chooser and optional backend dependency',()=>{
 test('1.1.16 keeps four release notes without a new-template claim',()=>{
   const decl=parse(notes).body.find(n=>n.type==='ExportNamedDeclaration')?.declaration;
   const all=vm.runInNewContext('('+notes.slice(decl.declarations[0].init.start,decl.declarations[0].init.end)+')');
-  assert.equal(all[0].version,'1.1.16');assert.equal(all[0].changes.length,4);
-  const value=all[0].changes.join(' ');assert(!/공문서형|결재 문서형|양식 선택/.test(value));assert(value.includes('V/S'));assert(value.includes('처치'));assert(value.includes('조회 실패'));
+  const release=all.find(item=>item.version==='1.1.16');assert(release);assert.equal(release.changes.length,4);
+  const value=release.changes.join(' ');assert(!/공문서형|결재 문서형|양식 선택/.test(value));assert(value.includes('V/S'));assert(value.includes('처치'));assert(value.includes('조회 실패'));
 });
 if(baselineRoot)test('all unrelated renderer functions and prior release entries stay unchanged',()=>{
   const old=fs.readFileSync(path.join(baselineRoot,'renderer.js'),'utf8');

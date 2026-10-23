@@ -22,6 +22,7 @@
   /* 우선순위: failed(3) > restored(2) > reconnecting(1). 낮은 게 높은 것 덮어쓰지 못함. */
   const _PRIORITY={'reconnecting':1,'restored':2,'failed':3};
   let _currentPriority=0;
+  let _displayVersion=0;
 
   function _ensureToast(){
     if(_toastEl)return _toastEl;
@@ -34,7 +35,7 @@
     _toastEl=t;
     /* 클릭 시 critical 토스트 닫기 */
     t.addEventListener('click',function(){
-      if(_criticalLock){_hide();_criticalLock=false;}
+      if(_criticalLock){_criticalLock=false;_hide();}
     });
     return t;
   }
@@ -60,17 +61,13 @@
 
   function _show(html,kind,opts){
     opts=opts||{};
+    if(opts.recovered){_criticalLock=false;_currentPriority=0;}
     const newPri=_PRIORITY[kind]||0;
     /* critical lock 상태에선 같은 또는 더 높은 우선순위만 갱신 허용 */
     if(_criticalLock && newPri < _PRIORITY['failed']) return;
-    /* 일반 상태: 더 낮은 우선순위가 더 높은 것을 즉시 덮지 못함.
-       단, 'restored' 는 'reconnecting' 을 덮어야 하므로 같은 우선순위 비교는 가능. */
-    if(_currentPriority > newPri && t_visible()) {
-      /* 더 높은 우선순위가 표시 중이면 큐에 잠시 보관, 자동 숨김 후 표시 */
-      setTimeout(function(){_show(html,kind,opts);},800);
-      return;
-    }
+    /* New connection events replace stale notifications; never replay old retries. */
     const t=_ensureToast();
+    const displayVersion=++_displayVersion;
     if(_autoHideTimer){clearTimeout(_autoHideTimer);_autoHideTimer=null;}
     _setStyle(kind);
     t.innerHTML=html;
@@ -78,6 +75,7 @@
     _currentPriority=newPri;
     /* 다음 frame 에 fade-in */
     requestAnimationFrame(function(){
+      if(displayVersion!==_displayVersion)return;
       t.style.opacity='1';
       t.style.transform='translateY(0)';
     });
@@ -94,12 +92,14 @@
 
   function _hide(){
     if(_criticalLock)return;
+    if(_autoHideTimer){clearTimeout(_autoHideTimer);_autoHideTimer=null;}
+    const displayVersion=++_displayVersion;
     if(!_toastEl)return;
     _toastEl.style.opacity='0';
     _toastEl.style.transform='translateY(8px)';
     _currentPriority=0;
     setTimeout(function(){
-      if(_toastEl && _toastEl.style.opacity==='0') _toastEl.style.display='none';
+      if(displayVersion===_displayVersion && _toastEl && _toastEl.style.opacity==='0') _toastEl.style.display='none';
     },220);
   }
 
@@ -142,7 +142,7 @@
     if(d.viaFallback && d.fromPort && d.toPort){
       msg='✅ 연결이 복구되었습니다. <span style="opacity:0.85">(통로 '+d.fromPort+'포트 → '+d.toPort+'포트 자동 전환됨)</span>';
     }
-    _show(msg,'restored',{autoHideMs:3000});
+    _show(msg,'restored',{autoHideMs:3000,recovered:true});
   });
 
   /* 큐 flush 완료 — 'queue-flushed' (web-api-bridge.js 에서 발행) */

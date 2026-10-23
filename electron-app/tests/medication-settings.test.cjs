@@ -20,13 +20,23 @@ function harness(options={}){
   const api={
     async dbGet(scope,key){if(options.beforeRead)await options.beforeRead(key);if(options.readFail)return {success:false};return {success:true,exists:Object.hasOwn(db,key),data:Object.hasOwn(db,key)?copy(db[key]):null};},
     async dbSet(scope,key,value){calls.push({key,value:copy(value)});if(options.saveFail)return {success:false};db[key]=copy(value);if(options.merge)options.merge(key,db);return {success:true,exists:true,data:copy(db[key])};},
+    async medicationSettingsWriteMany(items){
+      if(options.saveFail)return {success:false};
+      for(const item of items){
+        if(Object.hasOwn(db,item.key)!==item.baseExists||JSON.stringify(Object.hasOwn(db,item.key)?db[item.key]:null)!==JSON.stringify(item.base))return {success:false,conflict:true};
+      }
+      const entries={};
+      for(const item of items){calls.push({key:item.key,value:copy(item.value)});db[item.key]=copy(item.value);}
+      for(const item of items){if(options.merge)options.merge(item.key,db);entries[item.key]={success:true,exists:true,data:copy(db[item.key])};}
+      return {success:true,entries};
+    },
     async jsonLoadCommon(){return {success:true,exists:false};}
   };
   const context=vm.createContext({window:{electronAPI:api,__isWebBrowser:!!options.web},localStorage:ls,Date});
   vm.runInContext(source.replace(/^export /gm,'')+'\nglobalThis.medStore=medicationSettings;',context);
   const store=context.medStore;
   Object.assign(context,{medicationSettings:store,document:{getElementById:id=>id==='setMedCardList'?card:null,querySelector:()=>null},S:{},escHtml:String,getSymData:()=>({medDb:{}}),bus:{emit:(...args)=>messages.push(args)},refreshMedHidden(){},_setMedSearchRender(){},_fetchAndCacheDrugFromEyakey(){},_eyakeyQueueRemove(){},_setMedGetSysSyms:()=>['TEST_SYS_SYM'],setTimeout(){},CSS:{escape:String}});
-  const names=['_medEditTail','_medLoadState','_setMedEditTarget','_setMedSaveWarning','_setRunMedEdit','_setGetUserAddedMeds','_setMarkUserAddedMed','_setUnmarkUserAddedMed','_setMedAddDirect','_setMedRemove','_setMedRemoveSym','_setMedSymPick','_setMedEnsurePrefilled','_setMedCollectPool','_setMedRenderCards','_setMedEditPopupRenderSlots'];
+  const names=['_setMedAssertUniqueName','_setMedIsSystem','_medBulkBusy','_medRemovalBusy','_medEditTail','_medLoadState','_setMedEditTarget','_setMedSaveWarning','_setRunMedEdit','_setGetUserAddedMeds','_setMarkUserAddedMed','_setUnmarkUserAddedMed','_setMedAddDirect','_setMedRemove','_setMedRemoveSym','_setMedSymPick','_setMedEnsurePrefilled','_setMedCollectPool','_setMedRenderCards','_setMedEditPopupRenderSlots'];
   const pieces=names.map(name=>{const n=nodes.find(n=>n.id?.name===name||n.declarations?.some(d=>d.id.name===name));assert.ok(n,'함수 연결 누락: '+name);return diary.slice(n.start,n.end);});
   vm.runInContext(pieces.join('\n'),context);
   return {ls,db,calls,messages,card,context,store,run:code=>vm.runInContext(code,context)};
@@ -119,10 +129,10 @@ test('불러오기 실패 뒤 같은 화면에서 재시도하면 오류 표시�
   api.dbGet=read;assert.equal(await h.run('_setMedAddDirect("TEST_MED_C")'),true);assert.equal(h.run('_medLoadState'),'ready');assert.ok(h.card.innerHTML.includes(medA));assert.ok(h.card.innerHTML.includes(medC));
 });
 test('저장 충돌 응답은 완료로 처리하지 않고 기존 목록을 보존한다',async()=>{
-  const h=seeded();h.context.window.electronAPI.dbSet=async()=>({success:false,conflict:true,exists:true,data:oldMeds});
+  const h=seeded();h.context.window.electronAPI.medicationSettingsWriteMany=async()=>({success:false,conflict:true,exists:true,data:oldMeds});
   assert.equal(await h.run('_setMedAddDirect("TEST_MED_C")'),false);assert.deepEqual(h.db.user_med_syms,oldMeds);assert.deepEqual(localMap(h,'user_med_syms'),oldMeds);assert.equal(h.messages.some(x=>x[0]==='toast:save'),false);
 });
 test('연결 문제로 저장이 대기 중이면 완료 표시와 빈 목록 덮어쓰기를 하지 않는다',async()=>{
-  const h=seeded();h.context.window.electronAPI.dbSet=async()=>({success:false,pending:true});
+  const h=seeded();h.context.window.electronAPI.medicationSettingsWriteMany=async()=>({success:false,pending:true});
   assert.equal(await h.run('_setMedAddDirect("TEST_MED_C")'),false);assert.deepEqual(h.db.user_med_syms,oldMeds);assert.deepEqual(localMap(h,'user_med_syms'),oldMeds);
 });

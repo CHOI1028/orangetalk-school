@@ -5969,7 +5969,7 @@ const _drugInfoCache={};
       }).catch(function(){})
     : Promise.resolve();
   const loadUser = (window.electronAPI.jsonLoadCommon)
-    ? window.electronAPI.jsonLoadCommon({key:'medications_list'}).then(function(r){
+    ? window.electronAPI.jsonLoadCommon('medications_list').then(function(r){
         if(!r||!r.success||!r.data||!r.data.items)return;
         const items=r.data.items;
         Object.keys(items).forEach(function(name){
@@ -6083,17 +6083,23 @@ function _persistDrugToUserJson(drugName, info){
   clearTimeout(_persistDrugTimer);
   _persistDrugTimer=setTimeout(function(){
     if(!window.electronAPI||!window.electronAPI.jsonLoadCommon||!window.electronAPI.jsonSaveCommon)return;
-    window.electronAPI.jsonLoadCommon({key:'medications_list'}).then(function(r){
-      const cache=(r&&r.success&&r.data&&typeof r.data==='object')?r.data:{items:{},order:[]};
+    window.electronAPI.jsonLoadCommon('medications_list').then(function(r){
+      if(!r||r.success!==true)throw new Error('Drug cache read failed');
+      const cache=(r.data&&typeof r.data==='object')?r.data:{items:{},order:[]};
+      const pending=Object.assign({},_pendingDrugUpsert);
       cache.items=cache.items||{};
       cache.order=Array.isArray(cache.order)?cache.order:[];
-      Object.keys(_pendingDrugUpsert).forEach(function(nm){
-        cache.items[nm]=_pendingDrugUpsert[nm];
+      Object.keys(pending).forEach(function(nm){
+        cache.items[nm]=pending[nm];
         if(cache.order.indexOf(nm)===-1) cache.order.push(nm);
       });
-      /* 큐 비우기 */
-      Object.keys(_pendingDrugUpsert).forEach(function(nm){ delete _pendingDrugUpsert[nm]; });
-      return window.electronAPI.jsonSaveCommon({key:'medications_list', data:cache});
+      return window.electronAPI.jsonSaveCommon('medications_list', cache).then(function(result){
+        if(!result||result.success!==true)throw new Error('Drug cache save failed');
+        Object.keys(pending).forEach(function(nm){
+          if(_pendingDrugUpsert[nm]===pending[nm])delete _pendingDrugUpsert[nm];
+        });
+        return result;
+      });
     }).catch(function(err){ console.warn('[drugCache] persist failed', err); });
   }, 600);
 }

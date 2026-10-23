@@ -2,6 +2,15 @@
 /* Keep prior entries when adding a release. Only the newest four are displayed. */
 export const SCHOOL_RELEASE_NOTES = [
   {
+    "version": "1.1.17",
+    "title": "약품 상세정보 저장 및 연결 상태 안내 수정",
+    "changes": [
+      "약품 상세정보 저장 오류 수정: 앱 시작 시 미완료 약품 정보를 다시 저장할 때 JSON 저장 실패가 표시되던 문제를 수정했습니다. 약품 정보 조회·일괄 저장·불러오기에도 동일하게 반영했습니다.",
+      "저장 실패 처리 보완: 약품 상세정보를 불러오거나 저장하지 못한 경우 기존 정보를 덮어쓰거나 완료로 안내하지 않도록 보완했습니다.",
+      "연결 상태 안내 수정: 연결이 복구된 후에도 실패 경고가 남거나, 경고를 눌러도 닫히지 않던 문제를 수정했습니다."
+    ]
+  },
+  {
     "version": "1.1.16",
     "title": "보건일지 입력·약품 관리 개선 및 저장 안정화",
     "changes": [
