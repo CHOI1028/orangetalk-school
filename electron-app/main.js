@@ -3040,8 +3040,7 @@ app.whenReady().then(() => {
   ipcMain.handle('xlsx-build-diary', async (_, payload) => {
     try {
       const ExcelJS = require('exceljs');
-      // 1.1.16 uses the established layout, including requests from stale clients.
-      // The optional layout module is intentionally not loaded in this release.
+      const printLayout = require('./src/main/legacy-excel-print.cjs').createLegacyPrintLayout();
       const wb = new ExcelJS.Workbook();
       wb.creator = '오렌지톡';
       /* Excel 전용 좌측 정렬 열 — 증상·처치 내용(상담 형식은 상담 주제/상담 내용)만. PDF/인쇄는 무관 (사용자 지시 2026-08-27) */
@@ -3143,8 +3142,9 @@ app.whenReady().then(() => {
             }
             cvRow++;
           }
+          printLayout.table(cws, { start:stRow.number, headerEnd:hdr.number, end:cws.lastRow.number, context:[1,2,3,4,5,6,7] });
         });
-        cws.pageSetup.printTitlesRow = '1:7';
+        for (let n = 1; n <= 7; n++) printLayout.mark(cws, n, { keepNext:true });
       }
 
       /* "매일 한 페이지" 용: 메인 시트 이름을 MM-DD 로 덮어쓰고, dailySheets 배열을
@@ -3195,6 +3195,7 @@ app.whenReady().then(() => {
           wsInst.mergeCells(pbTitleRow.number, 1, pbTitleRow.number, colCount);
           pbTitleRow.getCell(1).font = { bold:true, size:12, color:{argb:'FF0E7490'}, name:'맑은 고딕' };
           pbTitleRow.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
+          printLayout.mark(wsInst,pbTitleRow,{keepNext:true});
           p.preambleSections.sections.forEach(function(section, sIdx){
             if (sIdx > 0) wsInst.addRow([]).height = 6;
             /* 섹션 타이틀 */
@@ -3238,6 +3239,7 @@ app.whenReady().then(() => {
                 c.border = { top:pbThin, bottom:pbHead, left: i===1?pbHead:pbThin, right: i===mergeCols?pbHead:pbThin };
               }
             }
+            printLayout.table(wsInst, { start:stRow.number, headerEnd:hdrRow.number, end:wsInst.lastRow.number, context:[1,2,3,4,5,6,7] });
           });
           wsInst.addRow([]).height = 14;
           /* 방문 상세 섹션 타이틀 */
@@ -3246,6 +3248,7 @@ app.whenReady().then(() => {
           wsInst.mergeCells(visitTitle.number, 1, visitTitle.number, colCount);
           visitTitle.getCell(1).font = { bold:true, size:12, color:{argb:'FF4338CA'}, name:'맑은 고딕' };
           visitTitle.getCell(1).alignment = { horizontal:'left', vertical:'middle' };
+          printLayout.mark(wsInst,visitTitle,{keepNext:true});
         }
         const hdrRowMain = wsInst.addRow(headerLabels); hdrRowMain.height = 26;
         for (let i = 1; i <= colCount; i++) {
@@ -3267,7 +3270,8 @@ app.whenReady().then(() => {
               left: i===1 ? headerBorder : thinBorder, right: i===colCount ? headerBorder : thinBorder };
           }
         });
-        wsInst.pageSetup.printTitlesRow = '1:8';
+        printLayout.table(wsInst, { start:hdrRowMain.number, headerEnd:hdrRowMain.number, end:wsInst.lastRow.number, context:[1,2,3,4,5,6,7], sequenceColumn:/^순/.test(headerLabels[0]||'')?1:0 });
+        for(let n=1;n<=7;n++) printLayout.mark(wsInst,n,{keepNext:true});
       }
       /* 매일 한 페이지 분기 — continuousDays 가 있으면 단일 워크시트에
          상단 색상바·제목만 고정하고, 날짜별 통계·방문표를 연속으로 쌓으며 각 날짜 전에 페이지 나눔.
@@ -3347,29 +3351,26 @@ app.whenReady().then(() => {
         r6m.getCell(FIRST).value = periodText;
         r6m.getCell(FIRST).font = { bold:true, size:20, name:'맑은 고딕' }; r6m.getCell(FIRST).alignment = { horizontal:'center', vertical:'middle' };
         /* 표지 다음 — 본문은 2페이지부터 */
-        wsMain.getRow(r6m.number + 1).addPageBreak();
+        printLayout.cover(wsMain, r6m.number);
         /* 각 날짜 연속 쌓기 */
         payload.continuousDays.forEach(function(day, dayIdx){
           /* 두 번째 날짜부터는 날짜간 여백 + 페이지 나눔 (하루가 넘어가면 다음 페이지 맨 위부터).
            *  첫 날은 표지 다음 페이지(2페이지) 맨 위에서 바로 시작. */
-          if (dayIdx > 0) {
-            wsMain.addRow([]).height = 18;
-            const pbRow = wsMain.lastRow.number + 1;
-            wsMain.getRow(pbRow).addPageBreak();
-          }
           /* 날짜 헤더 */
           const d = new Date(day.date);
           const dow=['일','월','화','수','목','금','토'][d.getDay()];
           const dayTitle = d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+dow+')';
           const dayTitleRow = wsMain.addRow([]);
           dayTitleRow.height = 24;
+          printLayout.mark(wsMain,dayTitleRow,{startPage:true,keepNext:true});
           wsMain.mergeCells(dayTitleRow.number, FIRST, dayTitleRow.number, LAST);
           dayTitleRow.getCell(FIRST).value = '📅 '+dayTitle+'  ·  방문 '+(day.dataRows||[]).length+'명';
           dayTitleRow.getCell(FIRST).font = { bold:true, size:13, color:{argb:'FF0F172A'}, name:'맑은 고딕' };
           dayTitleRow.getCell(FIRST).alignment = { horizontal:'left', vertical:'middle' };
           dayTitleRow.getCell(FIRST).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE0F2FE'} };
           dayTitleRow.getCell(FIRST).border = { top:headerBorder, bottom:thinBorder, left:headerBorder, right:headerBorder };
-          wsMain.addRow([]).height = 12;   /* 날짜 헤더 ~ 메모 사이 여백 */
+          const dayGap = wsMain.addRow([]); dayGap.height = 12;
+          printLayout.mark(wsMain,dayGap,{keepNext:true});
           /* ── 오늘의 메모 — totalBase 칸에 균등 분배 (제목층/내용층 wrapText) ── */
           if (day.todayMemo && Array.isArray(day.todayMemo.titles) && day.todayMemo.titles.length) {
             const tmTitle = wsMain.addRow([]); tmTitle.height = 20;
@@ -3397,12 +3398,14 @@ app.whenReady().then(() => {
             };
             _tmRow(day.todayMemo.titles, true, 20);
             _tmRow(day.todayMemo.cells, false, 52);
+            printLayout.table(wsMain,{start:tmTitle.number,headerEnd:tmTitle.number+1,end:wsMain.lastRow.number,context:[dayTitleRow.number]});
             wsMain.addRow([]).height = 16;   /* 메모 ~ 통계 사이 여백 */
           }
           /* 일간 방문 통계 3섹션 */
           if (day.preambleSections && day.preambleSections.sections && day.preambleSections.sections.length) {
             const statsTitleRow = wsMain.addRow([]);
             statsTitleRow.height = 20;
+            printLayout.mark(wsMain,statsTitleRow,{keepNext:true});
             wsMain.mergeCells(statsTitleRow.number, FIRST, statsTitleRow.number, LAST);
             statsTitleRow.getCell(FIRST).value = '📊 일간 방문 통계';
             statsTitleRow.getCell(FIRST).font = { bold:true, size:11, color:{argb:'FF0E7490'}, name:'맑은 고딕' };
@@ -3478,6 +3481,7 @@ app.whenReady().then(() => {
                   c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFAFBFC'} };
                 }, pbThin, pbHead);
               }
+              printLayout.table(wsMain,{start:stR.number,headerEnd:hdrR.number,end:wsMain.lastRow.number,context:[dayTitleRow.number]});
             });
             wsMain.addRow([]).height = 16;   /* 통계 ~ 방문 상세 사이 여백 */
           }
@@ -3518,72 +3522,18 @@ app.whenReady().then(() => {
             }
             return row;
           };
-          /* 페이지 끝에 걸린 직전 행을 굵은 아래선으로 닫아 표 박스를 페이지마다 완전히 닫는다(마스터 셀만 갱신). */
-          const _closeRowBottom = function(row){
-            for (let ci=0; ci<dayColCount; ci++){
-              const sp = colSpan[ci]; if (!sp) continue;
-              const c = row.getCell(sp[0]);
-              const b = c.border || {};
-              c.border = { top: b.top, left: b.left, right: b.right, bottom: headerBorder };
-            }
-          };
-          _detailRow(dayHdrLabels, true, false, 22);
-          const _baseColW = Math.max(1, unit / 7);   /* base 한 칸의 엑셀 폭(글자수 근사) */
-          /* ── 페이지마다 표 완전히 닫기 (사용자 선택 2026-06-16) ──
-           *  하루 표가 한 페이지를 넘으면 넘기 직전에 수동으로 페이지를 나누고(직전 행을 굵은 아래선으로 닫음),
-           *  다음 페이지 맨 위에 열 제목을 다시 깔아 표 박스가 페이지마다 완전히 닫히게 한다.
-           *  PAGE_H 는 A4 가로 가용 높이(~537pt)보다 보수적으로(500) 잡아 fitToWidth 축소 시에도 항상
-           *  Excel 자동 나눔보다 먼저 나눠 빈 공간/잘림을 방지한다. pageY 는 실제 행 높이 합으로 정확히 추적. */
-          // Use the actual A4 printable area and an explicit scale, not a fixed 500pt cutoff.
-      // Open XML widths already include padding. Convert the serialized width, not the UI character count.
-      // Normal style: Calibri 11, maximum digit width 7px at 96dpi (ISO/IEC 29500 column.width).
-      const _microWidthPx=Math.floor(((256*Math.max(1,unit/7)+Math.floor(128/7))/256)*7);
-      const _sheetWidthPt=totalBase*_microWidthPx*0.75;
-      const _printWidthPt=841.89-(0.3+0.16)*72;
-      const _printHeightPt=595.28-(0.4+0.4)*72;
-      const _scalePct=Math.max(10,Math.min(100,Math.floor(_printWidthPt/_sheetWidthPt*100)));
-      wsMain.pageSetup.fitToPage=false;
-      wsMain.pageSetup.scale=_scalePct;
-      delete wsMain.pageSetup.fitToWidth;
-      delete wsMain.pageSetup.fitToHeight;
-      const PAGE_H=_printHeightPt/(_scalePct/100)-12;
-          const _rowH = function(n){ const h = wsMain.getRow(n).height; return (typeof h === 'number' && h > 0) ? h : 15; };
-          let pageY = 0;
-          for (let n = dayTitleRow.number; n <= wsMain.lastRow.number; n++) pageY += _rowH(n);
-          let prevDetailRow = null;
-          const _dataRows = day.dataRows || [];
-          _dataRows.forEach(function(row, ri){
-            const isLast = ri === (_dataRows.length - 1);
-            /* 머지셀은 엑셀이 자동 행높이를 못 잡으므로, 셀 내용을 열 폭으로 wrap 해 줄수를 추정하여 높이 지정.
-             *  (줄바꿈 \n + 길이 기준 wrap. 한글/전각은 폭 2로 세어 살짝 넉넉하게 → 잘림 방지. 사용자 보고 2026-06-16) */
-            let _lines = 1;
-            for (let k=0;k<dayColCount;k++){
-              const v = row[k]; if (v == null || v === '') continue;
-              const charW = Math.max(4, (baseCols[k]||7) * _baseColW);
-              const segs = String(v).split('\n');
-              let ln = 0;
-              for (let si=0; si<segs.length; si++){
-                const s = segs[si]; let w = 0;
-                for (let ci=0; ci<s.length; ci++){ w += (s.charCodeAt(ci) > 127) ? 2 : 1; }
-                ln += Math.max(1, Math.ceil(w / charW));
-              }
-              if (ln > _lines) _lines = ln;
-            }
-            const _h = Math.max(20, _lines * 15);
-            /* 이 행을 넣으면 페이지를 넘는다 → 직전 행 굵은 아래선으로 닫고 페이지 나눔 + 열 제목 반복 */
-            if (prevDetailRow && (pageY + _h) > PAGE_H){
-              _closeRowBottom(prevDetailRow);
-              wsMain.getRow(wsMain.lastRow.number + 1).addPageBreak();
-              _detailRow(dayHdrLabels, true, false, 22);
-              pageY = 22;
-            }
-            prevDetailRow = _detailRow(row, false, isLast, _h);
-            pageY += _h;
-          });
+          const detailHeader = _detailRow(dayHdrLabels, true, false, 22);
+          const rows = day.dataRows || [];
+          rows.forEach(function(row, i){ _detailRow(row, false, i === rows.length - 1, 20); });
+          printLayout.table(wsMain, { start:visitTitle.number, headerEnd:detailHeader.number,
+            end:wsMain.lastRow.number, context:[dayTitleRow.number],
+            sequenceColumn:/^순/.test(dayHdrLabels[0]||'')?FIRST:0 });
+
         });
         /* 인쇄 영역 = 실제 사용 범위(A1 ~ 마지막 열/행, 좌측 여백 열 포함) → 페이지 나누기 미리보기에서 그 바깥이 회색(비인쇄)으로 표시됨 (사용자 요청 2026-06-16) */
         try { wsMain.pageSetup.printArea = 'A1:' + wsMain.getColumn(LAST).letter + wsMain.lastRow.number; } catch (_) {}
-        const buf2 = await wb.xlsx.writeBuffer();
+        printLayout.finish(wb);
+        const buf2 = await printLayout.writeBuffer(wb);
         return { success:true, bytes: Array.from(new Uint8Array(buf2)) };
       }
 
@@ -3603,7 +3553,8 @@ app.whenReady().then(() => {
           });
           _buildDiarySheet(wsExtra, ds.payload || {});
         });
-        const buf2 = await wb.xlsx.writeBuffer();
+        printLayout.finish(wb);
+        const buf2 = await printLayout.writeBuffer(wb);
         return { success:true, bytes: Array.from(new Uint8Array(buf2)) };
       }
 
@@ -3693,22 +3644,7 @@ app.whenReady().then(() => {
       dataRows.forEach(function(row, ri) {
         const tr = ws.addRow(row);
         const isLastRow = (ri === dataRows.length - 1);
-        /* 긴 증상/처치 등 wrap 셀의 행높이 자동맞춤 — ExcelJS 자동높이 미지원 보정 (사용자 보고 2026-06-16).
-         *  열 폭(colWidths/7)으로 내용을 wrap 해 줄수 추정. 한글/전각은 폭 2로 넉넉히 → 잘림 방지. */
-        let _lines = 1;
-        for (let k = 0; k < colCount; k++) {
-          const v = row[k]; if (v == null || v === '') continue;
-          const charW = Math.max(6, (colWidths[k] != null ? colWidths[k] / 7 : 14));
-          const segs = String(v).split('\n');
-          let ln = 0;
-          for (let si = 0; si < segs.length; si++) {
-            const s = segs[si]; let w = 0;
-            for (let ci = 0; ci < s.length; ci++) { w += (s.charCodeAt(ci) > 127) ? 2 : 1; }
-            ln += Math.max(1, Math.ceil(w / charW));
-          }
-          if (ln > _lines) _lines = ln;
-        }
-        tr.height = Math.max(18, _lines * 14);
+        tr.height = 18; // Final print preparation measures and splits long rows.
         for (let i = 1; i <= colCount; i++) {
           const c = tr.getCell(i);
           c.font = { size: 10, name: '맑은 고딕' };
@@ -3729,11 +3665,12 @@ app.whenReady().then(() => {
         fr.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
       }
       /* 인쇄 시 8행까지 매 페이지 반복 */
-      ws.pageSetup.printTitlesRow = '1:8';
+      printLayout.table(ws,{start:1,headerEnd:8,end:ws.lastRow.number,sequenceColumn:/^순/.test(headerLabels[0]||'')?1:0});
       /* 인쇄 영역 = 실제 사용 범위 → 페이지 나누기 미리보기에서 그 바깥이 회색(비인쇄)으로 표시 (사용자 요청 2026-06-16) */
       try { ws.pageSetup.printArea = 'A1:' + ws.getColumn(colCount).letter + ws.lastRow.number; } catch (_) {}
 
-      const buf = await wb.xlsx.writeBuffer();
+      printLayout.finish(wb);
+      const buf = await printLayout.writeBuffer(wb);
       return { success: true, bytes: Array.from(new Uint8Array(buf)) };
     } catch (e) {
       console.error('[xlsx-build-diary]', e);
@@ -3746,6 +3683,7 @@ app.whenReady().then(() => {
   ipcMain.handle('xlsx-build-counsel', async (_, payload) => {
     try {
       const ExcelJS = require('exceljs');
+      const printLayout = require('./src/main/legacy-excel-print.cjs').createLegacyPrintLayout();
       const wb = new ExcelJS.Workbook();
       wb.creator = '오렌지톡';
       const records = (payload && Array.isArray(payload.records)) ? payload.records : [];
@@ -3777,9 +3715,12 @@ app.whenReady().then(() => {
         /* 의뢰 경로 — A 라벨 + B:D 병합 값(테두리는 마스터 B 에만) */
         R++; { const r = ws.getRow(R); r.height = 20; label(r.getCell(1), '의뢰 경로'); ws.mergeCells(R, 2, R, 4); value(r.getCell(2), d.route); }
         /* 섹션(제목 병합 + 본문 병합) — 테두리는 각 병합의 마스터 셀에만 */
+        for(let n=1;n<=8;n++) printLayout.mark(ws,n,{keepNext:true});
         const section = (title, body) => {
+          const start = R + 1;
           R++; { ws.mergeCells(R, 1, R, 4); const r = ws.getRow(R); r.height = 20; const c = r.getCell(1); c.value = title; c.font = { bold: true, size: 11, name: FONT }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; setB(c); }
           R++; { ws.mergeCells(R, 1, R, 4); const r = ws.getRow(R); r.height = 76; const c = r.getCell(1); c.value = (body == null ? '' : String(body)); c.font = { size: 10, name: FONT }; c.alignment = { horizontal: 'left', vertical: 'top', wrapText: true }; setB(c); }
+          printLayout.table(ws,{start,headerEnd:start,end:R,context:[1,2,3,4,5,6,7,8]});
         };
         section('상담 내용 (주호소)', d.content);
         section('조치 및 지도 내용', d.action);
@@ -3789,9 +3730,11 @@ app.whenReady().then(() => {
         R++; { ws.mergeCells(R, 1, R, 4); const r = ws.getRow(R); r.height = 20; const c = r.getCell(1); c.value = '추후 계획 · 작성 정보'; c.font = { bold: true, size: 11, name: FONT }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; setB(c); }
         R++; { const r = ws.getRow(R); r.height = 20; label(r.getCell(1), '재상담 예정일'); value(r.getCell(2), d.followUp); label(r.getCell(3), '상담자'); value(r.getCell(4), d.nurse); }
         R++; { const r = ws.getRow(R); r.height = 20; label(r.getCell(1), '작성일'); value(r.getCell(2), d.today); label(r.getCell(3), '학교'); value(r.getCell(4), d.school); }
+        printLayout.table(ws,{start:R-2,headerEnd:R-2,end:R,context:[1,2,3,4,5,6,7,8]});
         try { ws.pageSetup.printArea = 'A1:D' + R; } catch (_) {}
       });
-      const buf = await wb.xlsx.writeBuffer();
+      printLayout.finish(wb);
+      const buf = await printLayout.writeBuffer(wb);
       return { success: true, bytes: Array.from(new Uint8Array(buf)) };
     } catch (e) {
       console.error('[xlsx-build-counsel]', e);

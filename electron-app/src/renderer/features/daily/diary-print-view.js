@@ -1210,7 +1210,6 @@ async function _dpExportCounselExcel(){
 }
 async function exportDiaryExcel(){
   if(!window.electronAPI||!window.electronAPI.xlsxBuildDiary){bus.emit('toast:show',{text:'Excel 빌드 IPC 미구성'});return;}
-  const diaryExcelOptions={template:'legacy'};
   /* 매일 한 페이지 형식: 기존 단일 워크시트 출력 */
   if(_dpFormat==='daily'){
     return _exportDailyExcel();
@@ -1305,7 +1304,6 @@ async function exportDiaryExcel(){
   }
   /* (오버레이는 위에서 이미 표시 — 여기서 다시 열면 카운터가 리셋됨) */
   window.electronAPI.xlsxBuildDiary(Object.assign({
-    diaryExcelOptions:diaryExcelOptions,
     colCount:colCount,
     colWidths:colWidths,
     headerLabels:headerLabels,
@@ -1381,7 +1379,6 @@ async function _buildDailyContinuousData(from,to){
 /* 매일 한 페이지 Excel — 단일 워크시트에 위 색상바·제목·색상바만 고정,
    이후 날짜별 방문 통계 + 방문 상세가 연속으로 쌓이며 각 날짜 전에 자동 페이지 나눔 */
 async function _exportDailyExcel(){
-  const diaryExcelOptions={template:'legacy'};
   const from=document.getElementById('dpFrom').value;
   const to=document.getElementById('dpTo').value;
   if(!from||!to){alert('먼저 미리보기를 실행하세요.');return;}
@@ -1415,7 +1412,6 @@ async function _exportDailyExcel(){
   /* 첫 날의 colWidths/colCount 를 워크시트 기본 열 폭으로 사용 */
   const first=data.days[0];
   const payload=Object.assign({},{
-    diaryExcelOptions:diaryExcelOptions,
     colCount:first.colCount,
     colWidths:first.colWidths,
     titleText:'일일 보건일지',

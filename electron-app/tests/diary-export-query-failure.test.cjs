@@ -78,7 +78,8 @@ for (const template of ['legacy', 'official', 'approval']) {
     await context._exportDailyExcel({template}); await flush();
     assert.equal(events.errors.length, 1); assert.equal(events.builds.length, 1); assert.equal(events.delivered.length, 1);
     const payload = events.builds[0];
-    assert.equal(payload.diaryExcelOptions.template, template);
+    // Optional templates were removed in 1.1.16; stale choices use legacy too.
+    assert.equal(payload.diaryExcelOptions, undefined);
     assert.deepEqual(Array.from(payload.continuousDays, d => d.date), ['2026-09-01', '2027-02-28']);
     assert(!JSON.stringify(payload).includes('CACHE-ONLY'));
     assert(JSON.stringify(payload).includes('0.5 tablet')); assert(JSON.stringify(payload).includes('110/70'));

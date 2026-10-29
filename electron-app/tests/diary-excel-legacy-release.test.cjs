@@ -28,7 +28,7 @@ function handlerFrom(source){
   // ExcelJS and the main-process callback share a realm in production. Clone
   // renderer payloads at the simulated IPC boundary instead of passing VM arrays.
   const callback=new Function('require','console','return ('+source.slice(found.start,found.end)+');')(
-    name=>{assert.equal(name,'exceljs','Optional layouts and all other dependencies are blocked');return ExcelJS;},
+    name=>{if(name==='exceljs')return ExcelJS;assert.equal(name,'./src/main/legacy-excel-print.cjs');return require(path.join(root,'src/main/legacy-excel-print.cjs'));},
     {error(){}}
   );
   return (event,payload)=>callback(event,clone(payload));
@@ -93,6 +93,8 @@ test('release removes the chooser and optional backend dependency',()=>{
   assert(!functions.some(node=>node.id.name==='_dpShowExcelGuide'));
   assert(!renderer.includes('dpExcelGuideOverlay'));assert(!renderer.includes('dpExcelTemplate'));
   assert(!main.includes("require('./src/main/diary-excel-layout.cjs')"));
+  assert(!fs.existsSync(path.join(root,'src/main/diary-excel-layout.cjs')));
+  assert(!renderer.includes('diaryExcelOptions'));
 });
 test('1.1.16 keeps four release notes without a new-template claim',()=>{
   const decl=parse(notes).body.find(n=>n.type==='ExportNamedDeclaration')?.declaration;
@@ -122,7 +124,12 @@ for(const template of [undefined,'legacy','official','approval','unknown'])for(c
     assert.equal(JSON.stringify(input),original);assert.equal(book.worksheets.length,1);
     const text=workbookText(book);for(const token of ['가상약A','0.5정','37.4','110/70','BST 0'])assert(text.includes(token),token);
     if(daily)assert(text.includes('LAST SYNTHETIC'));
-    if(baselineHandler)assert.deepEqual(await normalizedPackage(output),await normalizedPackage(await baselineHandler(null,{...base,diaryExcelOptions:{template:'legacy'}})),'Existing worksheet XML/style/print settings changed');
+    if(baselineHandler){
+      const prior=await workbookFrom(await baselineHandler(null,base));
+      prior.eachSheet(sheet=>sheet.eachRow(row=>row.eachCell(cell=>{
+        if((!cell.isMerged||cell.master.address===cell.address)&&cell.text.trim())assert(text.includes(cell.text),'Baseline text missing: '+cell.address);
+      })));
+    }
   });
 }
 const scenarios=[
@@ -136,14 +143,14 @@ for(const [name,extra,tokens]of scenarios)test('daily save without chooser prese
   const {ctx,events,flush}=make(),rows=[record(extra)],original=JSON.stringify(rows),settings=JSON.stringify(ctx.S.settings);
   ctx.window.electronAPI.recordsDailyByDateRange=async()=>({success:true,data:rows});
   await ctx.exportDiaryExcel();await flush();assert.equal(events.saves.length,1);assert.equal(events.errors.length,0);
-  assert.equal(events.builds[0].diaryExcelOptions.template,'legacy');
+  assert.equal(events.builds[0].diaryExcelOptions,undefined);
   const book=await workbookFrom({success:true,bytes:events.saves[0][1]});const text=workbookText(book);
   for(const token of tokens)assert(text.includes(token),'Missing '+token);
   assert.equal(JSON.stringify(rows),original);assert.equal(JSON.stringify(ctx.S.settings),settings);
 });
 for(const template of ['official','approval'])test('stale daily option is ignored: '+template,async()=>{
   const {ctx,events,flush}=make();ctx.window.electronAPI.recordsDailyByDateRange=async()=>({success:true,data:[record()]});
-  await ctx._exportDailyExcel({template});await flush();assert.equal(events.builds[0].diaryExcelOptions.template,'legacy');assert.equal(events.saves.length,1);
+  await ctx._exportDailyExcel({template});await flush();assert.equal(events.builds[0].diaryExcelOptions,undefined);assert.equal(events.saves.length,1);
 });
 test('flat export bypasses chooser and merges V/S into treatment, not nurse',async()=>{
   const {ctx,controls,events,flush}=make();ctx._dpFormat='list';ctx._dpIsCounselIndividual=()=>false;
@@ -153,7 +160,7 @@ test('flat export bypasses chooser and merges V/S into treatment, not nurse',asy
   const table={querySelectorAll:()=>[{classList:{contains:()=>false},querySelectorAll:()=>raw.map(textContent=>({textContent}))}]};
   controls.dpPreviewArea={querySelectorAll:()=>[table],querySelector:()=>table};
   await ctx.exportDiaryExcel();await flush();assert.equal(events.saves.length,1);assert.equal(events.errors.length,0);
-  const data=events.builds[0];assert.equal(data.diaryExcelOptions.template,'legacy');assert.equal(data.dataRows[0][2],'SYNTHETIC NURSE');
+  const data=events.builds[0];assert.equal(data.diaryExcelOptions,undefined);assert.equal(data.dataRows[0][2],'SYNTHETIC NURSE');
   for(const token of ['37.4','110/70','BST 0','0.5정'])assert(data.dataRows[0][4].includes(token),token);
 });
 test('individual counsel export keeps its existing dedicated route',async()=>{

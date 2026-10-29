@@ -59,7 +59,7 @@ function _printVisitContinuation(node) {
   var clone=node.cloneNode(true);
   clone.classList.add('dp-visit-continuation');
   Array.from(clone.cells||[]).forEach(function(cell){
-    if(cell.classList.contains('dpx-l')) cell.textContent='(계속)';
+    if(cell.classList.contains('dpx-l')||(cell.classList.contains('dpx-dc')&&!cell.classList.contains('dpx-c'))) cell.textContent='(계속)';
   });
   return clone.outerHTML;
 }
@@ -70,7 +70,27 @@ function _paginateWithHeaders(doc, pageH, preserveAttributes){
   Array.from(doc.body.querySelectorAll('style,link[rel="stylesheet"]')).forEach(function(style){ doc.head.appendChild(style); });
   var win=doc.defaultView||window;
   function H(el){ return el.getBoundingClientRect().height; }
-  function MB(el){ try{ return parseFloat(win.getComputedStyle(el).marginBottom)||0; }catch(e){ return 0; } }
+  // BoundingClientRect excludes margins. Account for both sides, including table zoom.
+  // Counting adjacent margins separately is conservative when CSS collapses them.
+  function margin(el,side){ try{ var s=win.getComputedStyle(el); return Math.max(0,parseFloat(s[side])||0)*(parseFloat(s.zoom)||1); }catch(e){ return 0; } }
+  function MB(el){ return margin(el,'marginBottom'); }
+  // Some callers already group complete pages inside one styled wrapper.
+  // Preserve those explicit boundaries instead of pixel-slicing the wrapper.
+  Array.from(doc.body.children).forEach(function(wrapper){
+    if(wrapper.tagName==='TABLE')return;
+    var children=Array.from(wrapper.children);
+    if(children.length<2||Array.from(wrapper.childNodes).some(function(n){return n.nodeType===3&&n.textContent.trim();}))return;
+    var breaks=children.map(function(child){var s=win.getComputedStyle(child);return s.breakAfter==='page'||s.pageBreakAfter==='always';});
+    if(!breaks.slice(0,-1).every(Boolean))return;
+    children.forEach(function(child,index){
+      var page=wrapper.cloneNode(false);
+      page.removeAttribute('id');
+      page.style.breakAfter=breaks[index]?'page':'auto';
+      child.style.breakAfter='auto';child.style.pageBreakAfter='auto';
+      page.appendChild(child);wrapper.before(page);
+    });
+    wrapper.remove();
+  });
   var items=[];
   Array.prototype.forEach.call(doc.body.children, function(child){
     if((child.tagName||'').toLowerCase()==='table'){
@@ -86,13 +106,13 @@ function _paginateWithHeaders(doc, pageH, preserveAttributes){
         else if(stag==='tr'){ rows.push({html:sec.outerHTML, h:H(sec), wrap:true, node:sec}); }
       });
       rows=_groupPrintVisitRows(rows);
-      items.push({kind:'table', attrs:preserveAttributes?Array.from(child.attributes).map(function(a){return ' '+a.name+'="'+escHtml(a.value)+'"';}).join(''):null, style:child.getAttribute('style')||'', col:col?col.outerHTML:'', thead:thead?thead.outerHTML:'', theadH:thead?H(thead):0, rows:rows, mb:MB(child)});
+      items.push({kind:'table', attrs:preserveAttributes?Array.from(child.attributes).map(function(a){return ' '+a.name+'="'+escHtml(a.value)+'"';}).join(''):null, style:child.getAttribute('style')||'', col:col?col.outerHTML:'', thead:thead?thead.outerHTML:'', theadH:(thead?H(thead):0)+margin(child,'marginTop')+1, rows:rows, mb:MB(child)});
     } else {
       /* 명시적 페이지 브레이크(page-break-after:always / break-after:page) 감지 — 표지(.dp-pdf-cover) 등
        *  "이 블록으로 페이지를 끝내라"는 문서 의도를 재구성 시에도 존중 (사용자 보고 2026-08-27: 인쇄 표지 미분리) */
       var _brk=false;
       try{ var _cs=win.getComputedStyle(child); _brk=(_cs.breakAfter==='page'||_cs.pageBreakAfter==='always'); }catch(e){}
-      items.push({kind:'block', html:child.outerHTML, h:H(child), mb:MB(child), brk:_brk});
+      items.push({kind:'block', node:child, html:child.outerHTML, h:H(child), mt:margin(child,'marginTop'), mb:MB(child), brk:_brk, heading:child.matches('h1,h2,h3,h4,h5,h6,.dpx-sh,.dpx-st')});
     }
   });
   if(!items.length) return null;
@@ -102,12 +122,6 @@ function _paginateWithHeaders(doc, pageH, preserveAttributes){
   probe.style.cssText='position:absolute;left:-99999px;top:0;width:100%;visibility:hidden';
   doc.body.appendChild(probe);
   function styleAttr(item){ if(item.attrs!==null) return item.attrs; return item.style?(' style="'+item.style.replace(/"/g,'&quot;')+'"'):''; }
-  function longCellIdx(node){ var idx=0,max=-1; for(var j=0;j<node.children.length;j++){ var t=(node.children[j].textContent||'').length; if(t>max){max=t;idx=j;} } return idx; }
-  function rowHtmlWith(node, idx, text){   /* 긴 셀(idx)만 text 로 바꾸고 나머지 셀(라벨 등)은 그대로 → 라벨이 매 페이지 반복 */
-    var clone=node.cloneNode(true);
-    if(clone.children[idx]) clone.children[idx].textContent=text;
-    return clone.outerHTML;
-  }
   function measureRowHtml(item, rowHtml){
     probe.innerHTML='<table'+styleAttr(item)+'>'+item.col+'<tbody>'+rowHtml+'</tbody></table>';
     var tr=probe.querySelector('tr');
@@ -125,29 +139,55 @@ function _paginateWithHeaders(doc, pageH, preserveAttributes){
     if(open) out+='</tbody>';
     return out;
   }
-  items.forEach(function(item){
+  items.forEach(function(item,itemIndex){
     if(item.kind==='block'){
+      var next=items[itemIndex+1];
+      if(item.heading&&next&&next.kind==='table'&&next.rows.length){
+        var first=next.rows[0].parts?next.rows[0].parts[0]:next.rows[0];
+        var firstH=first.h>pageH-next.theadH?28:first.h;
+        var together=item.mt+item.h+item.mb+next.theadH+firstH;
+        if(used>0&&together<=pageH&&used+together>pageH)flush();
+      }
       /* ★ 페이지보다 큰 '분할 불가 블록' — 세로 오프셋 슬라이스로 페이지에 정확히 배분 (2026-08-26).
        *  옛 로직은 이런 블록을 한 페이지(height 고정+overflow:hidden)에 통째로 넣어 넘치는 내용이
        *  소리 없이 잘려 나갔다(보건일지 '특정 방문자' 인쇄 11건→5건 잘림 사고).
        *  각 페이지 조각 = 블록 전체를 복제해 위로 -offset 만큼 밀고 pageH 로 클립 → 픽셀 단위로
        *  이어지는 연속 분할. 미리보기와 인쇄가 같은 문서를 쓰므로 '보이는 대로 인쇄'가 유지되고
        *  내용은 몇 페이지가 되든 전량 출력된다. */
-      if(item.h>pageH){
+      if(item.h+item.mt>pageH){
         if(used>0) flush();
+        // A large preformatted sheet cannot be split as table rows. Slice only
+        // between rendered text lines, never through the middle of a glyph.
+        var origin=item.node.getBoundingClientRect().top-item.mt, lines=[];
+        var walker=doc.createTreeWalker(item.node,4), textNode;
+        while((textNode=walker.nextNode())){
+          if(!textNode.textContent.trim())continue;
+          var range=doc.createRange();range.selectNodeContents(textNode);
+          Array.from(range.getClientRects()).forEach(function(r){if(r.width&&r.height)lines.push({top:r.top-origin,bottom:r.bottom-origin});});
+        }
+        Array.from(item.node.querySelectorAll('img,svg')).forEach(function(image){var r=image.getBoundingClientRect();if(r.height<=pageH)lines.push({top:r.top-origin,bottom:r.bottom-origin});});
         var off=0, sliceH=0;
-        while(off<item.h){
-          sliceH=Math.min(pageH, item.h-off);
-          cur.push('<div style="height:'+Math.ceil(sliceH)+'px;overflow:hidden"><div style="margin-top:-'+Math.floor(off)+'px">'+item.html+'</div></div>');
+        while(off<item.h+item.mt){
+          sliceH=Math.min(pageH, item.h+item.mt-off);
+          if(off+sliceH<item.h+item.mt){
+            var end=off+sliceH, changed=true;
+            while(changed){
+              changed=false;
+              lines.forEach(function(line){if(line.top<end&&line.bottom>end){end=line.top;changed=true;}});
+            }
+            if(end<=off+1)throw new Error('문서의 한 줄이 인쇄 영역을 넘습니다. 출력을 중단했습니다.');
+            sliceH=end-off;
+          }
+          cur.push('<div data-a4-slice style="height:'+sliceH+'px;overflow:hidden"><div style="display:flow-root;transform:translateY(-'+off+'px)">'+item.html+'</div></div>');
           off+=sliceH;
-          if(off<item.h) flush();
+          if(off<item.h+item.mt) flush();
         }
         used=sliceH+item.mb;   /* 마지막 조각 높이만 현재 페이지 사용분으로 — 남는 공간엔 후속 항목이 이어짐 */
         if(item.brk&&used>0) flush();   /* 명시적 page-break — 이 블록으로 페이지 종료 (2026-08-27) */
         return;
       }
-      if(used+item.h>pageH && used>0) flush();
-      cur.push(item.html); used+=item.h+item.mb;
+      if(used+item.mt+item.h+item.mb>pageH && used>0) flush();
+      cur.push(item.html); used+=item.mt+item.h+item.mb;
       if(item.brk&&used>0) flush();     /* 명시적 page-break (표지 등) — 다음 내용은 새 페이지부터 (2026-08-27) */
       return;
     }
@@ -189,19 +229,40 @@ function _paginateWithHeaders(doc, pageH, preserveAttributes){
       } else {
         /* 한 페이지보다 큰 행 → 긴 셀 텍스트를 잘라 여러 페이지로 흘림. 첫 조각은 앞 행들과 같은 페이지에 이어 붙임 */
         if(!chunkRows.length){ if(used>0 && (pageH-used-item.theadH)<28) flush(); used+=item.theadH; }
-        var node=row.node, idx=longCellIdx(node);
-        var tokens=((node.children[idx]?node.children[idx].textContent:'')||'').split(/(\s+)/);  /* 공백 보존 토큰 */
-        if(tokens.length<2){ chunkRows.push(row); used+=row.h; i++; continue; }                 /* 분할 불가(드묾) */
-        var pos=0;
-        while(pos<tokens.length){
+        var node=row.node;
+        if(!node.cells)throw new Error('한 페이지보다 큰 표 묶음의 내용을 확인해 주세요. 출력을 중단했습니다.');
+        // Split every narrative cell, not only the longest one. Short identity
+        // cells and labels repeat; consumed narrative text is never duplicated.
+        var cells=Array.from(node.cells), texts=cells.map(function(c){return Array.from(c.textContent||'');});
+        var repeat=cells.map(function(c,j){return c.tagName==='TH'||(c.classList.contains('dpx-c')&&texts[j].length<80);});
+        var positions=cells.map(function(){return 0;});
+        function piece(counts){
+          var clone=node.cloneNode(true);
+          cells.forEach(function(c,j){if(!repeat[j])clone.cells[j].textContent=texts[j].slice(positions[j],positions[j]+counts[j]).join('');});
+          return clone.outerHTML;
+        }
+        function remaining(){return texts.some(function(t,j){return !repeat[j]&&positions[j]<t.length;});}
+        if(!remaining())throw new Error('인쇄 영역보다 큰 기록을 나누지 못해 출력을 중단했습니다.');
+        while(remaining()){
           var avail=pageH-used-12;                        /* 현재 페이지 남은 높이(12px 안전여유) */
           if(avail<28){ pushChunk(); flush(); used+=item.theadH; avail=pageH-used-12; }          /* 한 줄도 안 되면 다음 페이지 */
-          var lo=pos+1, hi=tokens.length, best=pos+1;
-          while(lo<=hi){ var midN=(lo+hi)>>1; var h=measureRowHtml(item, rowHtmlWith(node,idx,tokens.slice(pos,midN).join(''))); if(h<=avail){best=midN;lo=midN+1;}else{hi=midN-1;} }
-          var pieceHtml=rowHtmlWith(node, idx, tokens.slice(pos,best).join(''));
+          var counts=cells.map(function(){return 0;});
+          texts.forEach(function(chars,j){
+            if(repeat[j]||positions[j]>=chars.length)return;
+            var lo=1,hi=chars.length-positions[j],best=0;
+            while(lo<=hi){var midN=(lo+hi)>>1;counts[j]=midN;if(measureRowHtml(item,piece(counts))<=avail){best=midN;lo=midN+1;}else{hi=midN-1;}}
+            // Prefer a word/newline boundary, but also handle unspaced Korean.
+            if(best<chars.length-positions[j])for(var k=best;k>best/2;k--){if(/\s/.test(chars[positions[j]+k-1])){best=k;break;}}
+            counts[j]=best;
+          });
+          if(!counts.some(function(n){return n>0;})){
+            if(used>item.theadH+1){pushChunk();flush();used+=item.theadH;continue;}
+            throw new Error('기록의 한 줄이 인쇄 영역을 넘습니다. 출력을 중단했습니다.');
+          }
+          var pieceHtml=piece(counts);
           chunkRows.push({html:pieceHtml, wrap:true}); used+=measureRowHtml(item, pieceHtml);
-          pos=best;
-          if(pos<tokens.length){ pushChunk(); flush(); used+=item.theadH; }   /* 남은 글 → 다음 페이지(제목 반복) */
+          positions=positions.map(function(pos,j){return pos+counts[j];});
+          if(remaining()){ pushChunk(); flush(); used+=item.theadH; }   /* 남은 글 → 다음 페이지(제목 반복) */
         }
         i++;
       }
@@ -257,6 +318,54 @@ function _buildPaginatedDoc(headHtml, pages, mm, firstNum, total, pageHmm){
     +'.a4pf{position:absolute;right:0;bottom:0;font-size:10px;color:#555;-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>';
   var b=pages.map(function(p,i){ return '<div class="a4pp">'+p+'<div class="a4pf">'+(base+i)+' / '+tot+'</div></div>'; }).join('');
   return '<!DOCTYPE html><html><head>'+headHtml+css+'</head><body>'+b+'</body></html>';
+}
+
+// Verify the assembled pages, not only the input row heights. Do not send a
+// clipped document to PDF generation or the printer.
+function _assertA4PageBounds(doc){
+  var pages=Array.from(doc.querySelectorAll('body > .a4pp'));
+  if(!pages.length)throw new Error('출력할 페이지가 없습니다.');
+  pages.forEach(function(page,index){
+    var bounds=page.getBoundingClientRect(), footer=page.querySelector(':scope > .a4pf');
+    var bottom=footer?footer.getBoundingClientRect().top-3:bounds.bottom;
+    function outside(r){return r.width>0&&r.height>0&&(r.left<bounds.left-1.5||r.right>bounds.right+1.5||r.top<bounds.top-1.5||r.bottom>bottom+1.5);}
+    var clipped=Array.from(page.children).some(function(child){return child!==footer&&outside(child.getBoundingClientRect());});
+    // Check visible glyphs as well as borders. A slice may hide whole lines,
+    // but must never expose only part of a line at either viewport edge.
+    var walker=doc.createTreeWalker(page,4), node;
+    while(!clipped&&(node=walker.nextNode())){
+      if(!node.textContent.trim()||node.parentElement.closest('.a4pf,style,script'))continue;
+      var range=doc.createRange();range.selectNodeContents(node);
+      var slice=node.parentElement.closest('[data-a4-slice]'), clip=slice&&slice.getBoundingClientRect();
+      clipped=Array.from(range.getClientRects()).some(function(r){
+        if(clip){
+          if(r.bottom<=clip.top||r.top>=clip.bottom)return false;
+          if(r.top<clip.top-1.5||r.bottom>clip.bottom+1.5)return true;
+        }
+        return outside(r);
+      });
+    }
+    if(clipped)throw new Error((index+1)+'쪽의 내용이 인쇄 영역을 넘어 출력을 중단했습니다. 잘린 파일은 저장하지 않았습니다.');
+  });
+}
+function _validateA4PrintDocument(html,contentW){
+  return new Promise(function(resolve,reject){
+    var frame=document.createElement('iframe'),done=false;
+    frame.setAttribute('sandbox','allow-same-origin');frame.setAttribute('aria-hidden','true');
+    frame.style.cssText='position:fixed;left:-99999px;top:0;width:'+contentW+'px;height:900px;border:0;visibility:hidden';
+    function finish(error){if(done)return;done=true;clearTimeout(timer);frame.remove();if(error)reject(error);else resolve();}
+    var timer=setTimeout(function(){finish(new Error('출력 페이지 확인 시간이 초과되었습니다. 다시 시도해 주세요.'));},30000);
+    frame.onload=async function(){
+      try{
+        var doc=frame.contentDocument;if(!doc||!doc.body)throw new Error('출력 페이지를 확인하지 못했습니다.');
+        if(doc.fonts)await doc.fonts.ready;
+        await Promise.all(Array.from(doc.images).map(function(img){return img.complete?Promise.resolve():new Promise(function(r){img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});});}));
+        if(done)return;
+        _assertA4PageBounds(doc);finish();
+      }catch(error){finish(error);}
+    };
+    frame.srcdoc=html;document.body.appendChild(frame);
+  });
 }
 
 /* A4 프린터 드롭다운 채우기 — 우선순위: 저장된 a4_printer > (감열 아닌) OS 기본 > 감열 아닌 첫 프린터 > OS 기본.
@@ -333,12 +442,11 @@ export function saveA4Pdf(opts){
   if(!opts.cssMargins) return _doA4Pdf(opts.html, opts.title, false);
   /* cssMargins: 페이지별 본문 재구성 + 쪽번호 footer 가 박힌 문서로 변환 후 저장 (미리보기/인쇄와 동일) */
   var mm=opts.marginsMm||{top:20,bottom:20,left:12,right:12};
-  var A4W=794, mmToPx=A4W/210;
-  var contentW=A4W-Math.round((mm.left||0)*mmToPx)-Math.round((mm.right||0)*mmToPx);
-  var packH=Math.round(_ppHeightMm(mm)*mmToPx)-18;
-  return _measureAndPaginate(opts.html, contentW, packH).then(function(r){
-    var doc=(r.pages&&r.pages.length)?_buildPaginatedDoc(r.headHtml, r.pages, mm):opts.html;
-    return _doA4Pdf(doc, opts.title, true);
+  return prepareA4PrintDocument(opts.html,{marginsMm:mm,landscape:opts.landscape===true}).then(function(doc){
+    return _doA4Pdf(doc.html, opts.title, true, doc.layout.landscape);
+  }).catch(function(error){
+    alert('PDF 저장 실패: '+(error.message||error));
+    return {success:false,error:error.message||String(error)};
   });
 }
 
@@ -456,6 +564,6 @@ export function prepareA4PrintDocument(html,opts){
     var head=r.headHtml+pageCss;
     var doc=_buildPaginatedDoc(head,r.pages,mm,undefined,undefined,heightMm);
     doc=doc.replace('<html>','<html data-a4-prepared="1" data-a4-layout="'+escHtml(JSON.stringify(layout))+'">');
-    return {html:doc,headHtml:head,pages:r.pages,layout:layout};
+    return _validateA4PrintDocument(doc,contentW).then(function(){return {html:doc,headHtml:head,pages:r.pages,layout:layout};});
   });
 }
