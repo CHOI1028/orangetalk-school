@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
-import { S } from '../../core/app-state.js';
+import '../../core/app-state.js';
 import { escHtml, closeModalGracefully } from '../../core/helpers.js';
 import { _makeDraggable } from '../symptom/symptom-view.js';
 import { getNlMerge, _nlStore } from '../newsletter/newsletter-misc-view.js';

@@ -2894,8 +2894,7 @@ function _ssePush(){
 function _bumpDataVersion(){ _dataVersion = Date.now(); _ssePush(); }
 /* 메인(Electron) 직접 write 감지 — WAL mtime 변화를 1초마다 확인해 푸시 (구독자 있을 때만). */
 setInterval(() => { if (_sseClients.size) _ssePush(); }, 1000);
-/* records-* 계열 IPC 채널 호출 시 버전 자동 증가 래퍼 */
-function _wrapWrite(h){ return function(p){ const r = h(p); _bumpDataVersion(); return r; }; }
+
 
 /* 외부 접근 추적 미들웨어 — 모든 요청을 보고 어느 포트로 들어왔는지 기록
  *  · req.socket.localPort: 이 요청이 받은 서버 측 포트 (다중 listen 시 분기 가능)

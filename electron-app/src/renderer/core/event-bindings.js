@@ -27,7 +27,7 @@ import { _setupSelectLevel, showLoginScreen } from '../features/shell/splash-log
 import { appConfirmModal } from './ui-utils.js';
 
 /* ── daily ── */
-import { sidebarSearch, toggleSideCharts, goToPrevDay, goToNextDay, dailySortByTime, togglePrivacyMode, openMedFacilityPopup, dailySortByCol, _bindNameHoverVisitHistory, _hideVisitHistory } from '../features/daily/daily-view.js';
+import { sidebarSearch, toggleSideCharts, goToPrevDay, goToNextDay, dailySortByTime, openMedFacilityPopup, dailySortByCol, _bindNameHoverVisitHistory, _hideVisitHistory } from '../features/daily/daily-view.js';
 import { dailyAutoComplete, dailySearchKeydown, selectStudent } from '../features/daily/daily-autocomplete.js';
 import { openRentalLedger } from '../features/daily/rental-ledger-view.js';
 import { openDiaryPrint } from '../features/daily/diary-print-view.js';
@@ -55,7 +55,7 @@ import {
   vpHandleSigDrop, vpHandleSigFile,
   vpeBgHandleDrop, vpeBgLoadFile,
   vpeSetBgScale, vpeSetBgOffsetY, vpeSetBgOffsetX, vpeSetMarginSide,
-  vpExportFile, vpDirectDownload, vpDirectPrint, vpOpenPrintDialog,
+  vpExportFile, vpDirectDownload, vpOpenPrintDialog,
   vpeToggleStyle, vpeUpdateStyle, vpeTogglePalette,
   vpeTblBorderToggle, vpeCellBgApply,
   vpeAddObject, vpeAddTable, vpeAddImage,

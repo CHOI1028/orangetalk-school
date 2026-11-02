@@ -18,7 +18,7 @@
 import { escHtml, createEmptyState, getStu } from '../../core/helpers.js';
 import { openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
-import { S, DEFAULT_RELAY_URL, addRecord, saveKioskSettings, refreshSharedKioskSettings } from '../../core/app-state.js';
+import { S, DEFAULT_RELAY_URL, addRecord, refreshSharedKioskSettings } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
 import { playSoundMedia } from '../../core/sound-preferences.js';
 import { rentalAddFromKiosk, rentalMarkReturnedFromKiosk } from './rental-ledger-view.js';

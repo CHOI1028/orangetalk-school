@@ -1,13 +1,13 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
-import { escHtml, escJs, appConfirmModal } from '../../core/helpers.js';
+import { escHtml, appConfirmModal } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
 import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { renderSettingsPanel, openAccordion } from './settings-view.js';
 import { matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
 import { getSymData, _symPrompt, getMedSystemSyms, refreshMedHidden, getEffectiveSymCats, getEffectiveSymCatById, getMedicationBrowseMeta, getMedicationCategoryText, getMedicationCategoryOptions } from '../symptom/symptom-view.js';
 import { dailyColEyeIcon } from '../emergency/emergency-view.js';
-import { S, ensureHolidayYear } from '../../core/app-state.js';
+import { S } from '../../core/app-state.js';
 import { medicationSettings } from '../../core/medication-settings.js';
 import { showSchoolMealPopup, restartMealScheduler } from '../../core/school-meal.js';
 import { showTimetableModal } from '../../core/timetable.js';

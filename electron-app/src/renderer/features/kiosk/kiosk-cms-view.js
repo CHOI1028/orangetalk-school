@@ -12,10 +12,10 @@ import { renderSettingsPanel } from '../settings/settings-view.js';
 import { _makeDraggable } from '../symptom/symptom-view.js';
 import { openEmojiPicker } from './kiosk-emoji-picker.js';
 import { S, DEFAULT_RELAY_URL, saveKioskSettings } from '../../core/app-state.js';
-import { _fdDownloadKioskHtml, _fdGenerateKioskUrl, getFdSelectedOpts, clearFdSelectedOpts, _fdOpenKioskPreview, _fdReloadKioskPreview, kioskFlowDesignerHtml, _fdAttachEvents, setFdCallbacks, getDefaultFlowTemplate, getBasicFlowTemplate, fdMigrateFlow, fdEnsureDefaultTemplates, _fdFlushSave } from './kiosk-flow-designer.js';
-import { downloadKioskHtml, openKioskPreview, openKioskGalleryPreview, FLAG_SVGS, generateKioskUrl, showKioskUrlPopup } from './kiosk-html-builder.js';
+import { _fdGenerateKioskUrl, getFdSelectedOpts, clearFdSelectedOpts, kioskFlowDesignerHtml, _fdAttachEvents, setFdCallbacks, getDefaultFlowTemplate, getBasicFlowTemplate, fdMigrateFlow, fdEnsureDefaultTemplates, _fdFlushSave } from './kiosk-flow-designer.js';
+import { openKioskPreview, openKioskGalleryPreview, FLAG_SVGS, generateKioskUrl, showKioskUrlPopup } from './kiosk-html-builder.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
-import { kioskLangs, KIOSK_LANG_ALL, kioskToggleLang, kioskSetTrans, kioskGetTrans, kioskBuildTransContent, kioskOpenTransPrompt, kioskOpenPasteTranslation, kioskEnsureDefaultLangs, kioskEditorToggleLang, kioskGetForeignLangs, kioskBuildTransPhrases } from './kiosk-translation.js';
+import { KIOSK_LANG_ALL, kioskSetTrans, kioskOpenTransPrompt, kioskOpenPasteTranslation, kioskEnsureDefaultLangs, kioskEditorToggleLang } from './kiosk-translation.js';
 import { kioskUpdateSidebar } from './kiosk-view.js';
 
 let _skipSettingsAnim=false;

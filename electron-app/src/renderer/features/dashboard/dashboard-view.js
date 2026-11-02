@@ -6,12 +6,12 @@ import { showFeedback } from '../../core/ui-feedback.js';
 /* ES Module */
 import { getStu, escHtml, toDateStr, dateObj, getDow, isHoliday, getGrades, closeModalGracefully, compareClass } from '../../core/helpers.js';
 import { hasMultipleSchoolLevels, getLevelShort } from '../../core/student-utils.js';
-import { S, monthNames, dayNames, ensureHolidayYear } from '../../core/app-state.js';
+import { S, monthNames, ensureHolidayYear } from '../../core/app-state.js';
 import { _statMedicationStr, _statHasBed } from '../../core/record-utils.js';
 import { getCounselPrintFields } from '../../core/counsel-print-utils.js';
 import { _dashRenderSubTabs, _dashGetSubTabs, getFilteredRecords } from '../stats/stats-view.js';
 import { selectDate, _closeDateVisitors } from '../daily/daily-view.js';
-import { closeModalWithAnim, matchKorean } from '../daily/daily-autocomplete.js';
+import { matchKorean } from '../daily/daily-autocomplete.js';
 import { openPersonSearch } from '../../core/person-search-ui.js';
 import { saveA4Pdf, openA4PrintDialog } from '../../core/a4-print-dialog.js';
 import { openSymptomCategoryPopup, getEffectiveSymCatById, getEffectiveSymCats } from '../symptom/symptom-view.js';

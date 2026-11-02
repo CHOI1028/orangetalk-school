@@ -4,7 +4,7 @@ import { mountSymptomEditorFeedback } from './symptom-editor-feedback.js';
 import { medicationDoseUnit, replaceMedicationDoseUnit } from '../../core/medication-dose-unit.js';
 import { mountSymptomFocusLayout, mountFocusedMedication, renderFocusedMedicationSelection, isFocusedMedication, attachFocusedMedicationUnits, refreshFocusedMedicationControls } from './symptom-focused-workspace.js';
 /* ES Module */
-import { getStu, escHtml, escJs, getGuardianContact, getStudentBirth, getDeptForSymptom, saveData, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr, stuKeySet, recInStuKeys } from '../../core/helpers.js';
+import { getStu, escHtml, getGuardianContact, getStudentBirth, getDeptForSymptom, saveRecordNow, closeModalGracefully, getLevelShort, hasMultipleSchoolLevels, isHoliday, toDateStr, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { openA4PrintDialog, saveA4Pdf } from '../../core/a4-print-dialog.js';
 import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 /* visit-pass-view 는 visit-pass-editor → symptom-view 의 circular dependency 가 있어
@@ -12,9 +12,9 @@ import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { bus } from '../../core/event-bus.js';
 import { renderSettingsPanel, openSettings, switchSettingsCat, openAccordion } from '../settings/settings-view.js';
 import { matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
-import { openVitalsEdit, openMemoPanel, showVisitHistory as _dvShowVisitHistory, _hideVisitHistory as _dvHideVisitHistory } from '../daily/daily-view.js';
+import { openVitalsEdit, openMemoPanel, showVisitHistory as _dvShowVisitHistory } from '../daily/daily-view.js';
 import { openTimePicker } from '../daily/diary-print-view.js';
-import { dailyColEyeIcon, openBodyMap, showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
+import { openBodyMap, showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
 import { S, monthNames, ensureHolidayYear } from '../../core/app-state.js';
 import { openBedManager, releaseBedByStudentId } from '../newsletter/bed-management-view.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
@@ -1646,21 +1646,35 @@ export function openSymptomCategoryPopup(recId, opts){
     headerEl.style.cursor='grab';headerEl.style.userSelect='none';
     const _dd={active:false,offX:0,offY:0};
     headerEl.addEventListener('mousedown',function(e){
-      if(e.target.closest('button,input,select,textarea,summary,[data-action],[data-sym-focus-native]'))return;
+      if(e.button!==0||e.target.closest('button,input,select,textarea,a,label,summary,[contenteditable]:not([contenteditable="false"]),[data-action],[data-no-drag],[data-sym-focus-native]'))return;
       e.preventDefault();
       _dd.active=true;
       _dd.offX=e.clientX-box.offsetLeft;
       _dd.offY=e.clientY-box.offsetTop;
       headerEl.style.cursor='grabbing';
+      document.addEventListener('mousemove',move);
+      document.addEventListener('mouseup',finish);
+      document.addEventListener('pointercancel',finish);
+      document.addEventListener('visibilitychange',visibility);
+      window.addEventListener('blur',finish);
     });
-    document.addEventListener('mousemove',function(e){
+    function move(e){
       if(!_dd.active)return;
+      if(!box.isConnected||!(e.buttons&1)){finish();return;}
       box.style.left=(e.clientX-_dd.offX)+'px';
       box.style.top=(e.clientY-_dd.offY)+'px';
-    });
-    document.addEventListener('mouseup',function(){
-      if(_dd.active){_dd.active=false;headerEl.style.cursor='grab';}
-    });
+    }
+    function visibility(){if(document.hidden)finish();}
+    function finish(){
+      document.removeEventListener('mousemove',move);
+      document.removeEventListener('mouseup',finish);
+      document.removeEventListener('pointercancel',finish);
+      document.removeEventListener('visibilitychange',visibility);
+      window.removeEventListener('blur',finish);
+      _dd.active=false;headerEl.style.cursor='grab';
+    }
+    const disposeKeys=ov._disposeKeyNav;
+    ov._disposeKeyNav=function(){finish();if(disposeKeys)disposeKeys();};
   }
   /* 증상 빠른 검색 바인딩 + 자동 포커스 (사용자 요청 2026-08-06) */
   try{ _symBindQuickSearch(ov); }catch(_){}
@@ -1781,9 +1795,10 @@ function _symBindQuickSearch(ov){
 
 /* ═══ 재사용 가능한 팝업 드래그 이동 함수 ═══ */
 export function _makeDraggable(box){
-  if(!box)return;
+  if(!box||box._manualDragBound)return;
   const headerEl=box.querySelector('[class*="modal-header"]')||box.firstElementChild;
   if(!headerEl)return;
+  box._manualDragBound=true;
   /* auto-popup-drag.js 의 MutationObserver 가 같은 박스에 중복 적용하지 않도록 마커 부착.
    * 마커 없으면 auto-drag 가 pop.firstElementChild(제목줄) 를 별개 박스로 인식해 _normalize 에서
    * position:fixed 로 띄워버려, 제목줄이 flex flow 에서 빠지고 검색줄이 위로 올라오는 버그 발생. */
@@ -1808,7 +1823,7 @@ export function _makeDraggable(box){
     box.style.transform=(_base+' translate('+box._dragOffset.x+'px,'+box._dragOffset.y+'px)').trim();
   }
   headerEl.addEventListener('mousedown',function(e){
-    if(e.target.closest('button,input,select,textarea'))return;
+    if(e.button!==0||e.target.closest('button,input,select,textarea,a,label,summary,[contenteditable]:not([contenteditable="false"]),[role="button"],[data-action],[data-no-drag]'))return;
     e.preventDefault();e.stopPropagation();
     _dd.active=true;_dd.moved=false;
     _dd.z=_getZoom();
@@ -1823,9 +1838,15 @@ export function _makeDraggable(box){
     _dd.prevTransition=box.style.transition||'';
     box.style.transition='none';
     headerEl.style.cursor='grabbing';
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',finish);
+    document.addEventListener('pointercancel',finish);
+    document.addEventListener('visibilitychange',visibility);
+    window.addEventListener('blur',finish);
   });
-  document.addEventListener('mousemove',function(e){
+  function move(e){
     if(!_dd.active)return;
+    if(!box.isConnected||!(e.buttons&1)){finish();return;}
     const z=_dd.z||1;
     const dx=(e.clientX-_dd.startX)/z;
     const dy=(e.clientY-_dd.startY)/z;
@@ -1836,15 +1857,21 @@ export function _makeDraggable(box){
     box._dragOffset.x=_dd.baseX+dx;
     box._dragOffset.y=_dd.baseY+dy;
     _applyTransform();
-  });
-  document.addEventListener('mouseup',function(){
+  }
+  function visibility(){if(document.hidden)finish();}
+  function finish(){
+    document.removeEventListener('mousemove',move);
+    document.removeEventListener('mouseup',finish);
+    document.removeEventListener('pointercancel',finish);
+    document.removeEventListener('visibilitychange',visibility);
+    window.removeEventListener('blur',finish);
     if(_dd.active){
       _dd.active=false;_dd.moved=false;
       headerEl.style.cursor='grab';
       /* transition 복원 — 그렇지 않으면 이후 닫힘 애니메이션이 깨짐. */
       box.style.transition=_dd.prevTransition;
     }
-  });
+  }
 }
 
 function _symUpdateCatHighlights(){

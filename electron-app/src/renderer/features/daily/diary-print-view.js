@@ -31,10 +31,16 @@ function _ccKnavHighlight(){
   if(cell)cell.classList.add('cal-knav-focus');
 }
 function _ccKnavKey(e){
-  if(!_ccKnavWrap||!_ccKnavWrap.isConnected){ if(_ccKnavBound){document.removeEventListener('keydown',_ccKnavKey,true);_ccKnavBound=false;} _ccKnavWrap=null; return; }
-  /* 팝업 안의 글자 입력 중이면 양보 */
+  const wrap=_ccKnavWrap;
+  const style=wrap&&wrap.isConnected?getComputedStyle(wrap):null;
+  if(!wrap||!wrap.isConnected||!wrap.getClientRects().length||!style||style.display==='none'||style.visibility!=='visible'||wrap.closest('[inert],[hidden],[aria-hidden="true"]')){
+    if(_ccKnavBound){document.removeEventListener('keydown',_ccKnavKey,true);_ccKnavBound=false;}
+    _ccKnavWrap=null;return;
+  }
+  if(e.defaultPrevented||e.isComposing||e.keyCode===229||e.ctrlKey||e.metaKey||e.altKey)return;
+  // A calendar never owns editing keys in another form, including an empty field.
   const ae=document.activeElement;
-  if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&ae.value&&_ccKnavWrap.contains&&_ccKnavWrap.contains(ae))return;
+  if(ae&&(ae.isContentEditable||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT'||(ae.tagName==='INPUT'&&!ae.readOnly)))return;
   if(e.key==='Enter'){ if(_ccKnavFocus&&_ccKnavSelect){e.preventDefault();e.stopImmediatePropagation();_ccKnavSelect(_ccKnavFocus);} return; }
   let delta=0;
   if(e.key==='ArrowLeft')delta=-1; else if(e.key==='ArrowRight')delta=1;
@@ -51,7 +57,9 @@ function _ccKnavKey(e){
 }
 export function _commonCalRender(wrap,yr,mo,onSelect,onNav,opts){
   opts=opts||{};
-  /* onSelect/onNav: 함수 참조 또는 문자열(하위 호환) */
+  // Calendar cells are controls, not a dialog drag handle.
+  wrap.setAttribute('data-no-drag','');
+  /* onSelect/onNav: function references; legacy callers pass their functions directly. */
   const _selectFn=typeof onSelect==='function'?onSelect:null;
   const _navFn=typeof onNav==='function'?onNav:null;
   ensureHolidayYear(String(yr)); const holidays={};Object.keys(S.koreanHolidays).forEach(function(k){if(k.startsWith(String(yr)))holidays[k]=S.koreanHolidays[k];});
@@ -120,6 +128,7 @@ export function _commonCalRender(wrap,yr,mo,onSelect,onNav,opts){
     const selEl=e.target.closest('[data-cal-select]');
     if(selEl){
       const ds=selEl.dataset.calSelect;
+      _ccKnavFocus=ds;_ccKnavHighlight();
       if(_selectFn)_selectFn(ds);
       return;
     }
@@ -138,7 +147,7 @@ export function _commonCalRender(wrap,yr,mo,onSelect,onNav,opts){
   wrap.addEventListener('click',wrap._calClickHandler);
   /* ── 방향키 날짜 이동 연결 (2026-06-08) ── */
   _ccKnavDispY=yr; _ccKnavDispM=mo; _ccKnavSelect=_selectFn; _ccKnavNav=_navFn;
-  if(_ccKnavWrap!==wrap){
+  if(_ccKnavWrap!==wrap||!wrap.querySelector('.mcal-cell[data-cal-select="'+_ccKnavFocus+'"]')){
     /* 새 팝업 — 포커스 초기화: 표시월에 오늘이 있으면 오늘, 아니면 표시월 1일 */
     _ccKnavWrap=wrap;
     const _t=new Date();

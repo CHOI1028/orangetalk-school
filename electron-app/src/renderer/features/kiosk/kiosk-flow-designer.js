@@ -5,13 +5,13 @@
    ═══════════════════════════════════════ */
 /* ES Module */
 let _skipSettingsAnim = false;
-import { getStu, escHtml, closeModalGracefully } from '../../core/helpers.js';
+import { escHtml, closeModalGracefully } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
-import { renderSettingsPanel, openAdvancedSearch } from '../settings/settings-view.js';
+import { renderSettingsPanel } from '../settings/settings-view.js';
 import { openEmojiPicker } from './kiosk-emoji-picker.js';
 import { downloadKioskHtml, openKioskPreview, reloadKioskPreview, generateKioskUrl } from './kiosk-html-builder.js';
-import { kioskLangs } from './kiosk-translation.js';
-import { getSymData, getEffectiveSymCats, getEffectiveSymCatById, getEffectiveSymCatsWithSyms, _symOpenAddOptionsModal, _symOpenDrugDoseMiniPicker, _symPrompt } from '../symptom/symptom-view.js';
+import './kiosk-translation.js';
+import { getSymData, getEffectiveSymCats, getEffectiveSymCatsWithSyms, _symOpenAddOptionsModal, _symOpenDrugDoseMiniPicker, _symPrompt } from '../symptom/symptom-view.js';
 import { rentalGetItems, rentalAddItem } from '../daily/rental-ledger-view.js';
 /* 순환 의존성 해소: cms-view 함수를 콜백으로 주입 */
 let _cbRefreshFlowPopupFn = null;
@@ -21,7 +21,7 @@ export function setFdCallbacks(cbs){
   if(cbs.refreshPreview) _cbRefreshPreviewFn = cbs.refreshPreview;
 }
 function _cbRefreshFlowPopup(){ return _cbRefreshFlowPopupFn ? _cbRefreshFlowPopupFn() : false; }
-import { S, DEFAULT_RELAY_URL, saveKioskSettings } from '../../core/app-state.js';
+import { S, saveKioskSettings } from '../../core/app-state.js';
 'use strict';
 
 const ks = S.kioskSettings;

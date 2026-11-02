@@ -3,7 +3,7 @@ import { getDailyRecord, preparePeriodRecord } from '../../core/daily-record-acc
 import { deletePersistedDailyRecord } from '../../core/daily-record-persistence.js';
 import { bindDiaryPrivacy, resetDiaryPrivacy } from './daily-privacy.js';
 /* ES Module */
-import { getStu, escHtml, escJs, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
+import { getStu, escHtml, isBirthdayToday, getCareTooltipHtml, getStudentNameHoverHtml, toDateStr, dateObj, getDow, isHoliday, getSymClass, recsByDate, getRecordDates, getStuGradeCol, _recToDbRow, saveData, saveRecordNow, getDeptForSymptom, isKinder, createEmptyState, closeModalGracefully, getGuardianType, getGuardianContact, getStudentBirth, getCareMemoText, getLevelShort, hasMultipleSchoolLevels, counselTreatText, isCounselSymLabel, stuKeySet, recInStuKeys } from '../../core/helpers.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
 import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { openSymptomCategoryPopup, getCandidates, removeChip, formatMedicationDisplay, _symShowTip, _symHideTip, _symShowHistory } from '../symptom/symptom-view.js';
@@ -11,8 +11,8 @@ import { shouldShowTreatmentBySymptom } from '../../core/record-utils.js';
 import { applyDailyColLayout, openBodyMap, ecSaveRecords, showHeaderTooltip, hideHeaderTooltip, migrateLegacyColWidths, sanitizeColWidths } from '../emergency/emergency-view.js';
 import { switchView } from '../shell/view-router.js';
 import { playQuickMenuSound } from '../../core/ui-utils.js';
-import { S, monthNames, dayNames } from '../../core/app-state.js';
-import { closeEmsPopup } from '../kiosk/ems-popup-view.js';
+import { S, monthNames } from '../../core/app-state.js';
+import '../kiosk/ems-popup-view.js';
 import { openTimePicker } from './diary-print-view.js';
 import { tmSyncDailyMemo } from './today-memo.js';
 import { isDailyPeriodSearchActive, closeDailyPeriodSearch, refreshDailyPeriodSearch, selectDailyPeriodDate } from './daily-period-view.js';
@@ -637,19 +637,6 @@ export function _normName(s){
   try{r=r.normalize('NFC');}catch(_){}
   return _normalizeJamo(r).toLowerCase().trim();
 }
-/* 이름에 쿼리가 포함되는지 — 일반 포함, 초성 포함, 초성만 쿼리 전부 지원 */
-function _nameMatches(name,q){
-  if(!name||!q)return false;
-  const n=_normName(name);
-  const qL=_normName(q);
-  if(!qL)return false;
-  if(n.indexOf(qL)>=0)return true;
-  if(_isChosungQuery(qL)){
-    const cho=_getChosung(n);
-    if(cho.indexOf(qL)>=0)return true;
-  }
-  return false;
-}
 
 export function sidebarSearch(){
   _sideSearchIdx=-1;
@@ -1041,7 +1028,6 @@ _collabServerConnected=false;
 /* 날짜별 협업 기록 — 협업 중이었던 날짜를 저장 */
 const _collabDates={'2026-03-20':true};
 function _markCollabDate(dateStr){if(!_collabDates[dateStr]){_collabDates[dateStr]=true;}}
-function _isCollabDate(dateStr){return !!_collabDates[dateStr];}
 function _isMultiKey(e){return _isMac?e.metaKey:e.ctrlKey;}
 const _dd={active:false,startX:0,startY:0,moved:false,box:null,popupOpen:false,lastClickIdx:-1};
 

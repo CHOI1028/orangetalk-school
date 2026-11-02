@@ -2,7 +2,7 @@
 /* ES Module */
 import { escHtml } from '../../core/helpers.js';
 import { renderSettingsPanel } from '../settings/settings-view.js';
-import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
+import '../daily/daily-autocomplete.js';
 import { S } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
 import { getPublicDataApiKey, hasPublicDataApiKeySetting } from '../../core/public-data-settings.js';

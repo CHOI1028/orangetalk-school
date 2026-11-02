@@ -1,4 +1,4 @@
-import { S, refreshSharedKioskSettings } from './app-state.js';
+import { refreshSharedKioskSettings } from './app-state.js';
 import { bus } from './event-bus.js';
 let running=null;
 const callbacks=new Map();

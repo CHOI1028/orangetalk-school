@@ -5,7 +5,7 @@ import { appData } from '../../core/app-data-bridge.js';
 import { S } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
-import { vpUpdatePreview, vpeEditorInit, vpeEditorAutoSave, vpSetSigMode, vpResetPrintExtra, vpSetExtraDefault } from './visit-pass-editor.js';
+import { vpUpdatePreview, vpeEditorAutoSave, vpSetSigMode, vpResetPrintExtra, vpSetExtraDefault } from './visit-pass-editor.js';
 
 let dpCalTarget='';
 let dpCalYear=new Date().getFullYear();

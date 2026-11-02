@@ -6,8 +6,8 @@
   const overlays='.modal-overlay,.qm-overlay,.vp-overlay,.ems-overlay,.ec-form-overlay,.sv-modal-overlay,.nl-overlay,.memo-popup-overlay,.magic-link-popup-overlay,.school-confirm-overlay,[id$="Overlay"],[id$="OverlayRoot"],[id$="Modal"]';
   const boxes='#symCatBox,.modal-content,.vp-modal,.ems-modal,.qm-container,.ec-form-modal,.sv-modal,.nl-modal,.school-confirm-dialog,.popup-box,.modal-box,dialog';
   const headers='[data-drag-handle],.sym-editor-topline,.modal-header,.popup-header,.vp-header,.ems-modal-header,.qm-header,.nl-header,.sym-header,.tr-header,.ec-form-header,.sv-modal-header,.school-confirm-header,.drag-handle';
-  const excluded='#splash,#cdkeyGateOverlay,#cpDragOverlay,[data-no-drag],[data-sym-focus-dock="1"],.cell-ac-popup,.ems-mini-popup,.sym-category-picker,.sym-focus-filter-panel,.sym-focus-inline-unit-editor,.school-context-backdrop,[role="tooltip"],[role="listbox"],[role="menu"]';
-  const interactive='button,input,select,textarea,a,label,summary,[role="button"],[role="tab"],[role="combobox"],[role="menuitem"],[contenteditable]:not([contenteditable="false"]),[data-action],[data-no-drag]';
+  const excluded='#splash,#cdkeyGateOverlay,#cpDragOverlay,#dpCalFloat,[id$="CalFloat"],#infCalWrap,#trCalWrap,#clCalPopup,#clockPickerWrap,[data-no-drag],[data-sym-focus-dock="1"],.cell-ac-popup,.ems-mini-popup,.sym-category-picker,.sym-focus-filter-panel,.sym-focus-inline-unit-editor,.school-context-backdrop,[role="tooltip"],[role="listbox"],[role="menu"]';
+  const interactive='button,input,select,textarea,a,label,summary,[role="button"],[role="tab"],[role="combobox"],[role="menuitem"],[contenteditable]:not([contenteditable="false"]),[data-action],[data-cal-select],[data-cal-nav],[data-cal-action],[data-no-drag]';
   const managed=new Map();
   let resizeFrame=0;
   function ignored(el){return !(el instanceof HTMLElement)||!!el.closest(excluded);}

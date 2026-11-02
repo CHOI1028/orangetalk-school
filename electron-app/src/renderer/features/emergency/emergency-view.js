@@ -8,13 +8,14 @@ import { crInsertHandles, showVisitHistory, toggleMemo, _memoHasAny, colWidthUnd
 import { closeModalWithAnim, matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
 import { _makeDraggable, openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { switchView } from '../shell/view-router.js';
-import { playQuickMenuSound, appConfirmModal } from '../../core/ui-utils.js';
+import { playQuickMenuSound } from '../../core/ui-utils.js';
 import { loadTabOrder, closeSettings, openAdvancedSearch } from '../settings/settings-view.js';
 import { S, addEcRecord, addInfRecord } from '../../core/app-state.js';
 import { _bmBodyPartsAdult, _bmFaceParts, _bmTeethParts, _bmHandTopParts, _bmPalmParts, _bmFootTopParts, _bmFootBottomParts, _BM_LR_POSITIONS, _BM_LR_POSITIONS_PROGRAM } from '../../core/bodymap-anchors.js';
 import { _hdrCycle } from '../shell/header-widget.js';
 import { bus } from '../../core/event-bus.js';
 import { openA4PrintDialog, saveA4Pdf } from '../../core/a4-print-dialog.js';
+import { normalizeEmergencyRecord, restoreEmergencyDrafts } from '../../core/emergency-record-model.js';
 /* ═══════════════════════════════════════
    EMERGENCY RECORDS (#38-46)
    ═══════════════════════════════════════ */
@@ -38,10 +39,10 @@ function _ecToDbRow(rec){
   const ai=rec.accidentInfo||{};
   const v=rec.vitals||{};
   const tr=rec.transfer||{};
-  const dtParts=(ai.datetime||'').split(' ');
+  const dtParts=(ai.datetime||'').split(/[ T]/);
   return {
     id:rec._dbId||rec.id,
-    school_year:String(_academicYear(rec.date)), /* 사고/방문 날짜 기준 학년도(3/1) — 달력연도 slice 금지 (사용자 지시 2026-06-20) */
+    school_year:String(_academicYear(dtParts[0]||rec.date)), /* 사고/방문 날짜 기준 학년도(3/1) — 달력연도 slice 금지 (사용자 지시 2026-06-20) */
     person_uid:rec.personUid||rec.studentId||null,
     person_type:rec.personType||'student',
     accident_date:dtParts[0]||rec.date||'',
@@ -67,6 +68,7 @@ function _ecToDbRow(rec){
     homeroom_teacher:rec.homeroomTeacher||'',
     memo:rec.notes||'',
     extra_json:JSON.stringify({
+      clientRequestId:rec.clientRequestId,
       photoData:rec.photoData,
       displayGrade:rec.displayGrade,
       displayNum:rec.displayNum,
@@ -84,6 +86,10 @@ const _clinicalDraftKeys=new WeakMap();
 const _clinicalOpenRecords={EC:null,INF:null};
 function _clinicalDraft(kind,rec){
   if(!rec)return;
+  if(kind==='EC'&&!rec.clientRequestId){
+    rec.clientRequestId=(globalThis.crypto&&typeof globalThis.crypto.randomUUID==='function')?globalThis.crypto.randomUUID():('ec-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2));
+  }
+  rec._draftSavedAt=Date.now();
   const key='ec_form_draft_'+kind+'_'+rec.id;
   let keys=_clinicalDraftKeys.get(rec);if(!keys){keys=new Set();_clinicalDraftKeys.set(rec,keys);}keys.add(key);
   try{localStorage.setItem(key,JSON.stringify(rec));}catch(_){}
@@ -94,10 +100,13 @@ function _clinicalIndicator(kind,rec,message,state){
   if(ind){ind.textContent=message;ind.className='ec-save-indicator '+state;ind.setAttribute('role','status');ind.style.color=state==='error'?'var(--red, #b91c1c)':'';}
 }
 function _persistClinicalRecord(kind,rec){
+  if(kind==='EC')Object.assign(rec,_ecHydrate(rec));
   const toRow=kind==='EC'?_ecToDbRow:_infToDbRow;
-  const row=toRow(rec);_clinicalDraft(kind,rec);
+  rec._dirty=true;
+  _clinicalDraft(kind,rec);const row=toRow(rec);
   const previous=_clinicalSaveQueues.get(rec)||Promise.resolve();
   const pending=previous.catch(function(){}).then(async function(){
+    rec._saving=true;
     try{
       const prefix=kind==='EC'?'recordsEmergency':'recordsInfection';
       const inserting=!rec._dbId;
@@ -113,6 +122,9 @@ function _persistClinicalRecord(kind,rec){
         _clinicalDraft(kind,rec);
       }
       if(_clinicalSaveQueues.get(rec)===pending&&JSON.stringify(toRow(rec))===JSON.stringify(row)){
+        rec._dirty=false;rec._savedAt=Date.now();delete rec._draftRecovered;
+        for(const key of [...(_clinicalDraftKeys.get(rec)||[]),...(rec._recoveredDraftKeys||[])]){try{localStorage.removeItem(key);}catch(_){}}
+        _clinicalDraftKeys.delete(rec);delete rec._recoveredDraftKeys;
         _clinicalIndicator(kind,rec,'모든 내용이 저장되었습니다.','saved');
       }
       try{if(kind==='EC')renderEcList();else renderInfList();}catch(error){console.warn('[clinical] list refresh failed',error);}
@@ -120,40 +132,45 @@ function _persistClinicalRecord(kind,rec){
     }catch(error){
       _clinicalDraft(kind,rec);
       _clinicalIndicator(kind,rec,'저장하지 못했습니다. 입력 내용은 유지됩니다. 연결을 확인하고 다시 시도해 주세요.','error');
+      rec._dirty=true;
       console.warn('[clinical] save failed',error);return false;
-    }
+    }finally{if(_clinicalSaveQueues.get(rec)===pending)rec._saving=false;}
   });
   _clinicalSaveQueues.set(rec,pending);return pending;
 }
 function _scheduleClinicalSave(kind){
   const rec=_clinicalOpenRecords[kind];if(!rec)return;
+  rec._dirty=true;
+  const overlay=document.getElementById(kind==='EC'?'ecFormOverlay':'infFormOverlay');
+  if(overlay&&overlay._clinicalClosing){overlay._clinicalCloseToken=null;overlay._clinicalClosing=false;overlay.removeAttribute('aria-busy');}
   _clinicalDraft(kind,rec);_clinicalIndicator(kind,rec,'저장 중...','saving');
   if(kind==='EC'){clearTimeout(ecSaveTimer);ecSaveTimer=setTimeout(function(){ecSaveTimer=null;_persistClinicalRecord(kind,rec);},400);}
   else{clearTimeout(infSaveTimer);infSaveTimer=setTimeout(function(){infSaveTimer=null;_persistClinicalRecord(kind,rec);},400);}
+}
+function _awaitClinicalSave(pending){
+  let timer;return Promise.race([pending,new Promise(resolve=>{timer=setTimeout(()=>resolve(false),12000);})]).finally(()=>clearTimeout(timer));
 }
 async function _closeClinicalForm(kind){
   const overlay=document.getElementById(kind==='EC'?'ecFormOverlay':'infFormOverlay');
   if(!overlay||overlay._clinicalClosing)return false;
   const rec=_clinicalOpenRecords[kind];
-  if(!rec){await appConfirmModal('편집 중인 자료를 확인하지 못했습니다. 창을 닫지 않고 입력 내용을 유지합니다.','저장 확인',{okOnly:true,okLabel:'확인'});return false;}
-  if(kind==='EC'){clearTimeout(ecSaveTimer);ecSaveTimer=null;}else{clearTimeout(infSaveTimer);infSaveTimer=null;}
-  overlay._clinicalClosing=true;
-  const controls=Array.from(overlay.querySelectorAll('input:not(:disabled),textarea:not(:disabled),select:not(:disabled),button:not(:disabled)'));
-  controls.forEach(function(el){el.disabled=true;});overlay.setAttribute('aria-busy','true');
+  if(!rec)return false;
+  if(kind==='EC'){_ecCaptureForm(rec);clearTimeout(ecSaveTimer);ecSaveTimer=null;}else{clearTimeout(infSaveTimer);infSaveTimer=null;}
+  const token={};overlay._clinicalCloseToken=token;overlay._clinicalClosing=true;overlay.setAttribute('aria-busy','true');
   try{
-    if(!await _persistClinicalRecord(kind,rec)){
-      await appConfirmModal('저장을 확인하지 못해 창을 닫지 않았습니다. 입력 내용은 유지되니 연결 상태를 확인한 뒤 다시 닫기를 눌러 주세요.','저장 확인',{okOnly:true,okLabel:'확인'});
-      return false;
-    }
-    if(_clinicalOpenRecords[kind]!==rec)return false;
+    const saved=await _awaitClinicalSave(_persistClinicalRecord(kind,rec));
+    if(overlay._clinicalCloseToken!==token||_clinicalOpenRecords[kind]!==rec)return false;
+    if(!saved){_clinicalIndicator(kind,rec,'저장을 확인하지 못했습니다. 입력 내용은 유지됩니다. 잠시 후 다시 닫아 주세요.','error');return false;}
+    if(rec._dirty)return false;
     for(const key of _clinicalDraftKeys.get(rec)||[]){try{localStorage.removeItem(key);}catch(_){}}
-    _clinicalDraftKeys.delete(rec);_clinicalOpenRecords[kind]=null;
+    _clinicalDraftKeys.delete(rec);_clinicalOpenRecords[kind]=null;delete rec._clinicalEditing;
+    closeClockPickerAnim();
+    const calendar=document.getElementById('infCalWrap');if(calendar)calendar.style.display='none';
     overlay.classList.remove('show');document.body.style.overflow='';
     if(kind==='EC')ecCurrentId=null;else infCurrentId=null;
-    if(typeof queueGlobalSaveToast==='function')queueGlobalSaveToast();
     return true;
   }finally{
-    controls.forEach(function(el){el.disabled=false;});overlay.removeAttribute('aria-busy');overlay._clinicalClosing=false;
+    if(overlay._clinicalCloseToken===token){overlay.removeAttribute('aria-busy');overlay._clinicalClosing=false;overlay._clinicalCloseToken=null;}
   }
 }
 
@@ -161,47 +178,13 @@ export function ecSaveRecords(){
   return Promise.all(S.ecRecords.map(function(rec){return _persistClinicalRecord('EC',rec);}));
 }
 /* DB에서 불러온 레코드를 렌더러 도메인 모델로 복원 (snake→camel + 중첩 객체 재구성) */
-function _ecHydrate(r){
-  const accidentDate=r.accidentDate||r.accident_date||'';
-  const accidentTime=r.accidentTime||r.accident_time||'';
-  const dt=accidentDate+(accidentTime?' '+accidentTime:'');
-  let extra={};
-  try{if(r.extra_json)extra=JSON.parse(r.extra_json)||{};}catch(e){}
-  return Object.assign({},r,{
-    studentId:r.studentId||r.personUid||r.person_uid||'',
-    date:r.date||accidentDate||r.authorDate||r.author_date||'',
-    accidentInfo:r.accidentInfo||{
-      datetime:dt,
-      location:r.location||'',
-      situation:r.situation||''
-    },
-    vitals:r.vitals||{
-      temp:r.vital_temp||'',pulse:r.vital_pulse||'',bp:r.vital_bp||'',
-      resp:r.vital_resp||'',spo2:r.vital_spo2||'',bst:r.vital_bst||''
-    },
-    /* 시간별 다중 측정 배열 — 없으면 단일 vitals/flat 컬럼에서 마이그레이션 */
-    vitalsList:(Array.isArray(r.vitalsList)&&r.vitalsList.length)?r.vitalsList:[Object.assign({time:'',temp:r.vital_temp||'',pulse:r.vital_pulse||'',bp:r.vital_bp||'',resp:r.vital_resp||'',spo2:r.vital_spo2||'',bst:r.vital_bst||''},(r.vitals&&!Array.isArray(r.vitals))?r.vitals:{})],
-    transfer:r.transfer||{
-      transferred:!!(r.isTransported||r.is_transported),
-      method:r.transportMethod||r.transport_method||'',
-      facility:r.transportDest||r.transport_dest||''
-    },
-    patientStatus:r.patientStatus||r.patient_status||'',
-    consciousness:r.consciousness||'명료',
-    guardianContact:r.guardianContact||r.guardian_contact||'',
-    homeroomTeacher:r.homeroomTeacher||r.homeroom_teacher||'',
-    authorDate:r.authorDate||r.author_date||'',
-    authorName:r.authorName||r.author_name||'',
-    photoData:r.photoData||extra.photoData||'',
-    notes:r.notes||r.memo||''
-  });
-}
+function _ecHydrate(r){return normalizeEmergencyRecord(r);}
 function _ecLoadFromDB(){
   const yr=String(_academicYear());
   if(window.electronAPI&&window.electronAPI.recordsGetEmergency){
     window.electronAPI.recordsGetEmergency(yr).then(function(res){
       if(res&&res.success&&Array.isArray(res.data)){
-        S.ecRecords=res.data.map(_ecHydrate);
+        S.ecRecords=restoreEmergencyDrafts(res.data,S.ecRecords,localStorage);
         S.ecNextId=S.ecRecords.length?Math.max.apply(null,S.ecRecords.map(function(r){return r.id||0;}))+1:1;
         S.ecRecords=S.ecRecords;S.ecNextId=S.ecNextId;
         /* _bmData 복원 (응급처치 바디맵) */
@@ -237,6 +220,17 @@ function _attachEcListDelegation(tbody){
   });
 }
 
+function _ecVitalsHtml(rec){
+  const fields=[['temp','체온','℃'],['pulse','맥박','회/분'],['bp','혈압','mmHg'],['resp','호흡','회/분'],['spo2','SpO₂','%'],['bst','혈당','mg/dL']];
+  const list=Array.isArray(rec.vitalsList)&&rec.vitalsList.length?rec.vitalsList:[rec.vitals||{}];
+  const has=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+  const rows=list.filter(m=>m&& (has(m.time)||fields.some(([k])=>has(m[k]))));
+  if(!rows.length)return '—';
+  return rows.map(m=>'<div class="ec-vitals-measure" style="margin:3px 0;line-height:1.5;break-inside:avoid">'
+    +(has(m.time)?'<div style="font-weight:600">측정 '+escHtml(String(m.time))+'</div>':'')
+    +fields.map(([k,label,unit])=>'<span style="display:inline-block;margin-right:10px;white-space:nowrap">'+label+' '+(has(m[k])?escHtml(String(m[k]))+' '+unit:'—')+'</span>').join('')+'</div>').join('');
+}
+
 export function renderEcList(){
   const acYr=_academicYear();const acStart=acYr+'-03-01';const acEnd=(acYr+1)+'-03-01';
   const label=document.getElementById('ecYearLabel');
@@ -267,8 +261,6 @@ export function renderEcList(){
       const ecIsStaff=s.type==='staff';
       const ecIsCare=s.status==='caution'||s.status==='watch';
       const ecGradeCol=ecIsStaff?(s.position||'교직원'):s.grade+'-'+s.cls;
-      const vi=r.vitals||{};
-      const vsParts=[vi.temp?vi.temp+'°C':'',vi.bp||'',vi.pulse?'맥박'+vi.pulse:'',vi.resp?'호흡'+vi.resp:'',vi.spo2?'SpO₂'+vi.spo2:''].filter(Boolean).join(' ')||'-';
       const tf=r.transfer||{};
       const ecHasMemo=_memoHasAny(r.studentId)?'📌':'';
       const ecDateDisplay=(r.authorDate||r.date||'-');
@@ -285,7 +277,7 @@ export function renderEcList(){
         +'<td data-col-index="5" style="text-align:center">'+_ecInfNameHtml(s,r.id,'_ecShowNamePop')+'</td>'
         +'<td data-col-index="6" class="mono" style="white-space:nowrap">'+ecDatetimeDisplay+'</td>'
         +'<td data-col-index="7">'+escHtml(ai.location||'-')+'</td>'
-        +'<td data-col-index="8" style="font-size:10px">'+escHtml(vsParts)+'</td>'
+        +'<td data-col-index="8" style="font-size:10px">'+_ecVitalsHtml(r)+'</td>'
         +'<td data-col-index="9" style="text-align:center">'+(tf.transferred?'예':'-')+'</td>'
         +'<td data-col-index="10">'+escHtml(tf.facility||'-')+'</td>'
         +'<td data-col-index="11" style="position:relative;padding-right:32px"><span class="memo-plus" data-action="toggleMemo" data-sid="'+r.studentId+'" data-rid="'+r.id+'">'+(ecHasMemo||'+')+'</span><button class="row-delete-x" data-action="ecDeleteFromList" data-rid="'+r.id+'">✕</button></td>'
@@ -439,8 +431,8 @@ function ecBuildFormHtml(rec){
     +'<td class="ec-label">'+(isKinder()?'나이-반':'학년반번호')+'</td><td colspan="3"><input data-field="displayGrade" value="'+(_ecIsStaff?escHtml(_ecGradeVal):escHtml((_ecGradeVal+(_ecNumVal?(' '+_ecNumVal+(isKinder()?'':'번')):'')).trim()))+'"'+(_ecIsStaff?'':' readonly')+' style="background:#fff;text-align:center"></td>'
     +'<td class="ec-label">성 별</td><td><input data-field="displayGender" value="'+escHtml(_ecGenderVal)+'"'+(_ecIsStaff?'':' readonly')+' style="background:#fff;width:40px;text-align:center"></td>'
     +'</tr><tr>'
-    +'<td class="ec-label">보호자<br>연락처</td><td colspan="3"><input data-field="guardianContact" value="'+gc+'" placeholder="보호자 연락처 입력" style="text-align:center"></td>'
-    +'<td class="ec-label">담임교사</td><td colspan="3"><input data-field="homeroomTeacher" value="'+ht+'" placeholder="담임교사명 입력" style="text-align:center"></td>'
+    +'<td class="ec-label">보호자<br>연락처</td><td colspan="3"><input data-field="guardianContact" value="'+escHtml(gc)+'" placeholder="보호자 연락처 입력" style="text-align:center"></td>'
+    +'<td class="ec-label">담임교사</td><td colspan="3"><input data-field="homeroomTeacher" value="'+escHtml(ht)+'" placeholder="담임교사명 입력" style="text-align:center"></td>'
     +'</tr></table>'
     +'<table class="ec-ftable"><tr><td colspan="6" class="ec-section-title">사 고 &nbsp; 발 생 &nbsp; 정 보</td></tr>'
     +'<tr><td class="ec-label">날 짜</td><td><div style="display:flex;gap:3px;align-items:center"><input id="ecAccidentDate" value="'+aiDate+'" placeholder="YYYY-MM-DD" readonly style="cursor:pointer;font-size:11px;flex:1;min-width:0;text-align:center"><button data-inf-cal data-action="infOpenCal" data-field-id="ecAccidentDate" type="button" style="border:1px solid #ccc;background:#f5f5f5;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px;flex-shrink:0">📅</button></div></td>'
@@ -453,16 +445,16 @@ function ecBuildFormHtml(rec){
     +'<tr><td colspan="2" style="padding:0"><textarea data-field="treatment" placeholder="실시한 응급처치 내용을 기록하세요..." style="min-height:80px;padding:10px">'+escHtml(rec.treatment||'')+'</textarea></td></tr></table>'
     +'<table class="ec-ftable"><tr><td colspan="6" class="ec-section-title">기 록 &nbsp; 시 점 의 &nbsp; 환 자 &nbsp; 의 식 &nbsp; 및 &nbsp; 상 태</td></tr>'
     +'<tr>'+_ecConsciousnessRow('의식 상태','ecRecConsciousness',rec.recConsciousness||'','recConsciousness',rec.recConsciousnessEtc)+'</tr>'
-    +'<tr><td class="ec-label">환자 상태</td><td colspan="5"><textarea data-field="patientStatus" class="ec-autogrow" rows="1" placeholder="의식 상태 선택 시 자동 기입됩니다 — 이어서 자세히 기술하세요" style="width:100%;box-sizing:border-box;min-height:36px;resize:none;overflow:hidden;padding:7px 10px">'+escHtml(rec.patientStatus||'')+'</textarea></td></tr></table>'
+    +'<tr><td class="ec-label">환자 상태</td><td colspan="5"><textarea data-field="patientStatus" class="ec-autogrow" rows="1" placeholder="환자의 상태를 입력하세요" style="width:100%;box-sizing:border-box;min-height:36px;resize:none;overflow:hidden;padding:7px 10px">'+escHtml(rec.patientStatus||'')+'</textarea></td></tr></table>'
     +'<table class="ec-ftable"><tr><td colspan="6" class="ec-section-title">이 송 &nbsp; 정 보</td></tr>'
     +'<tr><td class="ec-label">이송 여부</td><td><div class="ec-transfer-toggle">'
     +'<label><input type="radio" name="ecTransfer" value="yes" '+(tr.transferred?'checked':'')+'> 이송</label>'
     +'<label><input type="radio" name="ecTransfer" value="no" '+(!tr.transferred?'checked':'')+'> 미이송</label>'
     +'</div></td>'
     +'<td class="ec-label" id="ecTransferMethodLabel" style="'+trOpacity+'">이송 수단</td>'
-    +'<td><input class="ec-ph-dark" data-field="transfer.method" value="'+(tr.method||'')+'" placeholder="구급차, 자가용 등" id="ecTransferMethod" '+trDisabled+' style="text-align:center;'+trOpacity+'"></td>'
+    +'<td><input class="ec-ph-dark" data-field="transfer.method" value="'+escHtml(tr.method||'')+'" placeholder="구급차, 자가용 등" id="ecTransferMethod" '+trDisabled+' style="text-align:center;'+trOpacity+'"></td>'
     +'<td class="ec-label" id="ecTransferFacilityLabel" style="'+trOpacity+'">이송 기관</td>'
-    +'<td><input class="ec-ph-dark" data-field="transfer.facility" value="'+(tr.facility||'')+'" placeholder="○○병원" id="ecTransferFacility" '+trDisabled+' style="text-align:center;'+trOpacity+'"></td></tr></table>'
+    +'<td><input class="ec-ph-dark" data-field="transfer.facility" value="'+escHtml(tr.facility||'')+'" placeholder="○○병원" id="ecTransferFacility" '+trDisabled+' style="text-align:center;'+trOpacity+'"></td></tr></table>'
     +'<table class="ec-ftable"><tr><td colspan="2" class="ec-section-title">주 의 사 항 &nbsp; (메 모)</td></tr>'
     +'<tr><td colspan="2" style="padding:0"><textarea data-field="notes" class="ec-autogrow" rows="1" placeholder="주의사항이나 메모를 입력하세요..." style="width:100%;box-sizing:border-box;min-height:60px;resize:none;overflow:hidden;padding:10px">'+escHtml(rec.notes||'')+'</textarea></td></tr></table>'
     +'<table class="ec-ftable"><tr><td colspan="4" class="ec-section-title">작 성 &nbsp; 정 보</td></tr>'
@@ -483,7 +475,7 @@ function _ecEnsureVitalsList(rec){
 }
 /* 첫 측정을 rec.vitals 에 동기화 — DB flat 컬럼·목록 표시·구버전 호환 유지 */
 function _ecSyncVitals(rec){ rec.vitals=Object.assign({time:'',temp:'',pulse:'',bp:'',resp:'',spo2:'',bst:''},rec.vitalsList[0]||{}); }
-function _ecVCell(k,i,val,ph){ return '<td><input data-vl="'+k+'" data-vl-i="'+i+'" value="'+escHtml(val||'')+'" placeholder="'+ph+'" style="text-align:center"></td>'; }
+function _ecVCell(k,i,val,ph){ return '<td><input data-vl="'+k+'" data-vl-i="'+i+'" value="'+escHtml(val??'')+'" placeholder="'+ph+'" style="text-align:center"></td>'; }
 /* 시계 팝업을 측정시간 입력란 옆에, 시:분 드럼(#cpDrumH)이 입력란 세로 중앙에 오도록 재배치 */
 function _ecAlignVitalClock(fid){
   try{
@@ -573,14 +565,7 @@ function _attachEcFormListeners(container){
     t.addEventListener('input',function(){_ecAutoGrow(t);});
     if(t.style.display!=='none') _ecAutoGrow(t);
   });
-  /* 기록 시점 환자 상태 — 의식 상태 미선택 시 입력 차단(팝업 안내) */
-  const _psEl=container.querySelector('textarea[data-field="patientStatus"]');
-  if(_psEl){
-    _psEl.addEventListener('mousedown',function(e){
-      const rec=S.ecRecords.find(function(r){return r.id===ecCurrentId;});
-      if(rec && !rec.recConsciousness){ e.preventDefault(); _psEl.blur(); alert('기록 시점의 환자 의식 상태 (바로 위)를 먼저 체크해주세요.'); }
-    });
-  }
+  /* Narrative entry must remain available even before a consciousness option is selected. */
   container.querySelectorAll('input[name="ecTransfer"]').forEach(function(el){
     el.addEventListener('change',function(){ecTransferChange(el.value==='yes');});
   });
@@ -609,7 +594,7 @@ function _attachEcFormListeners(container){
   container.querySelectorAll('[data-action="infOpenCal"]').forEach(function(el){
     el.addEventListener('click',function(){if(!this.closest('[disabled]')&&!this.previousElementSibling.disabled)window.infOpenCal(el.dataset.fieldId,el);});
   });
-  container.querySelectorAll('[data-action="openClockPicker"]').forEach(function(el){
+  container.querySelectorAll('[data-action="openClockPicker"]:not([data-vl]):not([data-vl-clock])').forEach(function(el){
     el.addEventListener('click',function(){openClockPicker(el.dataset.fieldId,el);});
   });
   /* 날짜·시간 input 직접 클릭도 팝업 열기 — 문서 outside-close 핸들러가 잡지 않도록 data-inf-cal 속성 부여 */
@@ -634,14 +619,15 @@ function _attachEcFormListeners(container){
   if(printBtn)printBtn.addEventListener('click',function(){ecPrintForm();});
   const pdfBtn=container.querySelector('[data-action="ecPdfForm"]');
   if(pdfBtn)pdfBtn.addEventListener('click',function(){ /* 바로 PDF 저장(경로 선택) */
-    if(!ecCurrentId)return; const r=S.ecRecords.find(function(x){return x.id===ecCurrentId;}); if(!r)return;
-    saveA4Pdf({html:_ecBuildPrintHtml(r), title:_ecPrintFileName(r), cssMargins:true});
+    return _ecOutput(ecCurrentId,'pdf');
   });
 }
 
 function openEcForm(recId){
   const rec=S.ecRecords.find(function(r){return r.id===recId;});
   if(!rec)return;
+  Object.assign(rec,_ecHydrate(rec));
+  rec._clinicalEditing=true;
   ecCurrentId=recId;
   _clinicalOpenRecords.EC=rec;
   const body=document.getElementById('ecFormBody');
@@ -649,6 +635,7 @@ function openEcForm(recId){
   _attachEcFormListeners(body);
   document.getElementById('ecFormOverlay')._onModalClose=closeEcForm;
   document.getElementById('ecFormOverlay').classList.add('show');
+  if(rec._draftRecovered)_clinicalIndicator('EC',rec,'저장되지 않은 입력을 복원했습니다. 내용을 확인한 뒤 다시 저장해 주세요.','error');
   document.body.style.overflow='hidden';
 }
 
@@ -745,6 +732,7 @@ function ecAccidentCombine(){
   if(rec){
     if(!rec.accidentInfo)rec.accidentInfo={};
     rec.accidentInfo.datetime=combined.trim();
+    rec.date=(d?d.value:'').trim();
     ecDebounceSave();
   }
 }
@@ -775,31 +763,29 @@ function _cpRemoveDragOverlay(){
   _cpDragOverlay=null;
 }
 
+function _cpEndDrag(){dragTarget=null;_cpRemoveDragOverlay();}
+window.addEventListener('blur',_cpEndDrag);
+document.addEventListener('pointercancel',_cpEndDrag);
+document.addEventListener('visibilitychange',function(){if(document.hidden)_cpEndDrag();});
 export function cpCleanHandlers(){
   if(_cpMoveH){document.removeEventListener('mousemove',_cpMoveH);_cpMoveH=null;}
   if(_cpUpH){document.removeEventListener('mouseup',_cpUpH);_cpUpH=null;}
+  _cpEndDrag();
 }
 
 let _cpOutsideHandler=null;
+let _cpCloseTimer=null,_cpOutsideTimer=null,_cpFocusTimer=null;
 export function closeClockPickerAnim(){
-  const wrap=document.getElementById('clockPickerWrap');if(!wrap)return;
-  if(wrap.style.display==='none'||!wrap.style.display)return;
+  clearTimeout(_cpCloseTimer);clearTimeout(_cpOutsideTimer);clearTimeout(_cpFocusTimer);
   cpCleanHandlers();
-  /* 드래그 도중 닫힌 경우 mouseup 이 안 올 수 있으니 드래그 상태·오버레이를 여기서도 정리 */
-  dragTarget=null;
-  _cpRemoveDragOverlay();
   if(_cpOutsideHandler){document.removeEventListener('mousedown',_cpOutsideHandler,true);_cpOutsideHandler=null;}
-  wrap.style.transition='opacity 0.18s ease, transform 0.18s ease';
-  wrap.style.opacity='0';
-  wrap.style.transform='scale(0.94)';
-  setTimeout(function(){
-    wrap.style.display='none';
-    wrap.style.transition='';
-    wrap.style.transform='';
-    wrap.style.opacity='';
-  },180);
+  const wrap=document.getElementById('clockPickerWrap');if(!wrap||wrap.style.display==='none'||!wrap.style.display)return;
+  wrap.style.transition='opacity 0.18s ease, transform 0.18s ease';wrap.style.opacity='0';wrap.style.transform='scale(0.94)';
+  _cpCloseTimer=setTimeout(function(){wrap.style.display='none';wrap.style.transition='';wrap.style.transform='';wrap.style.opacity='';_cpCloseTimer=null;},180);
 }
 export function openClockPicker(fieldId,btn){
+  clearTimeout(_cpCloseTimer);clearTimeout(_cpOutsideTimer);clearTimeout(_cpFocusTimer);
+  cpCleanHandlers();
   /* 달력 팝업이 열려 있으면 먼저 닫기 — 동시 표시 방지 */
   const _calWrap=document.getElementById('infCalWrap');
   if(_calWrap&&_calWrap.style.display!=='none')_calWrap.style.display='none';
@@ -859,10 +845,10 @@ export function openClockPicker(fieldId,btn){
     closeClockPickerAnim();
   };
   /* 현재 클릭 이벤트가 버블링 후 즉시 닫히는 것 방지 */
-  setTimeout(function(){document.addEventListener('mousedown',_cpOutsideHandler,true);},0);
+  _cpOutsideTimer=setTimeout(function(){if(_cpOutsideHandler)document.addEventListener('mousedown',_cpOutsideHandler,true);},0);
   /* 팝업 열리면 시(hour) 자동 블록 — 키보드 숫자 즉시 입력 가능 (사용자 요청 2026-05-28).
    *  cpRender 로 드럼이 그려진 뒤 활성화. 외부 클릭 핸들러 등록(위 setTimeout 0)보다 뒤 시점이라 즉시 닫힘 충돌 없음. */
-  setTimeout(function(){
+  _cpFocusTimer=setTimeout(function(){
     const w=document.getElementById('clockPickerWrap');
     if(!w||w.style.display==='none')return;
     const hEdit=document.querySelector('#cpDrumH [data-role="edit"]');
@@ -1030,8 +1016,8 @@ function cpRender(){
     cpApplyDrag(e);
   });
 
-  _cpMoveH=function(e){if(!dragTarget)return;e.preventDefault();e.stopPropagation();cpApplyDrag(e);};
-  _cpUpH=function(){dragTarget=null;_cpRemoveDragOverlay();};
+  _cpMoveH=function(e){if(!e.buttons){_cpEndDrag();return;}if(!dragTarget)return;e.preventDefault();e.stopPropagation();cpApplyDrag(e);};
+  _cpUpH=_cpEndDrag;
   document.addEventListener('mousemove',_cpMoveH);
   document.addEventListener('mouseup',_cpUpH);
 
@@ -1251,15 +1237,37 @@ function ecRemovePhoto(){
 
 
 
-function ecPrintForm(){
-  if(!ecCurrentId)return;
-  const r=S.ecRecords.find(function(x){return x.id===ecCurrentId;});
-  if(!r){bus.emit('toast:show',{text:'기록을 찾을 수 없습니다.'});return;}
-  /* A4 세로 미리보기 다이얼로그(공용) — 미리보기 = 실제 출력물. A4 전용. (2026-06-02) */
-  const html=_ecBuildPrintHtml(r);
-  const _title=_ecPrintFileName(r);
-  openA4PrintDialog({html:html, title:_title, headerLabel:'응급처치 기록지 인쇄', marginsMm:{top:20,bottom:20,left:12,right:12}});
+function _ecCaptureForm(rec){
+  if(_clinicalOpenRecords.EC!==rec)return;
+  const body=document.getElementById('ecFormBody');if(!body)return;
+  body.querySelectorAll('[data-field]').forEach(input=>{const path=input.dataset.field.split('.');if(path.length===2){rec[path[0]]=rec[path[0]]||{};rec[path[0]][path[1]]=input.value;}else rec[path[0]]=input.value;});
+  body.querySelectorAll('[data-ec-csfield]:checked').forEach(input=>{rec[input.dataset.ecCsfield]=input.value;});
+  body.querySelectorAll('[data-ec-csetc]').forEach(input=>{rec[input.dataset.ecCsetc]=input.value;});
+  const list=_ecEnsureVitalsList(rec);body.querySelectorAll('[data-vl]').forEach(input=>{const i=Number(input.dataset.vlI);if(list[i])list[i][input.dataset.vl]=input.value;});_ecSyncVitals(rec);
+  const date=body.querySelector('#ecAccidentDate'),time=body.querySelector('#ecAccidentTime');
+  if(date&&time){rec.accidentInfo.datetime=(date.value+' '+time.value).trim();rec.date=date.value.trim();}
+  const transfer=body.querySelector('input[name="ecTransfer"]:checked');if(transfer)rec.transfer.transferred=transfer.value==='yes';
 }
+let _ecOutputPending=false;
+async function _ecOutput(recId,kind){
+  if(_ecOutputPending)return;const rec=S.ecRecords.find(r=>r.id===recId);if(!rec)return;
+  _ecOutputPending=true;
+  try{
+    if(_clinicalOpenRecords.EC===rec){
+      _ecCaptureForm(rec);clearTimeout(ecSaveTimer);ecSaveTimer=null;
+      if(!await _awaitClinicalSave(_persistClinicalRecord('EC',rec))){
+        _clinicalIndicator('EC',rec,'저장을 확인하지 못해 출력을 중단했습니다. 입력 내용은 유지됩니다.','error');return;
+      }
+      if(rec._dirty){_clinicalIndicator('EC',rec,'출력 준비 중 내용이 변경되었습니다. 저장 후 다시 출력해 주세요.','saving');return;}
+    }
+    const snapshot=_ecHydrate(rec),html=_ecBuildPrintHtml(snapshot),title=_ecPrintFileName(snapshot);
+    if(kind==='pdf')return await saveA4Pdf({html,title,cssMargins:true});
+    return openA4PrintDialog({html,title,headerLabel:'응급처치 기록지 인쇄',marginsMm:{top:20,bottom:20,left:12,right:12}});
+  }catch(error){bus.emit('toast:show',{text:'출력 준비에 실패했습니다. 입력 내용은 유지됩니다.'});console.warn('[clinical] output failed',error);}
+  finally{_ecOutputPending=false;}
+}
+
+function ecPrintForm(){return _ecOutput(ecCurrentId,'print');}
 
 document.addEventListener('click',function(e){if(e.target&&e.target.id==='ecFormOverlay'){closeEcForm();}});
 
@@ -1668,6 +1676,7 @@ function infBuildFormHtml(rec){
 function openInfForm(recId){
   const rec=S.infRecords.find(function(r){return r.id===recId;});
   if(!rec)return;
+  rec._clinicalEditing=true;
   infCurrentId=recId;
   _clinicalOpenRecords.INF=rec;
   const body=document.getElementById('infFormBody');
@@ -1865,8 +1874,10 @@ function _ecPrintGradeStr(s){
   return (lvPfx+deptPfx+gradeVerbose+numPart).trim();
 }
 function _ecBuildPrintHtml(r){
+  r=_ecHydrate(r);
   const s=getStu(r.studentId);const ai=r.accidentInfo||{};const v=r.vitals||{};const tr=r.transfer||{};
-  const _ecGradeStr=_ecPrintGradeStr(s);
+  const _ecGradeStr=s.type==='staff'&&r.displayGrade!==undefined?r.displayGrade:_ecPrintGradeStr(s);
+  const _ecGender=s.type==='staff'&&r.displayGender!==undefined?r.displayGender:(s.gender||'-');
   const _fname=_ecPrintFileName(r);
   const gc=r.guardianContact||s.guardianContact||'';
   const ht=r.homeroomTeacher||s.homeroomTeacher||'';
@@ -1879,7 +1890,7 @@ function _ecBuildPrintHtml(r){
   let html='<html><head><meta charset="utf-8"><title>'+escHtml(_fname)+'</title><style>@page{size:A4;margin:20mm 12mm}body{font-family:"Pretendard Variable","Pretendard","Noto Sans KR",sans-serif;padding:0;margin:0;color:#111}table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;margin-bottom:14px}thead{display:table-header-group}tr,td,th{page-break-inside:avoid;break-inside:avoid}tbody.keep{page-break-inside:avoid;break-inside:avoid}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top;box-decoration-break:clone;-webkit-box-decoration-break:clone}th+th,td+td,th+td,td+th{border-left:0}tr+tr td,tr+tr th{border-top:0}th{background:#f0f0f0;font-weight:700;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}.section-title{background:#e0e0e0;font-weight:700;text-align:center;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}h2{text-align:center;margin:0 0 16px;font-size:18px}.long-cell{white-space:pre-wrap;word-break:break-word}</style></head><body><h2>응 급 처 치 &nbsp; 기 록 지</h2>';
   /* 학생 기본 정보 + 보호자/담임 */
   html+='<table style="table-layout:fixed"><colgroup><col style="width:14%"><col style="width:36%"><col style="width:14%"><col style="width:36%"></colgroup>'
-    +'<tr><th>이름</th><td>'+escHtml(s.name)+'</td><th>성별</th><td>'+escHtml(s.gender||'-')+'</td></tr>'
+    +'<tr><th>이름</th><td>'+escHtml(s.name)+'</td><th>성별</th><td>'+escHtml(_ecGender??'-')+'</td></tr>'
     +'<tr><th>'+(isKinder()?'나이-반':'학년반번호')+'</th><td colspan="3">'+escHtml(_ecGradeStr)+'</td></tr>'
     +'<tr><th>보호자 연락처</th><td>'+escHtml(gc||'-')+'</td><th>담임교사</th><td>'+escHtml(ht||'-')+'</td></tr></table>';
   /* 사고 발생 정보 */
@@ -1898,7 +1909,7 @@ function _ecBuildPrintHtml(r){
   /* table-layout:fixed + colgroup → 측정값이 비어 있어도(빈칸) 값이 들어찬 칸과 동일한 가로폭 확보 (사용자 요청 2026-06-04) */
   html+='<table style="table-layout:fixed"><colgroup><col style="width:12%"><col style="width:15%"><col style="width:13%"><col style="width:15%"><col style="width:13%"><col style="width:15%"><col style="width:17%"></colgroup><thead><tr><td class="section-title" colspan="7">활력 징후 (Vital Sign)</td></tr></thead>';
   _vlist.forEach(function(m){
-    var _c=function(x){return escHtml(x||'-');};
+    var _c=function(x){return escHtml(x??'-');};
     /* 측정 1건(2행, 측정시간 rowspan)을 tbody.keep 로 묶어 페이지 경계에서 카드가 쪼개지지 않게 함 */
     html+='<tbody class="keep"><tr><th rowspan="2" style="width:90px;vertical-align:middle">측정 시간<br>'+_c(m.time)+'</th>'
       +'<th>체온(℃)</th><td>'+_c(m.temp)+'</td><th>맥박(bpm)</th><td>'+_c(m.pulse)+'</td><th>혈압(mmHg)</th><td>'+_c(m.bp)+'</td></tr>'
@@ -2005,19 +2016,17 @@ export function ecPrintList(){
 }
 function ecHardPrintOne(recId){
   const r=S.ecRecords.find(function(x){return x.id===recId;});if(!r)return;
-  const html=_ecBuildPrintHtml(r);
-  const _title=_ecPrintFileName(r);
   /* 선택 모달 닫고 → A4 세로 미리보기 다이얼로그(공용) */
   const _ov=document.getElementById('ecPrintSelOverlay');
   if(_ov)closeModalGracefully(_ov);
-  openA4PrintDialog({html:html, title:_title, headerLabel:'응급처치 기록지 인쇄', marginsMm:{top:20,bottom:20,left:12,right:12}});
+  return _ecOutput(recId,'print');
 }
 function ecPdfPrintOne(recId){
   const r=S.ecRecords.find(function(x){return x.id===recId;});if(!r)return;
   /* PDF 저장 = 바로 저장 경로 선택창 (인쇄 미리보기 없이 즉시 저장) */
   const _ov=document.getElementById('ecPrintSelOverlay');
   if(_ov)closeModalGracefully(_ov);
-  saveA4Pdf({html:_ecBuildPrintHtml(r), title:_ecPrintFileName(r)});
+  return _ecOutput(recId,'pdf');
 }
 // Legacy compat - keep old function signature for remaining references
 function _infBuildPrintHtml(r){
@@ -2131,18 +2140,19 @@ function infPdfPrintOne(recId){
 // Legacy - old infPrintList
 
 export function ecPrintTable(){
-  const table=document.getElementById('ecListTable');
-  if(!table)return;
+  const table=document.getElementById('ecListTable');if(!table)return;
   const clone=table.cloneNode(true);
-  clone.querySelectorAll('tr').forEach(function(tr){const cells=tr.querySelectorAll('th,td');if(cells.length>0)cells[cells.length-1].remove();});
-  const pw=window.open('','','width=900,height=700');
-  pw.document.write('<html><head><title>응급처치 기록표</title><style>body{font-family:"Pretendard Variable","Pretendard","Noto Sans KR",sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#f0f0f0;font-weight:700}h2{text-align:center;margin-bottom:16px}@media print{body{padding:10px}}</style></head><body>');
-  pw.document.write('<h2>응급처치 기록표</h2>');
-  pw.document.write(clone.outerHTML);
-  pw.document.write('</body></html>');
-  pw.document.close();
-  pw.focus();
-  setTimeout(function(){pw.print();pw.close();},300);
+  clone.querySelectorAll('colgroup,.row-delete-x,.memo-plus,.yo-chip-pop,.name-hover-pop').forEach(el=>el.remove());
+  clone.querySelectorAll('[data-col-index="11"],.col-hidden').forEach(el=>el.remove());
+  const widths={0:4,1:10,12:4,2:7,3:4,4:5,5:8,6:8,7:11,8:23,9:5,10:11};
+  clone.removeAttribute('style');
+  clone.querySelectorAll('th,td').forEach(cell=>{
+    cell.removeAttribute('style');
+    const idx=cell.getAttribute('data-col-index');
+    if(widths[idx])cell.style.width=widths[idx]+'%';
+  });
+  const html='<style>table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px}th,td{border:1px solid #777;padding:5px;vertical-align:top;overflow-wrap:anywhere}th{background:#eee;text-align:center}thead{display:table-header-group}td[data-col-index="8"] span{white-space:normal!important;overflow-wrap:anywhere}td[data-col-index="8"]{line-height:1.5}h2{text-align:center}</style><h2>응급처치 기록표</h2>'+clone.outerHTML;
+  openA4PrintDialog({html,title:'응급처치 기록표',headerLabel:'응급처치 기록표 인쇄',marginsMm:{top:12,bottom:12,left:10,right:10}});
 }
 export function infPrintTable(){
   const table=document.getElementById('infListTable');

@@ -2,7 +2,7 @@
 /* ═══ 보건실 물품 대여 대장 (rental-ledger-view.js) ═══ */
 /* ES Module */
 import { S } from '../../core/app-state.js';
-import { getStu, escHtml, escJs, toDateStr, compareClass } from '../../core/helpers.js';
+import { getStu, escHtml, toDateStr, compareClass } from '../../core/helpers.js';
 import { dailyShowToast } from './daily-view.js';
 import { closeModalWithAnim, matchKorean, matchKoreanFromStart } from './daily-autocomplete.js';
 import { _makeDraggable, _symPrompt } from '../symptom/symptom-view.js';

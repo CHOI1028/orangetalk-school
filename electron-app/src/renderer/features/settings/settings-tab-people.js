@@ -2,7 +2,7 @@
 /* ES Module */
 import { S } from '../../core/app-state.js';
 import { _pushRosterToRelay, _checkKioskRosterStale, escHtml, extractGuardianLabel, _reloadStudentsFromDB, saveStudents, isKinder, closeModalGracefully, compareClass, normalizeClassInput } from '../../core/helpers.js';
-import { renderSettingsPanel, triggerLocalTemplateDownload, openAccordion } from './settings-view.js';
+import { renderSettingsPanel, triggerLocalTemplateDownload } from './settings-view.js';
 import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
 import { bus } from '../../core/event-bus.js';
 import { dailyColEyeIcon } from '../emergency/emergency-view.js';

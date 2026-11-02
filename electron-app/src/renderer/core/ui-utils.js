@@ -2,7 +2,7 @@
 /* ui-utils.js — 공유 DOM 유틸리티 */
 import { escHtml } from './format-utils.js';
 import { playSoundMedia, soundCategoryForFile } from './sound-preferences.js';
-import { getStu, getGuardianType, getGuardianContact, getStudentBirth } from './student-utils.js';
+import { getStu, getGuardianContact, getStudentBirth } from './student-utils.js';
 
 /* ── 미니 팝업 효과음 (assets/sounds/*) — 파일별 Audio 캐시 재사용 ── */
 const _uiSndCache={};
@@ -58,7 +58,7 @@ export function hideNameHoverPop(){
 }
 export function findTopOpenModal(){
   const nodes = Array.from(document.querySelectorAll(
-    '.modal-overlay.show, .sv-modal-overlay, [id$="Overlay"], .school-confirm-overlay, #vpExportPopupOv, #vpPrintPreviewOv'
+    '.modal-overlay.show, .sv-modal-overlay, [id$="Overlay"], .school-confirm-overlay, #vpExportPopupOv, #vpPrintPreviewOv, #homeCalDayPopup'
   )).filter(function(node){
     if(!node || !node.isConnected) return false;
     for(let current=node; current; current=current.parentElement){

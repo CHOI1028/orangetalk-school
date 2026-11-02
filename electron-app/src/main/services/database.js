@@ -881,6 +881,7 @@ class HealthDiaryDB {
       `),
       emergencyUpdate: db.prepare(`
         UPDATE emergency_records SET
+          school_year=@school_year,
           person_uid=@person_uid, person_type=@person_type,
           accident_date=@accident_date, accident_time=@accident_time,
           location=@location, situation=@situation,

@@ -7,7 +7,7 @@ import { bindViewDailyEvents, bindViewDashboardEvents, bindViewMagicEvents, bind
 import { viewFragmentLoader } from '../../core/helpers.js';
 import { S } from '../../core/app-state.js';
 import { toDateStr } from '../../core/format-utils.js';
-import { renderSettingsPanel } from '../settings/settings-view.js';
+import '../settings/settings-view.js';
 import { verifyCdkey, hasCdkeyLicense } from '../../core/cdkey-license.js';
 import { hasPublicDataApiKeySetting } from '../../core/public-data-settings.js';
 import './update-overlay.js';  /* 종료 시 업데이트 적용 안내 오버레이 등록 (사이드 이펙트) */

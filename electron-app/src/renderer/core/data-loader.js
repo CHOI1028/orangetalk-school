@@ -10,11 +10,12 @@
  *  - beforeunload 종료 flush
  */
 import { S, refreshSharedKioskSettings } from './app-state.js';
+import { normalizeEmergencyRecord, mergeEmergencySnapshot, restoreEmergencyDrafts } from './emergency-record-model.js';
 import { bus } from './event-bus.js';
 import { persistenceOrchestrator } from './persistence-orchestrator.js';
 import { refreshSharedSettings } from './shared-settings-sync.js';
 import { _reloadStudentsFromDB } from './student-utils.js';
-import { _recToDbRow } from './record-utils.js';
+import './record-utils.js';
 import { saveDailyRecord } from './daily-record-persistence.js';
 import { _pushRosterToRelay, _checkKioskRosterStale, _scheduleDailyRosterCheck } from './kiosk-roster.js';
 import { getSvWorkspaceCache } from '../features/survey/survey-view.js';
@@ -200,7 +201,7 @@ function _mergeRecordsFromDB(apiGet, stateKey, yearArg){
     const GRACE_MS=7000;/* 최근 로컬 변경 유예 시간 */
     const deletedMap=window._recentlyDeletedRecs||{};
     const pendingDeletes=window._pendingDailyDeletes||{};
-    const dbList=res.data.map(function(r){if(r.personUid!==undefined&&r.studentId===undefined)r.studentId=r.personUid;return r;});
+    const dbList=res.data.map(function(r){if(stateKey==='ecRecords')return normalizeEmergencyRecord(r);if(r.personUid!==undefined&&r.studentId===undefined)r.studentId=r.personUid;return r;});
     const current=Array.isArray(S[stateKey])?S[stateKey]:[];
     const dbById={};dbList.forEach(function(r){if(r.id!=null)dbById[r.id]=r;});
     const curById={};current.forEach(function(r){if(r.id!=null)curById[r.id]=r;});
@@ -209,7 +210,7 @@ function _mergeRecordsFromDB(apiGet, stateKey, yearArg){
        dbList 단계에서 cur 로 push 되므로 여기서 제외해야 한다 (이중 push 방지). */
     const keepLocal=current.filter(function(r){
       if(dbById[r.id])return false;/* DB에 있는 건 dbList 단계가 처리 */
-      if(r._dirty||r._isDummy||r._saving||r._inserting||r._pendingUpdate)return true;
+      if(r._clinicalEditing||r._dirty||r._isDummy||r._saving||r._inserting||r._pendingUpdate)return true;
       if(r._savedAt&&(NOW-r._savedAt<GRACE_MS))return true;/* 최근 저장 → 유예 */
       changed=true;
       return false;
@@ -221,7 +222,7 @@ function _mergeRecordsFromDB(apiGet, stateKey, yearArg){
       /* 최근 삭제한 레코드가 DB에 아직 남아있으면 무시 (삭제 트랜잭션 완료 대기) */
       if(pendingDeletes[dbRec.id]||(deletedMap[dbRec.id]&&(NOW-deletedMap[dbRec.id]<GRACE_MS)))return;
       const cur=curById[dbRec.id];
-      if(cur&&(cur._dirty||cur._saving||cur._inserting||cur._pendingUpdate)){merged.push(cur);return;}
+      if(cur&&(cur._clinicalEditing||cur._dirty||cur._saving||cur._inserting||cur._pendingUpdate)){merged.push(cur);return;}
       if(cur&&cur._savedAt&&(NOW-cur._savedAt<GRACE_MS)){merged.push(cur);return;}
       if(cur&&cur._localIds)dbRec._localIds=cur._localIds.slice();
       merged.push(dbRec);
@@ -624,8 +625,8 @@ function _doBackendLoad(yr){
 
   window.electronAPI.recordsGetEmergency(yr).then(function(res){
     if(res&&res.success&&Array.isArray(res.data)){
-      S.ecRecords=res.data.map(function(r){if(r.personUid!==undefined&&r.studentId===undefined)r.studentId=r.personUid;return r;});
-      S.ecNextId=res.nextId||1;
+      S.ecRecords=restoreEmergencyDrafts(res.data,S.ecRecords,localStorage);
+      S.ecNextId=Math.max(res.nextId||1,1,...S.ecRecords.map(r=>(Number(r.id)||0)+1));
       console.log('[DB] emergency_records: '+S.ecRecords.length+'건');
     }
   }).catch(function(err){console.error('[DB] emergency_records 로드 실패:',err);});

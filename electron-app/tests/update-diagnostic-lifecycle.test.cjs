@@ -245,6 +245,12 @@ function shutdownFixture(spawnResult = { status: 0 }, installResult = { success:
     autoUpdaterService: options.noService ? null : { quitAndInstall() {
       events.push('install-request'); if(options.installThrow) throw new Error('가상 설치 오류'); return installResult;
     } } });
+  const {createQuitConfirmation}=require('../src/main/services/quit-confirmation');
+  ctx.mainWindow.isDestroyed=()=>false;
+  ctx.quitConfirmation=createQuitConfirmation({getWindow:()=>ctx.mainWindow,
+    getUpdateState:()=>({ready:!!ctx.global._updateReady,confirmed:!!ctx.global._updateConfirmed,
+      installing:!!ctx.global._updateInstalling,version:'synthetic'}),
+    createDialog:()=>{throw Error('Unexpected dialog in update fixture');}});
   vm.runInContext([killNode, requestNode, startNode].map(n => mainSource.slice(n.start,n.end)).join('\n'), ctx);
   const extract = n => vm.runInContext('(' + mainSource.slice(n.arguments[1].start,n.arguments[1].end) + ')',ctx);
   return { ctx, events, timers, sent, child, handler: extract(ipcNode('confirm-quit-after-update')),
@@ -307,7 +313,7 @@ test('비 Windows 종료 대기 시간 초과는 설치를 차단',async()=>{
   assert.equal(f.child.listenerCount('exit'),0);
 });
 test('일반 종료에서도 업데이트 직전 협업 종료 실패를 차단',()=>{
-  const f=shutdownFixture({status:1}); let prevented=false; f.beforeQuit({preventDefault(){prevented=true;}});
+  const f=shutdownFixture({status:1}); f.ctx.global._updateConfirmed=true; let prevented=false; f.beforeQuit({preventDefault(){prevented=true;}});
   assert.equal(prevented,true); assert.equal(f.sent[0].payload.mode,'install-error');
   assert.equal(f.ctx.global._updateConfirmed,false);
 });
@@ -359,4 +365,12 @@ test('진단 화면으로 전환하면 예약된 설치를 취소',()=>{
 test('설치 스크립트의 기존 대기 상한을 기록하며 실제 설치 성공으로 간주하지 않음',()=>{
   const macro=installerSource.slice(installerSource.indexOf('!macro WaitProcGone EXE'),installerSource.indexOf('!macroend'));
   assert.match(macro,/LoopUntil.*>= 20/); assert.match(macro,/Sleep 500/);
+});
+
+test('ordinary quit requests update confirmation before any process shutdown',()=>{
+  const f=shutdownFixture({status:1});let prevented=false;
+  f.beforeQuit({preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);assert.equal(f.sent[0].payload.mode,'quit');
+  assert.equal(f.events.includes('kill-request'),false);
+  assert.equal(f.events.includes('install-request'),false);
 });

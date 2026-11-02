@@ -354,6 +354,7 @@ class HealthRecordDBService {
     try { if (r.extra_json) _extra = JSON.parse(r.extra_json) || {}; } catch (e) {}
     return {
       id: r.id,
+      clientRequestId: _extra.clientRequestId || '',
       personUid: r.person_uid || '',
       personType: r.person_type || 'student',
       /* 교직원 전용 편집 필드 — extra_json 에 저장 */
@@ -420,11 +421,17 @@ class HealthRecordDBService {
 
   /* ──────────── Emergency: 저장 ──────────── */
 
+  _emergencyYear(record,existing) {
+    const date=record.accident_date||record.accidentDate||'';
+    if(/^\d{4}-\d{2}-\d{2}$/.test(date)&&!isNaN(new Date(date+'T12:00:00').getTime()))return HealthDiaryDB.academicYear(date+'T12:00:00');
+    return record.school_year||(existing&&existing.school_year)||this._yr();
+  }
+
   insertEmergency(record) {
     const now = this._db.now();
     const r = record;
-    const info = this._db.stmt.emergencyInsert.run({
-      school_year: r.school_year || this._yr(),
+    const row = {
+      school_year: this._emergencyYear(r),
       person_uid: r.person_uid || r.personUid || null,
       person_type: r.person_type || r.personType || 'student',
       accident_date: r.accident_date || r.accidentDate || '',
@@ -452,8 +459,20 @@ class HealthRecordDBService {
       extra_json: r.extra_json || '{}',
       created_at: now,
       updated_at: now,
-    });
-    return { success: true, id: Number(info.lastInsertRowid) };
+    };
+    let extra={};try{extra=JSON.parse(row.extra_json)||{};}catch(_){}
+    const token=typeof extra.clientRequestId==='string'?extra.clientRequestId:'';
+    return this._db.db.transaction(()=>{
+      const existing=token?this._db.db.prepare(`SELECT id, person_uid, person_type FROM emergency_records
+        WHERE CASE WHEN json_valid(extra_json) THEN json_extract(extra_json, '$.clientRequestId') END = ?`).get(token):null;
+      if(existing){
+        if(existing.person_uid!==row.person_uid||existing.person_type!==row.person_type)return {success:false,error:'request_identity_conflict'};
+        const result=this.updateEmergency({...r,id:existing.id});
+        return result.success?{...result,id:existing.id}:result;
+      }
+      const info=this._db.stmt.emergencyInsert.run(row);
+      return {success:true,id:Number(info.lastInsertRowid)};
+    }).immediate();
   }
 
   updateEmergency(record) {
@@ -461,6 +480,7 @@ class HealthRecordDBService {
     const r = record;
     const info = this._db.stmt.emergencyUpdate.run({
       id: r.id || r._dbId,
+      school_year: this._emergencyYear(r,this._db.stmt.emergencyGetById.get(r.id||r._dbId)),
       person_uid: r.person_uid || r.personUid || null,
       person_type: r.person_type || r.personType || 'student',
       accident_date: r.accident_date || r.accidentDate || '',

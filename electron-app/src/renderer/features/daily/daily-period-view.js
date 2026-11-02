@@ -2,7 +2,7 @@
 /* 기간 조회는 S.records를 교체하지 않는다. 클릭한 과거 기록만 별도 편집 캐시에 연결한다. */
 import { S } from '../../core/app-state.js';
 import { bus } from '../../core/event-bus.js';
-import { escHtml, toDateStr } from '../../core/format-utils.js';
+import { toDateStr } from '../../core/format-utils.js';
 import { renderDailyPeriodTable, syncDailySelectedDate } from './daily-view.js';
 import { preparePeriodRecord, getPeriodEditRecords } from '../../core/daily-record-access.js';
 import { validatePeriodRange, reconcilePeriodRecords, summarizePeriodRecords, periodRecordText } from './daily-period-data.js';

@@ -279,7 +279,6 @@ function _infectFeedback(body,result){
   showFeedback(body,result ? {kind:'error',title:'감염병 현황을 불러오지 못했습니다',description:getInfectiousErrorMessage(result),actionLabel:'다시 조회',onAction:()=>{const button=document.getElementById('ifGo');if(button)button.click();}}
     : {kind:'empty',title:'해당 조건의 발생 자료가 없습니다',description:'연도·지역·조회 기간을 바꿔 다시 조회해 주세요.'});
 }
-function _errMsg(r){ return _esc(getInfectiousErrorMessage(r)); }
 function _beginQuery(){
   const query={epoch:++_queryEpoch,body:document.getElementById('infectBody'),key:_key()};
   _loading();

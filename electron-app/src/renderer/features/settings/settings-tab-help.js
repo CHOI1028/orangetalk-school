@@ -7,7 +7,7 @@
  * 체계적으로 정리. macOS System Preferences 스타일.
  */
 /* ES Module */
-import { escHtml } from '../../core/helpers.js';
+import '../../core/helpers.js';
 
 const _isMac = /Mac/i.test(navigator.platform);
 const _modKey = _isMac ? '⌘' : 'Ctrl';

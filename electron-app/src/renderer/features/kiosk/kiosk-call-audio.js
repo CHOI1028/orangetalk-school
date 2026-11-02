@@ -66,7 +66,6 @@ export function composeKioskCallMessage(config,person={},payload={}){
   return {instruction,spokenText:greeting+(instruction?', '+instruction:'.')};
 }
 
-function kioskSettingsVoiceKey(voice){return JSON.stringify([voice.voiceURI||'',voice.name||'',voice.lang||'']);}
 function refreshKioskSettingsVoices(container,settings){
   let voices=[];
   try{voices=(window.speechSynthesis?.getVoices()||[]).filter(voice=>voice.localService===true&&/^ko(?:[-_]|$)/i.test(voice.lang||''));}catch(_){}

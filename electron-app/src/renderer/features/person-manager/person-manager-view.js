@@ -2,7 +2,7 @@
 /* ES Module */
 import { getStu, escHtml, _reloadStudentsFromDB, saveStudents, saveData, isKinder, closeModalGracefully, createEmptyState, compareClass, normalizeClassInput, hasMultipleSchoolLevels, hasAnyDepartment, getLevelShort } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
-import { triggerLocalTemplateDownload } from '../settings/settings-view.js';
+import '../settings/settings-view.js';
 import { downloadOptimizedStudentTemplate, downloadOptimizedStaffTemplate, downloadOptimizedCareTemplate, handleStudentFile, handleStaffFile, handleStudentUploadPaste, _careListPanelHtml, reshowStaffPending, reshowStudentPending } from '../settings/settings-tab-people.js';
 import { _makeDraggable } from '../symptom/symptom-view.js';
 import { _commonCalRender } from '../daily/diary-print-view.js';
@@ -2401,7 +2401,7 @@ function _apWtOpenCal(){
   }
   fl.style.left=rect.left+'px';
   document.body.appendChild(fl);
-  _commonCalRender(fl,_apWtCalYear,_apWtCalMonth,'_apWtCalSelect','_apWtCalNav');
+  _commonCalRender(fl,_apWtCalYear,_apWtCalMonth,_apWtCalSelect,_apWtCalNav);
   setTimeout(function(){document.addEventListener('click',_apWtCalOutside);},10);
 }
 function _apWtCalOutside(e){
@@ -2415,7 +2415,7 @@ function _apWtCalNav(delta,setMonth){
   if(setMonth!==undefined){_apWtCalMonth=setMonth;}
   else{_apWtCalMonth+=delta;if(_apWtCalMonth<0){_apWtCalMonth=11;_apWtCalYear--;}if(_apWtCalMonth>11){_apWtCalMonth=0;_apWtCalYear++;}}
   const fl=document.getElementById('apWtCalFloat');if(!fl)return;
-  _commonCalRender(fl,_apWtCalYear,_apWtCalMonth,'_apWtCalSelect','_apWtCalNav');
+  _commonCalRender(fl,_apWtCalYear,_apWtCalMonth,_apWtCalSelect,_apWtCalNav);
 }
 function _apWtCalSelect(ds){
   document.getElementById('apWtDate').value=ds;

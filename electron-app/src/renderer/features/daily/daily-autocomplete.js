@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
 import { getStu, escHtml, isBirthdayToday, fireConfetti, saveData, saveRecordNow, closeModalGracefully, getStuAutoLine, hasMultipleSchoolLevels } from '../../core/helpers.js';
-import { renderDaily, renderCalendar, renderSidebarRecent, syncDailySelectedDate, _normName, _isChosungQuery, _getChosung } from './daily-view.js';
+import { renderDaily, syncDailySelectedDate, _normName, _isChosungQuery, _getChosung } from './daily-view.js';
 import { openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { bus } from '../../core/event-bus.js';
 import { S, addRecord } from '../../core/app-state.js';

@@ -154,29 +154,7 @@ function _normalizeDate(raw) {
  *   오후 3:42               → { date: '', time: '15:42' }
  *   오전 11:30              → { date: '', time: '11:30' }
  */
-/** Levenshtein 편집 거리 — 한글 음절 단위 문자열 거리.
- *  과거 보건기록 업로드 시 이름 오탈자(예: "양동하" 입력 → 명단은 "양동하"
- *  vs "앙동하") 를 자동으로 같은 학년·반의 학생에게 매핑하기 위한 유사도 측정.
- *  거리 1 = 1글자 교체/삽입/삭제. 두 글자 이상 다르면 후보 제외. */
-function _levenshtein(a, b) {
-  if (a === b) return 0;
-  const al = a.length, bl = b.length;
-  if (al === 0) return bl;
-  if (bl === 0) return al;
-  const dp = new Array(bl + 1);
-  for (let j = 0; j <= bl; j++) dp[j] = j;
-  for (let i = 1; i <= al; i++) {
-    let prev = dp[0];
-    dp[0] = i;
-    for (let j = 1; j <= bl; j++) {
-      const tmp = dp[j];
-      if (a.charCodeAt(i - 1) === b.charCodeAt(j - 1)) dp[j] = prev;
-      else dp[j] = Math.min(prev + 1, dp[j] + 1, dp[j - 1] + 1);
-      prev = tmp;
-    }
-  }
-  return dp[bl];
-}
+
 
 function _normalizeDatetime(raw) {
   if (!raw && raw !== 0) return { date: '', time: '' };

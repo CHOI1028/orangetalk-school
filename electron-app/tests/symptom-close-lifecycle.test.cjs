@@ -95,7 +95,13 @@ test('popup uses generic modal close hook and disposes its keyboard handler', ()
   assert.match(source, /ov\._disposeKeyNav\s*=\s*function\(\)\{document\.removeEventListener\('keydown',_symKeyNav\)/);
 });
 test('handled child Escape is ignored by parent keyboard handler', () => {
-  assert.match(source, /const _symKeyNav=function\(e\)\{\s*if\(e\.key==='Escape' && e\.defaultPrevented\)return;/);
+  const start=source.indexOf('const _symKeyNav=function(e)');
+  const firstGuard=source.slice(start).match(/^const _symKeyNav=function\(e\)\{\s*(if\([^\n]+?return;)/);
+  assert(firstGuard,'keyboard event guard missing');
+  const probe=new Function('e',firstGuard[1]+';return "continued";');
+  for(const key of ['Escape','Tab'])assert.equal(probe({key,defaultPrevented:true}),undefined);
+  for(const key of ['Escape','Tab','Enter'])assert.equal(probe({key,defaultPrevented:false}),'continued');
+  assert.equal(probe({key:'Enter',defaultPrevented:true}),'continued');
 });
 
 

@@ -1,11 +1,11 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 /* ES Module */
-import { getStu, escHtml, toDateStr, getGrades, saveStudents, isKinder, closeModalGracefully } from '../../core/helpers.js';
+import { getStu, escHtml, toDateStr, saveStudents, isKinder, closeModalGracefully } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
 import { SCHOOL_RELEASE_NOTES } from '../shell/school-release-notes.js';
 import { buildSharedConnectionAddress, isSharedConnectionAddress, copySharedConnectionAddress } from './collab-connection-address.js';
 import { readCollabControl, collabControlMessage } from './collab-control-query.js';
-import { closeModalWithAnim } from '../daily/daily-autocomplete.js';
+import '../daily/daily-autocomplete.js';
 import { S } from '../../core/app-state.js';
 import { renderSoundSettings, bindSoundSettings } from './settings-sound.js';
 import { magicCalendarManager, googleSheetsManager, driveSyncManager } from './drive-sync-manager.js';
@@ -19,9 +19,9 @@ import { _renderCustomBackupTab, _bindCustomBackupTabEvents } from './settings-t
 import { showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';   /* 증상 화면과 동일한 미니 팝업 툴팁 */
 import { verifyCdkey } from '../../core/cdkey-license.js';
 import { _renderImportTab, _bindImportTabEvents, _loadAmbiguousStandalone } from './settings-tab-import.js';
-import { setBgMode, selectBgImage, selectSolidImage, deleteBgCustom, toggleBgRandomDaily, toggleBgRandomWeekly, handleBgCustomUpload, BG_IMAGES, SOLID_IMAGES_DARK, SOLID_IMAGES_LIGHT, getSolidImages, getCustomBgDataUrl, reapplyBgCustom } from './settings-bg-theme.js';
+import { setBgMode, selectBgImage, selectSolidImage, deleteBgCustom, toggleBgRandomDaily, toggleBgRandomWeekly, handleBgCustomUpload, BG_IMAGES, getSolidImages, getCustomBgDataUrl, reapplyBgCustom } from './settings-bg-theme.js';
 import { setHeaderGlass, setFooterGlass, applyFontScale, toggleTheme } from '../shell/theme-manager.js';
-import { _saveFooterMsgs, _resetFooterMsgs, getBannerTutorials, getLockedHeaderMsgs, loadUserHeaderMsgs, saveUserHeaderMsgs, getCurrentCustomHeaderMsgs, getDefaultCustomHeaderMsgs } from '../shell/header-widget.js';
+import { _saveFooterMsgs, _resetFooterMsgs, getBannerTutorials, getLockedHeaderMsgs, saveUserHeaderMsgs, getCurrentCustomHeaderMsgs } from '../shell/header-widget.js';
 import { _bindKioskCmsEvents } from '../kiosk/kiosk-cms-view.js';
 import { collabGenerateKey, collabCopyKey } from '../daily/daily-view.js';
 import { openPersonSearch } from '../../core/person-search-ui.js';

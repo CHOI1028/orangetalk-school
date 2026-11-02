@@ -9,7 +9,7 @@
  * localStorage: ec_home_widgets = JSON array of widget ids (선택+순서)
  */
 /* ES Module */
-import { getStu, escHtml, closeModalGracefully } from '../../core/helpers.js';
+import { getStu, escHtml } from '../../core/helpers.js';
 import { compareClass } from '../../core/student-utils.js';
 import { appConfirmModal } from '../../core/ui-utils.js';
 import { playSoundMedia } from '../../core/sound-preferences.js';
@@ -3155,6 +3155,7 @@ async function _homeEditLocalEvent(ds, idx, dayOv){
     if(_saved)return;_saved=true;
     const title=(document.getElementById('lceTitle').value||'').trim();
     if(!title){ ov.remove(); return; }
+    const before={title:ev.title,time:ev.time,memo:ev.memo,color:ev.color};
     ev.title=title;
     ev.time=(document.getElementById('lceTime').value||'').trim();
     ev.memo=(document.getElementById('lceMemo').value||'').trim();
@@ -3164,7 +3165,16 @@ async function _homeEditLocalEvent(ds, idx, dayOv){
       const _chk=Array.prototype.slice.call(ov.querySelectorAll('.lce-cal-chk:checked'));
       if(_chk.length){ const _cc=_chk[0].getAttribute('data-color'); if(_cc) ev.color=_cc; }
     }
-    await _saveLocalEvents();
+    let saved=false;
+    try{saved=await _saveLocalEvents();}catch(error){console.warn('[home-cal] edit save failed',error);}
+    if(!saved){
+      Object.assign(ev,before);_saved=false;
+      let warning=ov.querySelector('[data-local-save-error]');
+      if(!warning){warning=document.createElement('p');warning.dataset.localSaveError='';warning.setAttribute('role','alert');warning.style.cssText='color:var(--red,#b91c1c);padding:8px 0';ov.firstElementChild.appendChild(warning);}
+      warning.textContent='저장하지 못했습니다. 입력 내용은 유지됩니다. 연결을 확인한 뒤 Enter를 누르거나 창 바깥을 눌러 다시 시도해 주세요.';
+      const input=ov.querySelector('#lceTitle');if(input)input.focus();
+      return;
+    }
     /* 체크된 캘린더에 올리고, 해제된 캘린더에서 내림 (연동 ON 일 때만) */
     if(_gcalEnabled()){
       const _checked=Array.prototype.slice.call(ov.querySelectorAll('.lce-cal-chk:checked')).map(function(c){return c.value;});
@@ -3175,6 +3185,7 @@ async function _homeEditLocalEvent(ds, idx, dayOv){
     renderHomeDashboard();
     if(dayOv) _homeOpenDayPopup(ds);
   };
+  ov._onModalClose=_save;
   ov.addEventListener('mousedown',function(e){if(e.target===ov)_save();});
   ['lceTime','lceTitle'].forEach(function(id){
     const el=document.getElementById(id);
