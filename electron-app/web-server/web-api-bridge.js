@@ -327,6 +327,88 @@
     finally{if(iframe)iframe.remove();}
   }
 
+  /* 웹 전용 인쇄. 설치형 IPC, 전달받은 HTML의 @page/여백/내용은 변경하지 않는다.
+   * success는 브라우저 인쇄 요청까지의 성공이며 실제 프린터 출력 결과가 아니다. */
+  function _printWebDocument(html) {
+    var win;
+    try { win = window.open('', '_blank'); } catch (_) {}
+    if (!win || win.closed) {
+      return Promise.resolve({success:false, reason:'popup-blocked', error:'인쇄창을 열 수 없습니다. 이 사이트의 팝업을 허용한 뒤 다시 인쇄해 주세요.'});
+    }
+    return new Promise(function(resolve) {
+      var settled = false, preparing = false, timeoutId, closedId;
+      function closeWindow() { try { if (!win.closed) win.close(); } catch (_) {} }
+      function finish(result) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        clearInterval(closedId);
+        win.removeEventListener('load', prepare);
+        if (!result.success) {
+          win.removeEventListener('afterprint', afterPrint);
+          closeWindow();
+        }
+        resolve(result);
+      }
+      function afterPrint() {
+        /* 미리보기 종료는 출력 성공/취소를 구별하지 못한다. 종료 이벤트 처리 후 정리. */
+        win.removeEventListener('afterprint', afterPrint);
+        setTimeout(closeWindow, 0);
+      }
+      function prepare() {
+        if (preparing || settled) return;
+        preparing = true;
+        try {
+          var doc = win.document;
+          /* 레이아웃에 쓰이는 폰트 로딩을 시작한 뒤 준비 완료를 기다린다. */
+          if (doc.body) void doc.body.offsetHeight;
+          var resources = [doc.fonts ? doc.fonts.ready : Promise.resolve()];
+          Array.from(doc.images).forEach(function(img) {
+            /* load 이후에도 도장/서명 이미지의 디코딩이 남아 있을 수 있다.
+             * 깨진 이미지는 기존 브라우저 동작처럼 나머지 문서 인쇄를 막지 않는다. */
+            if (typeof img.decode === 'function') resources.push(img.decode().catch(function() {}));
+          });
+          Promise.all(resources).then(function() {
+            if (settled) return;
+            if (win.closed) { finish({success:false, cancelled:true}); return; }
+            try {
+              if (doc.body) void doc.body.offsetHeight;
+              try { win.focus(); } catch (_) {}
+              /* 준비 타이머가 인쇄 대화상자 대기 중에 실패로 바뀌지 않도록 해제. */
+              clearTimeout(timeoutId);
+              clearInterval(closedId);
+              win.print();
+              finish({success:true, status:'dialog-requested', printed:null});
+            } catch (_) {
+              finish({success:false, reason:'print-failed', error:'브라우저 인쇄창을 열지 못했습니다. 다시 시도하거나 엣지에서 인쇄해 주세요.'});
+            }
+          }, function() {
+            finish({success:false, reason:'prepare-failed', error:'인쇄 문서를 준비하지 못했습니다. 다시 시도해 주세요.'});
+          });
+        } catch (_) {
+          finish({success:false, reason:'prepare-failed', error:'인쇄 문서를 준비하지 못했습니다. 다시 시도해 주세요.'});
+        }
+      }
+      try {
+        /* 느리거나 응답 없는 리소스로 대기가 끝나지 않는 경우에만 실패 처리. */
+        timeoutId = setTimeout(function() {
+          finish({success:false, reason:'prepare-timeout', error:'인쇄 문서 준비 시간이 초과되었습니다. 연결 상태를 확인하고 다시 시도해 주세요.'});
+        }, 15000);
+        closedId = setInterval(function() {
+          if (win.closed) finish({success:false, cancelled:true});
+        }, 250);
+        win.document.open();
+        win.document.write(typeof html === 'string' ? html : String(html || ''));
+        win.document.close();
+        win.addEventListener('afterprint', afterPrint);
+        win.addEventListener('load', prepare);
+        if (win.document.readyState === 'complete') prepare();
+      } catch (_) {
+        finish({success:false, reason:'prepare-failed', error:'인쇄 문서를 열지 못했습니다. 다시 시도해 주세요.'});
+      }
+    });
+  }
+
   window.electronAPI = {
     /* ── 인증 ── */
     googleLogin: function() {
@@ -474,21 +556,8 @@
       return _htmlToPdf(html, options);
     },
     printWindowWithSize: function(html, pageSize, margins) {
-      var win = window.open('', '_blank');
-      if (win) {
-        /* 인쇄 대화 닫으면 탭 자동 닫힘 — afterprint 이벤트 + 폴백 타이머 */
-        var closeScript = '<script>'
-          + 'var _closed=false;'
-          + 'function _doClose(){if(_closed)return;_closed=true;try{window.close();}catch(e){}}'
-          + 'window.addEventListener("afterprint",_doClose);'
-          + 'setTimeout(function(){window.print();},400);'
-          + '<\/script>';
-        var injected = html.replace(/<\/body>/i, closeScript + '</body>');
-        if (injected === html) injected = html + closeScript;
-        win.document.write(injected);
-        win.document.close();
-      }
-      return Promise.resolve({ success: true });
+      // pageSize/margins는 Electron 옵션. 웹에서는 호출자가 HTML에 넣은 CSS를 유지한다.
+      return _printWebDocument(html);
     },
 
     /* ── 파일 시스템 ── */
