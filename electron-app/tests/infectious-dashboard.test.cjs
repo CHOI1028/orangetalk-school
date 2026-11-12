@@ -84,7 +84,8 @@ test('success preserves existing detail button and never puts the request key in
   const html = h.body();
   assert.match(html, /Synthetic disease/);
   assert.match(html, /1,234/);
-  assert.match(html, /open-infect-detail/);
+  assert.doesNotMatch(html, /open-infect-detail/);
+  assert.match(source, /school-widget-heading-link[\s\S]{0,80}open-infect-detail[\s\S]{0,40}지역·기간별 자세히 보기/);
   assert.doesNotMatch(html, /SYNTHETIC\+KEY|SYNTHETIC%2BKEY/);
   assert.equal(h.state.requests.length, 1);
 });

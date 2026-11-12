@@ -79,6 +79,7 @@ class SurveyStoreService extends BaseStoreService {
       activeSurveys: this._getArray('common', 'sv_active'),
       activities: this._getArray('common', 'sv_activities'),
       history: this._getArray('common', 'sv_history'),
+      createdSurveys: this._getValue('common', 'sv_created', null),
       savePath: this._getValue('common', 'sv_save_path', ''),
       draft: this._getValue('common', 'sv_survey_draft')
     };
@@ -92,6 +93,7 @@ class SurveyStoreService extends BaseStoreService {
       { scope: 'common', key: 'sv_active', value: next.activeSurveys || [] },
       { scope: 'common', key: 'sv_activities', value: next.activities || [] },
       { scope: 'common', key: 'sv_history', value: next.history || [] },
+      { scope: 'common', key: 'sv_created', value: next.createdSurveys || [] },
       { scope: 'common', key: 'sv_save_path', value: next.savePath || '' },
       { scope: 'common', key: 'sv_survey_draft', value: next.draft || null }
     ]);

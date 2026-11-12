@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
-const { app, BrowserWindow, ipcMain, shell, screen, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, dialog, Menu, safeStorage, net } = require('electron');
+const { registerSchoolAi } = require('./src/main/services/school-ai-service');
 
 /* Main-window preferences are separate from school and user records. */
 function _createRememberedSchoolWindow(options) {
@@ -329,6 +330,9 @@ app.whenReady().then(() => {
     electronModules: { BrowserWindow, dialog, clipboard },
     getMainWindow: () => mainWindow,
   });
+
+  registerSchoolAi({ ipcMain, app, safeStorage, net, getMainWindow: () => mainWindow,
+    getDrugKey: () => _getPublicDataApiKey('', 'drug_api_key') });
 
   /* ── 2b. 부팅 안전망 — users 테이블이 비어 있으면 자동 복구 시도.
          1순위: users_backup.json
@@ -4885,6 +4889,14 @@ app.whenReady().then(() => {
    * ══════════════════════════════════════════════════════════ */
 
   /** 설문 양식 목록 조회 */
+  for (const [channel, action] of Object.entries({
+    'survey-publish': p => services.surveyPublishing().publish(p),
+    'survey-sync-responses': p => services.surveyPublishing().sync(p.formId),
+    'survey-close': p => services.surveyPublishing().close(p.formId),
+  })) ipcMain.handle(channel, async (_event, payload) => {
+    try { return await action(payload); }
+    catch (err) { return { success: false, error: err.message }; }
+  });
   ipcMain.handle('survey-form-list', () => {
     try { return { success: true, data: services.surveyForms().list() }; }
     catch (err) { return { success: false, error: err.message }; }
@@ -4903,7 +4915,7 @@ app.whenReady().then(() => {
   ipcMain.handle('survey-form-save', (event, { form, content }) => {
     try {
       /* 설문 양식 50건 제한 (신규 생성 시만 체크) */
-      const existing = services.surveyForms().getAll();
+      const existing = services.surveyForms().list();
       const isNew = !existing.find(f => f.id === form.id);
       if (isNew && existing.length >= 50) return { success: false, error: '설문 양식은 최대 50건까지 보관할 수 있습니다. 사용하지 않는 양식을 삭제한 후 다시 시도하세요.' };
       return services.surveyForms().save(form, content);
@@ -4914,7 +4926,7 @@ app.whenReady().then(() => {
   /** 설문 양식 복사 (새 id + 버전 1) */
   ipcMain.handle('survey-form-copy', (event, { sourceFormId, newId, newTitle }) => {
     try {
-      const existing = services.surveyForms().getAll();
+      const existing = services.surveyForms().list();
       if (existing.length >= 50) return { success: false, error: '설문 양식은 최대 50건까지 보관할 수 있습니다. 사용하지 않는 양식을 삭제한 후 다시 시도하세요.' };
       const result = services.surveyForms().copy(sourceFormId, newId, newTitle);
       if (!result) return { success: false, error: '원본 양식을 찾을 수 없습니다.' };

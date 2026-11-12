@@ -1,0 +1,193 @@
+{
+  "person-memo": {
+    "guide": "22cf6107cdabad5f70b771148acdc03a60a80290132d0b299ab74add9a2bee4c",
+    "sources": {
+      "src/renderer/features/daily/person-memo.js": "82e49517c6946f3d414226fe686f7357e7cf6f69e5c0ece72f6b45b7e07707c6"
+    }
+  },
+  "custom-backup": {
+    "guide": "e77497a0068b9ed04ec50a680cf78721e442b7b1a0e0033153afe74f00679934",
+    "sources": {
+      "src/renderer/features/settings/settings-tab-custom-backup.js": "28dd016112c8c49bc20c37cf7e428294b4da880beb7e629366b4793c410740c9"
+    }
+  },
+  "survey-edit": {
+    "guide": "884deb21f5022bf7ca70c8658fc0e4b9f1de80eb3d465496ef6fe0471a401897",
+    "sources": {
+      "src/renderer/features/survey/survey-view.js": "ba31c07ef3ab7215086a8e699ccb28739c132275bdc1bed533a1da4748be5d9e"
+    }
+  },
+  "survey-lifecycle": {
+    "guide": "8d167941976a9ab8f1ddfc670dd40961b0e41b6420882def333ce440720ea2fe",
+    "sources": {
+      "src/renderer/features/survey/survey-view.js": "ba31c07ef3ab7215086a8e699ccb28739c132275bdc1bed533a1da4748be5d9e"
+    }
+  },
+  "ai-troubleshooting": {
+    "guide": "c7a992551e5e256efcaa03e4e92155c7eff3320ff84cf1dbf64eab7e5a4b640c",
+    "sources": {
+      "src/renderer/features/ai/school-ai.js": "1de4bd627fc3533a3a072226f969f055aae27d1a51688c6291413258cf7f13d0",
+      "src/main/services/school-ai-transport.js": "e5fba7d9848e759d5639d56d0ba23ec2311d6a4e635b0d127dfbb2cea29d0ae1",
+      "src/main/services/school-ai-store.js": "e397c11f3ee19803716174efaf0e683f479b69eef4d610dde354e103ea109e9a"
+    }
+  },
+  "ai-boundaries": {
+    "guide": "0f82597d9f3e720a94147e220f35e125851199f92837a31ec7499510f6f85b22",
+    "sources": {
+      "src/main/services/school-ai-service.js": "86cc9b3cef96a182c3c9d3701c8b06451f8d46c49477d4231182068c7ad426f1",
+      "src/main/services/school-ai-search.js": "a96c1424905dc3d41e8c15aebb7a302b3fdb8b17e32b38f53d6433c734a5d4bf"
+    }
+  },
+  "overview": {
+    "guide": "b673623c327b47db691aaab8ba60d66c953232d2b3fb662ac831d42c3e2d7c93",
+    "sources": {
+      "health_diary.html": "f286bc6174dd5ce957f6b4c2c991d1e1ca0c535ae356ad6b2ec472caa460609d",
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
+      "src/renderer/views/view-magic.html": "e4eea67c47f0fa83e22d439cd01ec99b945aef811397046464806a95c586bfe8",
+      "src/renderer/features/dashboard/home-dashboard.js": "f031d141e5c1a040b841399f24fedd6ea145654b3d22f21f4957e374c52488fe",
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b"
+    }
+  },
+  "ai-help": {
+    "guide": "8ca60b8f35682447f587011fc9a207c27e72cc622fdc5b82d32e43014d3eca68",
+    "sources": {
+      "src/main/services/school-ai-service.js": "86cc9b3cef96a182c3c9d3701c8b06451f8d46c49477d4231182068c7ad426f1",
+      "src/renderer/features/ai/school-ai.js": "1de4bd627fc3533a3a072226f969f055aae27d1a51688c6291413258cf7f13d0"
+    }
+  },
+  "daily": {
+    "guide": "9002cde103043db8ebd362222408bb5803b08375369f9916097e748dcad704cc",
+    "sources": {
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96"
+    }
+  },
+  "people": {
+    "guide": "433a36bf136901a7ac3f542c69b61efb9b53bcd218bdb814b74e837fb4952f2a",
+    "sources": {
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
+      "src/renderer/features/settings/settings-tab-people.js": "8eb1c9d975aa2feda97478c99611e60a8f663a0266c036086f458f87281e03ed"
+    }
+  },
+  "medicine": {
+    "guide": "299946ea00486c0942b1a1d749c70dc66e7325cbda94dc8f439fbd5f94d565a9",
+    "sources": {
+      "src/renderer/features/settings/settings-tab-diary.js": "a0e8062bfb918b2ceaa81b312334c569ddab6076aabd51e574ba72a4208ef87e"
+    }
+  },
+  "drug-lookup": {
+    "guide": "42c188a037be2bfa5cc796cb8497944e14906aacb5ffece67f9e620427349c3f",
+    "sources": {
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
+      "src/main/services/school-ai-service.js": "86cc9b3cef96a182c3c9d3701c8b06451f8d46c49477d4231182068c7ad426f1"
+    }
+  },
+  "infection": {
+    "guide": "31347204395ef8ea19ef86619c68badf874102e8d5d66039827c92aa35f10296",
+    "sources": {
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
+      "src/renderer/features/emergency/emergency-view.js": "ebe4fe8b30458dd821ada2eeb45603d60b29b29ee2102c8bf875ce6e14f73a52"
+    }
+  },
+  "emergency": {
+    "guide": "25d9d9cda1faa5c2e7614385aa0baaf8e8e69dbc992e64c9ad12562393f76308",
+    "sources": {
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
+      "src/renderer/features/emergency/emergency-view.js": "ebe4fe8b30458dd821ada2eeb45603d60b29b29ee2102c8bf875ce6e14f73a52"
+    }
+  },
+  "statistics": {
+    "guide": "f44bdb8e4b512e491312f79351549fe19c0db3a92aa9000fd46104ca85efc3a6",
+    "sources": {
+      "src/renderer/views/view-dashboard.html": "a1f3fc2ab91f61c05eae9b6067aade2811ae68f02befc36ce72a8bd2e1899a7c",
+      "src/renderer/features/dashboard/dashboard-view.js": "189581f0196801c2f24db40bea253ae65779f278528912edaf2a631d105fac6e"
+    }
+  },
+  "magic": {
+    "guide": "ce47e6f2e4aa24d77e3d27da3c875987e22d2f4fe1225128ec813a42e1a46e13",
+    "sources": {
+      "src/renderer/views/view-magic.html": "e4eea67c47f0fa83e22d439cd01ec99b945aef811397046464806a95c586bfe8",
+      "src/renderer/views/magic-sub-survey.html": "0b8c8ef3a390a7b889fd900ff1d102de3aca19c4534cac177cae1cae176ffd42",
+      "src/renderer/features/survey/survey-view.js": "ba31c07ef3ab7215086a8e699ccb28739c132275bdc1bed533a1da4748be5d9e"
+    }
+  },
+  "survey-create": {
+    "guide": "74e2e1d24c965ef13d36e56d39caa83f0290dca708d1366aebfaaed4a4cb3d63",
+    "sources": {
+      "src/renderer/views/view-magic.html": "e4eea67c47f0fa83e22d439cd01ec99b945aef811397046464806a95c586bfe8",
+      "src/renderer/views/magic-sub-survey.html": "0b8c8ef3a390a7b889fd900ff1d102de3aca19c4534cac177cae1cae176ffd42",
+      "src/renderer/features/survey/survey-view.js": "ba31c07ef3ab7215086a8e699ccb28739c132275bdc1bed533a1da4748be5d9e"
+    }
+  },
+  "survey-publish": {
+    "guide": "526ec7d1984b7c7187e3dacc69fe826440c64bccb6f8eb79fba9d403b06be1c8",
+    "sources": {
+      "src/renderer/features/survey/survey-view.js": "ba31c07ef3ab7215086a8e699ccb28739c132275bdc1bed533a1da4748be5d9e",
+      "src/main/services/survey-publishing-service.js": "c34076d261058ac860cf91b65ea13de8c887b7a4d28775656748d67a9604eea0"
+    }
+  },
+  "survey-results": {
+    "guide": "ccbb66201bb1db820635b8b349c58b39fe6aa5bd56d3b62ada75406837ca72a4",
+    "sources": {
+      "src/renderer/views/magic-sub-survey.html": "0b8c8ef3a390a7b889fd900ff1d102de3aca19c4534cac177cae1cae176ffd42",
+      "src/renderer/features/survey/survey-view.js": "ba31c07ef3ab7215086a8e699ccb28739c132275bdc1bed533a1da4748be5d9e"
+    }
+  },
+  "training": {
+    "guide": "cd6a2717491566c584ec05c066bf87873ddae628f41bfdb38da31bea0dff5850",
+    "sources": {
+      "src/renderer/views/view-magic.html": "e4eea67c47f0fa83e22d439cd01ec99b945aef811397046464806a95c586bfe8",
+      "src/renderer/features/training/training-view.js": "6a7288576c89c0c2f86f06c2b3157b6eba36ba4fee7c4a7dc0a9868eb6b76b3f"
+    }
+  },
+  "training-status": {
+    "guide": "25158d116ac2f419aaa26ca6a782aa0de3a49bbc9fd91d47d39b282b0483e879",
+    "sources": {
+      "src/renderer/views/view-magic.html": "e4eea67c47f0fa83e22d439cd01ec99b945aef811397046464806a95c586bfe8",
+      "src/renderer/features/training/training-view.js": "6a7288576c89c0c2f86f06c2b3157b6eba36ba4fee7c4a7dc0a9868eb6b76b3f"
+    }
+  },
+  "home": {
+    "guide": "35978fd0faefa17b31fd93e18d3000cf4f60cc8aba6651a6b8f2fc34206d4613",
+    "sources": {
+      "src/renderer/features/dashboard/home-dashboard.js": "f031d141e5c1a040b841399f24fedd6ea145654b3d22f21f4957e374c52488fe"
+    }
+  },
+  "school-api": {
+    "guide": "d0390d9ab550cfd56fb25fcb939dc97e4a95823d98bdc6f59bcb5ff367173d9a",
+    "sources": {
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
+      "src/renderer/features/dashboard/home-dashboard.js": "f031d141e5c1a040b841399f24fedd6ea145654b3d22f21f4957e374c52488fe"
+    }
+  },
+  "settings": {
+    "guide": "5265d9fb273a9c5ce23932dcc6d525b7d53ef4c47b08541c00ff5d9d1f375aba",
+    "sources": {
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
+      "src/renderer/features/ai/school-ai.js": "1de4bd627fc3533a3a072226f969f055aae27d1a51688c6291413258cf7f13d0"
+    }
+  },
+  "backup": {
+    "guide": "3c674c25388534cb0e0c8ceb3b1bfec79f33d62571a489f5171cd54998f99b1b",
+    "sources": {
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
+      "src/renderer/features/settings/settings-tab-custom-backup.js": "28dd016112c8c49bc20c37cf7e428294b4da880beb7e629366b4793c410740c9"
+    }
+  },
+  "kiosk": {
+    "guide": "e716b10331179d8db488025dab41ea3c5ba7d60afc508079db169842bfb26e2e",
+    "sources": {
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
+      "src/renderer/features/daily/kiosk-reception-panel.js": "1cb04ef881555ff6182ee7a4322481581ad14239327b17d9d2e406a988b41690"
+    }
+  },
+  "medical-facilities": {
+    "guide": "8c8e6f138a3ce69ab8d35ad817614b29fd80c4d29019fed0519ec45f0871a13e",
+    "sources": {
+      "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
+      "src/renderer/features/daily/daily-view.js": "12c914eba4c21a88f6c982a67804ee602808c53a1639f9027a4ed0a34002184a",
+      "med-facility.html": "48408156676f63879e3ae3e2801a2eb3f7698b63421b50d118ff557f4531bc05",
+      "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b"
+    }
+  }
+}

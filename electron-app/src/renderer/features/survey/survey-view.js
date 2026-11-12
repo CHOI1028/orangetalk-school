@@ -8,7 +8,8 @@ import { appConfirmModal } from '../../core/ui-utils.js';
 import { bus } from '../../core/event-bus.js';
 import { openClockPicker } from '../emergency/emergency-view.js';
 import { switchView } from '../shell/view-router.js';
-import { S } from '../../core/app-state.js';
+import { S, DEFAULT_RELAY_URL } from '../../core/app-state.js';
+import '../../../shared/survey-model.js';
 import { _magicSwitchSub } from '../planner/planner-view.js';
 import { FLAG_SVGS } from '../../core/flag-svgs.js';
 
@@ -55,7 +56,9 @@ if(window.electronAPI&&window.electronAPI.getUserDataPath)window.electronAPI.get
 
 /* ── Workspace Store ── */
 const _api=window.electronAPI||null;
-function _wsReadJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch(e){return fallback;}}
+let _wsSaveQueue=Promise.resolve();
+let _wsPendingSaves=0;
+function _wsReadJson(key,fallback){try{const parsed=JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));return Array.isArray(fallback)?(Array.isArray(parsed)?parsed.filter(row=>row&&typeof row==='object'&&!Array.isArray(row)):fallback):parsed;}catch(e){return fallback;}}
 function _wsLoadLocalWorkspace(){
   return {
     customSurveys:(Array.isArray(S.svCustomSurveys)?S.svCustomSurveys:null)||_wsReadJson('ec_sv_custom',[]),
@@ -63,7 +66,7 @@ function _wsLoadLocalWorkspace(){
     activities:_wsReadJson('ec_sv_activities',[]),
     history:_wsReadJson('ec_sv_history',[]),
     createdSurveys:_wsReadJson('ec_sv_created',[]),   /* 생성 완료된 설문 기록 — 설문 통계 게시판 */
-    savePath:localStorage.getItem('ec_sv_savePath')||''
+    savePath:(function(){try{return localStorage.getItem('ec_sv_savePath')||'';}catch(e){return '';}})()
   };
 }
 function _wsPersistLocal(workspace){
@@ -71,16 +74,19 @@ function _wsPersistLocal(workspace){
   if(Array.isArray(workspace.createdSurveys)){
     try{localStorage.setItem('ec_sv_created',JSON.stringify(workspace.createdSurveys));}catch(e){}
   }
-  if(workspace.draft){
-    try{localStorage.setItem('sv_surveyData',JSON.stringify(workspace.draft));
-      if(_api&&_api.surveySaveDraft)_api.surveySaveDraft(workspace.draft).catch(function(){});
-    }catch(e){}
-  }
 }
 function _wsMerge(current,patch){return Object.assign({},current||{},patch||{});}
 function _wsSave(workspace){
   _wsPersistLocal(workspace);
-  if(_api&&_api.surveySaveWorkspace)return _api.surveySaveWorkspace(workspace).catch(function(e){console.error('[SurveyWorkspace] IPC 저장 실패:',e&&e.message?e.message:e);});
+  if(_api&&_api.surveySaveWorkspace){
+    const snapshot=JSON.parse(JSON.stringify(workspace));
+    // Draft autosave has its own API. A workspace fetched earlier may contain an obsolete draft.
+    delete snapshot.draft;
+    _wsPendingSaves++;
+    const task=_wsSaveQueue.catch(function(){}).then(function(){return _api.surveySaveWorkspace(snapshot);}).then(function(result){if(!result||!result.success)throw new Error(result&&result.error||'설문 목록을 저장하지 못했습니다.');return result;}).finally(function(){_wsPendingSaves--;});
+    _wsSaveQueue=task;
+    return task;
+  }
   return Promise.resolve(null);
 }
 function _wsFetch(){
@@ -127,13 +133,13 @@ function _wizBuildClassGroups(people,selectedGrades){
   return groups;
 }
 function _wizApplyClassSelection(selectedMap,chips,checked){
-  (chips||[]).forEach(function(c){const sid=parseInt(c.dataset.sid);selectedMap[sid]=checked;});
+  (chips||[]).forEach(function(c){const sid=c.dataset.sid;selectedMap[sid]=checked;});
 }
 function _wizToggleStudentSelection(selectedMap,sid){
   selectedMap[sid]=!selectedMap[sid];return selectedMap[sid];
 }
 function _wizAreAllClassStudentsSelected(selectedMap,chips){
-  let allChecked=true;(chips||[]).forEach(function(c){if(!selectedMap[parseInt(c.dataset.sid)])allChecked=false;});return allChecked;
+  let allChecked=true;(chips||[]).forEach(function(c){if(!selectedMap[c.dataset.sid])allChecked=false;});return allChecked;
 }
 
 /* ── Wizard ViewModel ── */
@@ -173,6 +179,9 @@ function _dmGetQuestion(draft,si,qi){
 function _dmChangeQuestionType(draft,si,qi,newType){
   const q=_dmGetQuestion(draft,si,qi);if(!q)return null;
   q.type=newType;
+  if(!['radio','dropdown'].includes(newType)){q.sectionJump=false;q.jumpMap={};}
+  if(!['radio','dropdown','checkbox'].includes(newType))q.hasOther=false;
+  if(newType==='star')q.options=['1','2','3','4','5'];
   _svQIdChurnIfPublished(draft,q);   /* 형식 변경 = 통계상 새 문항 */
   if((newType==='radio'||newType==='checkbox'||newType==='dropdown')&&(!q.options||!q.options.length))q.options=['선택지 1','선택지 2'];
   if((newType==='grid_radio'||newType==='grid_text')&&!q.gridRows){q.gridRows=['행 1','행 2'];q.gridCols=['열 1','열 2','열 3'];}
@@ -191,18 +200,45 @@ function _dmAddOption(draft,si,qi){
 }
 function _dmToggleSectionJump(draft,si,qi){
   const q=_dmGetQuestion(draft,si,qi);if(!q)return null;
+  if(si==='pre'||!['radio','dropdown'].includes(q.type))return null;
   q.sectionJump=!q.sectionJump;if(q.sectionJump&&!q.jumpMap)q.jumpMap={};return q;
 }
 function _dmShuffleOptions(draft,si,qi){
   const q=_dmGetQuestion(draft,si,qi);if(!q||!q.options||q.options.length<2)return false;
-  for(let i=q.options.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.options[i];q.options[i]=q.options[j];q.options[j]=tmp;}
+  const order=q.options.map((_,i)=>i);
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+  _dmReorderOptions(q,order);
+  _svQIdChurnIfPublished(draft,q);
   return true;
+}
+function _dmReorderOptions(q,order){
+  const old=q.options.slice();q.options=order.map(i=>old[i]);
+  for(const key of ['optionTranslations','jumpMap']){
+    const previous=q[key]||{},next={};
+    order.forEach((oldIndex,newIndex)=>{if(Object.prototype.hasOwnProperty.call(previous,oldIndex))next[newIndex]=previous[oldIndex];});q[key]=next;
+  }
+  Object.values(q.translations||{}).forEach(t=>{if(t&&typeof t==='object'&&Array.isArray(t.options))t.options=order.map(i=>t.options[i]||'');});
+}
+function _dmDeleteOption(draft,si,qi,oi){
+  const q=_dmGetQuestion(draft,si,qi);if(!q||!Array.isArray(q.options)||oi<0||oi>=q.options.length)return false;
+  _dmReorderOptions(q,q.options.map((_,i)=>i).filter(i=>i!==oi));_svQIdChurnIfPublished(draft,q);return true;
+}
+function _dmRemapSectionJumps(draft,map){
+  draft.sections.forEach(section=>(section.questions||[]).forEach(q=>{
+    Object.keys(q.jumpMap||{}).forEach(key=>{const value=q.jumpMap[key];if(value!==''&&value!=='end')q.jumpMap[key]=map(Number(value));});
+  }));
+}
+function _dmDeleteSection(draft,si){
+  if(!draft||!draft.sections||!draft.sections[si])return false;
+  draft.sections.splice(si,1);
+  _dmRemapSectionJumps(draft,i=>i===si?'end':String(i>si?i-1:i));return true;
 }
 function _dmSplitSection(draft,si,qi){
   if(si==='pre')return false;   /* 설문 서두 영역은 섹션 개념 없음 */
   if(!draft||!draft.sections||!draft.sections[si])return false;
   const remaining=draft.sections[si].questions.splice(qi+1);if(!remaining.length)return false;
-  draft.sections.splice(si+1,0,{id:'s'+Date.now(),title:'새 섹션',desc:'',questions:remaining});return true;
+  draft.sections.splice(si+1,0,{id:'s'+Date.now(),title:'새 섹션',desc:'',questions:remaining});
+  _dmRemapSectionJumps(draft,i=>String(i>si?i+1:i));return true;
 }
 function _dmAddQuestion(draft,si){
   const list=_dmQuestionList(draft,si);if(!list)return false;
@@ -216,7 +252,7 @@ function _dmDeleteQuestion(draft,si,qi){
   const list=_dmQuestionList(draft,si);if(!list)return false;
   list.splice(qi,1);
   /* 섹션 문항이 모두 사라지면 섹션도 제거 (설문 서두 영역은 해당 없음) */
-  if(si!=='pre'&&!draft.sections[si].questions.length)draft.sections.splice(si,1);
+  if(si!=='pre'&&!draft.sections[si].questions.length)_dmDeleteSection(draft,si);
   return true;
 }
 function _dmDuplicateQuestion(draft,si,qi){
@@ -280,22 +316,27 @@ function _dbCreateEmptyDraft(){
   };
 }
 function _dbPersistLocalDraft(draft){
-  try{
+  if(draft){
     draft.draftKind=svWizardMode;
-    localStorage.setItem(_dbDraftKey(),JSON.stringify(draft));
-    if(_api&&_api.surveySaveDraft)_api.surveySaveDraft(draft).catch(function(){});
-  }catch(e){}
+    draft.selectedGrades=svWizardSelectedGrades.slice();draft.selectedStudents=Object.assign({},svWizardSelectedStudents);draft.languages=svWizardSelectedLangs.slice();
+    _dbSaveDraftSnapshot(draft,_dbDraftKey());
+  }
+}
+function _dbSaveDraftSnapshot(draft,key){
+  try{localStorage.setItem(key,JSON.stringify(draft));}catch(e){}
+  if(_api&&_api.surveySaveDraft)_api.surveySaveDraft(JSON.parse(JSON.stringify(draft))).then(function(result){if(!result||!result.success)throw new Error(result&&result.error||'저장 실패');}).catch(function(err){bus.emit('toast:show',{text:'설문 자동 저장 실패: '+err.message});});
 }
 
 /* ── Draft Autosave ── */
 let _asTimer=null;
 function _asScheduleSave(draft,delay){
   clearTimeout(_asTimer);
+  if(!draft)return;
+  draft.draftKind=svWizardMode;
+  draft.selectedGrades=svWizardSelectedGrades.slice();draft.selectedStudents=Object.assign({},svWizardSelectedStudents);draft.languages=svWizardSelectedLangs.slice();
+  const key=_dbDraftKey();
   _asTimer=setTimeout(function(){
-    if(!draft)return;
-    draft.draftKind=svWizardMode;
-    localStorage.setItem(_dbDraftKey(),JSON.stringify(draft));
-    if(_api&&_api.surveySaveDraft)_api.surveySaveDraft(draft).catch(function(){});
+    _dbSaveDraftSnapshot(draft,key);
     _svSyncCreatedRec(draft);   /* 생성 완료된 설문이면 통계·목록 스냅샷도 즉시 동기화 */
   },delay||300);
 }
@@ -303,20 +344,15 @@ function _asScheduleSave(draft,delay){
 /* ── 생성 완료된 설문 스냅샷 동기화 — 편집 저장 시 제목·기간·문항 정의를 기록에 반영.
      응답자와 통계가 항상 수정본을 보도록 한다 (2026-08-21). ── */
 function _svSyncCreatedRec(draft){
-  try{
-    const list=Array.isArray(svWorkspaceCache.createdSurveys)?svWorkspaceCache.createdSurveys:[];
-    const fid=svWizardMode==='health'?'tpl_health':(draft&&draft.formId);
-    if(!fid)return;
-    const rec=list.filter(function(r){return r&&r.formId===fid;})[0];
-    if(!rec)return;
-    if(draft.title)rec.title=draft.title;
-    if(draft.startDate)rec.startDate=draft.startDate;
-    if(draft.endDate)rec.endDate=draft.endDate;
-    if(svWizardMode!=='health'){
-      rec.def=JSON.parse(JSON.stringify({preQuestions:draft.preQuestions||[],sections:draft.sections||[]}));
-    }
-    _svPersistWorkspace({createdSurveys:list.slice()});
-  }catch(_){}
+  if(!draft)return;
+  if(draft===svSurveyData){draft.selectedGrades=svWizardSelectedGrades.slice();draft.selectedStudents=Object.assign({},svWizardSelectedStudents);draft.languages=svWizardSelectedLangs.slice();}
+  if(!draft.formId)draft.formId='sv_'+crypto.randomUUID().replace(/-/g,'');
+  const list=Array.isArray(svWorkspaceCache.createdSurveys)?svWorkspaceCache.createdSurveys.slice():[];
+  let rec=list.find(r=>r&&r.formId===draft.formId);
+  if(!rec){rec={formId:draft.formId,createdAt:toDateStr(new Date()),year:_academicYear(),kind:svWizardMode};list.unshift(rec);}
+  rec.draft=JSON.parse(JSON.stringify(draft));
+  if(!rec.url){rec.title=draft.title||'작성 중인 설문';rec.startDate=draft.startDate||'';rec.endDate=draft.endDate||'';rec.def=rec.draft;}
+  _svPersistWorkspace({createdSurveys:list});
 }
 /* 생성 완료된 설문의 문항 '형식/보기' 변경 → 새 문항 id 부여.
    통계는 문항 id 로 응답을 매칭하므로 id 가 바뀌면 새로운 문항으로 분리 집계된다.
@@ -325,9 +361,9 @@ function _svQIdChurnIfPublished(draft,q){
   try{
     if(!draft||!q)return;
     const list=Array.isArray(svWorkspaceCache.createdSurveys)?svWorkspaceCache.createdSurveys:[];
-    const fid=svWizardMode==='health'?'tpl_health':draft.formId;
+    const fid=draft.formId;
     if(!fid)return;
-    if(!list.some(function(r){return r&&r.formId===fid;}))return;
+    if(!list.some(function(r){return r&&r.formId===fid&&r.url;}))return;
     q.id=draft.nextId++;
   }catch(_){}
 }
@@ -367,18 +403,24 @@ const SV_DUMMY_HISTORY=[
 const _wsInitial=_wsLoadLocalWorkspace();
 S.svCustomSurveys=Array.isArray(S.svCustomSurveys)?S.svCustomSurveys:(_wsInitial.customSurveys||[]);
 let svWorkspaceCache=_wsInitial;
+let _svWorkspaceRevision=0;
 export function getSvWorkspaceCache(){return svWorkspaceCache;}
 function _svGetHistory(){return Array.isArray(svWorkspaceCache.history)?svWorkspaceCache.history:[];}
 function _svGetActivities(){return Array.isArray(svWorkspaceCache.activities)?svWorkspaceCache.activities:[];}
 function _svGetActiveSurveys(){return Array.isArray(svWorkspaceCache.activeSurveys)?svWorkspaceCache.activeSurveys:[];}
 function _svPersistWorkspace(patch){
+  _svWorkspaceRevision++;
   svWorkspaceCache=_wsMerge(svWorkspaceCache,patch||{});
   if(Array.isArray(svWorkspaceCache.customSurveys))S.svCustomSurveys=svWorkspaceCache.customSurveys;
-  _wsSave(svWorkspaceCache);
+  _wsSave(svWorkspaceCache).catch(function(err){bus.emit('toast:show',{text:'설문 목록 저장 실패: '+err.message});});
 }
 function _svSyncWorkspaceFromBackend(refreshFn){
+  const revision=_svWorkspaceRevision;
+  const pending=_wsPendingSaves>0;
   _wsFetch().then(function(d){
     if(!d)return;
+    if(pending||_wsPendingSaves>0||revision!==_svWorkspaceRevision){if(typeof refreshFn==='function')refreshFn();return;}
+    if(d.createdSurveys===null){d.createdSurveys=svWorkspaceCache.createdSurveys||[];if(d.createdSurveys.length)_svPersistWorkspace({createdSurveys:d.createdSurveys});}
     svWorkspaceCache=_wsMerge(svWorkspaceCache,d);
     if(Array.isArray(d.customSurveys))S.svCustomSurveys=d.customSurveys;
     _wsPersistLocal(svWorkspaceCache);
@@ -458,7 +500,7 @@ function svRenderHome(){
     });
   }
   /* 상단 '+ 새 설문 만들기' 버튼 제거 — 카드 버튼으로 일원화 (사용자 지시 2026-08-21) */
-  let h='<div class="sv-section-title">기본 설문 템플릿</div><div class="sv-card-grid">';
+  let h='<div class="cc" style="padding:14px;margin-bottom:16px">설문은 먼저 이 PC에 저장할 수 있습니다. 온라인 게시는 환경설정에 연결한 학교 릴레이를 사용합니다. 게시 후 현재/과거 설문에서 링크 공유·응답 가져오기·마감을 관리하세요.</div><div class="sv-section-title">기본 설문 템플릿</div><div class="sv-card-grid">';
   SV_TEMPLATES.forEach(function(t){
     h+='<div class="sv-card"><div class="sv-card-icon">'+t.icon+'</div><div class="sv-card-title">'+t.title+'</div><div class="sv-card-desc">'+t.desc+'</div>'
       +'<div class="sv-card-actions">'
@@ -466,7 +508,7 @@ function svRenderHome(){
   });
   h+='</div>';
   h+='<div class="sv-section-title">커스텀으로 만든 양식</div><div class="sv-card-grid">';
-  for(let i=0;i<3;i++){
+  for(let i=0;i<S.svCustomSurveys.length+1;i++){
     if(S.svCustomSurveys[i]){
       const c=S.svCustomSurveys[i];
       h+='<div class="sv-card"><div class="sv-card-icon">📝</div><div class="sv-card-title">'+escHtml(c.title)+'</div><div class="sv-card-desc">'+(escHtml(c.desc)||'커스텀 설문')+'</div>'
@@ -478,9 +520,16 @@ function svRenderHome(){
     }
   }
   h+='</div>';
+  const recent=(svWorkspaceCache.createdSurveys||[]).slice(0,6);
+  if(recent.length){
+    h+='<div class="sv-section-title">최근 저장한 설문</div><div class="sv-card-grid">';
+    recent.forEach(rec=>{h+='<div class="sv-card"><div class="sv-card-title">'+escHtml(rec.title||'작성 중인 설문')+'</div><div class="sv-card-desc">'+(rec.closed?'마감':rec.url?'온라인 게시됨':'이 PC에 저장됨')+'</div><button class="sv-btn sv-btn-sm" data-sv-open-record="'+escHtml(rec.formId)+'">이어서 편집</button></div>';});
+    h+='</div>';
+  }
   h+=_svDataStorageHtml('template');
   el.innerHTML=h;
   _svInitSavePath('template');
+  el.querySelectorAll('[data-sv-open-record]').forEach(btn=>btn.addEventListener('click',()=>{const rec=recent.find(r=>r.formId===btn.dataset.svOpenRecord);if(rec)_svEditCreatedSurvey(rec);}));
   /* innerHTML 후 버튼에 직접 이벤트 바인딩 (CSP/Electron 호환) */
   el.querySelectorAll('[data-sv-action]').forEach(function(btn){
     btn.addEventListener('click', function(e){
@@ -506,18 +555,8 @@ function _svDataStorageHtml(tabId){
   let h='<div class="sv-section-title">데이터 저장</div>';
   h+='<div class="cc" style="padding:12px;margin-bottom:8px">';
   h+='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">설문 응답 데이터 저장 위치</div>';
-  /* 연도별 폴더 구조 */
-  const activities=_svGetActivities();
-  const years={};years[yr]=true;
-  activities.forEach(function(a){if(a.date){const y=parseInt(a.date.substring(0,4));if(y)years[y]=true;}});
-  const yearList=Object.keys(years).sort().reverse();
-  h+='<div style="display:flex;flex-direction:column;gap:3px">';
-  yearList.forEach(function(y){
-    const path=appBase+'/'+tabFolder+'/'+y;
-    h+='<div style="font-size:10px;font-family:var(--fm);color:var(--t2);padding:3px 8px;background:var(--bg2);border-radius:4px">📁 '+path+'</div>';
-  });
-  h+='</div>';
-  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--t2)">설문 양식과 응답은 앱의 SQLite 데이터베이스에 저장됩니다. 앱 백업 기능으로 함께 보관할 수 있습니다.</div>';
+  h+='<div style="font-size:10px;margin-top:6px;word-break:break-all">'+escHtml(appBase+'/data/my_health_diary.sqlite3')+'</div></div>';
   return h;
 }
 function _svInitSavePath(tabId){
@@ -532,12 +571,12 @@ function _svInitSavePath(tabId){
 function svRenderActivePast(){
   /* 생성 완료된 설문(createdSurveys) 기반 — 마감일 전=진행 중, 지남=과거 (2026-08-21 재구성) */
   const el=document.getElementById('sv-active-panel');if(!el)return;
-  if(!svRenderActivePast._synced){svRenderActivePast._synced=true;_svSyncWorkspaceFromBackend(function(){svRenderActivePast._synced=false;svRenderActivePast();});}
+  if(!svRenderActivePast._synced){svRenderActivePast._synced=true;_svSyncWorkspaceFromBackend(function(){svRenderActivePast();});}
   const list=(Array.isArray(svWorkspaceCache.createdSurveys)?svWorkspaceCache.createdSurveys.slice():[]).filter(Boolean);
   list.sort(function(a,b){return String(b.createdAt||'').localeCompare(String(a.createdAt||''));});
   const today=toDateStr(new Date());
-  const active=list.filter(function(r){return r.endDate&&r.endDate>=today;});
-  const past=list.filter(function(r){return !r.endDate||r.endDate<today;});
+  const active=list.filter(function(r){return !r.closed&&(!r.url||!r.endDate||r.endDate>=today);});
+  const past=list.filter(function(r){return r.closed||(r.url&&r.endDate&&r.endDate<today);});
   let h='<div style="padding:14px">';
   /* 현재 진행 중인 설문 */
   h+='<div class="sv-section-title">현재 진행 중인 설문</div>';
@@ -549,9 +588,9 @@ function svRenderActivePast(){
       +'<th style="width:44px;text-align:center">번호</th><th style="width:280px">설문 제목</th><th style="width:110px">생성일</th><th style="width:90px">대상</th><th style="width:64px;text-align:center">구분</th><th style="text-align:right;padding-right:14px"><span style="display:inline-block;min-width:190px;text-align:center">관리</span></th>'
       +'</tr></thead><tbody>';
     active.forEach(function(sv,ai){
-      const daysLeft=Math.max(0,Math.ceil((new Date(sv.endDate)-new Date())/(1000*60*60*24)));
+      const daysLeft=sv.endDate?Math.max(0,Math.ceil((new Date(sv.endDate+'T23:59:59')-new Date())/(1000*60*60*24))):999;
       const statusColor=daysLeft>3?'var(--gs)':daysLeft>0?'var(--yl)':'var(--rs)';
-      const statusText=daysLeft>0?'D-'+daysLeft:'마감';
+      const statusText=!sv.url?'미게시':!sv.endDate?'진행 중':daysLeft>0?'D-'+daysLeft:'오늘 마감';
       h+='<tr>'
         +'<td style="text-align:center;color:var(--t3)">'+(active.length-ai)+'</td>'
         +'<td style="font-weight:600;color:var(--t1);word-break:keep-all">'+escHtml(sv.title||'(제목 없음)')+'</td>'
@@ -562,6 +601,7 @@ function svRenderActivePast(){
         +'<button class="sv-btn sv-btn-sm sv-act-edit" data-ai="'+ai+'" style="padding:4px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>'
         +'<span class="sv-act-dday" data-days="'+daysLeft+'" style="font-size:11px;font-weight:700;color:'+statusColor+';padding:3px 8px;border-radius:6px;border:1px solid '+statusColor+';background:rgba(0,0,0,0.03);cursor:default">'+statusText+'</span>'
         +'<button class="sv-btn sv-btn-sm sv-act-stats" data-ai="'+ai+'">통계 보기</button>'
+        +_svManageButtons(sv)
         +'<button class="sv-act-del" data-ai="'+ai+'" style="width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;line-height:1">✕</button>'
         +'</span></td>'
         +'</tr>';
@@ -578,13 +618,13 @@ function svRenderActivePast(){
       +'<th style="width:44px;text-align:center">번호</th><th style="width:280px">설문 제목</th><th style="width:110px">생성일</th><th style="width:90px">대상</th><th style="width:64px;text-align:center">구분</th><th></th>'
       +'</tr></thead><tbody>';
     past.forEach(function(r,pi){
-      h+='<tr class="sv-active-row" data-form-id="'+escHtml(r.formId||'')+'" data-title="'+escHtml(r.title||'')+'" data-year="'+escHtml(String(r.createdAt||'').slice(0,4))+'" style="cursor:pointer">'
+      h+='<tr class="sv-active-row" data-form-id="'+escHtml(r.formId||'')+'" data-title="'+escHtml(r.title||'')+'" data-year="'+escHtml(String(r.year||String(r.createdAt||'').slice(0,4)))+'" style="cursor:pointer">'
         +'<td style="text-align:center;color:var(--t3)">'+(past.length-pi)+'</td>'
         +'<td style="font-weight:600;color:var(--t1);word-break:keep-all">'+escHtml(r.title||'(제목 없음)')+'</td>'
         +'<td style="font-size:10px;color:var(--t3)">'+escHtml(r.createdAt||'')+'</td>'
         +'<td style="font-size:11px;color:var(--t2)">'+escHtml(r.target||'전체')+'</td>'
         +'<td style="text-align:center;font-size:10px;color:var(--t3)">'+(r.kind==='health'?'건강조사':'커스텀')+'</td>'
-        +'<td></td>'
+        +'<td>'+_svManageButtons(r)+'</td>'
         +'</tr>';
     });
     h+='</tbody></table></div>';
@@ -593,6 +633,27 @@ function svRenderActivePast(){
   h+='</div>';
   el.innerHTML=h;
   _svInitSavePath('active');
+  el.querySelectorAll('[data-survey-manage]').forEach(btn=>btn.addEventListener('click',async e=>{
+    e.stopPropagation();
+    const rec=list.find(r=>r.formId===btn.dataset.formId);if(!rec)return;
+    btn.disabled=true;
+    try{
+      if(btn.dataset.surveyManage==='delete')await _svDeleteCreatedSurvey(rec);
+      if(btn.dataset.surveyManage==='link')await svCopyToClipboard(rec.url);
+      if(btn.dataset.surveyManage==='sync')await _svSyncResponses(rec);
+      if(btn.dataset.surveyManage==='close'){
+        if(!await appConfirmModal('이 설문의 새 응답 접수를 마감할까요? 이미 접수한 응답은 계속 가져올 수 있습니다.','설문 마감'))return;
+        const result=await _api.surveyClose(rec.formId);if(!result||!result.success)throw new Error(result&&result.error||'마감하지 못했습니다.');
+        rec.closed=true;_svPersistWorkspace({createdSurveys:list});svRenderActivePast();
+      }
+      if(btn.dataset.surveyManage==='copy'){
+        const copy=JSON.parse(JSON.stringify(rec));copy.formId='sv_'+crypto.randomUUID().replace(/-/g,'');copy.title=(rec.title||'설문')+' (복사본)';delete copy.url;delete copy.closed;copy.startDate='';copy.endDate='';copy.year=_academicYear();copy.createdAt=toDateStr(new Date());
+        copy.draft=JSON.parse(JSON.stringify(rec.draft||rec.def));copy.draft.formId=copy.formId;copy.draft.title=copy.title;copy.draft.startDate='';copy.draft.endDate='';copy.def=copy.draft;
+        _svPersistWorkspace({createdSurveys:[copy].concat(list)});_svEditCreatedSurvey(copy);
+      }
+    }catch(err){await appConfirmModal(err.message,'설문 관리',{okOnly:true,okLabel:'확인'});}
+    finally{btn.disabled=false;}
+  }));
   /* 과거 표 행 클릭 → 해당 설문 통계 */
   el.querySelectorAll('.sv-active-row').forEach(function(row){
     row.addEventListener('click',function(){
@@ -602,14 +663,14 @@ function svRenderActivePast(){
   /* ── 진행 중 카드 버튼들 ── */
   const _openStatsOf=function(rec){
     /* 설문 통계 탭의 해당 설문 통계로 이동 (뒤로가기=설문 통계 목록) */
-    svOpenPanel('stats',{formId:rec.formId,title:rec.title,year:String(rec.createdAt||'').slice(0,4)||undefined,fromList:true});
+    svOpenPanel('stats',{formId:rec.formId,title:rec.title,year:String(rec.year||String(rec.createdAt||'').slice(0,4))||undefined,fromList:true});
   };
   el.querySelectorAll('.sv-act-stats').forEach(function(btn){
     const rec=active[parseInt(btn.dataset.ai)];if(!rec)return;
     /* 응답 건수 프리페치 — 호버 시 즉시 팁 표시 (매 호버마다 DB 대기 X) */
     let _respMsg='아직 접수된 응답이 없습니다.';
     if(window.electronAPI&&window.electronAPI.surveyResponseGetByForm){
-      const yr=String(rec.createdAt||'').slice(0,4)||String(new Date().getFullYear());
+      const yr=String(rec.year||String(rec.createdAt||'').slice(0,4))||String(_academicYear());
       window.electronAPI.surveyResponseGetByForm(yr,rec.formId).then(function(res){
         const n=(res&&res.success&&Array.isArray(res.data))?res.data.length:0;
         _respMsg=n>0?(n+'건의 응답이 있습니다.'):'아직 접수된 응답이 없습니다.';
@@ -640,15 +701,37 @@ function svRenderActivePast(){
     btn.addEventListener('mouseleave',_svCursorTipHide);
     btn.addEventListener('click',function(){
       _svCursorTipHide();
-      appConfirmModal('"'+(rec.title||'(제목 없음)')+'" 설문을 삭제하시겠습니까?\n(리스트와 설문 통계 목록에서 제거됩니다)','설문 삭제').then(function(ok){
-        if(!ok)return;
-        const list=(Array.isArray(svWorkspaceCache.createdSurveys)?svWorkspaceCache.createdSurveys:[]).filter(function(r){return r&&r.formId!==rec.formId;});
-        _svPersistWorkspace({createdSurveys:list});
-        svRenderActivePast();
-        bus.emit('toast:show',{text:'설문이 삭제되었습니다.',kind:'info'});
-      });
+      _svDeleteCreatedSurvey(rec);
     });
   });
+}
+
+async function _svDeleteCreatedSurvey(rec){
+  if(!await appConfirmModal('설문 '+(rec.title||'(제목 없음)')+'을 삭제할까요? 게시된 설문은 마감하고 접수된 응답을 가져온 뒤 목록에서 제거합니다.','설문 삭제'))return;
+  try{
+    if(rec.url){const closed=await _api.surveyClose(rec.formId);if(!closed||!closed.success)throw new Error(closed&&closed.error||'마감 실패');await _svSyncResponses(rec);}
+    if(_api&&_api.surveyFormDelete){const result=await _api.surveyFormDelete(rec.formId);if(!result||!result.success)throw new Error(result&&result.error||'설문 삭제 실패');}
+    if(svSurveyData&&svSurveyData.formId===rec.formId){clearTimeout(_asTimer);svSurveyData=null;localStorage.removeItem(_dbDraftKey());}
+    _svPersistWorkspace({createdSurveys:(svWorkspaceCache.createdSurveys||[]).filter(r=>r.formId!==rec.formId)});
+    svRenderActivePast();bus.emit('toast:show',{text:'설문을 목록에서 삭제했습니다. 이미 가져온 응답은 보관됩니다.'});
+  }catch(err){await appConfirmModal(err.message,'설문 삭제 실패',{okOnly:true,okLabel:'확인'});}
+}
+function _svResponseTime(value){
+  if(!value)return '';
+  const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value);
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date);
+  const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));return v.year+'-'+v.month+'-'+v.day+' '+v.hour+':'+v.minute;
+}
+function _svManageButtons(rec){
+  const fid=escHtml(rec.formId);
+  const button=(action,text)=>'<button class="sv-btn sv-btn-sm" data-survey-manage="'+action+'" data-form-id="'+fid+'">'+text+'</button>';
+  return (rec.url?button('link','링크 복사')+button('sync','응답 가져오기')+(!rec.closed?button('close','마감'):''):'')+button('copy','복사')+((rec.closed||(rec.url&&rec.endDate&&rec.endDate<toDateStr(new Date())))?button('delete','삭제'):'');
+}
+async function _svSyncResponses(rec){
+  const result=await _api.surveySyncResponses(rec.formId);
+  if(!result||!result.success)throw new Error(result&&result.error||'응답을 가져오지 못했습니다.');
+  bus.emit('toast:show',{text:result.count+'건의 응답을 가져왔습니다.'+(result.unmatched?' 학생 정보가 명단과 일치하지 않는 '+result.unmatched+'건은 응답 목록에서 확인해 주세요.':'')});
+  return result;
 }
 
 /* ── 호버 미니 팁 — 일반 일지 팁 양식, 위치는 마우스 커서 옆. 단일 요소 재사용 + 애니메이션 없음
@@ -701,28 +784,7 @@ function _svDefMaxId(def){
   return m;
 }
 function _svEditCreatedSurvey(rec){
-  const kind=rec.kind==='health'?'health':'custom';
-  if(kind!==svWizardMode){svSurveyData=null;}
-  svWizardMode=kind;
-  if(kind==='custom'){
-    /* 현재 커스텀 초안이 이 설문이 아니면 생성 시 스냅샷으로 복원 */
-    let d=svSurveyData||_dbLoadLocalDraft();
-    if(!d||d.formId!==rec.formId){
-      if(rec.def&&Array.isArray(rec.def.sections)){
-        d={title:rec.title||'',desc:'',nextId:_svDefMaxId(rec.def)+1,draftKind:'custom',formId:rec.formId,
-           startDate:rec.startDate||'',endDate:rec.endDate||'',
-           preQuestions:JSON.parse(JSON.stringify(rec.def.preQuestions||[])),
-           sections:JSON.parse(JSON.stringify(rec.def.sections||[]))};
-      } else {
-        d=_dbCreateEmptyDraft();d.formId=rec.formId;d.title=rec.title||'';
-      }
-    }
-    svSurveyData=d;
-    _dbPersistLocalDraft(svSurveyData);
-  }
-  /* health 는 svInitSurveyData 가 건강조사 초안을 로드 */
-  svOpenPanel('wizard',kind==='health'?{templateType:'health'}:{});
-  svWizardStep(4);   /* 설문 편집 단계 직행 */
+  svOpenPanel('wizard',{templateType:rec.kind,editRecord:rec});
 }
 
 /* ═══ 설문 통계 탭 (모든 설문 통합) ═══ */
@@ -730,7 +792,7 @@ function svRenderAllStats(){
   /* 설문 통계 — 게시판(리스트) 형태 (사용자 지시 2026-08-21).
      생성 완료된 설문(createdSurveys)을 최신순으로 나열, 행 클릭 시 해당 설문의 통계 열림. */
   const el=document.getElementById('sv-allstats-panel');if(!el)return;
-  if(!svRenderAllStats._synced){svRenderAllStats._synced=true;_svSyncWorkspaceFromBackend(function(){svRenderAllStats._synced=false;svRenderAllStats();});}
+  if(!svRenderAllStats._synced){svRenderAllStats._synced=true;_svSyncWorkspaceFromBackend(function(){svRenderAllStats();});}
   const list=(Array.isArray(svWorkspaceCache.createdSurveys)?svWorkspaceCache.createdSurveys.slice():[]).filter(Boolean);
   list.sort(function(a,b){return String(b.createdAt||'').localeCompare(String(a.createdAt||''));});
   let h='<div style="padding:14px">';
@@ -741,7 +803,7 @@ function svRenderAllStats(){
       +'<th style="width:44px;text-align:center">번호</th><th style="width:280px">설문 제목</th><th style="width:110px">생성일</th><th style="width:90px">대상</th><th style="width:64px;text-align:center">구분</th><th></th>'
       +'</tr></thead><tbody>';
     list.forEach(function(r,i){
-      h+='<tr class="sv-stat-row" data-form-id="'+escHtml(r.formId||'')+'" data-title="'+escHtml(r.title||'')+'" data-year="'+escHtml(String(r.createdAt||'').slice(0,4))+'" style="cursor:pointer">'
+      h+='<tr class="sv-stat-row" data-form-id="'+escHtml(r.formId||'')+'" data-title="'+escHtml(r.title||'')+'" data-year="'+escHtml(String(r.year||String(r.createdAt||'').slice(0,4)))+'" style="cursor:pointer">'
         +'<td style="text-align:center;color:var(--t3)">'+(list.length-i)+'</td>'
         +'<td style="font-weight:600;color:var(--t1);word-break:keep-all">'+escHtml(r.title||'(제목 없음)')+'</td>'
         +'<td style="font-size:10px;color:var(--t3)">'+escHtml(r.createdAt||'')+'</td>'
@@ -767,19 +829,34 @@ function svRenderAllStats(){
   });
 }
 
-function svRenderWizard(params){
+let _svWizardLoad=0;
+async function svRenderWizard(params){
+  const request=++_svWizardLoad;
   const el=document.getElementById('sv-wizard');if(!el)return;
   /* 진입 경로에 따라 초안 모드 결정 — 건강조사 템플릿=기본 양식, 그 외(새 설문·커스텀)=백지.
      모드가 바뀌면 메모리 초안을 내려놓고 해당 모드 초안을 다시 로드한다. */
   const _newMode=(params&&params.templateType==='health')?'health':'custom';
-  if(_newMode!==svWizardMode){svSurveyData=null;}
+  clearTimeout(_asTimer);
+  if(svSurveyData)_svSyncCreatedRec(svSurveyData);
   svWizardMode=_newMode;
-  svWizardSelectedGrades=[];svWizardSelectedStudents={};
-  let h='<button class="sv-back-btn" data-sv-click="openPanel" data-sv-panel="home\">← 설문 홈으로</button>';
+  const rec=params&&params.editRecord;
+  el.innerHTML='<p>설문 양식을 불러오는 중입니다…</p>';
+  const template=params&&typeof params.customIdx==='number'?S.svCustomSurveys[params.customIdx]:null;
+  const source=rec&&(rec.draft||rec.def)||(template&&(template.draft||template.def||(Array.isArray(template.sections)?template:Object.assign(_dbCreateEmptyDraft(),{title:template.title||'',desc:template.desc||''}))))||(_newMode==='health'?await _dbLoadDefaultDraft(S.settings.schoolName||'학교',_academicYear()):_dbCreateEmptyDraft());
+  if(request!==_svWizardLoad||_svCurrentPanel!=='wizard')return;
+  if(!source){el.innerHTML='<p>설문 양식을 불러오지 못했습니다. 목록으로 돌아가 다시 시도해 주세요.</p>';return;}
+  svSurveyData=JSON.parse(JSON.stringify(source));
+  svSurveyData.draftKind=_newMode;
+  svSurveyData.formId=rec?rec.formId:'sv_'+crypto.randomUUID().replace(/-/g,'');
+  if(rec){svSurveyData.title=svSurveyData.title||rec.title;svSurveyData.startDate=svSurveyData.startDate||rec.startDate;svSurveyData.endDate=svSurveyData.endDate||rec.endDate;}
+  svSurveyData.nextId=Math.max(svSurveyData.nextId||1,_svDefMaxId(svSurveyData)+1);
+  svWizardSelectedGrades=(svSurveyData.selectedGrades||[]).slice();svWizardSelectedStudents=Object.assign({},svSurveyData.selectedStudents||{});
+  svWizardSelectedLangs.splice(0,svWizardSelectedLangs.length,...(svSurveyData.languages||['ko']));
+  let h='<button class="sv-back-btn" data-sv-click="openPanel" data-sv-panel="home">← 설문 홈으로</button>';
   h+='<div id="sv-wizard-steps" style="margin-top:12px"></div>';
   h+='<div id="sv-wizard-step-1"></div><div id="sv-wizard-step-2" style="display:none;max-height:calc(100vh - 260px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(6,182,212,0.4) transparent" class="sv-class-list"></div><div id="sv-wizard-step-3" style="display:none"></div><div id="sv-wizard-step-4" style="display:none;max-height:calc(100vh - 370px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(6,182,212,0.4) transparent" class="sv-class-list"></div><div id="sv-wizard-step-5" style="display:none"></div>';
   el.innerHTML=h;
-  svWizardStep(1);
+  svWizardStep(rec?4:1);
 }
 
 function svRenderStepIndicator(current){
@@ -925,7 +1002,7 @@ function svRenderClassCards(){
       const sid=s.id;
       if(!svWizardSelectedStudents.hasOwnProperty(sid))svWizardSelectedStudents[sid]=true;
       h+='<span class="sv-student-chip '+(s.checked?'checked':'unchecked')+'" data-sid="'+sid+'" data-cls="'+g.key+'" data-sv-click="toggleStudent" data-sv-sid="'+sid+'">'
-        +s.num+'번 '+s.name+(s.care?' <span style="font-size:9px;color:var(--yl)">*'+s.careLabel+'*</span>':'')+'</span>';
+        +escHtml(s.num)+'번 '+escHtml(s.name)+(s.care?' <span style="font-size:9px;color:var(--yl)">*'+s.careLabel+'*</span>':'')+'</span>';
     });
     h+='</div></div>';
   });
@@ -1488,7 +1565,7 @@ function svRenderQuestionEditor(scrollToQid){
   if(!d.sections.length)_dmAddSection(d);
   h+='<div class="sv-section-card" style="margin-bottom:14px"><input class="sv-section-title-input" value="'+escHtml(d.title)+'" data-sv-input="setTitle" placeholder="설문 제목을 입력하세요">'
     +'<textarea class="sv-section-desc-input" data-sv-input="setDesc" placeholder="설문에 대한 설명을 입력하세요" style="white-space:pre-wrap;resize:none;min-height:20px">'+escHtml(d.desc)+'</textarea>'
-    +'<div style="display:flex;gap:12px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">'
+    +'<div class="sv-survey-dates" style="display:flex;gap:12px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">'
     +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;font-weight:600;color:var(--t2)">시작일</span><input id="svStartDate" class="form-input" value="'+d.startDate+'" placeholder="YYYY-MM-DD" style="font-size:11px;padding:4px 8px" data-sv-input="setStartDate" data-sv-click="stopProp"><button type="button" data-sv-click="openCal" data-sv-field="svStartDate" style="border:1px solid var(--bdr);background:var(--bg2);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px;flex-shrink:0">📅</button></div>'
     +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;font-weight:600;color:var(--t2)">마감일</span><input id="svEndDate" class="form-input" value="'+d.endDate+'" placeholder="YYYY-MM-DD" style="font-size:11px;padding:4px 8px" data-sv-input="setEndDate" data-sv-click="stopProp"><button type="button" data-sv-click="openCal" data-sv-field="svEndDate" style="border:1px solid var(--bdr);background:var(--bg2);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px;flex-shrink:0">📅</button></div>'
     +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;font-weight:600;color:var(--t2)">마감시간</span><div class="sv-toggle'+(d.hasEndTime?' on':'')+'" data-sv-click="toggleEndTime"></div>'
@@ -1634,7 +1711,7 @@ function svRenderQuestionEditor(scrollToQid){
           if(q.sectionJump){
             const jm=q.jumpMap||{};const jv=jm[oi]||'';
             h+='<select class="sv-rich-size" style="font-size:9px;max-width:100px" data-sv-change="setJumpMap" data-sv-si="'+si+'" data-sv-qi="'+qi+'" data-sv-oi="'+oi+'"><option value=""'+(jv===''?' selected':'')+'>다음 섹션</option>';
-            d.sections.forEach(function(s2,s2i){if(s2i!==si)h+='<option value="'+s2i+'"'+(jv===String(s2i)?' selected':'')+'>→ '+escHtml(s2.title)+'</option>';});
+            d.sections.forEach(function(s2,s2i){if(s2i>si)h+='<option value="'+s2i+'"'+(jv===String(s2i)?' selected':'')+'>→ '+escHtml(s2.title)+'</option>';});
             h+='<option value="end"'+(jv==='end'?' selected':'')+'>설문 제출</option></select>';
           }
           h+='<span style="width:14px;height:14px;border-radius:50%;background:rgba(239,68,68,0.1);color:#ef4444;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:8px;border:1px solid rgba(239,68,68,0.2);line-height:1;opacity:0;transition:opacity .12s" class="sv-opt-x" data-sv-click="deleteOption" data-sv-si="'+si+'" data-sv-qi="'+qi+'" data-sv-oi="'+oi+'" data-sv-qid="'+q.id+'">✕</span></div>';
@@ -2267,7 +2344,7 @@ function svShowQMenu(si,qi,btn){
   /* 설문 서두(pre) 문항은 섹션 개념이 없으므로 섹션 이동/나누기 메뉴 제외 */
   const _isPre=si==='pre';
   let _menu='<div style="padding:6px 0">';
-  if(!_isPre)_menu+='<div style="padding:8px 14px;font-size:11px;color:var(--t2);cursor:pointer;transition:background .1s" data-sv-click="toggleSectionJump" data-sv-si="'+si+'" data-sv-qi="'+qi+'" class="sv-qmenu-item">↗ 답변에 따라 섹션을 이동 '+(_q.sectionJump?'✓':'')+'</div>';
+  if(!_isPre&&['radio','dropdown'].includes(_q.type))_menu+='<div style="padding:8px 14px;font-size:11px;color:var(--t2);cursor:pointer;transition:background .1s" data-sv-click="toggleSectionJump" data-sv-si="'+si+'" data-sv-qi="'+qi+'" class="sv-qmenu-item">↗ 답변에 따라 섹션을 이동 '+(_q.sectionJump?'✓':'')+'</div>';
   _menu+='<div style="padding:8px 14px;font-size:11px;color:var(--t2);cursor:pointer;transition:background .1s" data-sv-click="shuffleOptions" data-sv-si="'+si+'" data-sv-qi="'+qi+'" class="sv-qmenu-item">🔀 옵션 순서 무작위로 섞기</div>';
   if(!_isPre){
     _menu+='<div style="border-top:1px solid var(--bdr);margin:4px 0"></div>'
@@ -2417,7 +2494,7 @@ function svPreviewSurvey(){
     +'<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--bdr);background:var(--popup-head);border-radius:12px 12px 0 0;flex-shrink:0"><span style="font-size:14px;font-weight:800;color:var(--t1)">📋 설문 미리보기</span><button style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer" data-sv-click="closePreviewOverlay">✕</button></div>'
     +langBtns
     +'<div id="svPreviewBody" style="flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#60a5fa transparent">'+h+'</div>'
-    +'<div style="flex-shrink:0;border-top:1px solid var(--bdr);padding:12px 20px;background:var(--bg2);border-radius:0 0 12px 12px;display:flex;justify-content:center"><button class="sv-btn-primary" style="padding:10px 28px;font-size:13px" data-sv-click="closePreviewAndFinish">🚀 설문 생성 완료, QR &amp; URL 링크 생성</button></div>'
+    +'<div style="flex-shrink:0;border-top:1px solid var(--bdr);padding:12px 20px;background:var(--bg2);border-radius:0 0 12px 12px;display:flex;justify-content:center"><button class="sv-btn-primary" style="padding:10px 28px;font-size:13px" data-sv-click="saveSurveyOnly">이 PC에 저장</button><button class="sv-btn-primary" data-sv-click="closePreviewAndFinish">🚀 온라인 게시 · QR/링크 만들기</button></div>'
     +'</div>';
   ov.addEventListener('click',function(e){if(e.target===ov)_closeSvOverlay(ov);});
   document.body.appendChild(ov);
@@ -2447,13 +2524,14 @@ function _svRecordCreatedSurvey(formId,title,draft){
   const pad=function(n){return String(n).padStart(2,'0');};
   const createdAt=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+' '+pad(now.getHours())+':'+pad(now.getMinutes());
   let target='전체';
-  if(Array.isArray(svWizardSelectedGrades)&&svWizardSelectedGrades.length)target=svWizardSelectedGrades.join(', ')+'학년';
-  const rec={formId:formId,title:title,createdAt:createdAt,target:target,kind:svWizardMode,
+  if(Array.isArray(draft.selectedGrades)&&draft.selectedGrades.length)target=draft.selectedGrades.join(', ')+'학년';
+  const previous=list.find(r=>r&&r.formId===formId)||{};
+  const rec={...previous,formId:formId,title:title,createdAt:previous.createdAt||createdAt,year:previous.year||_academicYear(),target:target,kind:draft.draftKind||'custom',
     startDate:(draft&&draft.startDate)||'',endDate:(draft&&draft.endDate)||''};
   /* 커스텀 설문은 통계 표시용 문항 정의 스냅샷을 함께 보관 (건강조사는 기본 양식에서 로드 가능) */
-  if(svWizardMode!=='health'&&draft){
-    try{rec.def=JSON.parse(JSON.stringify({preQuestions:draft.preQuestions||[],sections:draft.sections||[]}));}catch(_){}
-  }
+  rec.draft=JSON.parse(JSON.stringify(draft));
+  if(!rec.url)rec.def=rec.draft;
+  else {rec.title=previous.title;rec.startDate=previous.startDate;rec.endDate=previous.endDate;}
   /* 같은 formId 기존 기록은 대체하고 맨 위로 (최신이 위) */
   const filtered=list.filter(function(r){return r&&r.formId!==formId;});
   filtered.unshift(rec);
@@ -2461,21 +2539,56 @@ function _svRecordCreatedSurvey(formId,title,draft){
 }
 /* formId — 건강조사는 고정, 커스텀은 초안에 고유 id 부여 후 재사용 (통계 응답 조회 키와 일치) */
 function _svEnsureFormId(){
-  if(svWizardMode==='health')return 'tpl_health';
-  if(svSurveyData&&!svSurveyData.formId){svSurveyData.formId='sv_'+Date.now().toString(36);_asScheduleSave(svSurveyData,100);}
-  return (svSurveyData&&svSurveyData.formId)||('sv_'+Date.now().toString(36));
+  if(!svSurveyData)throw new Error('설문 초안을 불러오지 못했습니다.');
+  if(!svSurveyData.formId)svSurveyData.formId='sv_'+crypto.randomUUID().replace(/-/g,'');
+  return svSurveyData.formId;
 }
 /* 설문 등재 — 미리보기 하단 '🚀 설문 생성 완료, QR & URL 링크 생성' 클릭 시에만 호출 (2026-08-21).
    (완료 화면 렌더와 분리 — 미리보기만 열었다 닫으면 등재되지 않는다) */
-function _svFinalizeSurveyCreation(){
-  const title=(svSurveyData&&svSurveyData.title)?svSurveyData.title:'설문';
-  _svRecordCreatedSurvey(_svEnsureFormId(),title,svSurveyData);
+let _svPublishing=false;
+async function _svFinalizeSurveyCreation(publish){
+  if(_svPublishing)return;
+  _svPublishing=true;
+  try{
+    clearTimeout(_asTimer);
+    svSurveyData.selectedGrades=svWizardSelectedGrades.slice();svSurveyData.selectedStudents=Object.assign({},svWizardSelectedStudents);svSurveyData.languages=svWizardSelectedLangs.slice();
+    const draft=JSON.parse(JSON.stringify(svSurveyData));
+    draft.formId=_svEnsureFormId();draft.languages=svWizardSelectedLangs.slice();
+    draft.selectedGrades=svWizardSelectedGrades.slice();draft.selectedStudents=Object.assign({},svWizardSelectedStudents);
+    draft.draftKind=svWizardMode;
+    const ks=Object.assign({},S.kioskSettings||{});
+    const recipients=S.people.filter(p=>p.type==='student'&&draft.selectedGrades.map(String).includes(String(p.grade))&&draft.selectedStudents[String(p.id)]!==false).map(p=>({uid:p.uid||p.id,name:p.name,grade:p.grade,cls:p.cls,num:p.num}));
+    window.OrangeSurvey.validateDefinition(draft);
+    if(!_api||!_api.surveyFormSave)throw new Error('설문 저장 기능을 사용할 수 없습니다.');
+    bus.emit('toast:show',{text:publish?'설문을 저장하고 게시하는 중입니다…':'설문을 저장하는 중입니다…'});
+    const saved=await _api.surveyFormSave({id:draft.formId,title:draft.title,file_name:draft.formId+'.json'},draft);
+    if(!saved||!saved.success)throw new Error(saved&&saved.error||'설문을 저장하지 못했습니다.');
+    _svRecordCreatedSurvey(draft.formId,draft.title,draft);
+    const rec=svWorkspaceCache.createdSurveys.find(r=>r.formId===draft.formId);
+    if(publish){
+      if(!recipients.length)throw new Error('응답 대상 학생을 한 명 이상 선택해 주세요. 설문은 이 PC에 저장되어 있습니다.');
+      const result=await _api.surveyPublish({connection:{relayUrl:ks.relayUrl||DEFAULT_RELAY_URL,channelId:ks.channelId,authToken:ks.authToken},draft,recipients,year:rec.year||_academicYear()});
+      if(!result||!result.success)throw new Error((result&&result.error||'게시하지 못했습니다.')+' 설문은 이 PC에 저장되어 있습니다.');
+      rec.url=result.url;rec.version=result.version;rec.closed=false;rec.def=JSON.parse(JSON.stringify(draft));
+      rec.title=draft.title;rec.startDate=draft.startDate||'';rec.endDate=draft.endDate||'';
+      rec.recipientIds=recipients.map(p=>String(p.uid));
+      _svWorkspaceRevision++;
+    }
+    await _wsSave(svWorkspaceCache);
+    if(_svCurrentPanel==='wizard'&&svSurveyData&&svSurveyData.formId===draft.formId){
+      const overlay=document.getElementById('svPreviewOverlay');if(overlay)_closeSvOverlay(overlay);
+      svWizardStep(5);
+    }else{bus.emit('toast:show',{text:draft.title+(publish?' 설문을 게시했습니다.':' 설문을 저장했습니다.')});}
+  }catch(err){await appConfirmModal(err.message,'설문 저장·게시',{okOnly:true,okLabel:'확인'});}
+  finally{_svPublishing=false;}
 }
 function svRenderComplete(){
   const el=document.getElementById('sv-wizard-step-5');if(!el)return;
   const title=(svSurveyData&&svSurveyData.title)?svSurveyData.title:'설문';
   const formId=_svEnsureFormId();
-  const demoUrl='https://relay.example.com/survey/'+formId;
+  const record=(svWorkspaceCache.createdSurveys||[]).find(r=>r.formId===formId)||{};
+  const surveyUrl=record.url||'';
+  if(!surveyUrl){el.innerHTML='<div class="cc" style="padding:28px;text-align:center"><h2>설문이 이 PC에 저장되었습니다.</h2><p>현재/과거 설문에서 다시 편집하고 온라인에 게시할 수 있습니다.</p><button class="sv-btn" data-sv-click="openPanel" data-sv-panel="home">설문 홈으로</button></div>';return;}
   let h='<div style="text-align:center;padding:24px 20px 16px"><div style="font-size:44px;margin-bottom:10px">✅</div>'
     +'<div style="font-size:20px;font-weight:800;color:var(--t1);margin-bottom:4px">설문이 생성되었습니다!</div>'
     +'<div style="font-size:12px;color:var(--t3)">'+escHtml(title)+'</div></div>';
@@ -2484,9 +2597,9 @@ function svRenderComplete(){
   h+='<div style="flex:1;min-width:0">'
     +'<div class="cc" style="padding:16px;margin-bottom:12px">'
     +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px">🔗 설문 URL</div>'
-    +'<div style="display:flex;gap:6px;margin-bottom:4px"><input class="form-input" id="svResultUrl" value="'+escHtml(demoUrl)+'" readonly style="flex:1;font-size:11px;font-family:var(--fm)">'
+    +'<div style="display:flex;gap:6px;margin-bottom:4px"><input class="form-input" id="svResultUrl" value="'+escHtml(surveyUrl)+'" readonly style="flex:1;font-size:11px;font-family:var(--fm)">'
     +'<button class="sv-btn" data-sv-click="copyResultUrl" style="white-space:nowrap">📋 복사</button></div>'
-    +'<div style="font-size:10px;color:var(--t3)">⚠️ 서버 연결 전 데모 URL입니다. 서버 구축 후 실제 URL이 생성됩니다.</div></div>'
+    +'<div style="font-size:10px;color:var(--t3)">학교 안과 가정에서 같은 링크로 응답할 수 있습니다. 앱을 닫아도 응답은 접수됩니다.</div></div>'
     +'<div class="cc" style="padding:16px;text-align:center">'
     +'<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px">📱 QR 코드</div>'
     +'<canvas id="svQrCanvas" style="margin:0 auto 12px;display:block;border-radius:6px;image-rendering:pixelated"></canvas>'
@@ -2497,9 +2610,9 @@ function svRenderComplete(){
   /* 가정통신문 생성 카드 제거 (사용자 지시 2026-08-21) */
   h+='</div>';
   /* 하단: 홈으로 돌아가기 */
-  h+='<div style="text-align:center;padding:0 16px 20px"><button class="sv-btn" data-sv-click="openPanel" data-sv-panel="home\" style="font-size:11px;color:var(--t3)">← 설문 홈으로 돌아가기</button></div>';
+  h+='<div style="text-align:center;padding:0 16px 20px"><button class="sv-btn" data-sv-click="openPanel" data-sv-panel="home" style="font-size:11px;color:var(--t3)">← 설문 홈으로 돌아가기</button></div>';
   el.innerHTML=h;
-  _svDrawQr(demoUrl);   /* 예시 QR 표시 (서버 연결 전 데모 URL 기준) */
+  _svDrawQr(surveyUrl);
 }
 
 /* ── 완료 화면 QR 그리기 — window.qrcode(qrcode-generator, classic script 전역) 사용 (2026-08-21) ── */
@@ -2522,8 +2635,10 @@ function _svDrawQr(url){
 
 /* ── 현재 통계 뷰의 설문 컨텍스트 ── */
 let _svStatsContext = { formId: '', year: '', title: '' };
+let _svStatsRequest=0;
 
 function svRenderStats(params){
+  const request=++_svStatsRequest;
   const el=document.getElementById('sv-stats');if(!el)return;
   params=params||{};
 
@@ -2540,13 +2655,22 @@ function svRenderStats(params){
   } else if(params.title){
     title=params.title;formId=params.formId||'survey_'+encodeURIComponent(params.title).slice(0,32);
   }
-  const year=params.year||String(new Date().getFullYear());
+  const record=(svWorkspaceCache.createdSurveys||[]).find(r=>r.formId===formId);
+  const year=params.year||String(record&&record.year||_academicYear());
+  if(record&&record.url&&!params.synced&&_api&&_api.surveySyncResponses){
+    el.innerHTML='<p>새 응답을 확인하는 중입니다…</p>';
+    _api.surveySyncResponses(formId).then(result=>{
+      if(!result||!result.success)bus.emit('toast:show',{text:'새 응답 확인 실패: '+(result&&result.error||'연결 오류')+' 저장된 응답을 표시합니다.'});
+      if(_svCurrentPanel==='stats'&&request===_svStatsRequest)svRenderStats(Object.assign({},params,{synced:true}));
+    }).catch(()=>{if(_svCurrentPanel==='stats'&&request===_svStatsRequest)svRenderStats(Object.assign({},params,{synced:true}));});
+    return;
+  }
   _svStatsContext={formId:formId,year:year,title:title};
 
   /* 기본 구조 렌더링 (비동기 데이터 로드 전 스켈레톤) — 게시판 리스트에서 진입 시 뒤로가기는 목록으로 */
   let h=params.fromList
     ?'<button class="sv-back-btn" data-sv-click="switchSubAllStats">← 설문 통계 목록으로</button>'
-    :'<button class="sv-back-btn" data-sv-click="openPanel" data-sv-panel="home\">← 설문 홈으로</button>';
+    :'<button class="sv-back-btn" data-sv-click="openPanel" data-sv-panel="home">← 설문 홈으로</button>';
   h+='<div class="sv-breadcrumb" style="margin-top:8px">설문 &gt; <span>'+escHtml(title)+'</span> &gt; 통계 ('+year+')</div>';
 
   /* 응답 가져오기 버튼 */
@@ -2562,8 +2686,8 @@ function svRenderStats(params){
   /* DB에서 응답 목록 비동기 로드 — 문항별 통계를 위해 response_data 포함 조회 */
   if(formId && window.electronAPI && window.electronAPI.surveyResponseGetAllWithData){
     window.electronAPI.surveyResponseGetAllWithData(year, formId).then(function(res){
-      _svRenderStatsSummary(res&&res.success?res.data:[]);
-    }).catch(function(){ _svRenderStatsSummary([]); });
+      if(request===_svStatsRequest)_svRenderStatsSummary(res&&res.success?res.data:[]);
+    }).catch(function(){ if(request===_svStatsRequest)_svRenderStatsSummary([]); });
   } else {
     _svRenderStatsSummary([]);
   }
@@ -2768,9 +2892,11 @@ function _svRenderStatsSummary(rows){
   const listEl=document.getElementById('sv-stats-resp-list');
   if(!summaryEl)return;
 
+  const record=(svWorkspaceCache.createdSurveys||[]).find(r=>r.formId===_svStatsContext.formId);
+  const targetIds=record&&record.recipientIds;
   const stuList=S.people.filter(function(s){return s.type==='student';});
-  const total=stuList.length;
-  const responded=rows.length;
+  const total=Array.isArray(targetIds)?targetIds.length:stuList.length;
+  const responded=Array.isArray(targetIds)?new Set(rows.filter(r=>targetIds.includes(String(r.student_persistent_id))).map(r=>String(r.student_persistent_id))).size:rows.length;
   const rate=total?Math.round(responded/total*1000)/10:0;
   const notResp=Math.max(0,total-responded);
 
@@ -2793,7 +2919,7 @@ function _svRenderStatsSummary(rows){
 
   if(!listEl)return;
   if(!rows.length){
-    listEl.innerHTML='<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">아직 가져온 응답이 없습니다.<br>위의 <b>JSON 파일 선택</b> 버튼으로 응답을 가져오세요.</div>';
+    listEl.innerHTML='<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">아직 가져온 응답이 없습니다. 온라인 설문은 통계를 다시 열면 새 응답을 확인합니다. 기존 응답 파일은 JSON 파일 선택으로 가져올 수 있습니다.</div>';
     return;
   }
   /* 전체 통계 / 개별 응답 토글 본문 */
@@ -2829,8 +2955,8 @@ function _svRenderStatsBody(){
         +'<td>'+(r.grade||'')+'</td>'
         +'<td>'+(r.class_num||'')+'</td>'
         +'<td>'+(r.student_num||'')+'</td>'
-        +'<td>'+escHtml(r.student_name||'')+'</td>'
-        +'<td style="font-size:10px;color:var(--t3)">'+(r.responded_at||'').slice(0,16).replace('T',' ')+'</td>'
+        +'<td>'+escHtml(r.student_name||'')+(r.status==='unmatched'?' <span style="color:var(--rs)">명단 확인 필요</span>':'')+'</td>'
+        +'<td style="font-size:10px;color:var(--t3)">'+escHtml(_svResponseTime(r.responded_at))+'</td>'
         +'<td><button class="sv-btn sv-btn-sm" data-sv-click="deleteResponse" data-sv-id="'+r.id+'" style="color:var(--rs);border-color:var(--rs)">✕</button></td>'
         +'</tr>';
     });
@@ -2874,7 +3000,7 @@ function _svRenderIndividualResp(rows){
   s+='</select>'
     +'<button class="sv-btn sv-btn-sm" id="svIndNext"'+(_svStatsRespIdx>=rows.length-1?' disabled style="opacity:0.4"':'')+'>다음 ▶</button>'
     +'<span style="font-size:10px;color:var(--t3)">'+(_svStatsRespIdx+1)+' / '+rows.length+'</span>'
-    +'<span style="font-size:10px;color:var(--t3);margin-left:auto">'+escHtml((r.responded_at||'').slice(0,16).replace('T',' '))+' 응답</span>'
+    +'<span style="font-size:10px;color:var(--t3);margin-left:auto">'+escHtml(_svResponseTime(r.responded_at))+' 응답</span>'
     +'</div>';
   const def=_svStatsGetDefinition();
   if(!def)return s+'<div class="cc" style="padding:14px;font-size:11px;color:var(--t3)">설문 정의를 찾을 수 없어 문항별 응답을 표시할 수 없습니다.</div>';
@@ -3068,6 +3194,7 @@ function svRenderNewsletter(){
     const t = e.target.closest('[data-sv-click]');
     if(!t) return;
     const a = t.dataset.svClick;
+    if(svSurveyData)_asScheduleSave(svSurveyData,300);
     const si = t.dataset.svSi !== undefined ? _svParseSi(t.dataset.svSi) : undefined;
     const qi = t.dataset.svQi !== undefined ? parseInt(t.dataset.svQi) : undefined;
     switch(a){
@@ -3075,7 +3202,7 @@ function svRenderNewsletter(){
       case 'openPanel': svOpenPanel(t.dataset.svPanel||'home'); break;
       case 'wizardStep': svWizardStep(parseInt(t.dataset.svStep)); break;
       case 'goStep2': svGoStep2(); break;
-      case 'toggleStudent': svToggleStudent(parseInt(t.dataset.svSid), t); break;
+      case 'toggleStudent': svToggleStudent(t.dataset.svSid, t); break;
       case 'focusQ': svFocusQ(parseInt(t.dataset.svQid)); break;
       case 'previewSurvey': svPreviewSurvey(); break;
       case 'toggleEndTime': {
@@ -3107,7 +3234,7 @@ function svRenderNewsletter(){
         appConfirmModal('이 섹션과 섹션 안의 문항이 모두 삭제됩니다.\n삭제할까요?','섹션 삭제').then(function(ok){
           if(!ok) return;
           if(!svSurveyData || !svSurveyData.sections[si]) return;
-          svSurveyData.sections.splice(si, 1);
+          _dmDeleteSection(svSurveyData,si);
           _asScheduleSave(svSurveyData,300);
           svRenderQuestionEditor();
         });
@@ -3127,7 +3254,7 @@ function svRenderNewsletter(){
       case 'deleteOption': {
         const oi = parseInt(t.dataset.svOi);
         const q3 = _dmGetQuestion(svSurveyData, si, qi);
-        if(q3 && q3.options) { q3.options.splice(oi, 1); _svQIdChurnIfPublished(svSurveyData,q3); svRenderQuestionEditor(q3.id); }
+        if(q3 && q3.options) { _dmDeleteOption(svSurveyData,si,qi,oi); svRenderQuestionEditor(q3.id); }
         break;
       }
       case 'addQuestion': svAddQuestion(si); break;
@@ -3156,13 +3283,8 @@ function svRenderNewsletter(){
         if(pov) _closeSvOverlay(pov);
         break;
       }
-      case 'closePreviewAndFinish': {
-        const pov2 = document.getElementById('svPreviewOverlay');
-        if(pov2) _closeSvOverlay(pov2);
-        _svFinalizeSurveyCreation();   /* 이 시점에 현재/과거 설문·설문 통계 목록 등재 */
-        svWizardStep(5);
-        break;
-      }
+      case 'saveSurveyOnly': _svFinalizeSurveyCreation(false); break;
+      case 'closePreviewAndFinish': _svFinalizeSurveyCreation(true); break;
       case 'copyResultUrl': {
         const inp = document.getElementById('svResultUrl');
         if(inp) svCopyToClipboard(inp.value);
@@ -3211,6 +3333,7 @@ function svRenderNewsletter(){
     const t = e.target.closest('[data-sv-change]');
     if(!t) return;
     const a = t.dataset.svChange;
+    if(svSurveyData)_asScheduleSave(svSurveyData,300);
     const si = t.dataset.svSi !== undefined ? _svParseSi(t.dataset.svSi) : undefined;
     const qi = t.dataset.svQi !== undefined ? parseInt(t.dataset.svQi) : undefined;
     switch(a){
@@ -3254,6 +3377,7 @@ function svRenderNewsletter(){
     if(!t) return;
     const a = t.dataset.svInput;
     if(!svSurveyData) return;
+    _asScheduleSave(svSurveyData,300);
     switch(a){
       case 'setTitle': svSurveyData.title = t.value; break;
       case 'setDesc': svSurveyData.desc = t.value; break;

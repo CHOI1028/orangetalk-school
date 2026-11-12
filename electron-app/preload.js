@@ -33,6 +33,12 @@ const _googleCalendarDisabledResponse = () => Promise.resolve({
 });
 
 const _api = {
+  schoolAiStatus: () => ipcRenderer.invoke('school-ai:status'),
+  schoolAiSave: (request) => ipcRenderer.invoke('school-ai:save', request),
+  schoolAiRemove: () => ipcRenderer.invoke('school-ai:remove'),
+  schoolAiTest: () => ipcRenderer.invoke('school-ai:test'),
+  schoolAiChat: (request) => ipcRenderer.invoke('school-ai:chat', request),
+  schoolAiReset: () => ipcRenderer.invoke('school-ai:reset'),
   /* Electron 32+ 에서 File.path 제거됨 → webUtils.getPathForFile 로 대체 */
   getPathForFile: (file) => {
     try { return webUtils && webUtils.getPathForFile ? webUtils.getPathForFile(file) : (file && file.path) || ''; }
@@ -475,6 +481,9 @@ const _api = {
   medicalComputeBmi: (entries) => ipcRenderer.invoke('medical-compute-bmi', { entries }),
 
   // ── 설문 시스템 ──
+  surveyPublish: (payload) => ipcRenderer.invoke('survey-publish', payload),
+  surveySyncResponses: (formId) => ipcRenderer.invoke('survey-sync-responses', { formId }),
+  surveyClose: (formId) => ipcRenderer.invoke('survey-close', { formId }),
   surveyFormList: () => ipcRenderer.invoke('survey-form-list'),
   surveyFormGet: (formId) => ipcRenderer.invoke('survey-form-get', { formId }),
   surveyFormSave: (form, content) => ipcRenderer.invoke('survey-form-save', { form, content }),

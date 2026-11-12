@@ -40,6 +40,10 @@ jobs:
             node -e "require('fs').writeFileSync('oauth-client.json', JSON.stringify({clientId:'disabled',clientSecret:'disabled'}, null, 2))"
           fi
 
+      - name: Check AI guides against current features
+        working-directory: electron-app
+        run: npm run ai:guides:check
+
       - name: Bundle credentials
         working-directory: electron-app
         run: node scripts/bundle-credentials.js

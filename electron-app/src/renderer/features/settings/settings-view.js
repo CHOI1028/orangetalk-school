@@ -2,6 +2,11 @@
 /* ES Module */
 import { getStu, escHtml, toDateStr, saveStudents, isKinder, closeModalGracefully } from '../../core/helpers.js';
 import { bus } from '../../core/event-bus.js';
+import { schoolAiSettingsCard, bindSchoolAiSettings } from '../ai/school-ai.js';
+document.addEventListener('school-ai:open-settings', () => {
+  openSettings();
+  switchSettingsCat('apikeys', document.querySelector('.settings-sidebar-item[data-cat="apikeys"]'));
+});
 import { SCHOOL_RELEASE_NOTES } from '../shell/school-release-notes.js';
 import { buildSharedConnectionAddress, isSharedConnectionAddress, copySharedConnectionAddress } from './collab-connection-address.js';
 import { readCollabControl, collabControlMessage } from './collab-control-query.js';
@@ -1484,6 +1489,7 @@ export function renderSettingsPanel(cat){
   }
 
   p.innerHTML=html;
+  if(cat==='apikeys')bindSchoolAiSettings(p);
   _bindDelegatedEvents(p);
   _bindInputEvents(p);
   /* 회전문구 슬롯 눈알 입력 동기화 */
@@ -3050,6 +3056,7 @@ function _renderCopyrightTab(){
 /* ═══ 🔑 API 키 관리 탭 ═══ */
 function _renderApiKeysTab(){
   let h='<div class="settings-panel-title">🔑 API Key 관리</div>';
+  h+=schoolAiSettingsCard();
   h+='<div class="settings-panel-desc">공공데이터포털 키는 한 번만 저장하고, 각 서비스의 연결을 확인합니다.</div>';
   h+=renderPublicDataSettings();
 

@@ -1,0 +1,36 @@
+/* Magic Station screen layout. Printable document dimensions remain unchanged. */
+@media screen {
+  #view-magic .sv-steps { flex-wrap:wrap; row-gap:10px; }
+  #view-magic .sv-list-table { min-width:1060px; table-layout:auto; }
+  #view-magic .sv-list-table td:last-child { min-width:420px; overflow:visible; }
+  #view-magic :is(.sv-card,.sv-section-card,.sv-q-card) { min-width:0; overflow-wrap:anywhere; }
+  #view-magic .sv-q-toolbar { flex-wrap:wrap; }
+  /* Keep nested editor scrolling usable even in a short landscape window. */
+  #sv-wizard-step-4 { max-height:max(260px,calc(var(--school-viewport-height,100vh) - 370px)) !important; }
+  #view-magic .sv-survey-dates { flex-wrap:wrap; }
+  #view-magic .sv-survey-dates > div { min-width:0; }
+  #view-magic .sv-survey-dates input { min-width:0; max-width:135px; }
+  #view-magic .sv-survey-dates span { flex-shrink:0; }
+  #svPreviewOverlay > div { max-width:calc(var(--school-viewport-width,100vw) - 24px) !important; max-height:calc(var(--school-viewport-height,100dvh) - 24px) !important; }
+  #svPreviewOverlay > div > :last-child { flex-wrap:wrap; gap:8px; }
+  #trMsgOverlay .modal-content { display:flex; flex-direction:column; overflow:hidden; }
+  #trMsgOverlay .modal-content > div { flex-shrink:0; }
+  #trMsgOverlay .modal-content > div:has(> #trMsgBody) { display:flex; flex:1 1 256px; min-height:100px; overflow:hidden; }
+  #trMsgOverlay #trMsgBody { box-sizing:border-box; height:auto !important; flex:1; max-height:100%; min-height:0; }
+  #view-magic .school-training-status-layout {
+    display:grid !important; grid-template-columns:minmax(250px,330px) minmax(0,1fr);
+    height:clamp(540px,calc(var(--school-viewport-height,100dvh) - 270px),780px) !important;
+    gap:16px; overflow:visible !important; min-width:0;
+  }
+  #view-magic .school-training-status-layout > div { width:auto !important; min-width:0; border-radius:12px; border:1px solid var(--bdr); }
+  #view-magic :is(#trPreviewScroll,#trsPreviewScroll) { min-width:0; min-height:0; }
+  #view-magic :is(#trPreviewA4Wrap,#trsPreviewA4Wrap) { box-sizing:border-box; }
+  @container (max-width:700px) {
+    #view-magic .sv-step-line { display:none; }
+    #view-magic .sv-steps { gap:10px 14px; }
+  }
+  body.school-narrow #view-magic .school-training-status-layout { grid-template-columns:minmax(0,1fr); height:auto !important; }
+  body.school-narrow #view-magic .school-training-status-layout > div:first-child { min-height:360px; }
+  body.school-narrow #view-magic .school-training-status-layout > div:last-child { min-height:350px; }
+  body.school-narrow #view-magic #trsPreviewScroll { max-height:560px; }
+}

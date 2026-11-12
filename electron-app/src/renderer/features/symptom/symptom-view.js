@@ -326,6 +326,11 @@ bus.on('daily:record-id-changed',function(ev){
   if(ev&&String(_symPopupRecId)===String(ev.oldId)){
     _symPopupRecId=ev.id;
     S._symPopupRecId=ev.id;
+    const overlay=document.getElementById('symCatOverlay');
+    if(overlay?.dataset.lockRecordId===String(ev.oldId)){
+      overlay.dataset.lockRecordId=String(ev.id);
+      acquireEditLock(ev.id);
+    }
   }
 });
 let _symSelectedSymptoms=[];
@@ -825,13 +830,14 @@ export function openSymptomCategoryPopup(recId, opts){
   /* 통계 카운트용 약품명 집합 갱신 — 세션 중 설정에서 약품 추가했어도 반영 (boot 외 보강). (2026-06-09) */
   try{ if(typeof _symBuildStatMedNames==='function')_symBuildStatMedNames(); }catch(_){}
 
-  _symPopupRecId=recId;S._symPopupRecId=recId;
   const rec=getDailyRecord(recId);
   if(!rec){_symOpening=false;return;}
+  recId=rec.id;
+  _symPopupRecId=recId;S._symPopupRecId=recId;
   /* 협업 편집 잠금 확인 (2026-06-07) — 같은 방문 레코드를 다른 사람이 이미 열어 수정 중이면 중앙 경고.
    *  모든 진입점(일반일지·대시보드·응급·EMS)을 한 곳에서 커버. 강제차단 아님(그래도 열기 가능, last-write-wins).
    *  _symLockChecked 플래그로 한 번만 확인 — 동명이인 재진입/그래도열기 재호출 시 재확인 안 함. (협업 꺼짐 시 checkEditLock=locked:false → 그대로 열림) */
-  if(!S._symLockChecked){
+  if(Number(recId)>0 && !S._symLockChecked){
     /* 팝업을 막지 않고 즉시 연다 — 잠금 확인은 백그라운드로(2026-06-09 지연 제거).
      *  예전엔 여기서 checkEditLock 네트워크 응답을 기다린 뒤에야 팝업을 열어 매번 수십 ms 지연됐다.
      *  이제 바로 아래로 진행해 즉시 열고, 다른 사람이 편집 중이면 팝업 위로 경고를 띄워 "닫기" 시에만 닫는다.
@@ -997,9 +1003,10 @@ export function openSymptomCategoryPopup(recId, opts){
   const existing=document.getElementById('symCatOverlay');if(existing){existing.remove();}
   /* 협업 편집 잠금 획득 + heartbeat 시작 — 이 레코드를 "수정 중"으로 서버에 알림.
    * 학생 교체(팝업 replace)면 acquireEditLock 이 이전 레코드 잠금을 먼저 해제한다. (2026-06-07) */
-  try{ acquireEditLock(recId); }catch(_lk){}
+  try{ if(Number(recId)>0)acquireEditLock(recId);else releaseEditLock(); }catch(_lk){}
   _installSymptomHeaderStyles();
   const ov=document.createElement('div');ov.id='symCatOverlay';
+  ov.dataset.lockRecordId=String(recId);
   ov.dataset.preserveEmptyRecord=String(!!(opts&&opts.preserveEmptyRecord));
   ov._onModalClose=_symComplete;
   /* 사용자 요청 (2026-05-18) — 팝업 주변 어두워지는 backdrop 제거. 단순 투명 오버레이. */

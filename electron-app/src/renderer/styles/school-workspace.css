@@ -489,6 +489,19 @@ body.school-interface:not(.light) .header-row2 .nav-link.active[data-view="home"
     min-height:32px;
     border-radius:9px !important;
   }
+  body.school-interface .school-widget-heading > button.school-widget-heading-link {
+    flex:0 1 auto;
+    width:auto !important;
+    max-width:62%;
+    height:auto !important;
+    min-height:28px;
+    margin-left:auto;
+    padding:4px 8px !important;
+    font-size:11px;
+    font-weight:700;
+    line-height:1.35;
+    white-space:normal;
+  }
 
   /* A calm greeting and a first row of selected health-room status cards. */
   body.school-interface #view-home #homeWidgetArea { padding:18px !important; }

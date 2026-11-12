@@ -1,10 +1,12 @@
+import { memoCellHtml, expandInlineMemoEditor } from '../daily/person-memo.js';
+import { bindInfectiousRecordAssist } from '../../core/infectious-record-assist.js';
 import { drawBodymapGuides, mountBodymapLayout } from '../../core/bodymap-layout.js';
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 import { getDailyRecord } from '../../core/daily-record-access.js';
 /* ES Module */
 import { getStu, escHtml, getGuardianContact, getStudentBirth, getCareTooltipHtml, showNameHoverPop, hideNameHoverPop, toDateStr, getStuGradeCol, isKinder, gradeClsLabel, closeModalGracefully, createEmptyState, saveRecordNow } from '../../core/helpers.js';
 import { hasMultipleSchoolLevels, getLevelShort } from '../../core/student-utils.js';
-import { crInsertHandles, showVisitHistory, toggleMemo, _memoHasAny, colWidthUndo, dailyColWidthGetPx, dailyColWidthSetPx } from '../daily/daily-view.js';
+import { crInsertHandles, showVisitHistory, toggleMemo, colWidthUndo, dailyColWidthGetPx, dailyColWidthSetPx } from '../daily/daily-view.js';
 import { closeModalWithAnim, matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
 import { _makeDraggable, openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { switchView } from '../shell/view-router.js';
@@ -187,10 +189,6 @@ function _ecLoadFromDB(){
         S.ecRecords=restoreEmergencyDrafts(res.data,S.ecRecords,localStorage);
         S.ecNextId=S.ecRecords.length?Math.max.apply(null,S.ecRecords.map(function(r){return r.id||0;}))+1:1;
         S.ecRecords=S.ecRecords;S.ecNextId=S.ecNextId;
-        /* _bmData 복원 (응급처치 바디맵) */
-        S.ecRecords.forEach(function(r){
-          try{const ex=r.extra_json?JSON.parse(r.extra_json):null;if(ex&&ex.bodymap){window._bmData=window._bmData||{};window._bmData[r.id]=ex.bodymap;}}catch(e){}
-        });
         if(typeof renderEcList==='function')renderEcList();
       }
     }).catch(function(err){console.error('[DB] emergency load 실패:',err);});
@@ -228,7 +226,7 @@ function _ecVitalsHtml(rec){
   if(!rows.length)return '—';
   return rows.map(m=>'<div class="ec-vitals-measure" style="margin:3px 0;line-height:1.5;break-inside:avoid">'
     +(has(m.time)?'<div style="font-weight:600">측정 '+escHtml(String(m.time))+'</div>':'')
-    +fields.map(([k,label,unit])=>'<span style="display:inline-block;margin-right:10px;white-space:nowrap">'+label+' '+(has(m[k])?escHtml(String(m[k]))+' '+unit:'—')+'</span>').join('')+'</div>').join('');
+    +'<div class="ec-vitals-pairs">'+fields.map(([k,label,unit])=>'<span class="ec-vitals-pair"><span class="ec-vitals-label">'+label+'</span> <span class="ec-vitals-reading">'+(has(m[k])?'<b>'+escHtml(String(m[k]))+'</b> <small>'+unit+'</small>':'—')+'</span></span>').join(' ')+'</div></div>').join('');
 }
 
 export function renderEcList(){
@@ -262,7 +260,6 @@ export function renderEcList(){
       const ecIsCare=s.status==='caution'||s.status==='watch';
       const ecGradeCol=ecIsStaff?(s.position||'교직원'):s.grade+'-'+s.cls;
       const tf=r.transfer||{};
-      const ecHasMemo=_memoHasAny(r.studentId)?'📌':'';
       const ecDateDisplay=(r.authorDate||r.date||'-');
       const _ecDtParts=(ai.datetime||'').replace('T',' ').split(' ');
       const ecDatetimeDisplay=_ecDtParts.length>1?_ecDtParts[1]:(_ecDtParts[0]||'-');
@@ -280,7 +277,7 @@ export function renderEcList(){
         +'<td data-col-index="8" style="font-size:10px">'+_ecVitalsHtml(r)+'</td>'
         +'<td data-col-index="9" style="text-align:center">'+(tf.transferred?'예':'-')+'</td>'
         +'<td data-col-index="10">'+escHtml(tf.facility||'-')+'</td>'
-        +'<td data-col-index="11" style="position:relative;padding-right:32px"><span class="memo-plus" data-action="toggleMemo" data-sid="'+r.studentId+'" data-rid="'+r.id+'">'+(ecHasMemo||'+')+'</span><button class="row-delete-x" data-action="ecDeleteFromList" data-rid="'+r.id+'">✕</button></td>'
+        +'<td data-col-index="11" style="position:relative;padding-right:32px">'+memoCellHtml(r.studentId,r.id)+'<button class="row-delete-x" data-action="ecDeleteFromList" data-rid="'+r.id+'">✕</button></td>'
         +'</tr>';
     }).join('');
     applyEcColLayout();
@@ -1459,7 +1456,6 @@ export function renderInfList(){
       const infGradeCol=infIsStaff?(s.position||'교직원'):s.grade+'-'+s.cls;
       const susText=r.suspended==='예'?'예':r.suspended==='아니오'?'아니오':'-';
       const susCls=r.suspended==='예'?'inf-sus-yes':r.suspended==='아니오'?'inf-sus-no':'';
-      const infHasMemo=_memoHasAny(r.studentId)?'📌':'';
       const mainSym=(r.symptoms&&r.symptoms.main)||'';
       const _infLvShort=(s.type==='staff')?'':((function(){const m={'elementary':'초','middle':'중','high':'고','kindergarten':'유','초':'초','중':'중','고':'고','유':'유','대':'대'};return m[s.level]||s.level||'';})());
       return '<tr style="cursor:pointer" data-rec-id="'+r.id+'" data-stu-id="'+(r.studentId||r.personUid||'')+'">'
@@ -1476,7 +1472,7 @@ export function renderInfList(){
         +'<td data-col-index="9" style="text-align:center">'+(susCls?'<span class="inf-sus-badge '+susCls+'">'+susText+'</span>':susText)+'</td>'
         +'<td data-col-index="10" class="mono">'+(r.suspendStart||'-')+'</td>'
         +'<td data-col-index="11" class="mono">'+(r.actualReturn||'-')+'</td>'
-        +'<td data-col-index="12" style="position:relative;padding-right:32px"><span class="memo-plus" data-action="toggleMemo" data-sid="'+r.studentId+'" data-rid="'+r.id+'">'+(infHasMemo||'+')+'</span><button class="row-delete-x" data-action="infDeleteFromList" data-rid="'+r.id+'">✕</button></td>'
+        +'<td data-col-index="12" style="position:relative;padding-right:32px">'+memoCellHtml(r.studentId,r.id)+'<button class="row-delete-x" data-action="infDeleteFromList" data-rid="'+r.id+'">✕</button></td>'
         +'</tr>';
     }).join('');
     applyInfColLayout();
@@ -1625,7 +1621,7 @@ function infBuildFormHtml(rec){
     +'<td class="ec-label">성 별</td><td><input data-field="displayGender" value="'+escHtml(_infGenderVal)+'"'+(_infIsStaff?'':' readonly')+' style="background:#fff;width:40px;text-align:center"></td>'
     +'</tr></table>';
   html+='<table class="ec-ftable"><tr><td colspan="6" class="ec-section-title">감 염 병 &nbsp; 기 본 &nbsp; 정 보</td></tr>'
-    +'<tr><td class="ec-label">감염병명</td><td colspan="2"><input data-field="diseaseName" value="'+(rec.diseaseName||'')+'" placeholder="감염병명 입력" style="text-align:center"></td>'
+    +'<tr><td class="ec-label">감염병명</td><td colspan="2"><input data-field="diseaseName" value="'+escHtml(rec.diseaseName||'')+'" placeholder="감염병명 입력" style="text-align:center"><button type="button" data-inf-disease-search style="display:block;margin:6px auto 0;padding:4px 8px;border:1px solid var(--bdr);border-radius:5px;background:var(--bg2);color:var(--t2);font-size:11px;cursor:pointer">질병 검색·안내</button></td>'
     +'<td class="ec-label">진단 기관<br>(병원명)</td><td colspan="2"><input data-field="hospital" value="'+(rec.hospital||'')+'" placeholder="병원명 입력" style="text-align:center"></td></tr>'
     +'<tr><td class="ec-label">진단일</td><td style="width:110px">'+infDP('diagDate','diagDate',rec.diagDate||'',false)+'</td>'
     +'<td class="ec-label">최초 증상<br>발현일</td><td style="width:110px">'+infDP('onsetDate','onsetDate',rec.onsetDate||'',false)+'</td>'
@@ -1688,6 +1684,10 @@ function openInfForm(recId){
 }
 
 function _attachInfFormListeners(container){
+  const assistRecord=_clinicalOpenRecords.INF;
+  bindInfectiousRecordAssist(container,()=>!!assistRecord && infCurrentId===assistRecord.id
+    && _clinicalOpenRecords.INF===assistRecord && S.infRecords.includes(assistRecord)
+    && document.getElementById('infFormOverlay')?.classList.contains('show'),el=>infFieldChange(el));
   container.querySelectorAll('input[data-field],textarea[data-field]').forEach(function(el){
     el.addEventListener('input',function(){infFieldChange(el);});
   });
@@ -3180,7 +3180,7 @@ const EC_COLS=[
   {idx:10,key:'facility',label:'이송기관명'},
   {idx:11,key:'memo',label:'주의사항(메모)'}
 ];
-const _EC_MANDATORY=[0,5,11];
+const _EC_MANDATORY=[0,5];
 const ecColHistory=[];
 function getEcColOrder(){let saved=JSON.parse(localStorage.getItem(_userKey('ecColOrder'))||'null');const def=EC_COLS.map(function(c){return c.idx;});if(!Array.isArray(saved))return def;saved=saved.map(function(v){return parseInt(v,10);}).filter(function(v){return !isNaN(v);});def.forEach(function(v){if(saved.indexOf(v)===-1)saved.push(v);});return saved.filter(function(v,i,a){return a.indexOf(v)===i;});}
 function saveEcColOrder(order){localStorage.setItem(_userKey('ecColOrder'),JSON.stringify(order));}
@@ -3230,6 +3230,19 @@ export function toggleEcColSelector(){
   overlay.addEventListener('click',function(e){if(e.target===overlay)closeModalWithAnim(overlay);});
   renderEcColSelectorCards(overlay.querySelector('#ecColSelectorChips'));
 }
+// The memo column is optional; keep the existing delete action in a visible cell.
+function syncListDeleteButtons(table,memoIndex,memoVisible){
+  if(!memoVisible&&table.querySelector('.person-memo-editor'))expandInlineMemoEditor();
+  table.querySelectorAll('tbody > tr').forEach(function(tr){
+    const cells=Array.from(tr.children);
+    cells.forEach(function(td){td.classList.remove('record-delete-host');});
+    const button=tr.querySelector('.row-delete-x');
+    if(!button)return;
+    const memo=cells.find(td=>td.dataset.colIndex===String(memoIndex));
+    const target=memoVisible?memo:cells.filter(td=>td.hasAttribute('data-col-index')&&!td.classList.contains('col-hidden')&&td.style.display!=='none').pop();
+    if(target){target.appendChild(button);if(!memoVisible)target.classList.add('record-delete-host');}
+  });
+}
 function applyEcColLayout(){
   const order=getEcColOrder();const vis=getEcColVisibility();
   const table=document.getElementById('ecListTable');if(!table)return;
@@ -3246,6 +3259,7 @@ function applyEcColLayout(){
     if(th)th.classList.toggle('col-hidden',!visible);
     table.querySelectorAll('tbody td[data-col-index="'+col.idx+'"]').forEach(function(td){td.classList.toggle('col-hidden',!visible);});
   });
+  syncListDeleteButtons(table,11,vis[11]!==false);
 }
 
 /* ──────────────────────── INF 열 필드 설정 ──────────────────────── */
@@ -3265,7 +3279,7 @@ const INF_COLS=[
   {idx:11,key:'actualReturn',label:'등교재개일시'},
   {idx:12,key:'memo',label:'주의사항(메모)'}
 ];
-const _INF_MANDATORY=[0,5,12];
+const _INF_MANDATORY=[0,5];
 const infColHistory=[];
 function getInfColOrder(){let saved=JSON.parse(localStorage.getItem(_userKey('infColOrder'))||'null');const def=INF_COLS.map(function(c){return c.idx;});if(!Array.isArray(saved))return def;saved=saved.map(function(v){return parseInt(v,10);}).filter(function(v){return !isNaN(v);});def.forEach(function(v){if(saved.indexOf(v)===-1)saved.push(v);});return saved.filter(function(v,i,a){return a.indexOf(v)===i;});}
 function saveInfColOrder(order){localStorage.setItem(_userKey('infColOrder'),JSON.stringify(order));}
@@ -3331,6 +3345,7 @@ function applyInfColLayout(){
     if(th)th.classList.toggle('col-hidden',!visible);
     table.querySelectorAll('tbody td[data-col-index="'+col.idx+'"]').forEach(function(td){td.classList.toggle('col-hidden',!visible);});
   });
+  syncListDeleteButtons(table,12,vis[12]!==false);
 }
 
 const DAILY_COLS=[
@@ -3389,8 +3404,7 @@ function getDailyColVisibility(){
   if(typeof v[15]==='undefined')v[15]=false;
   if(typeof v[16]==='undefined')v[16]=false;
   if(typeof v[13]==='undefined')v[13]=false;
-  /* 14번 열: 컬럼(삭제 ✕)은 applyDailyColLayout 에서 항상 표시하고, v[14]===false 는
-   * "메모 글리프만 숨김" 의미로 사용 (옵션2 2026-06-05). 기본(undefined)은 메모 표시. */
+  /* 메모 열도 다른 선택 열과 동일하게 숨김 상태를 보존한다. */
   /* 사용자 키로 저장본이 없고 레거시 키에만 있으면 사용자 키로 마이그레이션 */
   if(!localStorage.getItem(key)&&localStorage.getItem('dailyColVisibility')){
     localStorage.setItem(key,JSON.stringify(v));
@@ -3518,8 +3532,7 @@ function renderColSelectorCards(container){
     }
     card.querySelector('.col-toggle-btn').addEventListener('click',function(e){
       e.stopPropagation();
-      /* 순0·이름4·증상6·처치8 은 일지 필수 열이라 잠금. 메모14 는 옵션2(2026-06-05)로
-       * 토글 허용 — 단 컬럼(삭제 ✕)은 applyDailyColLayout 에서 항상 표시하고 메모 글리프만 숨김. */
+      /* 순0·이름4·증상6·처치8 만 필수. 메모 열은 표시/숨김을 허용한다. */
       if([0,4,6,8].indexOf(idx)!==-1)return;
       pushDailyColHistory();
       const state=getDailyColVisibility();
@@ -3581,10 +3594,8 @@ export function applyDailyColLayout(targetTable){
     }
   } catch(_){}
 
-  /* 메모 열(14): 컬럼 자체(행 삭제 ✕ 포함)는 항상 표시하고, 메모 글리프(📌/+)만 표시 여부를
-   * 분리 토글한다. (옵션2 2026-06-05 — 메모는 끌 수 있되 삭제 버튼은 항상 유지) */
+  /* 메모를 숨겨도 행 삭제 버튼은 마지막 표시 열에서 사용할 수 있다. */
   const _memoGlyphVisible = saved[14]!==false;
-  saved[14]=true;
 
   /* ── 열 순서 재배치: 헤더+바디 모두 항상 정렬 (헤더/바디 순서 불일치 방지) ── */
   const headRow=table.querySelector('thead tr');
@@ -3614,20 +3625,16 @@ export function applyDailyColLayout(targetTable){
     });
   });
 
-  /* 메모 글리프 표시 토글 — 열은 위에서 항상 visible 강제, 메모(📌/+)만 CSS 로 숨김 (옵션2) */
-  const _memoTh=table.querySelector('thead th[data-col-index="14"]');
-  if(_memoTh)_memoTh.classList.toggle('memo-glyph-hidden',!_memoGlyphVisible);
-  table.querySelectorAll('tbody td[data-col-index="14"]').forEach(function(td){
-    td.classList.toggle('memo-glyph-hidden',!_memoGlyphVisible);
-  });
+  table.querySelectorAll('.memo-glyph-hidden').forEach(node=>node.classList.remove('memo-glyph-hidden'));
+  syncListDeleteButtons(table,14,_memoGlyphVisible);
 
   /* ── 사용자 저장 열 너비만 적용 (나머지는 HTML 원본 유지) ── */
   /* Screen defaults follow the larger UI text. Saved user widths still win.
    * Print/other detached tables keep their existing dimensions. */
   const _screenLayout=document.body.classList.contains('school-interface')&&(!targetTable||!!targetTable.closest('#schoolMain'));
   const _pxW=_screenLayout
-    ? {0:36,19:54,17:60,1:88,2:42,3:54,15:38,4:84,5:42,16:38,10:68,11:68,12:54,13:72,14:110}
-    : {0:24,19:36,17:36,1:58,2:28,3:34,15:28,4:52,5:28,16:34,10:38,11:38,12:36,13:50,14:72};
+    ? {0:36,19:54,17:60,1:88,2:42,3:54,15:38,4:84,5:42,16:38,10:68,11:68,12:54,13:72,14:200}
+    : {0:24,19:36,17:36,1:58,2:28,3:34,15:28,4:52,5:28,16:34,10:38,11:38,12:36,13:50,14:200};
   const _cwKey=_userKey('ec_col_widths');
   /* 사용자 열 너비 로드 — 사용자 키 우선. 옛 측정 배열은 객체로 1회 이행(조정값 보존),
    * 글로벌 fallback 의 배열은 부팅 복사본(사용자 키가 원본)이라 이행 없이 제거 (2026-06-11) */
@@ -3647,10 +3654,7 @@ export function applyDailyColLayout(targetTable){
     if(Array.isArray(_fb)){ try{localStorage.removeItem('ec_col_widths');}catch(_){} _fb=null; }
     _userColW=sanitizeColWidths(_fb);
   }
-  /* 메모 글리프 숨김 시: 14번 열에는 삭제 ✕(우측 16px·폭 14px)만 들어가므로 너비를 최소(36px)로
-   * 줄여 오른쪽에 빈 메모 공간이 남아 가로 스크롤이 늘어나는 현상 방지 (옵션2 2026-06-05).
-   * 사용자가 직접 늘려둔 너비(_userColW[14])도 이때는 무시. */
-  if(!_memoGlyphVisible){_pxW[14]=36;if(_userColW&&_userColW[14])delete _userColW[14];}
+  if(_userColW&&_userColW[14])_userColW[14]=Math.max(200,_userColW[14]);
   let hiddenPx=0;
   const allThs=headRow?Array.from(headRow.querySelectorAll('th')):[];
   /* % 기반 열 기본 너비 — 보이는 열 수에 따라 축소 */
@@ -3676,6 +3680,10 @@ export function applyDailyColLayout(targetTable){
     if(!visible){
       th.style.width='0';th.style.minWidth='0';th.style.padding='0';
       if(_pxW[idx])hiddenPx+=_pxW[idx];
+    } else if(idx===14&&_memoGlyphVisible){
+      th.style.padding='';th.style.maxWidth='';
+      th.style.width=(_userColW&&_userColW[14]||_pxW[14])+'px';
+      th.style.minWidth='200px';
     } else if(idx===_lastVisIdx){
       /* 맨 오른쪽 보이는 열: 남은 공간 자동 채움 → 오른쪽 테두리 밀착 */
       th.style.padding='';th.style.maxWidth='';

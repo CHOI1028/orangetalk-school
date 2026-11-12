@@ -5,6 +5,7 @@ function section(s,a,b){const start=s.indexOf(a),end=s.indexOf(b,start+a.length)
 const daily=read('src/renderer/features/daily/daily-view.js');
 const symptom=read('src/renderer/features/symptom/symptom-view.js');
 const source=[
+ read('src/renderer/features/daily/person-memo.js').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,''),
  read('src/renderer/core/daily-record-access.js').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,''),
  read('src/renderer/core/record-utils.js').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,''),
  section(symptom,'function _parseMedWithDose(','function _serializeMedWithDose('),
@@ -12,6 +13,7 @@ const source=[
  section(daily,'export function renderDailyRecordRows(','/* Reuse the diary header'),
 ].join('\n');
 function install(context){
+  context.S.memoData ||= {};
   Object.assign(context,{
     _memoHasAny:()=>false,isBirthdayToday:()=>false,getCareTooltipHtml:()=>'',
     getStudentNameHoverHtml:s=>context.escHtml(s.name||''),getSymClass:()=> 'tag-blue',

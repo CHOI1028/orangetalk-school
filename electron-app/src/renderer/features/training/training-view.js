@@ -92,7 +92,7 @@ export function renderTrainingHome(){
 
   /* ═══ 오른쪽: 구글 시트 스타일 미리보기 ═══ */
   h+='<div class="school-training-preview" style="flex:1;min-width:0;display:flex;flex-direction:column;background:#e5e7eb">';
-  h+='<div class="school-training-preview-scroll" style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center">';
+  h+='<div id="trPreviewScroll" class="school-training-preview-scroll" style="flex:1;overflow:auto;padding:20px;display:flex;justify-content:center">';
   h+='<div id="trPreviewA4Wrap" style="background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.1);width:100%;max-width:760px;align-self:flex-start;font-family:\'Pretendard Variable\',\'Pretendard\',\'Noto Sans KR\',\'맑은 고딕\',sans-serif;color:#000"></div>';
   h+='</div></div>';
 
@@ -152,28 +152,31 @@ export function renderTrainingHome(){
 
 /* ── A4 미리보기 자동 크기 맞춤 ── */
 function _trAutoFitPreview(){
-  setTimeout(function(){
-    const scroll=document.getElementById('trPreviewScroll');
-    const a4wrap=document.getElementById('trPreviewA4Wrap');
-    if(!scroll||!a4wrap)return;
-    const availH=scroll.clientHeight-20;
-    const availW=scroll.clientWidth-20;
-    const mmToPx=3.7795;
-    const a4Wpx=210*mmToPx;
-    const a4Hpx=297*mmToPx;
-    const scaleW=availW/a4Wpx;
-    const scaleH=availH/a4Hpx;
-    const scale=Math.min(scaleW,scaleH,1);
-    _trPreviewScale=scale;
-    a4wrap.style.transform='scale('+scale+')';
-    a4wrap.style.transformOrigin='top center';
-    a4wrap.style.width=a4Wpx+'px';
-    /* scale로 축소하면 실제 DOM 크기는 그대로라 스크롤 발생 — margin-bottom으로 보정 */
-    const scaledH=a4Hpx*scale;
-    a4wrap.style.marginBottom=-(a4Hpx-scaledH)+'px';
-  },50);
+  _trObservePaper('trPreviewScroll','trPreviewA4Wrap',210*3.7795,297*3.7795,true);
 }
 let _trPreviewScale=1;
+const _trPaperObservers=new Map();
+function _trObservePaper(scrollId,paperId,width,height,fitHeight){
+  const previous=_trPaperObservers.get(scrollId);if(previous)previous.disconnect();
+  const scroll=document.getElementById(scrollId),paper=document.getElementById(paperId);if(!scroll||!paper)return;
+  const fit=function(){
+    if(!scroll.isConnected||!scroll.clientWidth||!scroll.clientHeight)return;
+    const css=getComputedStyle(scroll);
+    const availableW=scroll.clientWidth-parseFloat(css.paddingLeft)-parseFloat(css.paddingRight);
+    const availableH=scroll.clientHeight-parseFloat(css.paddingTop)-parseFloat(css.paddingBottom);
+    const scale=Math.floor(Math.min(1,Math.max(.05,availableW/width),fitHeight?Math.max(.05,availableH/height):1)*1000)/1000;
+    // zoom also scales the layout footprint; transform left a wide invisible box outside the scroll area.
+    paper.style.width=width+'px';paper.style.maxWidth='none';paper.style.flexShrink='0';
+    paper.style.transform='none';paper.style.zoom=String(scale);paper.style.margin='0 auto';
+    if(fitHeight)_trPreviewScale=scale;
+  };
+  // A paper's layout footprint can change its scroll container. Apply in the next frame,
+  // outside ResizeObserver delivery, and coalesce resize notifications.
+  let frame=0;
+  const schedule=function(){if(!frame)frame=requestAnimationFrame(function(){frame=0;fit();});};
+  const observer=new ResizeObserver(schedule);observer.observe(scroll);
+  _trPaperObservers.set(scrollId,{disconnect:function(){observer.disconnect();cancelAnimationFrame(frame);}});schedule();
+}
 
 /* ── 자(ruler) 렌더링 ── */
 function _trRenderRulers(){
@@ -427,7 +430,7 @@ function _trMsgSanitize(tpl){
 }
 function _trMsgGetTemplate(){
   if(_trMsgTemplate!==null)return _trMsgSanitize(_trMsgTemplate);
-  const saved=localStorage.getItem('tr_msg_template');
+  let saved;try{saved=localStorage.getItem('tr_msg_template');}catch(e){}
   /* 옛 한 줄짜리 기본 템플릿 저장본은 새 기본(줄바꿈)으로 이행 */
   if(saved&&saved!==_trMsgLegacyDefault)return _trMsgSanitize(saved);
   return _trMsgDefaultTemplate;
@@ -548,11 +551,11 @@ function trShowMessage(){
   ov.querySelector('#trMsgBody').addEventListener('input',function(){
     const tpl=_trMsgSanitize(_trMsgUnresolve(this.value));
     _trMsgTemplate=tpl;
-    localStorage.setItem('tr_msg_template',tpl);
-    globalSaveToast('저장 중…');
+    if(!_trsWriteLocal('tr_msg_template',tpl))return;
+    _trsToast('저장 중…');
     if(_msgSaveTimer)clearTimeout(_msgSaveTimer);
     _msgSaveTimer=setTimeout(function(){
-      globalSaveToast('모든 내용이 저장되었습니다.');
+      _trsToast('모든 내용이 저장되었습니다.');
     },400);
   });
   /* 복사 버튼 — 남아있는 {변수} 는 치환해서 복사 */
@@ -1088,9 +1091,25 @@ export function trSwitchSub(sub){
 }
 
 /* ═══ 이수 현황 ═══ */
-const _trsItems=JSON.parse(localStorage.getItem('trs_items')||'[]');
+function _trsReadList(key){
+  let raw;
+  try{
+    raw=localStorage.getItem(key);if(!raw)return [];
+    const value=JSON.parse(raw);
+    if(!Array.isArray(value)||value.some(row=>!row||typeof row!=='object'||Array.isArray(row)))throw new Error('목록 형식 오류');
+    return value;
+  }catch(e){
+    // Preserve damaged data before allowing a new list to be saved.
+    if(raw){try{localStorage.setItem(key+'_recovery_'+Date.now(),raw);}catch(_){} }
+    return [];
+  }
+}
+function _trsWriteLocal(key,value){
+  try{localStorage.setItem(key,value);return true;}catch(e){setTimeout(function(){_trsToast('저장 공간을 확인해 주세요. 변경 내용이 저장되지 않았습니다.');},0);return false;}
+}
+const _trsItems=_trsReadList('trs_items');
 /* 각 item: {id, name, deadline, isLegal, siteUrl, createdAt, message, completions:{staffId:certNo}, sheetId} */
-function _trsSave(){localStorage.setItem('trs_items',JSON.stringify(_trsItems));}
+function _trsSave(){return _trsWriteLocal('trs_items',JSON.stringify(_trsItems));}
 /* 기본 연수 항목 자동 생성 */
 if(_trsItems.length===0){
   const yr=new Date().getFullYear();
@@ -1111,7 +1130,7 @@ function renderTrainingStatus(){
   const numTr=_trsItems.length;
   /* (구글 시트 모방 열문자/행번호 표는 2026-08-25 A4 미리보기(_trsBuildA4SheetHtml)로 대체됨) */
 
-  let h='<div style="display:flex;height:calc(100vh - 300px);overflow:hidden">';
+  let h='<div class="school-training-status-layout" style="display:flex;height:calc(100vh - 300px);overflow:hidden">';
   /* ═══ 왼쪽: 헤더 + 스크롤 리스트 + 고정 하단 버튼 ═══ */
   h+='<div style="width:350px;flex-shrink:0;background:var(--card);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden">';
   /* 헤더 */
@@ -1457,16 +1476,7 @@ function _trsBuildA4SheetHtml(){
 
 /* A4 가로 페이지(1123px@96dpi)를 미리보기 영역 폭에 맞게 축소 — 등록부 _trAutoFitPreview 와 동일 취지 */
 function _trsAutoFitPreview(){
-  setTimeout(function(){
-    const scroll=document.getElementById('trsPreviewScroll');
-    const wrap=document.getElementById('trsPreviewA4Wrap');
-    if(!scroll||!wrap)return;
-    const availW=scroll.clientWidth-40;
-    const pageW=1123;
-    const scale=Math.min(availW/pageW,1);
-    wrap.style.transform='scale('+scale+')';
-    wrap.style.transformOrigin='top center';
-  },50);
+  _trObservePaper('trsPreviewScroll','trsPreviewA4Wrap',297*3.7795,210*3.7795,false);
 }
 
 /* ── PDF / 인쇄 (이수 현황) ── */
@@ -1552,9 +1562,9 @@ function trsPrint(){
 }
 
 /* ── 안내 내역 기록 ── */
-const _trsNoticeLog=JSON.parse(localStorage.getItem('trs_notice_log')||'[]');
+const _trsNoticeLog=_trsReadList('trs_notice_log');
 const _trsNoticeColVis={0:true,1:true,2:true,3:true,4:true}; /* 순,안내일자,안내자,안내연수,안내문구 */
-function _trsNoticeLogSave(){localStorage.setItem('trs_notice_log',JSON.stringify(_trsNoticeLog));}
+function _trsNoticeLogSave(){return _trsWriteLocal('trs_notice_log',JSON.stringify(_trsNoticeLog));}
 
 function trsShowNoticeLog(){
   const existing=document.getElementById('trsNoticeOverlay');if(existing)closeModalGracefully(existing);

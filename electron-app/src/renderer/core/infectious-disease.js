@@ -15,6 +15,12 @@ import { showFeedback } from './ui-feedback.js';
  * ═══════════════════════════════════════════════════════════════ */
 
 import { getPublicDataApiKey } from './public-data-settings.js';
+import { renderDiseaseGuide } from './infectious-guide-view.js';
+import { searchDiseases, normalizeDiseaseText } from './infectious-guide.js';
+import { infectiousDetailStyles } from './infectious-detail-style.js';
+import { cleanDiseaseLabel } from './infectious-labels.js';
+import { renderAgeDistribution } from './infectious-age-view.js';
+import { renderPeriodTrend } from './infectious-period-view.js';
 
 const BASE = 'https://apis.data.go.kr/1790387/EIDAPIService';
 
@@ -112,13 +118,13 @@ function _items(j){
 }
 function _count(value){
   const s=String(value==null?'':value).trim();
-  if(!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(s)) return 0;
+  if(!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(s)) return null;
   const n=Number(s.replace(/,/g,''));
-  return Number.isSafeInteger(n)&&n>=0?n:0;
+  return Number.isSafeInteger(n)&&n>=0?n:null;
 }
 function _mapRow(r){
   return {
-    icdGroupNm:String(r.icdGroupNm||'').trim(), icdNm:String(r.icdNm||'').trim(),
+    icdGroupNm:String(r.icdGroupNm||'').trim(), icdNm:cleanDiseaseLabel(r.icdNm),
     val:_count(r.resultVal),
     year:String(r.year||r.period||'').trim(), sidoNm:String(r.sidoNm||'').trim(),
     sidoCd:r.sidoCd==null?'':String(r.sidoCd).trim().padStart(2,'0'),
@@ -206,33 +212,54 @@ export async function getRegionTop(year, sidoCd, topN, options){
   return {rows:list.slice(0, topN||5), sidoNm:sidoName(sidoCd), year:year};
 }
 
-/* ════════════ 자세히 모달 (지역별/기간별/연령별 3탭) ════════════ */
+/* 자세히 보기: dashboard layout and API transport stay unchanged. */
 let _tab='region';
 let _queryEpoch=0;
+let _closeModal=null, _guideCleanup=null, _modalOptions={}, _guideState={}, _filters={}, _statQuery='';
+let _ageState={}, _periodState={};
 function _curYear(){ return new Date().getFullYear(); }
 
-export function showInfectiousModal(){
-  const old=document.getElementById('infectOverlay'); if(old)old.remove();
+export function showInfectiousModal(options={}){
+  if(_closeModal)_closeModal();
+  _tab=options.initialTab==='guide'?'guide':'region';
+  _modalOptions=options; _guideState={query:cleanDiseaseLabel(options.query)}; _filters={}; _statQuery=''; _ageState={}; _periodState={};
+  const previousFocus=document.activeElement;
   const ov=document.createElement('div');
   ov.id='infectOverlay';
-  ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.34);z-index:13050;opacity:0;transition:opacity 0.15s';
-  ov.innerHTML='<div id="infectBox" style="background:var(--card);border-radius:14px;width:580px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,0.34);border:1px solid var(--bdr);overflow:hidden;opacity:0;transform:scale(0.97);transition:opacity 0.18s,transform 0.18s">'
-    +'<div style="padding:14px 20px;border-bottom:1px solid var(--bdr);background:rgba(239,68,68,0.10);display:flex;align-items:center;gap:8px">'
-      +'<span style="font-size:18px">🦠</span><div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--t1)">감염병 유행 현황</div><div style="font-size:10.5px;color:var(--t3)">질병관리청 전수신고 감염병 발생현황</div></div>'
-      +'</div>'   /* X 닫기 제거 — 바깥 클릭으로 닫음 (사용자 요청 2026-06-17) */
-    +'<div style="display:flex;border-bottom:1px solid var(--bdr)">'
-      +['region','period','age'].map(function(t){ const nm={region:'지역별',period:'기간별',age:'연령별'}[t]; return '<button data-itab="'+t+'" type="button" style="flex:1;padding:10px 0;border:none;background:'+(t===_tab?'rgba(239,68,68,0.08)':'var(--card)')+';color:'+(t===_tab?'#ef4444':'var(--t2)')+';font-weight:'+(t===_tab?'800':'600')+';cursor:pointer;font-size:12px;font-family:var(--f);border-bottom:2px solid '+(t===_tab?'#ef4444':'transparent')+'">'+nm+'</button>'; }).join('')
-    +'</div>'
-    +'<div id="infectCtrl" style="padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;border-bottom:1px solid var(--bdr)"></div>'
-    +'<div id="infectBody" style="padding:14px 18px;overflow-y:auto;flex:1 1 auto;font-size:12px;color:var(--t2)"></div>'
-    +'</div>';
+  ov.innerHTML='<style>'+infectiousDetailStyles+'</style><div id="infectBox" role="dialog" aria-modal="true" aria-labelledby="infectTitle" tabindex="-1">'
+    +'<header><h2 id="infectTitle">감염병 현황 · 질병 안내</h2><button type="button" id="infectClose" aria-label="감염병 상세 닫기">닫기</button></header>'
+    +'<div class="if-tabs" aria-label="감염병 조회 종류">'
+    +['region','period','age','guide'].map(t=>'<button type="button" data-itab="'+t+'" aria-pressed="false">'+({region:'지역별 발생',period:'기간별 추이',age:'연령별 분포',guide:'질병 검색·안내'}[t])+'</button>').join('')+'</div>'
+    +'<div id="infectCtrl"></div><div id="infectBody"></div></div>';
   document.body.appendChild(ov);
-  requestAnimationFrame(function(){ ov.style.opacity='1'; const b=document.getElementById('infectBox'); if(b){b.style.opacity='1';b.style.transform='scale(1)';} });
-  const close=function(){ ov.style.opacity='0'; const b=document.getElementById('infectBox'); if(b){b.style.opacity='0';b.style.transform='scale(0.97)';} setTimeout(function(){ if(ov.parentNode)ov.parentNode.removeChild(ov); },180); };
+  const close=function(){
+    ++_queryEpoch; if(_guideCleanup){_guideCleanup();_guideCleanup=null;}
+    document.removeEventListener('keydown',onKey,true); ov.remove(); _closeModal=null;
+    _modalOptions={}; if(previousFocus?.isConnected)previousFocus.focus();
+  };
+  const onKey=function(e){
+    if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close();}
+    else if(e.key==='Tab'){
+      const focusables=Array.from(ov.querySelectorAll('button:not([disabled]),input:not([disabled]),select,a[href]')).filter(el=>el.getClientRects().length);
+      const first=focusables[0],last=focusables[focusables.length-1];
+      if(e.shiftKey&&(document.activeElement===first||!focusables.includes(document.activeElement))){e.preventDefault();last?.focus();}
+      else if(!e.shiftKey&&(document.activeElement===last||!focusables.includes(document.activeElement))){e.preventDefault();first?.focus();}
+    }
+  };
+  _closeModal=close; document.addEventListener('keydown',onKey,true);
+  ov._onModalClose=close;
+  // Keep table shortcuts in the underlying workspace from consuming dialog keys.
+  ov.addEventListener('keydown',e=>e.stopPropagation());
   ov.addEventListener('mousedown',function(e){ if(e.target===ov)close(); });
-  { const _ic=document.getElementById('infectClose'); if(_ic)_ic.addEventListener('click',close); }
-  ov.querySelectorAll('[data-itab]').forEach(function(b){ b.addEventListener('click',function(){ _tab=b.getAttribute('data-itab'); showInfectiousModal(); }); });
-  _renderTab();
+  document.getElementById('infectClose').addEventListener('click',close);
+  ov.querySelectorAll('[data-itab]').forEach(b=>b.addEventListener('click',()=>_switchTab(b.dataset.itab)));
+  _renderTab(); document.getElementById('infectBox').focus();
+}
+
+function _switchTab(tab){
+  const ctrl=document.getElementById('infectCtrl');
+  if(ctrl)ctrl.querySelectorAll('select').forEach(el=>{_filters[el.id]=el.value;});
+  _tab=tab; _renderTab();
 }
 
 function _selCss(){ return 'font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--t1);font-family:var(--f)'; }
@@ -241,7 +268,17 @@ function _yearOpts(sel){ let o=''; const cy=_curYear(); for(let y=cy;y>=cy-3;y--
 function _renderTab(){
   const ctrl=document.getElementById('infectCtrl'), body=document.getElementById('infectBody');
   if(!ctrl||!body) return;
-  if(!_key()){ ctrl.innerHTML=''; body.innerHTML='<div style="color:var(--t2);line-height:1.9">질병관리청 인증키가 없습니다.<br><b>설정 → API 관리 → 🦠 감염병 현황(질병관리청)</b> 에 인증키를 등록해 주세요.</div>'; return; }
+  ++_queryEpoch; if(_guideCleanup){_guideCleanup();_guideCleanup=null;}
+  body.setAttribute('aria-busy','false'); body.scrollTop=0;
+  document.getElementById('infectBox').dataset.view=_tab;
+  document.querySelectorAll('#infectOverlay [data-itab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.itab===_tab)));
+  ctrl.hidden=_tab==='guide';
+  if(_tab==='guide'){
+    ctrl.innerHTML='';
+    _guideCleanup=renderDiseaseGuide(body,_guideState,{..._modalOptions,onStatistics:name=>{_statQuery=name;_switchTab('region');}});
+    return;
+  }
+  if(!_key()){ ctrl.innerHTML=''; body.innerHTML='<div class="if-note">발생 통계를 조회하려면 설정 → API 관리에 기존 공공데이터 인증키를 등록해 주세요.<br>질병 검색·안내는 인증키 없이 사용할 수 있습니다.</div><button type="button" id="ifOfflineGuide">질병 검색·안내 열기</button>'; body.querySelector('#ifOfflineGuide').addEventListener('click',()=>_switchTab('guide')); return; }
   if(_tab==='region'){
     let sidoOpts=''; const us=userSidoCd();
     SIDO.forEach(function(s){ sidoOpts+='<option value="'+s.cd+'"'+(s.cd===us?' selected':'')+'>'+s.nm+'</option>'; });
@@ -249,28 +286,29 @@ function _renderTab(){
       +'<label style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--t3)">지역(시도)<select id="ifSido" style="'+_selCss()+'">'+sidoOpts+'</select></label>'
       +'<button id="ifGo" style="padding:7px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f)">조회</button>';
     document.getElementById('ifGo').addEventListener('click',function(){ _runRegion(true); });
-    _runRegion();
   } else if(_tab==='period'){
     ctrl.innerHTML='<label style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--t3)">기간분류<select id="ifPt" style="'+_selCss()+'"><option value="1">연도별</option><option value="2" selected>월별</option><option value="3">주별</option></select></label>'
       +'<label style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--t3)">시작연도<select id="ifSy" style="'+_selCss()+'">'+_yearOpts(_curYear())+'</select></label>'
       +'<label style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--t3)">종료연도<select id="ifEy" style="'+_selCss()+'">'+_yearOpts(_curYear())+'</select></label>'
       +'<button id="ifGo" style="padding:7px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f)">조회</button>';
     document.getElementById('ifGo').addEventListener('click',function(){ _runPeriod(true); });
-    _runPeriod();
   } else {
     ctrl.innerHTML='<label style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--t3)">연도<select id="ifYear" style="'+_selCss()+'">'+_yearOpts(_curYear())+'</select></label>'
       +'<label style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--t3)">연령단위<select id="ifUnit" style="'+_selCss()+'"><option value="10" selected>10세</option><option value="5">5세</option><option value="1">1세</option></select></label>'
       +'<button id="ifGo" style="padding:7px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f)">조회</button>';
     document.getElementById('ifGo').addEventListener('click',function(){ _runAge(true); });
-    _runAge();
   }
+  ctrl.querySelectorAll('select').forEach(el=>{if(_filters[el.id]!=null)el.value=_filters[el.id];});
+  ctrl.querySelectorAll('label,select').forEach(el=>el.removeAttribute('style'));
+  const go=document.getElementById('ifGo'); go.removeAttribute('style');go.className='if-primary';go.type='button';go.textContent='조회';
+  ({region:_runRegion,period:_runPeriod,age:_runAge}[_tab])();
 }
 
 function _tableHtml(headers, rows){
-  let h='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg2)">';
-  headers.forEach(function(hd,i){ h+='<th style="padding:7px 8px;border:1px solid var(--bdr);text-align:'+(i===headers.length-1?'right':'left')+'">'+_esc(hd)+'</th>'; });
+  let h='<table class="if-data-table"><thead><tr>';
+  headers.forEach(function(hd){ h+='<th>'+_esc(hd)+'</th>'; });
   h+='</tr></thead><tbody>';
-  rows.forEach(function(r){ h+='<tr>'+r.map(function(c,i){ return '<td style="padding:6px 8px;border:1px solid var(--bdr);text-align:'+(i===r.length-1?'right':'left')+';color:var(--t1)">'+_esc(c)+'</td>'; }).join('')+'</tr>'; });
+  rows.forEach(function(r){ h+='<tr>'+r.map(function(c){ return '<td>'+_esc(c)+'</td>'; }).join('')+'</tr>'; });
   h+='</tbody></table>';
   return h;
 }
@@ -298,11 +336,15 @@ async function _runRegion(force){
   const body=_queryBody(query); if(!body) return;
   if(r.error){ _infectFeedback(body,r); return; }
   const agg=Object.create(null);
-  r.rows.forEach(function(x){ if(!x.icdNm||x.val<=0)return; agg[x.icdNm]=(agg[x.icdNm]||0)+x.val; });
-  const list=Object.keys(agg).map(function(k){return [k,agg[k]];}).sort(function(a,b){return b[1]-a[1];});
+  r.rows.forEach(function(x){
+    if(!x.icdNm)return;
+    if(!Object.prototype.hasOwnProperty.call(agg,x.icdNm))agg[x.icdNm]=x.val;
+    else agg[x.icdNm]=agg[x.icdNm]==null||x.val==null?null:agg[x.icdNm]+x.val;
+  });
+  const list=Object.keys(agg).map(function(k){return [k,agg[k]];}).sort(function(a,b){return (b[1]??-1)-(a[1]??-1)||a[0].localeCompare(b[0],'ko');});
   if(!list.length){ _infectFeedback(body,null); return; }
-  body.innerHTML='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">'+_esc(sidoName(sido))+' · '+_esc(String(y))+'년 · 발생수 많은 순</div>'
-    +_tableHtml(['감염병명','발생수(명)'], list.map(function(x){return [x[0], x[1].toLocaleString()];}));
+  _renderStatistics(body, list.map(x=>({name:x[0],value:x[1],cells:[x[0],_formatCount(x[1])]})),
+    ['감염병명','발생수(명)'],sidoName(sido)+' · '+y+'년 · 발생수 많은 순');
 }
 async function _runPeriod(force){
   const query=_beginQuery();
@@ -316,10 +358,11 @@ async function _runPeriod(force){
   const r=await fetchPeriod(sy, ey, pt, {force:force===true});
   const body=_queryBody(query); if(!body) return;
   if(r.error){ _infectFeedback(body,r); return; }
-  const rows=r.rows.filter(function(x){return x.icdNm&&x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,100);
+  const rows=r.rows.filter(x=>x.icdNm);
   if(!rows.length){ _infectFeedback(body,null); return; }
-  body.innerHTML='<div style="font-size:11px;color:var(--t3);margin-bottom:8px">'+_esc(sy)+'~'+_esc(ey)+' · '+({1:'연도별',2:'월별',3:'주별'}[pt]||'')+' · 발생수 많은 순(상위 100)</div>'
-    +_tableHtml(['기간','감염병명','발생수(명)'], rows.map(function(x){return [x.period||x.year, x.icdNm, x.val.toLocaleString()];}));
+  renderPeriodTrend(body,rows,_periodState,{startYear:sy,endYear:ey,type:pt,initialQuery:_statQuery,onGuide:name=>{
+    _guideState.query=cleanDiseaseLabel(name);_guideState.grade='';_guideState.selected=null;_switchTab('guide');
+  }});
 }
 async function _runAge(force){
   const query=_beginQuery();
@@ -328,21 +371,47 @@ async function _runAge(force){
   const r=await fetchAge(y, unit, {force:force===true});
   const body=_queryBody(query); if(!body) return;
   if(r.error){ _infectFeedback(body,r); return; }
-  /* 감염병별 합계 → 발생 많은 병 선택 드롭다운 + 그 병의 연령분포 */
-  const byDis=Object.create(null);
-  r.rows.forEach(function(x){ if(!x.icdNm)return; byDis[x.icdNm]=(byDis[x.icdNm]||0)+(x.ageRange==='계'?0:x.val); });
-  const dises=Object.keys(byDis).filter(function(k){return byDis[k]>0;}).sort(function(a,b){return byDis[b]-byDis[a];});
-  if(!dises.length){ _infectFeedback(body,null); return; }
-  const sel=dises[0];
-  let dopt=''; dises.slice(0,60).forEach(function(d){ dopt+='<option value="'+_esc(d)+'">'+_esc(d)+'</option>'; });
-  const ageRows=r.rows.filter(function(x){return x.icdNm===sel&&x.ageRange&&x.ageRange!=='계'&&x.val>0;});
-  body.innerHTML='<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--t3)">감염병 선택</span><select id="ifDis" style="'+_selCss()+';max-width:240px">'+dopt+'</select></div>'
-    +'<div id="ifAgeTbl">'+(ageRows.length?_tableHtml([sel+' — 연령','발생수(명)'], ageRows.map(function(x){return [x.ageRange, x.val.toLocaleString()];})):'<div style="color:var(--t2)">연령 분포 데이터가 없습니다.</div>')+'</div>';
-  const dsel=document.getElementById('ifDis');
-  if(dsel)dsel.addEventListener('change',function(){
-    const dv=dsel.value;
-    const rows2=r.rows.filter(function(x){return x.icdNm===dv&&x.ageRange&&x.ageRange!=='계'&&x.val>0;});
-    const t=document.getElementById('ifAgeTbl');
-    if(t)t.innerHTML=rows2.length?_tableHtml([dv+' — 연령','발생수(명)'], rows2.map(function(x){return [x.ageRange, x.val.toLocaleString()];})):'<div style="color:var(--t2)">연령 분포 데이터가 없습니다.</div>';
-  });
+  const rows=r.rows.filter(x=>x.icdNm&&x.ageRange&&!['계','합계','전체'].includes(x.ageRange))
+    .sort((a,b)=>a.icdNm.localeCompare(b.icdNm,'ko')||a.ageRange.localeCompare(b.ageRange,'ko',{numeric:true}));
+  if(!rows.length){_infectFeedback(body,null);return;}
+  renderAgeDistribution(body,rows,_ageState,{year:y,unit,initialQuery:_statQuery,onGuide:name=>{
+    _guideState.query=cleanDiseaseLabel(name);_guideState.grade='';_guideState.selected=null;_switchTab('guide');
+  }});
+}
+
+function _formatCount(value){return value==null?'자료 없음':value.toLocaleString();}
+function _renderStatistics(body,rows,headers,context){
+  const note='<div class="if-context"><div><span class="if-eyebrow">질병관리청 발생 통계</span><h3>'+_esc(context)+'</h3></div></div>';
+  body.innerHTML=note+'<div class="if-age-layout"><aside class="if-age-picker"><label>목록에서 찾기<input id="ifStatQuery" placeholder="질병명·별칭·KCD 코드" value="'+_esc(_statQuery)+'"></label>'
+    +'<button type="button" id="ifStatGuide">질병 안내</button></aside><section id="ifStatResults" aria-label="질병별 발생수"></section></div>';
+  const input=body.querySelector('#ifStatQuery'), results=body.querySelector('#ifStatResults');
+  // Also supports text-only renderers used by the transport regression tests.
+  if(!input||!results){body.innerHTML=note+_tableHtml(headers,rows.map(x=>x.cells));return;}
+  let page=0;
+  function draw(){
+    const q=normalizeDiseaseText(_statQuery), names=new Set(searchDiseases(_statQuery).map(d=>normalizeDiseaseText(d.name)));
+    const filtered=rows.filter(r=>!q||normalizeDiseaseText(r.name).includes(q)||names.has(normalizeDiseaseText(r.name)));
+    const pages=Math.max(1,Math.ceil(filtered.length/15)); page=Math.min(page,pages-1);
+    const visible=filtered.slice(page*15,(page+1)*15),max=Math.max(0,...filtered.map(r=>r.value??0));
+    const mixed=filtered.some(r=>r.value===0)&&filtered.some(r=>r.value==null);
+    results.innerHTML='<div class="if-metrics" role="status"><div><span>조회 질병</span><strong>'+filtered.length+'<small>개</small></strong></div><div><span>발생 기록 있음</span><strong>'+filtered.filter(r=>r.value>0).length+'<small>개 질병</small></strong></div><div><span>자료 없음</span><strong>'+filtered.filter(r=>r.value==null).length+'<small>개</small></strong></div></div>'
+      +(mixed?'<p class="if-note">0명은 신고가 0건인 항목이고, 자료 없음은 수치가 오지 않은 항목입니다.</p>':'')
+      +(visible.length?'<div class="if-chart-legend"><span>질병 · 발생수 많은 순</span><span>발생수(명)</span></div><div class="if-region-bars" role="list">'+visible.map((r,i)=>'<div class="if-bar-row'+(r.value===max&&max>0?' is-peak':'')+'" role="listitem"><button type="button" data-region-guide="'+i+'">'+_esc(cleanDiseaseLabel(r.name))+'</button><div class="if-bar-track" aria-hidden="true"><i'+(r.value>0?' class="is-on"':'')+' style="width:'+(max&&r.value!=null?100*r.value/max:0)+'%"></i></div><span class="if-bar-value">'+_formatCount(r.value)+(r.value==null?'':'명')+'</span></div>').join('')+'</div>':'<p class="if-empty">일치하는 발생 자료가 없습니다.</p>')
+      +(pages>1?'<div class="if-pager"><button type="button" data-page="-1"'+(page===0?' disabled':'')+'>이전</button><span>'+(page+1)+' / '+pages+'</span><button type="button" data-page="1"'+(page+1>=pages?' disabled':'')+'>다음</button></div>':'')
+      +(visible.length?'<details class="if-source-note"><summary>표로 자세히 보기</summary><div class="if-table-wrap">'+_tableHtml(headers,visible.map(r=>r.cells))+'</div></details>':'');
+    results.querySelectorAll('[data-region-guide]').forEach(button=>button.addEventListener('click',()=>{
+      _guideState.query=cleanDiseaseLabel(visible[Number(button.dataset.regionGuide)].name);_guideState.grade='';_guideState.selected=null;_switchTab('guide');
+    }));
+    results.querySelectorAll('tbody tr').forEach((tr,i)=>{
+      const index=headers.indexOf('감염병명'), td=tr.children[index];
+      if(!td)return;
+      const button=document.createElement('button'); button.type='button'; button.textContent=cleanDiseaseLabel(visible[i].name);
+      button.addEventListener('click',()=>{_guideState.query=cleanDiseaseLabel(visible[i].name);_guideState.grade='';_guideState.selected=null;_switchTab('guide');});
+      td.replaceChildren(button);
+    });
+    results.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{page+=Number(b.dataset.page);draw();}));
+  }
+  input.addEventListener('input',()=>{_statQuery=input.value;page=0;draw();});
+  body.querySelector('#ifStatGuide').addEventListener('click',()=>{_guideState.query=cleanDiseaseLabel(input.value);_guideState.grade='';_guideState.selected=null;_switchTab('guide');});
+  draw();
 }

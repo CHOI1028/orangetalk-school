@@ -710,13 +710,13 @@ const handlers = {
     return { success: true, meta: result.meta, content: result.content };
   },
   'survey-form-save': (p) => {
-    const existing = services.surveyForms().getAll();
+    const existing = services.surveyForms().list();
     const isNew = !existing.find(f => f.id === p.form.id);
     if (isNew && existing.length >= 50) return { success: false, error: '설문 양식은 최대 50건까지 보관할 수 있습니다.' };
     return services.surveyForms().save(p.form, p.content);
   },
   'survey-form-copy': (p) => {
-    const existing = services.surveyForms().getAll();
+    const existing = services.surveyForms().list();
     if (existing.length >= 50) return { success: false, error: '설문 양식은 최대 50건입니다.' };
     return services.surveyForms().copy(p.sourceFormId, p.newId, p.newTitle) || { success: false, error: '원본 없음' };
   },
@@ -762,10 +762,13 @@ const handlers = {
 
   /* ── 설문 워크스페이스 ── */
   'survey-get-workspace': () => { try { return { success: true, data: services.surveyStore().getWorkspace() }; } catch(e) { return { success: true, data: {} }; } },
+  'survey-publish': p => services.surveyPublishing().publish(p),
+  'survey-sync-responses': p => services.surveyPublishing().sync(p.formId),
+  'survey-close': p => services.surveyPublishing().close(p.formId),
   'survey-save-workspace': (p) => { services.surveyStore().saveWorkspace(p.patch); return { success: true }; },
   'survey-save-draft': (p) => { services.surveyStore().saveDraft(p.draft); return { success: true }; },
   'survey-save-path': (p) => { services.surveyStore().savePath(p.path); return { success: true }; },
-  'survey-get-default-draft-sync': (p) => ({ success: true, data: services.surveyDefinition().getDefaultDraft(p.schoolName, p.year) }),
+  'survey-get-default-draft-sync': (p) => ({ success: true, data: services.surveyDefinition().createDefaultDraft({ schoolName: p.schoolName, year: p.year }) }),
 
   /* ── 가정통신문 ── */
   'newsletter-list-get': () => { try { return { success: true, data: services.newsletterStore().list() }; } catch(e) { return { success: true, data: [] }; } },

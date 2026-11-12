@@ -2,6 +2,13 @@
 import { S } from './app-state.js';
 
 const periodEdits = new Map();
+let nextTemporaryId = -1;
+
+// Database visit IDs are positive. Keep unsaved visits in a separate range.
+export function allocateTemporaryDailyId() {
+  return nextTemporaryId--;
+}
+
 export function getDailyRecord(id) {
   if (id == null || id === '') return null;
   const record=(S.records || []).find(record => String(record.id) === String(id)) || periodEdits.get(String(id)) || (S.records || []).find(record => (record._localIds || []).includes(String(id))) || Array.from(periodEdits.values()).find(record => (record._localIds || []).includes(String(id)));

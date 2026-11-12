@@ -1,12 +1,11 @@
 /* Copyright (c) 2026 오렌지팜 주식회사. All rights reserved. See LICENSE-KO. */
 'use strict';
 
-const fs = require('fs');
 
 /**
  * survey-db-service.js — 설문 관련 DB 서비스 모음
  *
- * SurveyFormService — 설문 양식 CRUD (DB 메타 + JSON 파일)
+ * SurveyFormService — 설문 양식 CRUD (공용 SQLite Blob Store)
  * SurveyResponseService — 설문 응답 CRUD (DB JSON 텍스트)
  * SurveyDefinitionService — 설문 기본 템플릿 생성 (stateless)
  */
@@ -14,77 +13,58 @@ const fs = require('fs');
 /* ══════════ SurveyFormService ══════════ */
 
 class SurveyFormService {
-  constructor(healthDB, folders) {
+  constructor(healthDB, folders, store) {
     this._db = healthDB;
-    this._folders = folders;
+    this._store = store;
   }
 
-  list() {
-    return this._db.stmt.surveyFormGetAll.all();
+  _all() {
+    const result = this._store.get('common', 'survey_forms_v1');
+    return result.exists && Array.isArray(result.data) ? result.data : [];
   }
+
+  _id(id) {
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw new Error('설문 ID를 확인하세요.');
+    return id;
+  }
+
+  list() { return this._all().map(item => item.meta); }
 
   get(formId) {
-    const meta = this._db.stmt.surveyFormGetById.get(formId);
-    if (!meta) return null;
-    const filePath = this._folders.surveyFormPath(meta.file_name);
-    const content = this._folders.readJson(filePath);
-    return { meta, content };
+    this._id(formId);
+    return this._all().find(item => item.meta.id === formId) || null;
   }
 
   save(form, content) {
+    this._id(form.id);
+    const all = this._all(), existing = all.find(item => item.meta.id === form.id);
+    if (!existing && all.length >= 50) throw new Error('설문 양식은 최대 50건까지 보관할 수 있습니다.');
     const now = this._db.now();
-    this._db.stmt.surveyFormUpsert.run({
-      id: form.id,
-      parent_id: form.parent_id || null,
-      title: form.title || '',
-      version: form.version || 1,
-      file_name: form.file_name,
-      is_default: form.is_default ? 1 : 0,
-      created_at: form.created_at || now,
-      updated_at: now,
-    });
-    if (content) {
-      this._folders.writeJson(this._folders.surveyFormPath(form.file_name), content);
-    }
+    const record = { meta: {
+      id: form.id, parent_id: form.parent_id || null, title: form.title || '',
+      version: form.version || 1, file_name: form.id + '.json', is_default: form.is_default ? 1 : 0,
+      created_at: existing ? existing.meta.created_at : now, updated_at: now
+    }, content: content || (existing && existing.content) || null };
+    // The legacy survey_forms SQL table was removed. Keep metadata and content in one atomic blob.
+    const result = this._store.set('common', 'survey_forms_v1', all.filter(item => item.meta.id !== form.id).concat(record));
+    if (result && result.success === false) throw new Error('설문 양식을 저장하지 못했습니다.');
     return { success: true };
   }
 
   copy(sourceFormId, newId, newTitle) {
-    const source = this._db.stmt.surveyFormGetById.get(sourceFormId);
+    const source = this.get(sourceFormId);
     if (!source) return null;
-
-    const now = this._db.now();
-    const newFileName = newId + '.json';
-    const sourceContent = this._folders.readJson(this._folders.surveyFormPath(source.file_name));
-
-    if (sourceContent) {
-      sourceContent.formId = newId;
-      sourceContent.formVersion = newId + '-v1';
-      if (newTitle) sourceContent.formTitle = newTitle;
-      this._folders.writeJson(this._folders.surveyFormPath(newFileName), sourceContent);
-    }
-
-    this._db.stmt.surveyFormUpsert.run({
-      id: newId,
-      parent_id: sourceFormId,
-      title: newTitle || source.title + ' (복사본)',
-      version: 1,
-      file_name: newFileName,
-      is_default: 0,
-      created_at: now,
-      updated_at: now,
-    });
-
-    return { success: true, newId, newFileName };
+    if (this.get(newId)) throw new Error('이미 존재하는 설문 ID입니다.');
+    const content = JSON.parse(JSON.stringify(source.content || {}));
+    content.formId = newId; content.title = newTitle || source.meta.title + ' (복사본)';
+    this.save({ id: newId, parent_id: sourceFormId, title: content.title }, content);
+    return { success: true, newId, newFileName: newId + '.json' };
   }
 
   delete(formId) {
-    const meta = this._db.stmt.surveyFormGetById.get(formId);
-    if (meta) {
-      const filePath = this._folders.surveyFormPath(meta.file_name);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
-    this._db.stmt.surveyFormDelete.run(formId);
+    this._id(formId);
+    const result=this._store.set('common', 'survey_forms_v1', this._all().filter(item => item.meta.id !== formId));
+    if(result&&result.success===false)throw new Error('설문 양식을 삭제하지 못했습니다.');
     return { success: true };
   }
 }
@@ -216,7 +196,7 @@ class SurveyResponseService {
   getResponseStats(year, formId) {
     const yr = year || String(new Date().getFullYear());
     const people = this._db.stmt.siGetByYear.all(yr);
-    const responses = this._db.stmt.surveyRespByForm.all(yr, formId);
+    const responses = this._db.stmt.surveyRespGetByForm.all(yr, formId);
 
     const respondedSet = new Set(responses.map(r => r.student_persistent_id || r.student_id));
 
@@ -252,7 +232,7 @@ class SurveyResponseService {
   getMissingStudentsMessage(year, formId, grade, cls, position, name) {
     const yr = year || String(new Date().getFullYear());
     const people = this._db.stmt.siGetByYear.all(yr);
-    const responses = this._db.stmt.surveyRespByForm.all(yr, formId);
+    const responses = this._db.stmt.surveyRespGetByForm.all(yr, formId);
     const respondedSet = new Set(responses.map(r => r.student_persistent_id || r.student_id));
 
     const missing = people
