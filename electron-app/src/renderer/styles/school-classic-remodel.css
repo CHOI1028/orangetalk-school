@@ -3856,6 +3856,90 @@
 }
 /* 날짜·방문 이력 통합 패널형 끝 */
 
+/* Compact vital-sign pairs, memo editing and recent-history readability. */
+@media screen {
+  #ecListTable .ec-vitals-pairs {
+    display:grid;
+    grid-template-columns:max-content max-content;
+    column-gap:14px;
+    width:max-content;
+    margin-inline:auto;
+    text-align:left;
+  }
+  #ecListTable .ec-vitals-pair {
+    display:grid;
+    grid-template-columns:34px auto;
+    align-items:baseline;
+    column-gap:6px;
+    padding:2px 0;
+    line-height:1.5;
+    white-space:nowrap;
+  }
+  #ecListTable .ec-vitals-pair:nth-child(even) { border-left:1px solid var(--bdr); padding-left:14px; }
+  #ecListTable .ec-vitals-label { color:var(--t2); font-size:12px; font-weight:400; }
+  #ecListTable .ec-vitals-reading { color:var(--t1); font-size:13px; font-variant-numeric:tabular-nums; }
+  #ecListTable .ec-vitals-reading b { font-weight:600; }
+  #ecListTable .ec-vitals-reading small { color:var(--t2); font-size:10.5px; font-weight:400; }
+  #ecListTable .ec-vitals-measure + .ec-vitals-measure { border-top:1px solid var(--bdrl); padding-top:5px; }
+
+  .person-memo-cell { min-width:0; text-align:left; }
+  .person-memo-cell.has-memo .person-memo-preview {
+    color:var(--t1);
+    font-size:13px;
+  }
+  .person-memo-open {
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    margin-top:2px;
+    padding:3px 7px;
+    border:1px solid transparent;
+    border-radius:6px;
+    background:transparent;
+    color:var(--cyan);
+    font:600 12px/1.5 var(--f);
+    white-space:nowrap;
+    cursor:pointer;
+  }
+  .person-memo-open:hover { background:var(--cbg); border-color:var(--bdr); }
+  .person-memo-open:focus-visible,
+  #memoOverlay :is(button,textarea):focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+  .person-memo-heading { display:flex; align-items:center; gap:12px; padding:2px 6px 12px; border-bottom:1px solid var(--bdr); margin-bottom:10px; }
+  .person-memo-heading h2 { flex:1; min-width:0; margin:0; color:var(--t1); font:700 16px/1.5 var(--f); overflow-wrap:anywhere; }
+  .person-memo-dismiss { flex:none; width:32px; height:32px; border:1px solid var(--bdr); border-radius:7px; background:var(--bg2); color:var(--t2); font-size:22px; cursor:pointer; }
+  .person-memo-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .person-memo-actions [role="status"] { flex:1 1 140px; color:var(--t2); font-size:12px!important; }
+  .person-memo-actions button { min-height:34px; }
+  .person-memo-actions .person-memo-save { background:var(--cyan)!important; color:var(--bg)!important; border-color:var(--cyan)!important; font-weight:700!important; }
+  .person-memo-editor { scroll-margin-block:56px 12px; }
+  .person-memo-save:disabled { opacity:.65; cursor:wait!important; }
+  #memoOverlay textarea { font-size:14px!important; line-height:1.7!important; }
+
+  /* Let the sidebar scroll instead of squeezing history into a few faint lines. */
+  body.school-interface.school-classic #schoolSidebar #sideVisitHistory.vh-health-bounded {
+    max-height:none!important;
+    overflow:visible;
+    flex:none;
+  }
+  body.school-interface.school-classic #schoolSidebar #visitHistoryBody {
+    flex:none;
+    min-height:0;
+    max-height:360px!important;
+    overflow-y:auto;
+    scrollbar-gutter:stable;
+  }
+  body.school-interface.school-classic #schoolSidebar .vh-person-summary {
+    max-height:min(192px,26vh);
+  }
+  body.school-interface.school-classic #schoolSidebar #visitHistoryBody .vh-record-content {
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:5;
+    overflow:hidden;
+  }
+  body.school-interface.school-classic #schoolSidebar #vhFullHistBtn { white-space:nowrap; }
+}
+
 /* 기존 닫기 버튼의 이름과 클릭 연결은 유지하고 X 모양만 선으로 표현한다. */
 @media screen {
   body.school-interface.school-classic #schoolSidebar .school-context-close::before,

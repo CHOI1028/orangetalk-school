@@ -17,6 +17,7 @@ import { openTimePicker } from './diary-print-view.js';
 import { tmSyncDailyMemo } from './today-memo.js';
 import { isDailyPeriodSearchActive, closeDailyPeriodSearch, refreshDailyPeriodSearch, selectDailyPeriodDate } from './daily-period-view.js';
 import { bus } from '../../core/event-bus.js';
+import { memoText, memoCellHtml, openPersonMemo, expandInlineMemoEditor } from './person-memo.js';
 
 let _nameHoverEl=null;
 let _collabServerConnected=false;
@@ -1929,7 +1930,6 @@ export function renderDailyRecordRows(dayRecs,options={}){
       if(r.bst) _parts.push('BST: '+r.bst);
       return _parts.join(', ');
     })();
-    const hasMemo=_memoHasAny(r.studentId)?'📌':'';
     const bday=isBirthdayToday(s);
     /* 번호/반 컬럼 */
     const numCol=isStaff?'-':(_sl==='kindergarten'?(s.cls||'-'):(s.num||'-'));
@@ -2061,13 +2061,14 @@ export function renderDailyRecordRows(dayRecs,options={}){
       <td data-col-index="11" class="mono" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" data-action="openTimePicker" data-rid="${r.id}" data-field="timeOut" data-htip="클릭하여 수정">${r.timeOut||'-'}</td>
       <!-- V/S(idx 12) 열 제거 — V/S 는 처치 칸 'V/S 측정' 칩 + 아래 인라인 표로 표시(2026-07-21) -->
       <td data-col-index="13" style="text-align:center;white-space:nowrap">${r.nurse||'-'}</td>
-      <td data-col-index="14" style="position:relative;padding-right:32px"><span class="memo-plus" data-action="toggleMemo" data-sid="${r.studentId}" data-rid="${r.id}">${hasMemo||'+'}</span><button class="row-delete-x" data-action="dailyDeleteRecord" data-rid="${r.id}">✕</button></td>
+      <td data-col-index="14" style="position:relative;padding-right:32px">${memoCellHtml(r.studentId,r.id)}<button class="row-delete-x" data-action="dailyDeleteRecord" data-rid="${r.id}">✕</button></td>
     </tr>`;
   }).join('');
 }
 
 /* Reuse the diary header, row renderer, column preferences and click dispatcher. */
 export function renderDailyPeriodTable(container,records,privacy,beforeAction,privacyScope){
+  expandInlineMemoEditor();
   const source=document.querySelector('#recTable thead');
   if(!source)throw new Error('보건일지 표 머리글을 찾을 수 없습니다.');
   const head=source.cloneNode(true);
@@ -2110,6 +2111,7 @@ export function renderDailyPeriodTable(container,records,privacy,beforeAction,pr
 }
 
 export function renderDaily(){
+  expandInlineMemoEditor();
   if(isDailyPeriodSearchActive()){updateDailyDateLabel();refreshDailyPeriodSearch();return;}
   /* 렌더링 시작: 테이블 숨김 → applyDailyColLayout()에서 표시 (열 너비 변동 깜빡임 방지) */
   const _tblEl=document.getElementById('recTable');
@@ -3117,7 +3119,7 @@ export function _hideVisitHistory(){
 function _captureVisitHistoryHtml(studentId){
   const stu=getStu(studentId); if(!stu) return {titleHTML:'',bodyHTML:''};
   const prevLock=S._visitHistoryLocked; S._visitHistoryLocked=false;
-  try{ showVisitHistory(studentId); }catch(_){}
+  try{ showVisitHistory(studentId,{all:true}); }catch(_){}
   const titleEl=document.getElementById('visitHistoryTitle');
   const bodyEl=document.getElementById('visitHistoryBody');
   const titleHTML=titleEl?titleEl.innerHTML:('<div style="font-size:13px;font-weight:800;color:var(--t1)">'+escHtml(stu.name)+'</div>');
@@ -3213,7 +3215,7 @@ export function openVisitorLogModal(opts){
   inp.addEventListener('input',_renderList);
   setTimeout(function(){ try{ inp.focus(); }catch(_){} },60);
 }
-export function showVisitHistory(studentId){
+export function showVisitHistory(studentId,options={}){
   if(S._dragSelectedRecIds&&S._dragSelectedRecIds.length>0)return;
   if(window._dd&&window._dd.active)return;
   const _ss=document.getElementById('sideSearch');
@@ -3231,7 +3233,7 @@ export function showVisitHistory(studentId){
   if(panel.classList.contains('vh-show')&&panel._lastStuId&&panel._lastStuId!==studentId){
     /* fade out/in 으로 학생 전환 시 시각적 컨텍스트 단절 표시. 0.08s + 70ms wait 로 단축 — 이전 ~310ms → ~150ms.
      * 단, 증상 선택 및 처치 팝업이 열려 있는 동안에는 페이드를 건너뛴다 — 팝업 켜는 순간 카드 깜빡임 방지. */
-    if(!document.getElementById('symCatOverlay')){
+    if(!document.body.classList.contains('school-interface')&&!document.getElementById('symCatOverlay')){
       body.style.transition='opacity 0.08s';body.style.opacity='0';
       setTimeout(function(){body.style.opacity='1';},70);
     }
@@ -3289,8 +3291,11 @@ export function showVisitHistory(studentId){
   const _vhKeys=stuKeySet(studentId);
   const stuRecs=S.records.filter(r=>recInStuKeys(r,_vhKeys)).sort((a,b)=>b.date.localeCompare(a.date)||b.timeIn.localeCompare(a.timeIn));
   if(!stuRecs.length){body.innerHTML='<div class="vh-empty">등록된 방문 이력이 없습니다.</div>';_showVisitHistory();return;}
+  const recentRecs=document.body.classList.contains('school-interface')&&!options.all?stuRecs.slice(0,3):stuRecs;
+  if(document.body.classList.contains('school-interface'))title.querySelector('.vh-heading-label').textContent='최근 방문 이력 · '+recentRecs.length+'건';
+  if(_vhFullBtn){_vhFullBtn.textContent='전체 이력 ('+stuRecs.length+')';}
   const _emsSaved=JSON.parse(localStorage.getItem('ec_ems_saved')||'[]');
-  body.innerHTML=stuRecs.map(r=>{
+  body.innerHTML=recentRecs.map(r=>{
     const hasEms=_emsSaved.some(function(s){return s.name===stu.name&&s.date&&s.date.startsWith(r.date);});
     const emsChip=hasEms?'<div class="vh-ems">🚑 구급대 이송 경험</div>':'';
     /* 증상은 처치와 동일한 글 형태로 표시 (사용자 요청 — 칩 톤이 시각적 노이즈 됨).
@@ -3392,105 +3397,9 @@ export function showVisitHistory(studentId){
 /* ═══════════════════════════════════════
    MEMO (memo-view.js에서 통합)
    ═══════════════════════════════════════ */
-const _memoPostitColors=['#fffde7','#fce4ec','#e3f2fd','#e8f5e9','#fff3e0','#f3e5f5','#e0f7fa','#fff8e1','#fbe9e7','#ede7f6'];
-let _memoSaveTimer=null;
-function _memoSaveToDB(stuId){
-  localStorage.setItem('ec_memos',JSON.stringify(S.memoData));
-  if(window.electronAPI&&window.electronAPI.dbSet)window.electronAPI.dbSet('common','memos',S.memoData);
-  if(stuId&&window.electronAPI&&window.electronAPI.studentsUpdateMemo){
-    const slots=S.memoData[stuId]||[];
-    window.electronAPI.studentsUpdateMemo(stuId,JSON.stringify(slots)).catch(function(){});
-  }
-}
-function _memoGetSlots(stuId){
-  const key=stuId;
-  let raw=S.memoData[key];
-  if(typeof raw==='string'){const arr=[{text:raw,ts:''}];S.memoData[key]=arr;_memoSaveToDB(key);return arr;}
-  if(Array.isArray(raw)){
-    let migrated=false;
-    raw=raw.map(function(s){if(typeof s==='string'){migrated=true;return s?{text:s,ts:''}:null;}return s;}).filter(Boolean);
-    if(migrated){S.memoData[key]=raw;_memoSaveToDB(key);}
-    return raw;
-  }
-  return raw||[];
-}
-export function _memoHasAny(stuId){
-  const slots=_memoGetSlots(stuId);
-  return slots.some(function(s){return s&&s.text&&s.text.trim();});
-}
-function _memoNowStr(){
-  const d=new Date();
-  return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-}
-function _memoSaveSlot(stuId,idx,text){
-  const key=stuId;
-  if(!S.memoData[key])S.memoData[key]=[];
-  if(text&&text.trim()){
-    S.memoData[key][idx]={text:text,ts:_memoNowStr()};
-    const tsEl=document.getElementById('memoTs_'+idx);
-    if(tsEl)tsEl.textContent=S.memoData[key][idx].ts;
-  } else {
-    S.memoData[key][idx]=null;
-    const tsEl2=document.getElementById('memoTs_'+idx);
-    if(tsEl2)tsEl2.textContent='';
-  }
-  if(!S.memoData[key].some(function(s){return s&&s.text&&s.text.trim();}))delete S.memoData[key];
-  _memoSaveToDB(stuId);
-  let ind=document.getElementById('memoSaveIndicator');
-  if(!ind){ind=document.createElement('div');ind.id='memoSaveIndicator';ind.className='ec-save-indicator';ind.style.zIndex='9999';document.body.appendChild(ind);}
-  ind.textContent='저장 중…';
-  ind.className='ec-save-indicator saving';ind.style.zIndex='9999';
-  if(_memoSaveTimer)clearTimeout(_memoSaveTimer);
-  _memoSaveTimer=setTimeout(function(){
-    ind.textContent='모든 내용이 저장되었습니다.';
-    ind.className='ec-save-indicator saved';ind.style.zIndex='9999';
-    setTimeout(function(){ind.className='ec-save-indicator hide';},3000);
-  },300);
-}
-function closeMemoPopup(){
-  const ov=document.getElementById('memoOverlay');
-  if(ov){
-    if(ov._escHandler)document.removeEventListener('keydown',ov._escHandler);
-    closeModalGracefully(ov);
-  }
-  renderDaily();
-}
-export function openMemoPanel(stuId){
-  closeMemoPopup();
-  const stu=getStu(stuId);
-  const stuName=stu?(stu.name||'학생'):'학생';
-  const slots=_memoGetSlots(stuId);
-  const ov=document.createElement('div');
-  ov.className='modal-overlay show';ov.id='memoOverlay';ov.style.background='rgba(0,0,0,0.25)';ov.style.zIndex='10000';
-  let h='<div class="modal-content" style="width:1060px;max-width:96vw;padding:0;overflow:hidden">'
-    +'<div class="vp-header"><span class="vp-header-title">📝 주의사항(메모) — '+escHtml(stuName)+'</span></div>'
-    +'<div style="padding:10px 16px 0;font-size:10px;color:var(--t3);line-height:1.5">포스트잇에 메모를 입력하면 자동 저장됩니다. 이 학생이 다음에 방문해도 메모가 유지됩니다.</div>'
-    +'<div class="memo-grid">';
-  for(let i=0;i<10;i++){
-    const slot=slots[i]||null;
-    const val=slot?slot.text:'';
-    const ts=slot?slot.ts||'':'';
-    h+='<div class="memo-postit" style="background:'+_memoPostitColors[i]+'">'
-      +'<div class="memo-postit-meta"><span class="memo-postit-idx">'+(i+1)+'</span><span class="memo-postit-ts" id="memoTs_'+i+'">'+escHtml(ts)+'</span></div>'
-      +'<textarea data-memo-idx="'+i+'" data-stu-id="'+stuId+'" placeholder="메모 입력...">'+escHtml(val)+'</textarea>'
-      +'</div>';
-  }
-  h+='</div></div>';
-  ov.innerHTML=h;
-  /* 외부 클릭으로 닫기 — mousedown + click 양쪽 + ESC 키 */
-  function _memoCloseIfOutside(e){if(e.target===ov)closeMemoPopup();}
-  ov.addEventListener('mousedown',_memoCloseIfOutside);
-  ov.addEventListener('click',_memoCloseIfOutside);
-  function _memoEscHandler(e){if(e.key==='Escape'){closeMemoPopup();document.removeEventListener('keydown',_memoEscHandler);}}
-  document.addEventListener('keydown',_memoEscHandler);
-  ov._escHandler=_memoEscHandler;
-  /* textarea oninput을 addEventListener로 바인딩 */
-  ov.querySelectorAll('textarea[data-memo-idx]').forEach(function(ta){
-    ta.addEventListener('input',function(){_memoSaveSlot(ta.dataset.stuId,parseInt(ta.dataset.memoIdx,10),ta.value);});
-  });
-  document.body.appendChild(ov);
-}
-export function toggleMemo(stuId,recId,btn){openMemoPanel(stuId);}
+export function _memoHasAny(stuId){return !!memoText(S.memoData[stuId]).trim();}
+export function openMemoPanel(stuId){return openPersonMemo(stuId,null,renderDaily);}
+export function toggleMemo(stuId,recId,btn){return openPersonMemo(stuId,btn,renderDaily);}
 
 /* ═══════════════════════════════════════
    CELL EDIT (cell-edit-view.js에서 통합)

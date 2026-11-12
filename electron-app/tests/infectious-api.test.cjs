@@ -34,6 +34,7 @@ function harness(handler = () => ok(), key = rawKey) {
   const context = vm.createContext({
     Date: Clock,
     escHtml: escapeHtml,
+    renderPeriodTrend: (body,rows,state,options)=>{body.periodRows=rows;body.periodOptions=options;},
     localStorage: { getItem: name => values.has(name) ? values.get(name) : null },
     document: { getElementById: id => nodes[id] || null },
     window: { electronAPI: { externalFetchJson: async url => {
@@ -42,6 +43,7 @@ function harness(handler = () => ok(), key = rawKey) {
     } } }
   });
   vm.runInContext(feedbackSource, context);
+  vm.runInContext(fs.readFileSync(path.join(root,'src/renderer/core/infectious-labels.js'),'utf8').replace(/^export /gm,''),context);
   context.getPublicDataApiKey = vm.runInContext('(function(){' + settingsSource + '\nreturn getPublicDataApiKey;})()', context);
   vm.runInContext(source + '\nthis.api={normalizeInfectiousApiKey,getInfectiousErrorMessage,'
     + 'getInfectiousRequestKey,clearInfectiousCache,fetchRegion,fetchPeriod,fetchAge,'
@@ -194,12 +196,18 @@ test('counts support thousands separators but not malformed suffixes or fraction
   const values = ['0', '9', '1,234', '12,345,678', '-', '', '12명', '1,2', '-1', '1.5'];
   const h = harness(() => ok(values.map((value, i) => row({ icdNm: 'TEST' + i, resultVal: value }))));
   assert.deepEqual(plain((await h.api.fetchRegion(2026, '01')).rows.map(r => r.val)),
-    [0, 9, 1234, 12345678, 0, 0, 0, 0, 0, 0]);
+    [0, 9, 1234, 12345678, null, null, null, null, null, null]);
 });
 test('prototype-like disease labels are handled as data', async () => {
   const h = harness(() => ok([row({ icdNm: '__proto__', resultVal: '10' }),
     row({ icdNm: '__proto__', resultVal: '20' })]));
   assert.equal((await h.api.getRegionTop(2026, '01', 5)).rows[0].val, 30);
+});
+
+test('provider @ prefix is removed before display, widget aggregation and guide navigation', async()=>{
+  const h=harness(()=>ok([row({icdNm:' @니파바이러스감염증',resultVal:'3'})]));
+  assert.equal((await h.api.fetchRegion(2026,'01')).rows[0].icdNm,'니파바이러스감염증');
+  assert.equal((await h.api.getRegionTop(2026,'01',5)).rows[0].icdNm,'니파바이러스감염증');
 });
 test('period and age queries use the same credential and count normalization', async () => {
   const h = harness(() => ok([row({ resultVal: '1,234', ageRange: '10~19세' })]), encodeURIComponent(rawKey));
@@ -346,6 +354,19 @@ test('table content is escaped', () => {
   const html = h.api._tableHtml(['name', 'count'], [['<img src=x onerror=alert(1)>', 1]]);
   assert(html.includes('&lt;img'));
   assert(!html.includes('<img'));
+});
+
+test('period view receives all returned values including zero and missing counts', async () => {
+  const h=harness(()=>ok([
+    row({year:'2026',period:'2월',resultVal:'-',icdNm:'LAST'}),
+    row({year:'2025',period:'12월',resultVal:'0',icdNm:'FIRST'}),
+    row({year:'2026',period:'1월',resultVal:'4',icdNm:'MIDDLE'})
+  ]));
+  const body=modal(h);
+  await h.api._runPeriod();
+  assert.deepEqual(plain(body.periodRows.map(x=>x.val)),[null,0,4]);
+  assert.equal(body.periodOptions.type,'2');
+  assert.equal(body.periodRows.find(x=>x.icdNm==='FIRST').year,'2025');
 });
 test('saved KDCA credential and applied flag are connected to startup restoration', () => {
   const loader = fs.readFileSync(path.join(root, 'src/renderer/core/data-loader.js'), 'utf8');

@@ -31,6 +31,7 @@ function harness(extra = {}) {
     selectDailyPeriodDate() { return state.active; },
     closeDailyPeriodSearch(notify) { events.push(['close', notify]); const old = state.active; state.active = false; return old; },
     refreshDailyPeriodSearch() { state.refreshes++; },
+    expandInlineMemoEditor() {},
     resetDiaryPrivacy() { state.privacyResets = (state.privacyResets || 0) + 1; },
     renderDaily() { state.renders++; },
     renderCalendar() {}, renderSidebarRecent() {}, updateDailyDateLabel() {},
@@ -42,6 +43,7 @@ function harness(extra = {}) {
     ...extra
   });
   vm.runInContext(named(read('core/record-utils.js'),'_recToDbRow')+
+    read('core/daily-record-access.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'')+
     read('core/daily-record-persistence.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'')+
     '\nfunction saveRecordNow(rec){return saveDailyRecord(rec);}',context);
   return { state, events, context };
@@ -268,17 +270,17 @@ for(const view of ['home', 'dashboard', 'story']) {
   });
 }
 
-test('blocked Magic navigation preserves the active range and current daily view', () => {
+test('Magic navigation is available without an unlock flag and closes the active range', () => {
   const h = mainNavigation();
   h.context.switchView('magic');
-  assert.equal(h.state.active, true);
-  assert.equal(h.context.S.currentView, 'daily');
+  assert.equal(h.state.active, false);
+  assert.equal(h.context.S.currentView, 'magic');
   assert.equal(h.context.S.selectedDate, '2026-09-20');
-  assert.deepEqual(h.events, []);
-  assert.deepEqual(h.emitted, ['toast:show']);
+  assert.deepEqual(h.events, [['close', false]]);
+  assert.equal(h.emitted.includes('toast:show'), false);
 });
 
-test('allowed Magic navigation closes range search after passing the entry guard', () => {
+test('Magic navigation also works with a legacy unlock flag', () => {
   const h = mainNavigation(true);
   h.context.switchView('magic');
   assert.equal(h.state.active, false);
@@ -315,7 +317,7 @@ for(const scenario of [
       },
       getStu: () => ({ name: 'Synthetic student' }),
       localStorage: { getItem: () => null },
-      window: { electronAPI: { recordsDailyInsert: async row => {
+      window: { _bmData: { 1: [{ symptom: '기존 방문 증상' }] }, electronAPI: { recordsDailyInsert: async row => {
         payloads.push(row);
         return { success: true, id: 77 };
       } } },
@@ -335,6 +337,9 @@ for(const scenario of [
     if(scenario.expected) {
       assert.equal(added[0].date, scenario.expected);
       assert.equal(payloads[0].visit_date, scenario.expected);
+      assert.deepEqual(JSON.parse(payloads[0].bodymap_json), []);
+      assert.deepEqual(JSON.parse(payloads[0].symptoms), []);
+      assert.equal(h.context.window._bmData[77], undefined);
     } else {
       assert.equal(h.context.S.nextId, 1);
     }

@@ -24,6 +24,7 @@ function harness(){
   clearTimeout(){},setTimeout:callback=>{callback();return 1;},requestAnimationFrame:callback=>callback(),
   showVisitHistory(id){visits.push(id);context._showVisitHistory();},_closeDateVisitors(){throw Error('날짜 목록을 삭제하면 안 됨');},
   renderDailyRecordRows:()=>'<tr></tr>',applyDailyColLayout(){},
+  expandInlineMemoEditor(){},
   bindDailyRecordActions(){calls.actions++;},bindDiaryPrivacy(){calls.privacy++;}
  });
  const head={cloneNode(){return {outerHTML:'<thead><tr><th></th></tr></thead>',querySelectorAll:()=>[],querySelector:()=>({textContent:''})};}};

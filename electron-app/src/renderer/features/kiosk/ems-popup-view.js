@@ -4,6 +4,7 @@
    ═══════════════════════════════════════ */
 /* ES Module */
 import { S, addEcRecord } from '../../core/app-state.js';
+import { allocateTemporaryDailyId, getDailyRecord } from '../../core/daily-record-access.js';
 import { getStu, escHtml, getGuardianType, getGuardianContact, getStudentBirth, toDateStr, isHoliday, recsByDate, _recToDbRow, saveData } from '../../core/helpers.js';
 import { dailyCloseCtxPopup, dailyClearDragSelect, showVisitHistory, openVitalsEdit } from '../daily/daily-view.js';
 import { openBedManager } from '../newsletter/bed-management-view.js';
@@ -384,6 +385,9 @@ bus.on('ems:refresh',function(recId){
     }
   }
   const _emsState={stuId:null,recId:null,currentSaveId:null,ecRecId:null};
+  bus.on('daily:record-id-changed',function({oldId,id}){
+    if(_emsState.recId===oldId)_emsState.recId=id;
+  });
   export function openEmsMsg(stuId){
     const stu=getStu(stuId);if(!stu)return;
     _emsState.stuId=stuId;
@@ -448,7 +452,7 @@ bus.on('ems:refresh',function(recId){
           if(rid==null){
             /* 오늘 자 레코드가 없으면 즉석 생성 */
             const today=toDateStr(new Date());
-            const newRec={id:S.nextId++,date:today,studentId:_emsState.stuId,symptoms:[],treatment:[],medication:[],temp:'',bp:'',pulse:'',resp:'',_dirty:true};
+            const newRec={id:allocateTemporaryDailyId(),date:today,studentId:_emsState.stuId,symptoms:[],treatment:[],medication:[],temp:'',bp:'',pulse:'',resp:'',_dirty:true};
             S.records.push(newRec);rid=newRec.id;_emsState.recId=rid;
           }
           openVitalsEdit(rid,_vsEl);
@@ -457,7 +461,7 @@ bus.on('ems:refresh',function(recId){
           const _t=setInterval(function(){
             if(!document.querySelector('.cell-ac-popup')){
               clearInterval(_t);
-              const rec=S.records.find(function(r){return r.id===rid;});
+              const rec=getDailyRecord(rid);
               if(!rec)return;
               const vArr=[];
               if(rec.temp)vArr.push('체온 '+rec.temp+'°C');

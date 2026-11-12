@@ -884,6 +884,9 @@
 
     /* ── 설문 시스템 ── */
     surveyFormList: function() { return _ipc('survey-form-list'); },
+    surveyPublish: function(payload) { return _ipc('survey-publish', payload); },
+    surveySyncResponses: function(formId) { return _ipc('survey-sync-responses', { formId }); },
+    surveyClose: function(formId) { return _ipc('survey-close', { formId }); },
     surveyFormGet: function(formId) { return _ipc('survey-form-get', { formId }); },
     surveyFormSave: function(form, content) { return _ipc('survey-form-save', { form, content }); },
     surveyFormCopy: function(sourceFormId, newId, newTitle) { return _ipc('survey-form-copy', { sourceFormId, newId, newTitle }); },

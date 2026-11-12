@@ -1,0 +1,112 @@
+.school-ai-panel,.school-ai-panel *,.school-ai-settings-card,.school-ai-settings-card *{box-sizing:border-box}
+.school-ai-panel[hidden],.school-ai-panel [hidden]{display:none!important}
+.school-ai-panel{--ai-accent:var(--cyan,#06b6d4);--ai-soft:var(--cbg,rgba(6,182,212,.08));position:fixed;right:22px;bottom:20px;width:460px;height:min(760px,calc(100dvh - 100px));display:flex;flex-direction:column;z-index:9500;background:var(--card,#172135);color:var(--t1,#f1f5f9);border:1px solid var(--bdr,#2a3a52);border-radius:20px;box-shadow:var(--sh,0 8px 32px rgba(0,0,0,.4));font-family:var(--f,'Pretendard','Segoe UI',sans-serif);overflow:hidden;text-align:left;line-height:1.6}
+.school-ai-panel button,.school-ai-settings-card button,.school-ai-launcher{font:inherit;cursor:pointer;transition:background .15s;border:1px solid var(--bdr,#e6e8ec);background:var(--card,#fff);color:inherit;border-radius:8px;padding:6px 10px}
+.school-ai-panel button:hover{background:var(--hover,#f4f5f7)}
+.school-ai-panel button:disabled{opacity:.5;cursor:wait}
+.school-ai-panel :focus-visible,.school-ai-launcher:focus-visible{outline:2px solid var(--cyan,#06b6d4);outline-offset:2px}
+.school-ai-header{display:flex;align-items:center;justify-content:space-between;padding:17px 18px 12px;border-bottom:1px solid var(--bdr,#eee);gap:10px}
+.school-ai-header h2{font-size:19px;margin:2px 0 0;font-weight:800;letter-spacing:-.5px;color:var(--t1,#273142)}
+.school-ai-header-actions{display:flex;gap:4px;white-space:nowrap}.school-ai-header-actions button{font-size:11px;padding:5px 8px}
+.school-ai-api-heading{font-size:14px;font-weight:800;color:var(--t1,#233044);margin:20px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--cyan,#087d98)}
+.school-ai-settings-card{padding:16px;margin-bottom:12px;color:var(--t1,#233044);background:var(--card,#fff);line-height:1.6;font-size:11px}
+.school-ai-settings-title{display:flex;align-items:center;gap:10px;margin-bottom:10px}.school-ai-settings-title strong{font-size:13px;font-weight:700}
+.school-ai-api-icon{font-size:18px;color:var(--cyan,#087d98)}.school-ai-api-description{font-size:10px;color:var(--t3,#667085)}
+.school-ai-key-badge{margin-left:auto;white-space:nowrap;font-size:9px;padding:2px 8px;border-radius:10px;color:var(--t3,#667085);background:var(--bg2,#f5f6f8)}
+.school-ai-key-badge[data-state=saved]{color:#10b981;background:#e8f9f0}.school-ai-key-badge[data-state=dirty]{color:#b7791f;background:#fff6db}
+.school-ai-key-row{display:flex;gap:6px}.school-ai-key-row input.form-input{flex:1;min-width:0;font-size:11px}
+.school-ai-key-row button{padding:0 14px;border:0;border-radius:6px;background:var(--cyan,#087d98);color:white;font-size:11px;font-weight:700;white-space:nowrap}
+.school-ai-settings-card button:disabled{opacity:.5;cursor:wait}.school-ai-settings-card .school-ai-status{padding:0}
+.school-ai-setting-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}.school-ai-setting-actions button{font-size:10px;padding:5px 10px}
+.school-ai-key-help{margin-top:12px;padding:12px 14px;border:1px solid color-mix(in srgb,#ea580c 32%,var(--bdr,#e6e8ec));border-radius:8px;background:color-mix(in srgb,#ea580c 8%,var(--card,#fff))}
+.school-ai-key-help-title{margin-bottom:8px;color:#c2410c;font-size:12px;font-weight:800}
+body:not(.light) .school-ai-key-help-title{color:#fdba74}
+.school-ai-key-help ol{margin:0;padding-left:1.2em;color:var(--t2,#4a5568);font-size:11px;line-height:1.7}
+.school-ai-key-help li{margin:0 0 4px}
+.school-ai-key-help p{margin:8px 0 0;padding:8px 10px;border-radius:6px;background:color-mix(in srgb,var(--t1,#233044) 5%,transparent);color:var(--t2,#4a5568);font-size:11px;line-height:1.65}
+.school-ai-setting-actions .school-ai-key-link{border:0;padding:0;background:none;color:var(--cyan,#087d98);font-size:10px}
+.school-ai-messages{flex:1;min-height:60px;overflow-y:auto;overscroll-behavior:contain;padding:16px 18px;scrollbar-width:thin;user-select:text}
+.school-ai-welcome{padding:20px 2px;text-align:center}.school-ai-mark{display:inline-flex;align-items:center;justify-content:center;background:var(--cbg,rgba(6,182,212,.08));color:var(--cyan,#06b6d4);width:48px;height:48px;border-radius:15px;font-size:28px}
+.school-ai-welcome h3{font-size:18px;margin:14px 0 7px;letter-spacing:-.5px}.school-ai-welcome p{font-size:12px;color:var(--t3,#667085);white-space:pre-line;margin:0 0 20px}
+.school-ai-suggestions{display:grid;gap:8px}.school-ai-suggestions button{text-align:left;padding:11px 12px;font-size:12px}
+.school-ai-message{margin-bottom:17px;max-width:100%;font-size:13px}.school-ai-role{font-size:10px;font-weight:700;color:var(--t3,#667085);margin:0 0 5px}
+.school-ai-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.school-ai-message.is-user .school-ai-text{background:var(--bg2,#f3f5f8);border-radius:12px 12px 3px 12px;padding:10px 13px}.school-ai-message.is-user{margin-left:30px}
+.school-ai-message.is-pending{color:var(--t3,#667085)}.school-ai-sources{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.school-ai-sources button,.school-ai-sources span{font-size:10px;padding:3px 7px;background:var(--bg2,#f8f9fb);border-radius:5px;color:var(--t2,#556073)}
+.school-ai-copy{font-size:10px!important;border:0!important;padding:4px 0!important;color:var(--t3,#667085)!important}
+.school-ai-status{padding:0 18px 6px;font-size:10px;color:var(--t3,#667085);max-height:66px;overflow:auto}.school-ai-status:empty{display:none}.school-ai-status.is-error{color:#bf4239}
+.school-ai-composer{margin:0 14px 8px;padding:10px 11px;border:1px solid var(--bdr,#ddd);border-radius:13px;background:var(--card,#fff)}.school-ai-input-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.school-ai-composer textarea{display:block;resize:none;width:100%;min-height:58px;max-height:120px;border:0;background:transparent;color:var(--t1,#233044);font:inherit;font-size:13px;line-height:1.6;outline:none;padding:0}
+.school-ai-compose-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px}.school-ai-compose-footer span{font-size:10px;color:var(--t3,#8ea4b8)}.school-ai-compose-footer button{font-size:11px;background:transparent;color:var(--t3,#8ea4b8);border:0;font-weight:700}
+.school-ai-launcher{position:fixed;bottom:22px;right:22px;z-index:12000;display:inline-flex;align-items:center;gap:7px;color:#ED6D01!important;background:#fff!important;border:1.5px solid #ED6D01!important;font-size:14px!important;font-weight:800!important;padding:8px 14px 8px 12px!important;white-space:nowrap;border-radius:24px;box-shadow:0 8px 22px rgba(237,109,1,.28);cursor:grab;touch-action:none;user-select:none}
+.school-ai-launcher-mark,.school-ai-launcher-label,.school-ai-name{color:#ED6D01}
+.school-ai-launcher-mark{font-size:15px;line-height:1}
+.school-ai-wordmark,.school-ai-header-logo{display:block;width:auto;flex:0 0 auto}
+.school-ai-wordmark{height:26px}
+.school-ai-launcher .school-ai-wordmark{height:22px}
+.school-ai-header-logo{height:20px}
+.school-ai-heading{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.school-ai-launcher.is-open{visibility:hidden;pointer-events:none}
+.school-ai-header{cursor:grab;touch-action:none;user-select:none}.school-ai-header button{cursor:pointer}.school-ai-header.is-dragging,.school-ai-launcher.is-dragging{cursor:grabbing}
+@media(max-width:650px){.school-ai-panel{right:8px;bottom:8px;width:calc(100vw - 16px);height:calc(100dvh - 32px);max-height:none;border-radius:15px}.school-ai-header{padding:12px}.school-ai-header h2{font-size:17px}.school-ai-launcher{font-size:12px!important;padding:6px 10px!important;gap:5px}.school-ai-launcher .school-ai-wordmark{height:18px}.school-ai-header-logo{height:20px}}
+
+/* Conversation surface in the school dashboard palette: cyan, cool gray, card surfaces. */
+.school-ai-panel{width:min(480px,calc(100vw - 24px));height:min(680px,calc(100dvh - 96px));border:1px solid var(--bdr);border-radius:18px;box-shadow:var(--sh);background:var(--card)}
+.school-ai-panel.is-wide{width:min(740px,calc(100vw - 24px));height:calc(100dvh - 92px)}
+.school-ai-header{align-items:flex-start;padding:14px 14px 12px;border-bottom:1px solid var(--bdr);background:var(--card);box-shadow:none}
+.school-ai-title{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}
+.school-ai-title>div{display:grid;gap:2px;min-width:0}
+.school-ai-header h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;margin:0;font-size:16px;font-weight:800;letter-spacing:-.3px;color:var(--t1)}
+.school-ai-header h2>span:first-child,.school-ai-name{white-space:nowrap}
+.school-ai-model{display:inline-flex;align-items:center;min-height:20px;padding:2px 7px;border:1px solid var(--bdr);border-radius:999px;background:var(--cbg);color:var(--cyan);font-size:9px;font-weight:800;letter-spacing:.01em;line-height:1}
+.school-ai-header small{color:var(--t3);font-size:11px;font-weight:600}
+.school-ai-brand-mark{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid var(--bdr);border-radius:12px;background:var(--cbg);color:var(--cyan);font-size:18px}
+.school-ai-header-actions{gap:4px;margin-left:auto}.school-ai-header-actions button{display:grid;place-items:center;min-width:32px;height:32px;margin-top:3px;padding:0 8px;border:1px solid var(--bdr);border-radius:9px;background:var(--bg2);color:var(--t2);font-size:12px}
+.school-ai-header-actions button:hover{border-color:var(--cyan);background:var(--cbg);color:var(--cyan)}
+.school-ai-notice{display:flex;align-items:flex-start;gap:8px;margin:12px 14px 0;padding:9px 11px;border:1px solid var(--bdr);border-radius:10px;background:var(--cbg);color:var(--t2);font-size:11px;line-height:1.5}
+.school-ai-notice-mark{flex:0 0 auto;color:var(--cyan);font-weight:800}
+.school-ai-quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:10px 14px}
+.school-ai-quick button{min-width:0;min-height:34px;padding:6px 8px;overflow:hidden;border:1px solid var(--bdr);border-radius:10px;background:var(--card);color:var(--t2);font-size:11px;font-weight:700;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}
+.school-ai-quick button:hover{border-color:var(--cyan);background:var(--cbg);color:var(--cyan)}
+.school-ai-messages{padding:8px 14px 12px;background:var(--bg);scroll-padding-top:12px}
+.school-ai-welcome{display:grid;justify-items:center;gap:6px;margin:42px 12px;padding:0;text-align:center;color:var(--t3)}
+.school-ai-mark{display:block;width:auto;height:auto;margin-bottom:2px;border:0;border-radius:0;background:none;color:var(--cyan);font-size:24px;line-height:1}
+.school-ai-welcome strong{color:var(--t1);font-size:15px;font-weight:800}
+.school-ai-welcome span{font-size:12px;line-height:1.5}
+.school-ai-message{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 14px;font-size:13px}
+.school-ai-role{margin:0 6px 4px;color:var(--t3);font-size:10px;font-weight:800;letter-spacing:0}
+.school-ai-message.is-user{align-items:flex-end;margin-left:36px}.school-ai-message.is-user .school-ai-role{display:none}
+.school-ai-message.is-user .school-ai-text{max-width:86%;background:var(--cbg);color:var(--t1);border:1px solid color-mix(in srgb,var(--cyan) 40%,var(--bdr));border-radius:14px 5px 14px 14px;padding:10px 12px;line-height:1.62}
+.school-ai-message.is-assistant .school-ai-text{max-width:92%;background:var(--card);border:1px solid var(--bdr);border-radius:5px 14px 14px 14px;padding:10px 12px;box-shadow:var(--sh);white-space:normal;line-height:1.62}
+.school-ai-text p{margin:0 0 10px;line-height:1.7}.school-ai-text p:last-child{margin-bottom:0}
+.school-ai-text h3{font-size:14px;line-height:1.5;margin:12px 0 6px}.school-ai-text h3:first-child{margin-top:0}
+.school-ai-text ul,.school-ai-text ol{margin:6px 0;padding-left:20px}.school-ai-text li{margin:4px 0;line-height:1.65}
+.school-ai-text code{font-size:12px;padding:1px 4px;border-radius:4px;background:var(--bg2)}
+.school-ai-references{font-size:11px;color:var(--t3);margin:6px 4px 0}.school-ai-references summary{cursor:pointer;width:fit-content}
+.school-ai-search-suggestions{display:block;width:100%;border:1px solid var(--bdr);border-radius:8px;background:var(--card);margin:8px 0;min-height:64px;max-height:220px}
+.school-ai-copy{margin:6px 4px 0;padding:5px 9px!important;border:1px solid var(--bdr)!important;border-radius:7px!important;background:var(--card)!important;color:var(--t2)!important;font-size:11px!important}
+.school-ai-copy:hover{border-color:var(--cyan)!important;background:var(--cbg)!important;color:var(--cyan)!important}
+.school-ai-retry{margin-top:8px;border-color:var(--cyan)!important;color:var(--cyan)!important;background:var(--card)!important;font-weight:700}
+.school-ai-context-note{margin:6px 4px 0;color:var(--t3);font-size:10px}
+.school-ai-message.is-notice .school-ai-text{max-width:100%;padding:9px 11px;border:1px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--t2);box-shadow:none;font-size:12px;line-height:1.55}
+.school-ai-message.is-pending .school-ai-text{background:var(--bg2);border:1px solid var(--bdr);box-shadow:none;color:var(--t3);font-size:12px}
+.school-ai-message.is-pending .school-ai-text::after{content:'···';display:inline-block;margin-left:4px;letter-spacing:2px;animation:school-ai-pulse 1.2s ease-in-out infinite}
+.school-ai-message.is-pending p{display:inline}
+.school-ai-status{padding:4px 16px 0;background:transparent}
+.school-ai-composer{display:grid;gap:5px;margin:0;padding:11px 14px 10px;border:0;border-top:1px solid var(--bdr);border-radius:0;background:var(--card);box-shadow:none}
+.school-ai-composer-shell{display:grid;grid-template-columns:28px minmax(0,1fr) 38px;align-items:center;gap:6px;min-height:54px;padding:4px 5px 4px 8px;border:1px solid color-mix(in srgb,#ea580c 28%,var(--bdr));border-radius:20px;background:color-mix(in srgb,#ea580c 7%,var(--bg));box-shadow:none}
+.school-ai-composer-shell:focus-within{border-color:#ea580c;box-shadow:0 0 0 3px color-mix(in srgb,#ea580c 16%,transparent)}
+.school-ai-composer-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:color-mix(in srgb,#ea580c 14%,var(--card));color:#ea580c;font-size:14px}
+.school-ai-panel .school-ai-composer textarea,
+.school-ai-panel .school-ai-composer textarea:hover,
+.school-ai-panel .school-ai-composer textarea:focus,
+.school-ai-panel .school-ai-composer textarea:focus-visible{grid-column:2;min-height:44px;max-height:120px;padding:10px 2px 6px;border:0!important;outline:none!important;outline-offset:0!important;box-shadow:none!important;-webkit-box-shadow:none!important;appearance:none;-webkit-appearance:none;background:transparent;font-size:13px;line-height:1.45}
+.school-ai-composer textarea::placeholder{color:var(--t3)}
+.school-ai-composer-shell [data-ai-send],.school-ai-composer-shell [data-ai-stop]{position:relative;display:flex;align-items:center;justify-content:center;grid-column:3;grid-row:1;align-self:center;width:38px;height:38px;min-width:38px;min-height:38px;margin:0;padding:0!important;line-height:0;overflow:visible;border:0;border-radius:50%;background:#ea580c;color:#fff;box-shadow:none}
+.school-ai-composer-shell [data-ai-stop]{line-height:1;font-size:11px}
+.school-ai-composer-shell [data-ai-send]:hover,.school-ai-composer-shell [data-ai-stop]:hover{filter:brightness(1.08)}
+.school-ai-composer-shell [data-ai-send] svg{position:absolute;top:50%;left:50%;display:block;width:18px;height:18px;margin:0;transform:translate(-50%,-50%);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.school-ai-compose-footer{margin:0}.school-ai-compose-footer span{padding-right:4px;color:var(--t3);font-size:10px;opacity:1}
+.school-ai-compose-footer button:hover{background:var(--cbg);color:var(--cyan)}
+@keyframes school-ai-pulse{50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.school-ai-message.is-pending .school-ai-text::after{animation:none}}
+@media(max-width:650px){.school-ai-panel,.school-ai-panel.is-wide{width:calc(100vw - 16px);height:calc(100dvh - 32px)}.school-ai-header{padding:12px}.school-ai-header small{display:none}.school-ai-brand-mark{width:32px;height:32px;flex-basis:32px;font-size:16px}.school-ai-header-actions button{min-width:28px;height:28px;padding:0 6px;font-size:11px}.school-ai-quick{grid-template-columns:1fr}.school-ai-messages{padding:8px 12px}.school-ai-welcome{margin:28px 8px}.school-ai-composer{padding:10px 12px}.school-ai-model{display:none}}

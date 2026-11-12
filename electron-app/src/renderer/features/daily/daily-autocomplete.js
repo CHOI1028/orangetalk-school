@@ -5,6 +5,7 @@ import { renderDaily, syncDailySelectedDate, _normName, _isChosungQuery, _getCho
 import { openSymptomCategoryPopup } from '../symptom/symptom-view.js';
 import { bus } from '../../core/event-bus.js';
 import { S, addRecord } from '../../core/app-state.js';
+import { allocateTemporaryDailyId } from '../../core/daily-record-access.js';
 import { playCautionSound } from '../../core/ui-utils.js';
 import { persistCareRegistration, applyCareResult } from '../../core/care-registration.js';
 import { getDailyPeriodRegistrationDate, closeDailyPeriodSearch } from './daily-period-view.js';
@@ -786,7 +787,7 @@ export async function selectStudent(id, _preDate){
   const _curUser=S._currentUser||JSON.parse(localStorage.getItem('ec_user')||'{}');
   const _pType=(s&&s.type==='staff')?'staff':'student';
   /* v9: personUid/personType. studentId は backwards-compat alias */
-  const newRec={id:S.nextId++,date:_regDate,timeIn:timeIn,timeOut:timeOut,personUid:id,personType:_pType,studentId:id,symptoms:[],treatment:[],medication:'',temp:'',bp:'',result:'return',nurse:_curUser.name||S.settings.nurse1||'',nursePosition:_curUser.position||'',nurseId:_curUser.id||null,dept:'',vipTags:[],_autoCreated:true};
+  const newRec={id:allocateTemporaryDailyId(),date:_regDate,timeIn:timeIn,timeOut:timeOut,personUid:id,personType:_pType,studentId:id,symptoms:[],treatment:[],medication:'',temp:'',bp:'',result:'return',nurse:_curUser.name||S.settings.nurse1||'',nursePosition:_curUser.position||'',nurseId:_curUser.id||null,dept:'',vipTags:[],_autoCreated:true};
   S._lastRegisteredRecId=newRec.id;
   S.dailySortOrder='desc';
   S._dailySortCol='timeIn';

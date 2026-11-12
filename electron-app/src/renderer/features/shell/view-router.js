@@ -19,16 +19,7 @@ import { trSwitchSub } from '../training/training-view.js';
 let _svInitialized=false;
 
 export function switchView(view, btn){
-  /* 매직 스테이션은 베타 단계에서 미공개 — 진입 차단 + 토스트만 표시.
-     내부 개발/테스트 우회: DevTools 콘솔에서
-       localStorage.setItem('ec_magic_unlock','1')   ← 잠금 해제
-       localStorage.removeItem('ec_magic_unlock')    ← 다시 잠금
-     (main 브랜치 = 잠금 유지. magic-station-open 병합 시 이 게이트가 열린 버전으로
-      덮이지 않도록 주의 — 정식 빌드는 반드시 이 잠금 상태로. 2026-08-25) */
-  if (view === 'magic' && localStorage.getItem('ec_magic_unlock') !== '1') {
-    bus.emit('toast:show', { text: '매직 스테이션은 준비 중입니다.', kind: 'info' });
-    return;
-  }
+  /* 설문 편집·로컬 저장은 항상 사용 가능. 온라인 게시는 서버 응답을 확인한 뒤 완료 처리한다. */
   if(view!=='daily')closeDailyPeriodSearch(false);
   S.currentView = view;
   try{ floatingPostitOnViewChange(view); }catch(_){}

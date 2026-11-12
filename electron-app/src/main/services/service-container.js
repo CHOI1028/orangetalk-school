@@ -15,6 +15,7 @@ const { AppConfigService, CredentialStore } = require('./infra-config-service');
 const { NewsletterRenderService, ScreenCaptureService } = require('./rendering-service');
 const { PastHistoryService, TbTestService } = require('./import-service');
 const { KioskWsService } = require('./kiosk-ws-service');
+const { SurveyPublishingService } = require('./survey-publishing-service');
 const { CustomBackupService } = require('./custom-backup-service');
 
 /**
@@ -226,7 +227,7 @@ class ServiceContainer {
 
   surveyForms() {
     if (!this._svc.surveyForms) {
-      this._svc.surveyForms = new SurveyFormService(this.healthDb(), this.folders());
+      this._svc.surveyForms = new SurveyFormService(this.healthDb(), this.folders(), this.store());
     }
     return this._svc.surveyForms;
   }
@@ -236,6 +237,11 @@ class ServiceContainer {
       this._svc.surveyResponses = new SurveyResponseService(this.healthDb());
     }
     return this._svc.surveyResponses;
+  }
+
+  surveyPublishing() {
+    if (!this._svc.surveyPublishing) this._svc.surveyPublishing = new SurveyPublishingService(this.store(), this.surveyResponses());
+    return this._svc.surveyPublishing;
   }
 
   statsDB() {
@@ -311,6 +317,7 @@ class ServiceContainer {
     this._svc.recordsDB = null;
     this._svc.surveyForms = null;
     this._svc.surveyResponses = null;
+    this._svc.surveyPublishing = null;
     this._svc.statsDB = null;
     this._svc.tbTest = null;
     this._svc.pastHistory = null;
