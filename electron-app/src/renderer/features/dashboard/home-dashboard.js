@@ -235,8 +235,9 @@ function _renderHomeWidgetCard(wid, ctx){
   const content=_renderWidget(wid, ctx.todayRecs, ctx.ay, ctx.today);
   const conciseTitles={todayTreat:'오늘 처치',gradeVisit:'학년별 방문',timetableSearch:'학교 시간표',schoolStats:'학교 현황',birthday:'이번 주 생일',caution:'요보호 학생',frequent:'반복 방문',wxalert:'기상·보건 알림',infectTrend:'감염병 유행'};
   const _wIcon=def.icon||'📋', _wTitle=conciseTitles[wid]||def.title||def.name||'';
+  const headerAction=wid==='infectTrend'?'<button type="button" class="school-widget-heading-link" data-action="open-infect-detail">지역·기간별 자세히 보기</button>':'';
   return '<div class="cc home-widget-card" data-widget-id="'+wid+'" data-widget-group="'+groupKey+'" style="padding:16px;min-height:120px;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s">'
-    +_hwHeader(_wIcon,_wTitle,'',_hwInfoIcon(wid))
+    +_hwHeader(_wIcon,_wTitle,headerAction,_hwInfoIcon(wid))
     +'<div class="school-widget-body">'+content+'</div>'
     +'</div>';
 }
@@ -1169,20 +1170,19 @@ function _retryInfectTrend(){
 function _wInfectTrend(){ return _wInfectTrendBody(); }
 function _wInfectTrendBody(){
   if(!getPublicDataApiKey('kdca')) return _schoolWidgetApiState('kdca','우리 지역의 감염병 발생 현황을 확인할 수 있어요. 공공데이터 인증키와 서비스 활용승인이 필요해요.');
-  const detail=_schoolWidgetButton('open-infect-detail','지역·기간별 자세히 보기',true);
   const retry=_schoolWidgetButton('retry-infect-trend','다시 조회',true);
   const year=new Date().getFullYear(),sido=userSidoCd(),key=getInfectiousRequestKey(year,sido);
   if(_infectCache&&(_infectCache.key!==key||Date.now()-_infectCache.fetchedAt>=INFECTIOUS_CACHE_TTL_MS)) _infectCache=null;
   if(_infectCache){
     const c=_infectCache.result;
     if(c.error==='no-key') return _schoolWidgetApiState('kdca','우리 지역 감염병 현황을 조회하려면 공공데이터 인증키를 등록해 주세요.');
-    if(c.error) return _schoolWidgetState('error','감염병 현황을 확인하지 못했어요',getInfectiousErrorMessage(c),retry+detail);
-    if(!c.rows||!c.rows.length) return _schoolWidgetState('empty','조회된 발생 자료가 없어요',String(c.year)+'년 '+(c.sidoNm||'설정 지역')+' 조회 결과예요. 자료가 없다는 것이 발생이 없다는 뜻은 아니에요.',retry+detail);
+    if(c.error) return _schoolWidgetState('error','감염병 현황을 확인하지 못했어요',getInfectiousErrorMessage(c),retry);
+    if(!c.rows||!c.rows.length) return _schoolWidgetState('empty','조회된 발생 자료가 없어요',String(c.year)+'년 '+(c.sidoNm||'설정 지역')+' 조회 결과예요. 자료가 없다는 것이 발생이 없다는 뜻은 아니에요.',retry);
     let h='<div class="school-infect"><div class="school-widget-dateline"><span>'+escHtml(c.sidoNm||'전국')+' · '+escHtml(String(c.year))+'년</span><span class="school-widget-status">발생 상위</span></div><ol class="school-infect-list">';
     c.rows.forEach(function(x,i){
       h+='<li><span class="school-infect-rank">'+(i+1)+'</span><span class="school-infect-name">'+escHtml(x.icdNm)+'</span><strong>'+escHtml(Number(x.val).toLocaleString('ko-KR'))+'<small>건</small></strong></li>';
     });
-    return h+'</ol><p class="school-widget-note">지역 전체 발생 자료로, 우리 학교의 감염병 기록과는 달라요.</p><div class="school-widget-actions">'+detail+'</div></div>';
+    return h+'</ol><p class="school-widget-note">지역 전체 발생 자료로, 우리 학교의 감염병 기록과는 달라요.</p></div>';
   }
   if(!_infectLoading||_infectLoading.key!==key) _loadInfectTrend(year,sido,key,false);
   return _schoolWidgetState('loading','지역 감염병 현황을 가져오고 있어요','조회가 끝나면 해당 연도의 발생 상위 항목을 보여드려요.');

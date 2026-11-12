@@ -70,7 +70,27 @@ app.whenReady().then(async()=>{
   await js("document.getElementById('ifOfflineGuide').click()");
   await check("document.querySelectorAll('#ifGuideResults button').length===133 && Array.from(document.querySelectorAll('#ifGuideResults button')).every(b=>b.scrollHeight<=b.clientHeight+1 && b.querySelector('span').getBoundingClientRect().bottom<=b.getBoundingClientRect().bottom)");
   await shot('guide-list');
-  await js("const list=document.getElementById('ifGuideResults');list.scrollTop=list.scrollHeight;list.lastElementChild.click()");
+  await js("document.querySelector('#ifGuideResults button').click()");
+  await shot('guide-short');
+  await check(`(()=>{
+    const box=document.getElementById('infectBox').getBoundingClientRect();
+    const card=document.querySelector('#ifGuideDetail .if-detail-card').getBoundingClientRect();
+    const actions=document.querySelector('.if-guide-actions').getBoundingClientRect();
+    const source=document.querySelector('.if-source-title').getBoundingClientRect();
+    const list=document.getElementById('ifGuideResults').getBoundingClientRect();
+    const fixed=Math.min(820,window.innerHeight*0.9);
+    return Math.abs(box.height-fixed)<2 && box.bottom-source.bottom<40 && Math.abs(list.height-card.height)<4 && source.top-card.bottom<28 && actions.top>=card.top && actions.bottom<=box.bottom-4;
+  })()`);
+  await js("document.getElementById('ifGuideQuery').value='백일해';document.getElementById('ifGuideQuery').dispatchEvent(new Event('input'))");
+  await shot('guide-long');
+  await check(`(()=>{
+    const box=document.getElementById('infectBox').getBoundingClientRect();
+    const card=document.querySelector('#ifGuideDetail .if-detail-card');
+    const actions=card.querySelector('.if-guide-actions');
+    const overflow=getComputedStyle(card).overflowY;
+    return Math.abs(box.height-Math.min(820,window.innerHeight*0.9))<2 && (overflow==='auto'||overflow==='scroll') && card.scrollHeight>card.clientHeight+8 && actions.offsetParent===card && actions.offsetTop+actions.offsetHeight<=card.scrollHeight;
+  })()`);
+  await js("document.getElementById('ifGuideQuery').value='';document.getElementById('ifGuideQuery').dispatchEvent(new Event('input'));const list=document.getElementById('ifGuideResults');list.scrollTop=list.scrollHeight;list.lastElementChild.click()");
   await check("document.getElementById('ifGuideDetail').textContent.includes(document.querySelector('#ifGuideResults button:last-child strong').textContent)");
   await js("document.getElementById('ifGuideQuery').value='B01.9';document.getElementById('ifGuideQuery').dispatchEvent(new Event('input'))");
   await check("document.getElementById('ifGuideDetail').textContent.includes('최소 5일') && !document.getElementById('ifApplyDisease') && requests.length===0");

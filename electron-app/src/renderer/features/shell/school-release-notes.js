@@ -2,6 +2,16 @@
 /* Keep prior entries when adding a release. Only the newest four are displayed. */
 export const SCHOOL_RELEASE_NOTES = [
   {
+    "version": "1.1.20",
+    "title": "매직 스테이션 설문·연수와 AI 도우미, 감염병 조회 개선",
+    "changes": [
+      "매직 스테이션에 설문지를 만들어 열어 두고 응답을 받을 수 있는 온라인 설문 기능을 추가했습니다.",
+      "매직 스테이션에 연수 기록을 남기고 이수 현황을 확인할 수 있는 기능을 추가했습니다.",
+      "오렌지톡 AI 도우미를 추가했습니다. 개인 Gemini API 키를 등록한 뒤, 사용자를 선택하면 우측 하단에서 사용할 수 있습니다.",
+      "감염병 발생 현황 검색을 개선하고, 지역·기간별 자료를 더 자세히 볼 수 있도록 보완했습니다."
+    ]
+  },
+  {
     "version": "1.1.19",
     "title": "보건일지 출력 및 기록 저장 안정화",
     "changes": [
@@ -127,9 +137,9 @@ function compareReleaseVersions(a, b) {
 }
 
 export function renderSchoolReleaseNotes(root = document) {
-  const releases = SCHOOL_RELEASE_NOTES.slice()
-    .sort(compareReleaseVersions)
-    .slice(0, VISIBLE_RELEASE_LIMIT);
+  const current = SCHOOL_RELEASE_NOTES[0];
+  const older = SCHOOL_RELEASE_NOTES.slice(1).sort(compareReleaseVersions);
+  const releases = [current, ...older].filter(Boolean).slice(0, VISIBLE_RELEASE_LIMIT);
 
   root.querySelectorAll('[data-school-release-notes]').forEach(function (container) {
     const fragment = document.createDocumentFragment();

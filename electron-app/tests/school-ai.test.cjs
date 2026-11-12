@@ -24,9 +24,14 @@ function fixture(t, options = {}) {
 const result = (scope, action, query, answer) => ({ text: JSON.stringify({ scope, action, query, answer }), tokens: 300 });
 function packet(body) {
   const input = body.input;
-  if (typeof input === 'string') return JSON.parse(input);
-  const text = input.filter(item => item.type === 'user_input').at(-1).content[0].text;
-  return JSON.parse(text);
+  const text = typeof input === 'string' ? input : input.filter(item => item.type === 'user_input').at(-1).content[0].text;
+  try { return JSON.parse(text); } catch (_) {}
+  const marker = text.lastIndexOf('\n참고JSON\n');
+  if (marker >= 0) {
+    const data = JSON.parse(text.slice(marker + '\n참고JSON\n'.length));
+    return { question: text.slice(0, marker).trim(), ...data };
+  }
+  return { question: text };
 }
 test('personal key is encrypted, never returned, and survives reload', t => {
   const { directory, store } = fixture(t);
@@ -79,7 +84,7 @@ test('program questions remain natural with only relevant guides and one API cal
   assert.equal(response.success, true); assert.equal(calls.length, 1);
   const data = packet(calls[0]); assert(data.verifiedGuides.some(g => g.id === 'daily'));
   assert(data.verifiedGuides.length <= 3); assert(!data.verifiedGuides.some(g => g.id === 'kiosk'));
-  assert.equal(calls[0].store, false); assert.equal(calls[0].response_format.mime_type, 'application/json');
+  assert.equal(calls[0].store, false); assert.equal(calls[0].response_format, undefined);
   assert.equal(response.usage.tokens, 500);
 });
 test('only backend conversation is used, arbitrary client records/system/history are ignored', async t => {
@@ -259,7 +264,9 @@ test('casual conversation does not send manuals or inherit program citations', a
   assert(response.success); assert.deepEqual(response.sources, []);
   const input = packet(captured[0]);
   assert.deepEqual(input.verifiedGuides, []); assert.equal(input.guideIndex, undefined);
+  assert.equal(captured[0].input.find(item => item.type === 'model_output').content[0].text, '설문 편집을 여세요.');
   assert.equal(captured[0].generation_config.max_output_tokens, 512);
+  assert.equal(response.contextOmitted, false);
 });
 
 test('clinical intent is refused after semantic assessment, not remembered or looked up', async t => {
@@ -370,20 +377,16 @@ function grounded(text = '공식 교육자료에서 확인한 내용입니다.')
     { type: 'model_output', content: [{ type: 'text', text, annotations: [{ type: 'url_citation', title: '질병관리청', url: 'https://www.kdca.go.kr/' }] }] }
   ] };
 }
-test('official web lookup uses one extra call, passes only public query and retains attribution', async t => {
+test('official web lookup stays on the first call and retains attribution', async t => {
   const bodies = [];
-  const { service } = fixture(t, { provider: async (_f, _k, body) => {
-    bodies.push(body); return bodies.length === 1 ? result('health', 'web', '질병관리청 손씻기 교육자료', '') : grounded();
-  } });
+  const { service } = fixture(t, { provider: async (_f, _k, body) => { bodies.push(body); return grounded(); } });
   service.history.push({ question: 'PRIVATE_PAST', answer: 'PRIVATE_ANSWER', scope: 'health' });
   const response = await service.chat({ message: '최신 손씻기 공식 교육자료 찾아줘' });
-  assert(response.success); assert.equal(bodies.length, 2);
-  assert.equal(bodies[1].input, '질병관리청 손씻기 교육자료'); assert(!JSON.stringify(bodies[1]).includes('PRIVATE'));
-  assert.deepEqual(bodies[1].tools, [{ type: 'google_search' }]); assert(!bodies[1].response_format);
-  assert.equal(response.sources[0].kind, 'web'); assert.equal(response.searchSuggestions.length, 1);
+  assert(response.success); assert.equal(bodies.length, 1);
+  assert.deepEqual(bodies[0].tools, [{ type: 'google_search' }]); assert(!bodies[0].response_format);
+  assert(response.sources.some(source => source.kind === 'web')); assert.equal(response.searchSuggestions.length, 1);
   assert.equal(service.history.at(-1).answer, '공식 교육자료에서 확인한 내용입니다.');
   assert.equal(service.history.at(-1).web, true);
-  assert(!JSON.stringify(bodies[1]).includes('공식 교육자료에서 확인한 내용입니다.'));
 });
 test('clinical intent cannot invoke web search; sensitive search queries fail before search dispatch', async t => {
   let count = 0;
@@ -507,9 +510,9 @@ test('a situation statement does not carry the program catalog', async t => {
 test('bundled quick prompts answer from guides without a model call', async t => {
   const { service, calls } = fixture(t);
   const response = await service.chat({ message: '이 프로그램의 주요 기능을 쉽게 설명해 줘' });
-  assert.equal(response.local, true); assert.equal(calls.length, 0);
-  assert.match(response.answer, /보건실 홈/); assert.doesNotMatch(response.answer, /안내 ID/);
-  assert(response.sources.some(source => source.kind === 'program'));
+  assert.equal(calls.length, 1);
+  assert(packet(calls[0]).verifiedGuides.some(guide => guide.id === 'overview'));
+  assert.match(response.answer, /기간을 선택|보건일지/);
 });
 
 test('an incomplete web search keeps a bounded answer instead of failing the turn', async t => {
@@ -526,7 +529,7 @@ test('program help and small talk skip search, while weather still searches', as
     const question = packet(body).question;
     if (question.includes('출력')) return result('program', 'web', '오렌지톡 매뉴얼', '보건일지에서 기간을 골라 출력합니다.');
     if (question.includes('고마워')) return result('casual', 'web', '감사 인사', '천만에요. 필요한 이야기를 이어서 해 주세요.');
-    return result('casual', 'web', '서울 날씨', '');
+    return grounded('서울은 흐리고 비가 올 수 있습니다.');
   } });
   const program = await service.chat({ message: '보건일지 출력 방법' });
   assert.equal(bodies.length, 1); assert.match(program.answer, /기간을 골라 출력/);
@@ -534,18 +537,18 @@ test('program help and small talk skip search, while weather still searches', as
   assert.equal(bodies.length, 2); assert.match(thanks.answer, /천만에요/);
   assert(bodies.every(body => !body.tools));
   const weather = await service.chat({ message: '오늘 서울 날씨 알려줘' });
-  assert.equal(bodies.length, 4); assert.equal(bodies[3].input, '서울 날씨');
-  assert.equal(bodies[3].tools[0].type, 'google_search');
+  assert.equal(bodies.length, 3);
+  assert.equal(bodies[2].tools[0].type, 'google_search');
   assert.match(weather.answer, /서울은 흐리고/);
 });
 
-test('the survey chip is local and the education chip still calls the model', async t => {
+test('quick prompts reach Gemini with the matching guides', async t => {
   const { service, calls } = fixture(t);
   const survey = await service.chat({ message: '설문을 만들어 QR로 배포하는 방법을 알려 줘' });
-  assert.equal(survey.local, true); assert.equal(calls.length, 0);
-  assert.match(survey.answer, /QR/); assert.doesNotMatch(survey.answer, /AI는|안내 ID/);
+  assert.equal(survey.local, undefined); assert.equal(calls.length, 1);
+  assert(packet(calls[0]).verifiedGuides.some(guide => guide.id === 'survey-create'));
   const draft = await service.chat({ message: '초등학생 손 씻기 보건교육 안내문을 작성해 줘' });
-  assert.equal(draft.local, undefined); assert.equal(calls.length, 1);
+  assert.equal(draft.local, undefined); assert.equal(calls.length, 2);
 });
 
 test('a bundled answer does not change history while another answer is in flight', async t => {
@@ -556,4 +559,52 @@ test('a bundled answer does not change history while another answer is in flight
   assert.equal(local.code, 'BUSY'); assert.equal(service.history.length, 0);
   service.reset(); resolve(result('program', 'answer', '', 'late answer'));
   assert.equal((await pending).code, 'CANCELLED'); assert.equal(service.history.length, 0);
+});
+
+test('a located weather question searches on the same call and does not send a second request', async t => {
+  const bodies = [];
+  const { service } = fixture(t, { provider: async (_f, _k, body) => {
+    bodies.push(body);
+    return result('casual', 'answer', '', '외부 인터넷이 연동되어 있지 않아요.');
+  } });
+  const response = await service.chat({ message: '오늘 경기도 남양주시 날씨를 알려줘' });
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].tools[0].type, 'google_search');
+  assert.match(packet(bodies[0]).conversationIntent, /날씨/);
+  assert.doesNotMatch(response.answer, /인터넷/);
+  assert.match(response.answer, /확인하지 못했습니다/);
+  assert.equal(response.contextOmitted, false);
+});
+
+test('weather without a region asks for the place instead of searching', async t => {
+  let calls = 0;
+  const { service } = fixture(t, { provider: async () => { calls++; return result('casual', 'answer', '', '실시간 날씨를 조회할 수 없습니다.'); } });
+  const response = await service.chat({ message: '오늘 날씨 알려줘' });
+  assert.equal(calls, 1);
+  assert.match(response.answer, /어느 지역/);
+});
+
+test('a current infectious-disease question searches on the same call', async t => {
+  const bodies = [];
+  const { service } = fixture(t, { provider: async (_f, _k, body) => {
+    bodies.push(body);
+    return grounded('질병관리청 발생현황에서 이번 절기 인플루엔자 의사환자 분율이 올랐습니다.');
+  } });
+  const response = await service.chat({ message: '올해에 발병률이 높고 가장 위험한 감염병이 뭐야?' });
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].tools[0].type, 'google_search');
+  assert.match(response.answer, /인플루엔자/);
+  assert(response.sources.some(source => source.kind === 'web'));
+});
+
+test('an API key question stays on the product guide after casual talk', async t => {
+  const bodies = [];
+  const { service } = fixture(t, { provider: async (_f, _k, body) => { bodies.push(body); return result('program', 'answer', '', '환경설정에서 등록하는 접속 자격입니다.'); } });
+  service.history.push({ question: '오늘 점심 뭐 먹을까?', answer: '샌드위치 어떠세요?', scope: 'casual' });
+  const response = await service.chat({ message: 'api키가 무슨 뜻이야?' });
+  const data = packet(bodies[0]);
+  assert(data.verifiedGuides.some(guide => guide.id === 'settings'));
+  assert.match(data.conversationIntent, /로그인 비밀번호가 아니다/);
+  assert.match(response.answer, /환경설정/);
+  assert.equal(response.contextOmitted, false);
 });

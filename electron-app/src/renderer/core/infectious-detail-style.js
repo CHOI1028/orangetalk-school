@@ -15,7 +15,7 @@ export const infectiousDetailStyles = `
 #infectBox .if-results{max-height:350px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:3px}#infectBox .if-results button{flex:0 0 auto;display:block;height:auto;min-width:0;white-space:normal;text-align:left;line-height:1.6;padding:11px 13px;overflow-wrap:anywhere}#infectBox .if-results strong{display:block}#infectBox .if-results span{display:block;font-size:11px;color:var(--t3)}
 #infectBox .if-results button[aria-pressed=true]{border-color:#e77740;background:var(--if-soft)}#infectBox .if-detail-card{padding:22px;border:1px solid var(--bdr);border-radius:12px;line-height:1.7}
 #infectBox .if-badge{display:inline-block;flex-shrink:0;font-size:11px;font-weight:700;color:var(--if-orange);background:var(--if-soft);padding:4px 9px;border-radius:6px}#infectBox .if-code{font-size:12px;color:var(--t3);overflow-wrap:anywhere}
-#infectBox .if-guide-sections{display:grid;grid-template-columns:1fr;gap:20px;border-top:1px solid var(--bdr);padding-top:18px;margin-top:18px}#infectBox .is-single .if-guide-sections{grid-template-columns:1.5fr 1fr;gap:30px}
+#infectBox .if-guide-sections{display:grid;grid-template-columns:1fr;gap:20px;border-top:1px solid var(--bdr);padding-top:18px;margin-top:18px}#infectBox .is-single .if-guide-sections{grid-template-columns:1fr;gap:14px}
 #infectBox .if-guidance{background:var(--bg2,#f6f7f9);padding:16px;border-radius:10px;font-size:14px;line-height:1.8;margin:0}#infectBox .if-checklist{list-style:none;padding:0;margin:0;display:grid;gap:9px}#infectBox .if-checklist li{padding-left:19px;position:relative}#infectBox .if-checklist li:before{content:'•';position:absolute;left:2px;color:var(--if-orange)}
 #infectBox .if-guide-actions{display:flex;align-items:center;gap:18px;border-top:1px solid var(--bdr);margin-top:20px;padding-top:16px;flex-wrap:wrap}#infectBox .if-guide-actions a{font-weight:700;font-size:13px}#infectBox .if-empty{padding:50px 20px;text-align:center;color:var(--t3);line-height:1.8}
 #infectBox .if-apply{border:1px solid var(--bdr);border-radius:10px;padding:16px;margin-top:14px;font-size:12px}#infectBox .if-replace{display:flex;flex-direction:row;align-items:flex-start;margin:14px 0;font-weight:400;line-height:1.65}#infectBox .if-replace input{min-height:0;margin:4px 0 0;flex-shrink:0}#infectBox .if-primary{background:var(--if-orange);color:#fff;border-color:var(--if-orange);font-weight:700}#infectBox .if-primary:hover:not(:disabled){background:#b5451a;color:white}
@@ -64,6 +64,17 @@ export const infectiousDetailStyles = `
 #infectBox .if-checklist li:before{color:var(--if-orange)}
 #infectBox .if-apply{background:color-mix(in srgb,var(--card,#fff) 92%,#c7e5d8);border:1px solid var(--bdr)}
 #infectBox .if-guide-actions{gap:12px}#infectBox .if-guide-actions a{font-size:12px}
+#infectBox .if-disease-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#infectBox .if-report{font-size:12px;font-weight:700;color:var(--t2)}
+#infectBox a.if-more,#infectBox a.if-quiet{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 14px;border-radius:9px;font-weight:700;text-decoration:none}
+#infectBox a.if-more{background:#216b58;color:#fff}
+#infectBox a.if-more:hover{background:#185544;color:#fff;text-decoration:none}
+#infectBox a.if-quiet{border:1px solid var(--bdr);background:var(--card,#fff);color:var(--t1)}
+#infectBox a.if-quiet:hover{border-color:var(--if-orange);background:var(--if-soft);color:var(--t1);text-decoration:none}
+#infectBox .if-facts{margin:12px 0 4px}#infectBox .if-facts strong{font-size:16px;overflow-wrap:break-word}
+#infectBox .if-subhead{margin-top:14px}#infectBox .if-disclaimer{margin:12px 0 0}
+#infectBox .if-insight{margin:0 0 12px;padding:8px 12px;border-radius:8px;background:var(--if-soft);color:var(--t2);font-size:12px;line-height:1.6}
+#infectBox .if-bar-track i.is-on{min-width:6px}
 #infectBox .if-region-bars button,#infectBox .if-table-wrap button{min-height:0;padding:5px 0;border:0;border-radius:0;font-weight:500;background:none}
 /* Keep chart content independent of surrounding workspace layout. */
 #infectBody{padding:16px 20px;display:block}
@@ -91,7 +102,7 @@ export const infectiousDetailStyles = `
 #infectBox .if-guide-grid{gap:16px;margin-top:10px}
 #infectBox .if-detail-card{padding:16px}
 #infectBox .if-guide-sections{gap:14px;margin-top:12px;padding-top:12px}
-#infectBox .if-guide-actions{margin-top:14px;padding-top:12px}
+#infectBox .if-guide-actions{margin-top:16px;padding-top:14px;border-top:1px solid var(--bdr)}
 #infectBox input::placeholder{color:var(--t3);opacity:1}
 #infectBox :focus-visible{outline-color:var(--if-peak)}
 body:not(.light) #infectBox{--if-orange:#7ddbc7;--if-soft:rgba(125,219,199,.1);--if-bar:#80b9cd;--if-peak:#45c6cd;--t3:#b2c1d1;color-scheme:dark}
@@ -99,7 +110,21 @@ body:not(.light) #infectBox .if-bar-track{background:#2c3c50}
 body:not(.light) #infectBox .if-tabs button[aria-pressed=true],body:not(.light) #infectBox .if-results button[aria-pressed=true]{border-color:#548f83}
 body:not(.light) #infectBox .if-primary{background:#246f5e;border-color:#58a693;color:#fff}
 body:not(.light) #infectBox .if-primary:hover:not(:disabled){background:#2b806c}
+body:not(.light) #infectBox a.if-more{background:#246f5e;color:#fff}
+body:not(.light) #infectBox a.if-more:hover{background:#2b806c;color:#fff}
+body:not(.light) #infectBox a.if-quiet{background:#243246;color:#e8eef6;border-color:#4d6278}
 body.light #infectBox{color-scheme:light}
 @media(max-width:800px){#infectBox .if-guide-grid{grid-template-columns:1fr}#infectBox .if-results{max-height:160px}#infectBox .if-age-picker{flex-wrap:wrap}#infectBox .if-age-picker label{max-width:none}#infectBox .if-age-picker p{flex-basis:100%;margin:0}#infectBox .is-single .if-guide-sections{grid-template-columns:1fr;gap:14px}}
 @media(max-width:520px){#infectBox header,#infectBody,#infectCtrl{padding:12px}#infectBox h2{font-size:17px}#infectBox .if-tabs{padding:6px;gap:3px}#infectBox .if-tabs button{padding:7px 4px;font-size:11px}#infectBox .if-detail-card{padding:12px}#infectBox .if-metrics>div{padding:9px 8px}#infectBox .if-metrics strong{font-size:16px}#infectBox .if-bar-row{grid-template-columns:65px minmax(0,1fr) 96px;gap:6px;font-size:12px}#infectBox .if-period-bars .if-bar-row{grid-template-columns:94px minmax(0,1fr) 64px}#infectBox .if-region-bars .if-bar-row{grid-template-columns:minmax(100px,1fr) minmax(0,1fr) 68px}#infectBox .if-chart-heading h3{font-size:17px}#infectBox .if-age-picker{padding:10px;gap:10px}#infectBox .if-context>div{gap:4px}#infectBox .if-context h3{font-size:14px}}
+#infectBox[data-view=guide] #infectBody{display:flex;flex-direction:column;overflow:hidden;flex:1 1 auto;min-height:0}
+#infectBox[data-view=guide] :is(.if-search,#ifGuideCount,.if-source-title){flex:0 0 auto}
+#infectBox[data-view=guide] #ifGuideCount{margin:4px 0}
+#infectBox[data-view=guide] .if-guide-grid{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
+#infectBox[data-view=guide] .if-guide-sidebar{min-height:0;height:100%;display:flex;flex-direction:column;overflow:hidden}
+#infectBox[data-view=guide] .if-guide-sidebar[hidden]{display:none}
+#infectBox[data-view=guide] .if-results{flex:1 1 auto;min-height:0;max-height:none;overflow:auto}
+#infectBox[data-view=guide] #ifGuideDetail{position:relative;min-height:0;height:100%;overflow:hidden}
+#infectBox[data-view=guide] .if-detail-card{position:absolute;top:0;left:0;right:0;height:100%;bottom:auto;min-height:0;overflow:auto}
+#infectBox[data-view=guide] .if-source-title{margin-top:10px;margin-bottom:0}
+@media(max-width:800px){#infectBox[data-view=guide] #infectBody{overflow:auto}#infectBox[data-view=guide] .if-guide-grid{flex:0 1 auto;grid-template-rows:auto}#infectBox[data-view=guide] .if-guide-sidebar{height:auto;overflow:visible}#infectBox[data-view=guide] .if-results{flex:0 1 auto;max-height:160px;height:auto}#infectBox[data-view=guide] #ifGuideDetail{position:static;height:auto;overflow:visible}#infectBox[data-view=guide] .if-detail-card{position:static;inset:auto;height:auto;overflow:visible}}
 `;

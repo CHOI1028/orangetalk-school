@@ -38,7 +38,7 @@ export function renderPeriodTrend(body,rows,state,options) {
   const range=String(options.startYear)===String(options.endYear)?options.startYear+'년':options.startYear+'~'+options.endYear+'년';
   if(state.query==null)state.query=cleanDiseaseLabel(options.initialQuery);
   body.innerHTML='<div class="if-context"><div><span class="if-eyebrow">질병관리청 발생 통계</span><h3>전국 · '+esc(range)+' · '+unit+'</h3></div></div>'
-    +'<div class="if-age-layout"><aside class="if-age-picker"><label>질병 찾기<input id="ifPeriodQuery" autocomplete="off" placeholder="질병명·별칭·KCD" value="'+esc(state.query)+'"></label><label>질병 선택<select id="ifPeriodDisease"></select></label><p id="ifPeriodCount" class="if-muted" role="status"></p></aside>'
+    +'<div class="if-age-layout"><aside class="if-age-picker"><label>목록에서 찾기<input id="ifPeriodQuery" autocomplete="off" placeholder="질병명·별칭·KCD" value="'+esc(state.query)+'"></label><label>질병 선택<select id="ifPeriodDisease"></select></label><p id="ifPeriodCount" class="if-muted" role="status"></p></aside>'
     +'<section id="ifPeriodChart" aria-label="선택 질병의 기간별 발생 추이"></section></div>';
   const input=body.querySelector('#ifPeriodQuery'),select=body.querySelector('#ifPeriodDisease'),chart=body.querySelector('#ifPeriodChart');
   function draw(){
@@ -47,12 +47,14 @@ export function renderPeriodTrend(body,rows,state,options) {
     if(!d){chart.innerHTML='<div class="if-empty">일치하는 기간별 자료가 없습니다.</div>';return;}
     const allMissing=d.missing===d.values.length;
     const peak=d.peaks.length===1?d.peaks[0]:d.peaks.length>1?'공동 '+d.peaks.length+'개 기간':allMissing?'자료 없음':'해당 없음';
-    chart.innerHTML='<div class="if-chart-heading"><h3>'+esc(d.name)+'</h3><button type="button" id="ifPeriodGuide">질병 안내 보기 ↗</button></div>'
+    const peakValue=d.peaks.length===1?d.values.find(x=>x.period===d.peaks[0]):null;
+    const peakCount=peakValue&&peakValue.value!=null?peakValue.value.toLocaleString()+'<small> 명</small>':d.values.length+'<small>개</small>';
+    chart.innerHTML='<div class="if-chart-heading"><h3>'+esc(d.name)+'</h3><button type="button" id="ifPeriodGuide">질병 안내</button></div>'
       +'<div class="if-metrics"><div><span>'+(d.missing?'확인된 발생수':'조회 기간 합계')+'</span><strong>'+(allMissing?'자료 없음':d.total.toLocaleString()+'<small> 명</small>')+'</strong></div>'
-      +'<div><span>'+(d.missing?'확인된 자료 중 최다 기간':'발생수가 가장 많은 기간')+'</span><strong>'+esc(peak)+'</strong></div><div><span>집계 기간</span><strong>'+d.values.length+'<small>개</small></strong></div></div>'
+      +'<div><span>'+(d.missing?'확인된 자료 중 최다 기간':'발생수가 가장 많은 기간')+'</span><strong>'+esc(peak)+'</strong></div><div><span>'+(peakValue?'그때 발생수':'집계 기간')+'</span><strong>'+peakCount+'</strong></div></div>'
       +(d.missing?'<p class="if-note">'+d.missing+'개 기간 미제공 · 합계 일부</p>':d.total===0?'<p class="if-note">조회된 모든 기간 0명</p>':'')
       +'<div class="if-chart-legend"><span>기간 · 시간순</span><span>발생수(명)</span></div><div class="if-period-bars" role="list" aria-label="기간별 발생수">'
-      +d.values.map(x=>'<div class="if-bar-row'+(x.value===d.max&&d.max>0?' is-peak':'')+'" role="listitem"><span class="if-bar-label">'+esc(x.period)+'</span><div class="if-bar-track" aria-hidden="true"><i style="width:'+(d.max&&x.value!=null?100*x.value/d.max:0)+'%"></i></div><span class="if-bar-value">'+(x.value==null?'자료 없음':x.value.toLocaleString()+'명')+'</span></div>').join('')+'</div>'
+      +d.values.map(x=>'<div class="if-bar-row'+(x.value===d.max&&d.max>0?' is-peak':'')+'" role="listitem"><span class="if-bar-label">'+esc(x.period)+'</span><div class="if-bar-track" aria-hidden="true"><i'+(x.value>0?' class="is-on"':'')+' style="width:'+(d.max&&x.value!=null?100*x.value/d.max:0)+'%"></i></div><span class="if-bar-value">'+(x.value==null?'자료 없음':x.value.toLocaleString()+'명')+'</span></div>').join('')+'</div>'
       +'<details class="if-source-note"><summary>표로 자세히 보기</summary><table class="if-age-table"><thead><tr><th>기간</th><th>발생수(명)</th></tr></thead><tbody>'
       +d.values.map(x=>'<tr><td>'+esc(x.period)+'</td><td>'+(x.value==null?'자료 없음':x.value.toLocaleString())+'</td></tr>').join('')+'</tbody></table></details>';
     chart.querySelector('#ifPeriodGuide').addEventListener('click',()=>options.onGuide(d.name));

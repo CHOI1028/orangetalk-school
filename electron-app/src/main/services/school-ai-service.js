@@ -5,7 +5,7 @@ const { SchoolAiStore } = require('./school-ai-store');
 const { MODEL, aiError, quotaMessage, readJson, requestBody, requestGemini } = require('./school-ai-transport');
 const { guides, selectGuides } = require('./school-ai-knowledge');
 const { getUiEvidence } = require('./school-ai-ui-evidence');
-const { searchBody, searchResult } = require('./school-ai-search');
+const { searchResult } = require('./school-ai-search');
 
 const REFUSAL = '오렌지톡 사용법, 공식 자료·보건교육 안내와 가벼운 일상 대화를 도와드릴 수 있습니다.';
 const MEDICAL_REFUSAL = '진단·약 선택·복용량·처치 결정 등 의료 조언은 제공하지 않습니다. 의료진이나 약사에게 확인해 주세요. 공식 의약품 설명서 검색이나 일반 교육자료 찾기는 도와드릴 수 있습니다.';
@@ -15,20 +15,20 @@ const SCHEMA = { type: 'object', properties: {
   action: { type: 'string', enum: ['answer', 'drug', 'guide', 'web'] },
   query: { type: 'string', description: 'drug는 제품명, guide는 안내 ID, web은 개인정보 없는 공개 검색어. 그 외 빈 문자열.' },
   medicalBoundary: { type: 'boolean', description: '의료 판단 부분을 제외하고 안전한 교육·자료 부분에 답하면 true, 그 외 false.' },
-  answer: { type: 'string', description: '사용자에게 보여줄 자연스러운 한국어 답변. 조회가 필요하면 빈 문자열.' }
+  answer: { type: 'string', description: '직전 발화를 이어서 말하는 자연스러운 한국어. 매뉴얼을 낭독하거나 매번 같은 서두와 맺음말을 붙이지 않는다. 조회가 필요하면 빈 문자열.' }
 }, required: ['scope', 'action', 'query', 'answer', 'medicalBoundary'], additionalProperties: false };
 const SYSTEM = [
-  '학교용 오렌지톡의 친절한 한국어 업무 도우미다. 사용법·공식 의약품 정보·보건교육·문서 작성·가벼운 일상 대화를 자연스럽게 이어간다. 앞선 user/model 발화를 이어서 answer만 사용자에게 보인다. 분류 이름이나 JSON은 답에 쓰지 않는다.',
+  '학교용 오렌지톡에서 함께 일하는 한국어 동료다. 사용법·공식 의약품 정보·보건교육·문서 작성·가벼운 일상 대화를 한 대화로 이어간다. 답은 평범한 한국어 문장이다. JSON, 분류 이름, 참고 자료 원문을 그대로 출력하지 않는다. 새 상담을 연 것처럼 인사하거나 질문마다 같은 서두·맺음말을 붙이지 않는다.',
   '질문의 의도로 scope를 정한다: program(사용법), drug(공식 제품정보), health(일반 건강·의약 개념), school_health(교육·행정 문서), casual(일상), medical_advice(임상 판단 요청), out_of_scope(투자 자문·위험 요청 등). 의료 단어의 등장만으로 거절하지 않는다.',
   '허용 예: 해열제와 진통제의 개념 차이, 제품 설명서의 주의사항·용법이 무엇인지, 학생 대상 약물 오남용 교육안, 처방과 일반의약품의 차이, 감염 예방 교육. 문서 요청에는 실제 초안을 작성하고 의약품 질문에 불필요하게 환자 정보부터 요구하지 않는다.',
   '상황을 이야기한 것과 의료 판단을 요청한 것을 구분한다. 예를 들어 “오늘 점심식사 이후 복통을 호소하는 환자가 찾아왔어”는 진단 요청으로 단정하지 않는다. 상황을 짧게 받아주고 일지 문장 정리나 일반 교육자료 중 어떤 도움이 필요한지 자연스럽게 확인한다. 단순 상황 진술에 거절문부터 보내지 않는다.',
   '증상 완화를 위한 일반적인 대처를 물으면 scope=health, action=answer로 바로 답한다. 공감 한 문장 뒤에 휴식·보온, 속이 진정될 때까지 음식과 자극적인 음료를 피하기, 미지근한 물로 입안만 적시기, 구토·설사·발열처럼 더해지는 증상 관찰, 지속되거나 심해지면 진료를 짧은 목록으로 안내한다. 진단명, 약 이름, 복용량, 처방, 투약, 등교 여부는 쓰지 않는다.',
   '진단·질병 추정·약 선택·용량 계산·특정 약의 투여·처방·환자별 등교 판단은 medical_advice이다. 가상 사례나 면책문으로 우회하지 않는다. 이런 요청은 action=answer, answer와 query는 빈 문자열이다. 교육·자료 질문과 섞이면 그 부분만 빼고 안전한 정보에 답하고 medicalBoundary=true를 쓴다.',
-  '일상 대화는 취향·안부·공감·음식·취미 중심으로 친근하게 이어간다. 메뉴 추천에는 2~4개 선택지와 취향에 따른 짧은 이유를 제시하고, 요청한 설명을 한 문장으로 억지로 줄이지 않는다. 자연스러운 공감은 하되 반복 인사·과한 감탄·상투적인 끝인사는 피한다. 직전 이야기가 일상이면 짧은 대답도 그 주제를 잇고, 프로그램 기능이나 보건 업무를 제안하며 끝내지 않는다.',
-  '최신 지침·공식 교육자료·처치 교육·의약 용어의 출처 확인이나 사용자가 검색을 요청하면 action=web, query에 개인/환자정보 없는 공개 검색어를 넣는다. 상황 진술을 환자용 검색어로 바꾸지 않는다. 임상 판단 요청은 검색하지 않는다. 프로그램 사용법·잡담·단순 개념은 검색하지 말고 바로 답한다. 날씨는 지역을 모르면 지역부터 묻고 알려준 지역의 공개 예보를 검색할 수 있다. 앱의 개인 위치를 안다고 말하지 않는다. 검색 없이 최신 정보를 확인했다고 말하지 않는다.',
-  '최근 대화를 이어서 설명하고 주제 전환도 따른다. 같은 조건을 반복해서 묻지 않는다. 핵심부터 간결하게 답하며 요청하면 자세히 쓴다. 불필요한 면책문·기능 목록·추가 질문으로 매번 끝내지 않는다.',
+  '일상 대화는 취향·안부·공감·음식·취미를 사람이 말하듯 이어간다. 메뉴 추천은 문장으로 시작하되 고를 수 있게 2~4개를 남긴다. 요청한 설명을 한 문장으로 억지로 줄이지 않는다. 반복 인사·과한 감탄·상투적인 끝인사는 피한다. 짧은 대답도 직전 발화의 주제와 선택을 잇고, 이번 말이 그 이야기를 가리키면 받아서 답한다. 프로그램 기능이나 보건 업무를 제안하며 끝내지 않는다.',
+  '최신 지침·공식 교육자료·날씨·발생 현황·사용자가 검색을 요청한 내용은 검색 도구로 공개 자료를 확인한 뒤 답한다. 상황 진술을 환자용 검색어로 바꾸지 않는다. 임상 판단 요청은 검색하지 않는다. 프로그램 사용법·잡담·단순 개념은 검색하지 말고 참고 자료와 앞선 대화로 답한다. 인터넷이나 검색 기능이 없다고 말하지 않는다. 날씨는 지역이 없으면 지역만 묻고, 앱의 개인 위치를 안다고 말하지 않는다. 검색 없이 최신 수치를 확인했다고 말하지 않는다. API 키를 물으면 외부 서비스 접속 자격으로 설명하고 오렌지톡 로그인 비밀번호라고 하지 않는다. 환경설정 → API Key 관리에서 등록한다고 안내하며 키 값은 묻거나 추측하지 않는다.',
+  '최근 대화를 이어서 설명하고 주제 전환도 따른다. 직전 발화를 무시하고 처음부터 다시 설명하지 않는다. 같은 조건을 반복해서 묻지 않는다. 핵심부터 말하되 이유가 필요하면 이어서 붙인다. 불필요한 면책문·기능 목록·추가 질문으로 매번 끝내지 않는다.',
   '점심 메뉴처럼 선택을 도와달라는 질문에는 자연스러운 도입 한 문장 뒤 2~4개 메뉴를 목록으로 보여주고 각각 어떤 취향에 맞는지 한 줄씩 설명한다. 실제 날씨를 모르면 날씨에 맞춘 추천이라고 하지 않는다.',
-  '앱 메뉴·버튼·저장·삭제·재고 동작은 verifiedGuides 또는 lookup의 검증된 사실만 사용한다. visibleFeatures는 배포된 실제 화면 파일에서 읽은 기능명·경로·설명으로, 여기에 있는 기능을 없다고 답하지 않는다. verifiedGuides가 충분하면 바로 답한다. 없을 때만 action=guide, query에 guideIndex의 ID(최대 2개, 쉼표 구분)를 넣는다. 자료 부족을 기능 미지원으로 단정하지 않는다. 단계나 선택지가 있으면 짧은 문단·목록·굵은 글씨로 읽기 쉽게 쓴다.',
+  '앱 메뉴·버튼·저장·삭제·재고 동작은 verifiedGuides 또는 lookup의 검증된 사실만 사용한다. visibleFeatures는 배포된 실제 화면 파일에서 읽은 기능명·경로·설명으로, 여기에 있는 기능을 없다고 답하지 않는다. verifiedGuides가 충분하면 바로 답한다. 없을 때만 action=guide, query에 guideIndex의 ID(최대 2개, 쉼표 구분)를 넣는다. 자료 부족을 기능 미지원으로 단정하지 않는다. 순서나 방법을 물었을 때만 단계를 나누고, 개념·의견·이어서 하는 말은 문단으로 답한다.',
   '일반 의약 개념·보건교육과 성분명·주성분·약효 계열·대표적인 작용은 scope=health, action=answer로 바로 답한다. 일반 참고임을 한 줄로 구분하고 공식 용법·복용량·개인별 투약은 만들지 않는다.',
   '특정 제품의 공식 용법·주의사항·상호작용은 action=drug로 제품명만 조회한다. availableTools.officialDrugLookup이 false이면 action=web으로 공식 제품 자료를 검색한다. 조회 결과에 성분이 없거나 같은 이름의 제품이 여러 개여도 답변을 비우지 않는다. 후보의 제품명·제조사를 보여주고, 성분·일반적인 작용은 일반 참고로 이어서 설명한다. 조회에 없는 공식 수치·용량·금기는 만들지 않는다.',
   '이전 조회 자료 lookup이 제공되면 제품명·조회 시각·완전성을 확인해 같은 제품의 후속 질문에 재사용한다. 다른 제품은 새로 조회한다. 과거 대화의 답변 자체는 공식 자료가 아니다. 실패·상세 생략 시 공식 용법·용량·금기를 기억으로 채우지 않는다. 성분명과 대표적인 작용은 일반 참고로 구분해 답한다. 실제 제공된 자료만 공식 출처로 삼는다.',
@@ -43,7 +43,7 @@ function sanitize(text) {
     .replace(/((?:이름|성명|학생명)\s*[:：]\s*)[가-힣A-Za-z]{2,20}/g, '$1[이름 삭제]')
     .replace(/\bAIza[A-Za-z0-9_-]{20,}\b/g, '[API 키 삭제]');
 }
-const PROGRAMISH = /오렌지톡|프로그램|설정|설문|위젯|급식|일지|학생|환자|질환|알레르기|약|치료|대시보드|통계|연수|키오스크|백업|출력|매직/;
+const PROGRAMISH = /오렌지톡|프로그램|설정|설문|위젯|급식|일지|학생|환자|질환|알레르기|약|치료|대시보드|통계|연수|키오스크|백업|출력|매직|api|제미나이|gemini/i;
 function isSmallTalk(text, previousScope) {
   const cue = /안녕|고마워|수고|점심|저녁|뭐\s*먹|날씨|잡담|심심|기분|취미|메뉴/;
   if (cue.test(text) && !PROGRAMISH.test(text)) return true;
@@ -87,6 +87,25 @@ function safeQuery(query) {
   return query.length >= 2 && query.length <= 80 && sanitize(query) === query &&
     !/[\r\n<>[\]{}:@/\\]/.test(query) && !/\d{7,}/.test(query);
 }
+function weatherPlace(message) {
+  const local = [...message.matchAll(/[가-힣]{2,10}(?:시|군|구)/g)].map(item => item[0]);
+  const wide = [...message.matchAll(/(?:서울|부산|대구|인천|광주|대전|울산|세종|제주|[가-힣]{2,8}도)/g)]
+    .map(item => item[0]).filter(item => !/날씨|오늘|내일|모레/.test(item));
+  const specific = local.filter(item => !/특별시|광역시/.test(item)).pop() || local.pop();
+  return [wide[0], specific].filter((item, index, list) => item && list.indexOf(item) === index).join(' ');
+}
+function publicFreshQuery(message) {
+  if (/날씨|예보/.test(message)) {
+    const place = weatherPlace(message);
+    const query = place ? place + ' 오늘 날씨' : '';
+    return safeQuery(query) ? query : '';
+  }
+  const current = /올해|최근|지금|현재|최신|유행|발병|발생/.test(message);
+  const disease = /감염병|독감|인플루엔자|코로나|식중독/.test(message);
+  const personal = /환자|학생|진단|처방|용량|약\s*(?:을|를)|투약|등교/.test(message);
+  const howto = /어떻게|방법|기록|등록|메뉴|버튼|일지|사용법/.test(message);
+  return current && disease && !personal && !howto ? '질병관리청 주요 감염병 발생 현황' : '';
+}
 function guideSpeech(ids) {
   return ids.map(id => {
     const guide = guides.find(item => item.id === id);
@@ -104,8 +123,25 @@ function conversationInput(history, packet) {
     items.push({ type: 'user_input', content: [{ type: 'text', text: turn.question }] });
     items.push({ type: 'model_output', content: [{ type: 'text', text: turn.answer }] });
   }
-  items.push({ type: 'user_input', content: [{ type: 'text', text: JSON.stringify(packet) }] });
+  const reference = {
+    verifiedGuides: packet.verifiedGuides || [],
+    ...(packet.lookup ? { lookup: packet.lookup } : {}),
+    ...(packet.conversationIntent ? { conversationIntent: packet.conversationIntent } : {}),
+    ...(packet.visibleFeatures?.length ? { visibleFeatures: packet.visibleFeatures } : {}),
+    ...(packet.guideIndex ? { guideIndex: packet.guideIndex } : {}),
+    availableTools: packet.availableTools || {}
+  };
+  const text = packet.question + '\n\n참고JSON\n' + JSON.stringify(reference);
+  items.push({ type: 'user_input', content: [{ type: 'text', text }] });
   return items;
+}
+function tryParseAnswer(text) {
+  try { return parseAnswer(text); } catch (_) { return null; }
+}
+function answerRequest(input, system, outputTokens, web) {
+  const body = requestBody(input, system, null, outputTokens);
+  if (web) body.tools = [{ type: 'google_search' }];
+  return body;
 }
 class SchoolAiService {
   constructor({ store, fetchImpl, getDrugKey, now = Date.now, provider = requestGemini }) {
@@ -206,18 +242,6 @@ class SchoolAiService {
     }
   }
   chat(request = {}) {
-    const text = typeof request.message === 'string' ? request.message.trim() : '';
-    const localIds = LOCAL_PROMPTS.get(text);
-    if (localIds && this.store.status().configured) {
-      if (this.busy) return Promise.resolve({ success: false, code: 'BUSY', message: '현재 답변이 끝난 뒤 다시 시도해 주세요.' });
-      const answer = guideSpeech(localIds);
-      if (answer) {
-        this.history = [...this.history, { question: sanitize(text), answer, scope: 'program', guideIds: localIds, drugQuery: '' }].slice(-6);
-        return Promise.resolve({ success: true, answer, local: true,
-          sources: localIds.map(id => ({ title: guides.find(item => item.id === id).title, kind: 'program' })),
-          usage: { tokens: 0, calls: 0, estimated: false }, status: this.status() });
-      }
-    }
     return this.execute(async signal => {
       if (typeof request.message !== 'string' || !request.message.trim() || request.message.length > 2000)
         throw aiError('INPUT', '질문은 1~2,000자로 입력해 주세요.');
@@ -232,6 +256,8 @@ class SchoolAiService {
       const comfort = isComfortQuestion(message) && !drugFact;
       const smallTalk = isSmallTalk(message, previousTurn?.scope);
       const light = smallTalk || situation || comfort;
+      const weather = /날씨|예보/.test(message);
+      const freshQuery = publicFreshQuery(message);
       const selected = light ? [] : selectGuides(message, previous);
       if (!light && followUp && !selected.length) {
         selected.push(...guides.filter(g => previousTurn?.guideIds?.includes(g.id)).slice(0, 2));
@@ -239,22 +265,30 @@ class SchoolAiService {
       const sources = [];
       const facts = selected.map(g => ({ id: g.id, text: g.text }));
       let history = []; let historyTokens = 0;
-      for (const { question, answer, scope } of this.history.filter(item => !smallTalk || item.scope === 'casual').reverse()) {
+      const latestTurn = this.history.at(-1);
+      const earlierTurns = this.history.slice(0, -1).filter(item => !smallTalk || item.scope === 'casual');
+      const relevantHistory = latestTurn ? [...earlierTurns, latestTurn] : earlierTurns;
+      for (const { question, answer, scope } of relevantHistory.reverse()) {
         const item = { question, answer, scope };
         const cost = estimate(JSON.stringify(item));
         if (historyTokens + cost > 2400) break;
         history.unshift(item); historyTokens += cost;
       }
-      const contextOmitted = history.length < this.history.length;
+      const contextOmitted = history.length < relevantHistory.length;
       const initialHistoryLength = history.length;
       const data = { question: message, appVersion: require('../../../package.json').version, verifiedGuides: facts,
-        availableTools: { officialDrugLookup: !!this.getDrugKey(), webSearch: !light },
+        availableTools: { officialDrugLookup: !!this.getDrugKey(), webSearch: !light || weather || !!freshQuery },
         visibleFeatures: light ? [] : getUiEvidence(message),
         contextNote: '등록 학생·보건일지·개인정보·화면 내용은 읽거나 전송하지 않는다.' };
       if (!light && !facts.length) data.guideIndex = guides.map(g => ({ id: g.id, title: g.title }));
       if (drugFact) data.conversationIntent = '성분명과 대표적인 작용을 일반 참고로 설명한다. 진단·복용량·처방·특정인 투약은 쓰지 않는다. 같은 이름 제품이 여러 개면 제품명과 제조사를 함께 보여 준다.';
       else if (comfort) data.conversationIntent = '증상 완화의 일반적인 대처를 묻는다. 진단명·약 이름·복용량·처방·등교 판단 없이 휴식, 보온, 음식 중단, 소량 수분, 악화 관찰, 지속되면 진료를 목록으로 안내한다.';
       else if (situation) data.conversationIntent = '상황을 이야기한 문장이다. 임상 판단 질문이 없다. 짧게 공감하고 기록 문장 정리 등 비임상 도움의 의도를 확인한다.';
+      else if (weather && freshQuery) data.conversationIntent = '지역이 포함된 날씨다. action=web이고 query는 그 지역의 오늘 날씨다. 인터넷이 없다고 말하지 않는다.';
+      else if (weather) data.conversationIntent = '날씨를 묻지만 지역이 없다. 지역만 물어본다. 인터넷이 없다고 말하지 않는다.';
+      else if (freshQuery) data.conversationIntent = '공개된 최근 발생 현황이다. action=web, query는 질병관리청 발생 현황이다. 순위를 추측하지 않는다. 진단·약·처방은 말하지 않는다.';
+      else if (/api\s*키|제미나이|gemini/i.test(message)) data.conversationIntent = 'API 키의 뜻을 이 앱 기준으로 설명한다. 외부 서비스 접속 자격이며 오렌지톡 로그인 비밀번호가 아니다. 환경설정 → API Key 관리에서 등록한다. 키 값은 묻거나 추측하지 않는다.';
+      else if (smallTalk && previousTurn && previousTurn.scope !== 'casual') data.conversationIntent = '이번 말은 가벼운 대화다. 직전 발화를 기억하고, 이번 말이 그 이야기를 가리키면 이어서 답한다. 새 상담처럼 인사하거나 기능 목록으로 끝내지 않는다.';
       else if (smallTalk) data.conversationIntent = '가벼운 일상 대화다. 직전 이야기의 주제와 선택을 이어서 답하고, 프로그램 기능이나 보건 업무를 제안하며 끝내지 않는다.';
       let drugQuery = '';
       const priorDrug = followUp && !smallTalk && previousTurn?.drugQuery;
@@ -277,15 +311,42 @@ class SchoolAiService {
         return parseAnswer((await this.call(requestBody(JSON.stringify(repair), repairSystem, SCHEMA, 768), signal, budget)).text);
       };
       const outputTokens = smallTalk ? (/추천|설명|정리/.test(message) ? 768 : 512) : (situation || comfort) ? 768 : 1600;
-      const initialBody = () => requestBody(conversationInput(history, data), system, SCHEMA, outputTokens);
+      const asksPublic = /날씨|예보|최신|유행|검색|공식/.test(message);
+      const initialBody = () => answerRequest(conversationInput(history, data), system, outputTokens,
+        !!(weather || freshQuery || asksPublic || (data.availableTools.webSearch && !data.verifiedGuides.length)));
       while (estimate(JSON.stringify(initialBody())) > 9000 && history.length) history.shift();
       while (estimate(JSON.stringify(initialBody())) > 9000 && data.verifiedGuides.length > 1) data.verifiedGuides.pop();
       if (estimate(JSON.stringify(initialBody())) > 9000 && data.lookup) {
         delete data.lookup; drugQuery = ''; sources.length = 0;
       }
       sources.push(...selected.filter(g => data.verifiedGuides.some(f => f.id === g.id)).map(g => ({ title: g.title, kind: 'program' })));
-      let result = parseAnswer((await this.call(initialBody(), signal, budget)).text);
-      if (result.scope === 'medical_advice' && data.conversationIntent) {
+      const first = await this.call(initialBody(), signal, budget);
+      let result = tryParseAnswer(first.text);
+      if (!result) {
+        let answer = String(first.text || '').trim();
+        if (!answer || /[<>]/.test(answer)) throw aiError('FORMAT', '답변 형식을 확인하지 못했습니다. 다시 질문해 주세요.');
+        let webSources = [];
+        let searchSuggestions = [];
+        try {
+          const found = searchResult(first);
+          answer = found.answer; webSources = found.sources; searchSuggestions = found.searchSuggestions;
+        } catch (error) { if (error.code !== 'SEARCH_SOURCES') throw error; }
+        const denies = /인터넷|연동되어|조회할 수 없|확인할 수 없|직접 확인/.test(answer);
+        if (weather && !freshQuery && denies) answer = '어느 지역 날씨인지 알려주시면 그 지역의 공개 예보를 확인하겠습니다.';
+        else if ((weather || freshQuery) && denies) answer = '공개 검색으로 확인하지 못했습니다. 확인되지 않은 내용은 단정하지 않겠습니다. 잠시 후 다시 물어봐 주세요.';
+        if (signal.aborted || generation !== this.generation) throw aiError('CANCELLED', '답변 생성을 중지했습니다.');
+        if (!answer || hasClinicalRecommendation(answer)) return { success: true, answer: answer ? MEDICAL_REFUSAL : '답변을 완성하지 못했습니다. 질문을 조금 더 구체적으로 입력해 주세요.', sources: [],
+          usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status() };
+        answer = sanitize(answer);
+        const scope = facts.length ? 'program' : (smallTalk || weather ? 'casual' : 'health');
+        const stored = webSources.length ? answer.replace(/\s+/g, ' ').trim().slice(0, 700) : answer;
+        this.history = [...this.history, { question: message, answer: stored, scope, guideIds: facts.map(g => g.id), drugQuery: '', ...(webSources.length ? { web: true } : {}) }].slice(-6);
+        const used = scope === 'program' ? sources.filter(s => s.kind === 'program') : [];
+        return { success: true, answer, redacted, sources: [...used, ...webSources], searchSuggestions,
+          usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status(),
+          contextOmitted: contextOmitted || history.length < initialHistoryLength };
+      }
+      if (result.scope === 'medical_advice' && data.conversationIntent && !freshQuery) {
         // One bounded repair. Drug facts get general ingredient text; comfort gets coping steps.
         if (drugFact) result = await repairDrugFact();
         else {
@@ -296,21 +357,24 @@ class SchoolAiService {
           result = parseAnswer((await this.call(requestBody(JSON.stringify(repair), repairSystem, SCHEMA, comfort ? 768 : 512), signal, budget)).text);
         }
       }
-      const wantsFresh = /날씨|예보|최신|유행|검색|공식/.test(message);
+      const wantsFresh = asksPublic;
+      if (weather && !freshQuery && result.action === 'web') {
+        result = { ...result, action: 'answer', query: '', answer: '어느 지역 날씨인지 알려주시면 그 지역의 공개 예보를 확인하겠습니다.' };
+      }
       if (result.action === 'web' && (result.scope === 'program' || ((smallTalk || result.scope === 'casual') && !wantsFresh))) {
         result = { ...result, action: 'answer', query: '', answer: result.answer.trim() || '방금 이야기를 이어서 볼게요. 궁금한 점을 한 가지만 더 말해 주세요.' };
       } else if (result.action === 'web' && !['out_of_scope', 'medical_advice', 'program'].includes(result.scope)) {
-        const query = result.query.trim();
+        const query = (freshQuery || result.query).trim();
         if (!safeQuery(query) || /\d+\s*(?:세|살|kg|킬로|cm)|학생명|성명|환자명|주민|전화|주소|API\s*키/i.test(query)) {
           throw aiError('SEARCH_QUERY', '개인정보나 환자 상황 없이 공개 자료의 주제로 검색해 주세요.');
         }
         let found;
-        try { found = searchResult(await this.call(searchBody(query, this.store.status().day), signal, budget)); }
+        try { found = searchResult(first); }
         catch (error) {
           if (error.code !== 'SEARCH_SOURCES') throw error;
           const answer = '최신 자료를 확인하지 못했습니다. 확인되지 않은 내용은 단정하지 않겠습니다. 주제를 좁혀 다시 물어봐 주세요.';
           this.history = [...this.history, { question: message, answer, scope: result.scope }].slice(-6);
-          return { success: true, answer, sources: [], redacted, usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status() };
+          return { success: true, answer, sources: [], redacted, usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status(), contextOmitted: contextOmitted || history.length < initialHistoryLength };
         }
         if (signal.aborted || generation !== this.generation) throw aiError('CANCELLED', '답변 생성을 중지했습니다.');
         if (hasClinicalRecommendation(found.answer)) return { success: true, answer: MEDICAL_REFUSAL, sources: [],
@@ -318,7 +382,7 @@ class SchoolAiService {
         // Keep a short excerpt for the next turn only. It is not a saved knowledge base.
         const excerpt = found.answer.replace(/\s+/g, ' ').trim().slice(0, 700);
         this.history = [...this.history, { question: message, answer: excerpt, scope: result.scope, web: true }].slice(-6);
-        return { success: true, ...found, redacted, usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status() };
+        return { success: true, ...found, redacted, usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status(), contextOmitted: contextOmitted || history.length < initialHistoryLength };
       }
       if (!['out_of_scope', 'medical_advice'].includes(result.scope) && result.action !== 'answer') {
         if (result.action === 'web') throw aiError('SEARCH_SCOPE', '프로그램 기능은 앱 안내에서 확인해 주세요.');
@@ -338,7 +402,7 @@ class SchoolAiService {
         }
         const finalSystem = system + '\n추가 조회 결과가 제공되었다. action=answer로 답하고 추가 조회를 요청하지 않는다. 앞선 발화를 이어서 말한다.'
           + (drugFact ? '\n성분명과 대표적인 작용은 조회 자료에 없어도 일반 참고로 설명한다. 제품이 여러 개면 이름과 제조사를 나열한다. 공식 용법·용량·금기·진단·처방은 쓰지 않는다. answer를 비우지 않는다.' : '');
-        const build = () => requestBody(conversationInput(history, data), finalSystem, SCHEMA);
+        const build = () => answerRequest(conversationInput(history, data), finalSystem, 1600, false);
         while (estimate(JSON.stringify(build())) > 9000 && history.length) history.shift();
         if (estimate(JSON.stringify(build())) > 9000 && result.action === 'drug') data.verifiedGuides = [];
         while (estimate(JSON.stringify(build())) > 9000 && data.verifiedGuides.length) data.verifiedGuides.pop();
@@ -351,7 +415,8 @@ class SchoolAiService {
           data.lookup.detailAvailable = false;
           data.lookup.note = '입력 한도로 상세 자료 전체가 제외되었다. 공식 용법·용량·금기는 만들지 말고 원문 확인을 안내한다. 성분명과 일반적인 작용은 일반 참고로 구분해 답한다.';
         }
-        result = parseAnswer((await this.call(build(), signal, budget)).text);
+        const second = await this.call(build(), signal, budget);
+        result = tryParseAnswer(second.text) || { scope: result.scope === 'drug' ? 'drug' : (facts.length ? 'program' : 'health'), action: 'answer', query: '', answer: second.text, medicalBoundary: false };
       }
       if (drugFact && !repairedDrugFact && (result.scope === 'medical_advice' || result.action !== 'answer' || !String(result.answer || '').trim())) {
         result = await repairDrugFact();
@@ -361,7 +426,12 @@ class SchoolAiService {
       if (result.scope === 'medical_advice' || hasClinicalRecommendation(result.answer)) return { success: true, answer: MEDICAL_REFUSAL, sources: [],
         usage: { tokens: budget.actual, calls: budget.calls, estimated: budget.estimated }, status: this.status() };
       if (!outOfScope && (result.action !== 'answer' || !result.answer.trim())) throw aiError('FORMAT', '답변을 완성하지 못했습니다. 제품명이나 질문을 구체적으로 입력해 주세요.');
-      const answer = outOfScope ? REFUSAL : sanitize(result.answer.trim()) + (result.medicalBoundary ? '\n\n개인별 진단·투약·처치 판단은 의료진이나 약사에게 확인해 주세요.' : '');
+      let answer = outOfScope ? REFUSAL : sanitize(result.answer.trim()) + (result.medicalBoundary ? '\n\n개인별 진단·투약·처치 판단은 의료진이나 약사에게 확인해 주세요.' : '');
+      if (!outOfScope && weather && !freshQuery && /인터넷|연동되어|조회할 수 없|확인할 수 없/.test(answer)) {
+        answer = '어느 지역 날씨인지 알려주시면 그 지역의 공개 예보를 확인하겠습니다.';
+      } else if (!outOfScope && (weather || freshQuery) && /인터넷|연동되어|조회할 수 없|확인할 수 없|직접 확인/.test(answer)) {
+        answer = '공개 검색으로 확인하지 못했습니다. 확인되지 않은 내용은 단정하지 않겠습니다. 잠시 후 다시 물어봐 주세요.';
+      }
       const usedSources = sources.filter(s => s.kind === 'program' ? result.scope === 'program' : result.scope === 'drug');
       if (!outOfScope) this.history = [...this.history, { question: message, answer, scope: result.scope,
         guideIds: guides.filter(g => usedSources.some(s => s.kind === 'program' && s.title === g.title)).map(g => g.id),

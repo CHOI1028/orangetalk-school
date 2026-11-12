@@ -1,5 +1,8 @@
 import { INFECTIOUS_CATALOG, CATALOG_CHECKED_AT, CATALOG_SOURCE } from './infectious-catalog-data.js';
 import { cleanDiseaseLabel } from './infectious-labels.js';
+import { REPORT_LABELS, diseaseBrief, diseaseDetailUrl } from './infectious-briefs.js';
+
+export { diseaseDetailUrl };
 
 export { INFECTIOUS_CATALOG, CATALOG_CHECKED_AT, CATALOG_SOURCE };
 const vaccineSource = 'https://www.kdca.go.kr/kdca/3247/subview.do';
@@ -82,11 +85,13 @@ export function searchDiseases(query = '', grade = '') {
     .sort((a,b) => Number(normalizeDiseaseText(b.name) === q) - Number(normalizeDiseaseText(a.name) === q) || a.grade - b.grade || a.name.localeCompare(b.name, 'ko'));
 }
 export function getDiseaseGuide(disease) {
-  return guidance[disease.name] || {
+  const reviewed = guidance[disease.name];
+  const base = reviewed || {
     summary: '등교중지 기간은 공식 지침과 진료기관 안내를 확인해 주세요.',
     source: 'https://dportal.kdca.go.kr/pot/bbs/BD_selectBbsList.do?q_bbsSn=1001',
     title: '질병관리청 감염병포털 · 감염병지침', checks: ['진료기관·보건당국 안내', '학생별 증상 경과와 등교 가능 여부'], unavailable: true
   };
+  return { ...base, brief: diseaseBrief(disease), reportLabel: REPORT_LABELS[disease.grade] || '지침 확인', detailUrl: diseaseDetailUrl(disease.name) };
 }
 
 // Compare the live input again at commit time; a preview is not permission to overwrite later edits.

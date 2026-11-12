@@ -46,6 +46,7 @@ body:not(.light) .school-ai-key-help-title{color:#fdba74}
 .school-ai-header-logo{height:20px}
 .school-ai-heading{display:inline-flex;align-items:center;gap:8px;min-width:0}
 .school-ai-launcher.is-open{visibility:hidden;pointer-events:none}
+.school-ai-launcher[hidden]{display:none!important}
 .school-ai-header{cursor:grab;touch-action:none;user-select:none}.school-ai-header button{cursor:pointer}.school-ai-header.is-dragging,.school-ai-launcher.is-dragging{cursor:grabbing}
 @media(max-width:650px){.school-ai-panel{right:8px;bottom:8px;width:calc(100vw - 16px);height:calc(100dvh - 32px);max-height:none;border-radius:15px}.school-ai-header{padding:12px}.school-ai-header h2{font-size:17px}.school-ai-launcher{font-size:12px!important;padding:6px 10px!important;gap:5px}.school-ai-launcher .school-ai-wordmark{height:18px}.school-ai-header-logo{height:20px}}
 
@@ -88,9 +89,11 @@ body:not(.light) .school-ai-key-help-title{color:#fdba74}
 .school-ai-retry{margin-top:8px;border-color:var(--cyan)!important;color:var(--cyan)!important;background:var(--card)!important;font-weight:700}
 .school-ai-context-note{margin:6px 4px 0;color:var(--t3);font-size:10px}
 .school-ai-message.is-notice .school-ai-text{max-width:100%;padding:9px 11px;border:1px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--t2);box-shadow:none;font-size:12px;line-height:1.55}
-.school-ai-message.is-pending .school-ai-text{background:var(--bg2);border:1px solid var(--bdr);box-shadow:none;color:var(--t3);font-size:12px}
-.school-ai-message.is-pending .school-ai-text::after{content:'···';display:inline-block;margin-left:4px;letter-spacing:2px;animation:school-ai-pulse 1.2s ease-in-out infinite}
-.school-ai-message.is-pending p{display:inline}
+.school-ai-message.is-pending .school-ai-text{display:flex;align-items:center;min-height:22px;padding:13px 16px;background:var(--card);border:1px solid var(--bdr);box-shadow:none}
+.school-ai-thinking{display:inline-flex;align-items:center;gap:6px;height:10px}
+.school-ai-thinking i{width:7px;height:7px;border-radius:50%;background:var(--cyan);opacity:.28;animation:school-ai-think 1.35s ease-in-out infinite}
+.school-ai-thinking i:nth-child(2){animation-delay:.16s}
+.school-ai-thinking i:nth-child(3){animation-delay:.32s}
 .school-ai-status{padding:4px 16px 0;background:transparent}
 .school-ai-composer{display:grid;gap:5px;margin:0;padding:11px 14px 10px;border:0;border-top:1px solid var(--bdr);border-radius:0;background:var(--card);box-shadow:none}
 .school-ai-composer-shell{display:grid;grid-template-columns:28px minmax(0,1fr) 38px;align-items:center;gap:6px;min-height:54px;padding:4px 5px 4px 8px;border:1px solid color-mix(in srgb,#ea580c 28%,var(--bdr));border-radius:20px;background:color-mix(in srgb,#ea580c 7%,var(--bg));box-shadow:none}
@@ -107,6 +110,6 @@ body:not(.light) .school-ai-key-help-title{color:#fdba74}
 .school-ai-composer-shell [data-ai-send] svg{position:absolute;top:50%;left:50%;display:block;width:18px;height:18px;margin:0;transform:translate(-50%,-50%);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .school-ai-compose-footer{margin:0}.school-ai-compose-footer span{padding-right:4px;color:var(--t3);font-size:10px;opacity:1}
 .school-ai-compose-footer button:hover{background:var(--cbg);color:var(--cyan)}
-@keyframes school-ai-pulse{50%{opacity:.3}}
-@media(prefers-reduced-motion:reduce){.school-ai-message.is-pending .school-ai-text::after{animation:none}}
+@keyframes school-ai-think{0%,70%,100%{opacity:.28;transform:translateY(0) scale(.86)}35%{opacity:1;transform:translateY(-2px) scale(1)}}
+@media(prefers-reduced-motion:reduce){.school-ai-thinking i{animation:none;opacity:.72;transform:none}}
 @media(max-width:650px){.school-ai-panel,.school-ai-panel.is-wide{width:calc(100vw - 16px);height:calc(100dvh - 32px)}.school-ai-header{padding:12px}.school-ai-header small{display:none}.school-ai-brand-mark{width:32px;height:32px;flex-basis:32px;font-size:16px}.school-ai-header-actions button{min-width:28px;height:28px;padding:0 6px;font-size:11px}.school-ai-quick{grid-template-columns:1fr}.school-ai-messages{padding:8px 12px}.school-ai-welcome{margin:28px 8px}.school-ai-composer{padding:10px 12px}.school-ai-model{display:none}}

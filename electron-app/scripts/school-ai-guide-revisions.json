@@ -26,15 +26,15 @@
   "ai-troubleshooting": {
     "guide": "c7a992551e5e256efcaa03e4e92155c7eff3320ff84cf1dbf64eab7e5a4b640c",
     "sources": {
-      "src/renderer/features/ai/school-ai.js": "cb8cc802a3e6010f601b161f5afe4993e2851e2d332da9fb841222137128753f",
+      "src/renderer/features/ai/school-ai.js": "1de4bd627fc3533a3a072226f969f055aae27d1a51688c6291413258cf7f13d0",
       "src/main/services/school-ai-transport.js": "e5fba7d9848e759d5639d56d0ba23ec2311d6a4e635b0d127dfbb2cea29d0ae1",
       "src/main/services/school-ai-store.js": "e397c11f3ee19803716174efaf0e683f479b69eef4d610dde354e103ea109e9a"
     }
   },
   "ai-boundaries": {
-    "guide": "08cd9bc555c150a4c46869a9f9c5f570b8667cc2f2544fe818b9d2eaa5fc4ea4",
+    "guide": "0f82597d9f3e720a94147e220f35e125851199f92837a31ec7499510f6f85b22",
     "sources": {
-      "src/main/services/school-ai-service.js": "8b15bd7e7d5f43e8abd63015ac66df262c98ed849b14dc0c34be4720032d82f8",
+      "src/main/services/school-ai-service.js": "86cc9b3cef96a182c3c9d3701c8b06451f8d46c49477d4231182068c7ad426f1",
       "src/main/services/school-ai-search.js": "a96c1424905dc3d41e8c15aebb7a302b3fdb8b17e32b38f53d6433c734a5d4bf"
     }
   },
@@ -44,15 +44,15 @@
       "health_diary.html": "f286bc6174dd5ce957f6b4c2c991d1e1ca0c535ae356ad6b2ec472caa460609d",
       "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
       "src/renderer/views/view-magic.html": "e4eea67c47f0fa83e22d439cd01ec99b945aef811397046464806a95c586bfe8",
-      "src/renderer/features/dashboard/home-dashboard.js": "30c1691385a2b32d3dd04fdae5aef09d7566cac58f2cf1985004c736a406e506",
+      "src/renderer/features/dashboard/home-dashboard.js": "f031d141e5c1a040b841399f24fedd6ea145654b3d22f21f4957e374c52488fe",
       "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b"
     }
   },
   "ai-help": {
     "guide": "8ca60b8f35682447f587011fc9a207c27e72cc622fdc5b82d32e43014d3eca68",
     "sources": {
-      "src/main/services/school-ai-service.js": "8b15bd7e7d5f43e8abd63015ac66df262c98ed849b14dc0c34be4720032d82f8",
-      "src/renderer/features/ai/school-ai.js": "cb8cc802a3e6010f601b161f5afe4993e2851e2d332da9fb841222137128753f"
+      "src/main/services/school-ai-service.js": "86cc9b3cef96a182c3c9d3701c8b06451f8d46c49477d4231182068c7ad426f1",
+      "src/renderer/features/ai/school-ai.js": "1de4bd627fc3533a3a072226f969f055aae27d1a51688c6291413258cf7f13d0"
     }
   },
   "daily": {
@@ -79,7 +79,7 @@
     "sources": {
       "src/renderer/views/view-daily.html": "28a9a2daca307e218dd75ba420c7ca9e8bf022ad15aed1e389e1db70d01c8f96",
       "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
-      "src/main/services/school-ai-service.js": "8b15bd7e7d5f43e8abd63015ac66df262c98ed849b14dc0c34be4720032d82f8"
+      "src/main/services/school-ai-service.js": "86cc9b3cef96a182c3c9d3701c8b06451f8d46c49477d4231182068c7ad426f1"
     }
   },
   "infection": {
@@ -150,21 +150,21 @@
   "home": {
     "guide": "35978fd0faefa17b31fd93e18d3000cf4f60cc8aba6651a6b8f2fc34206d4613",
     "sources": {
-      "src/renderer/features/dashboard/home-dashboard.js": "30c1691385a2b32d3dd04fdae5aef09d7566cac58f2cf1985004c736a406e506"
+      "src/renderer/features/dashboard/home-dashboard.js": "f031d141e5c1a040b841399f24fedd6ea145654b3d22f21f4957e374c52488fe"
     }
   },
   "school-api": {
     "guide": "d0390d9ab550cfd56fb25fcb939dc97e4a95823d98bdc6f59bcb5ff367173d9a",
     "sources": {
       "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
-      "src/renderer/features/dashboard/home-dashboard.js": "30c1691385a2b32d3dd04fdae5aef09d7566cac58f2cf1985004c736a406e506"
+      "src/renderer/features/dashboard/home-dashboard.js": "f031d141e5c1a040b841399f24fedd6ea145654b3d22f21f4957e374c52488fe"
     }
   },
   "settings": {
-    "guide": "13d394ab6fd8b10505b414cb87fd8c5d65afcc7b4af9a32f6ac01c202e5a51cd",
+    "guide": "5265d9fb273a9c5ce23932dcc6d525b7d53ef4c47b08541c00ff5d9d1f375aba",
     "sources": {
       "src/renderer/features/settings/settings-view.js": "dc43bc9d49b4323d0df5c9d00b988940825002e3f1d2f0e089177e9f5b37042b",
-      "src/renderer/features/ai/school-ai.js": "cb8cc802a3e6010f601b161f5afe4993e2851e2d332da9fb841222137128753f"
+      "src/renderer/features/ai/school-ai.js": "1de4bd627fc3533a3a072226f969f055aae27d1a51688c6291413258cf7f13d0"
     }
   },
   "backup": {

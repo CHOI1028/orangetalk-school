@@ -488,6 +488,11 @@
   body.school-interface .school-widget-title { flex:1 1 auto; min-width:0; font-size:var(--school-card-title); font-weight:750; line-height:1.45; letter-spacing:-.015em; color:var(--t1); word-break:keep-all; }
   body.school-interface .school-widget-heading > [data-tooltip] { flex-shrink:0; }
   body.school-interface .school-widget-heading > button { flex:0 0 28px; width:28px !important; height:28px !important; min-height:28px; }
+  body.school-interface .school-widget-heading > button.school-widget-heading-link {
+    flex:0 1 auto; width:auto !important; max-width:62%; height:auto !important; min-height:28px; margin-left:auto;
+    padding:4px 8px !important; border:1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius:8px !important;
+    background:transparent; color:inherit; font-size:11px; font-weight:700; line-height:1.35; white-space:normal; text-align:center; cursor:pointer;
+  }
   body.school-interface .school-widget-body { min-width:0; padding:var(--school-card-padding); flex:1 1 auto; font-size:var(--school-text); line-height:1.65; color:var(--t2); box-sizing:border-box; }
   body.school-interface .school-widget-body [style*="font-size:11px"]:not(svg,svg *) { font-size:13px !important; }
   body.school-interface .school-widget-body :is([style*="font-size:9px"],[style*="font-size:10px"]):not(svg,svg *) { font-size:12px !important; }

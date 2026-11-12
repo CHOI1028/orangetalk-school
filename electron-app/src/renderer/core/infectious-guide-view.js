@@ -19,10 +19,13 @@ export function renderDiseaseGuide(body, state, options = {}) {
     const guide=getDiseaseGuide(disease);
     const expected=options.readDiseaseName ? options.readDiseaseName() : null;
     const replacing=expected!=null && String(expected).trim() && expected!==disease.name;
-    detail.innerHTML='<div class="if-detail-card"><div class="if-disease-heading"><div><span class="if-badge">법정감염병 · '+disease.grade+'급'+(disease.group?' · '+esc(disease.group):'')+'</span><h3>'+esc(disease.name)+'</h3><p class="if-code">KCD '+esc(disease.kcd || '원문 확인')+'</p></div></div>'
-      +'<div class="if-guide-sections'+(guide.unavailable?' is-unavailable':'')+'"><section><h4>'+(guide.unavailable?'공식 지침 확인 필요':'등교중지·복귀 참고 기준')+'</h4><p class="if-guidance">'+esc(guide.summary)+'</p></section>'
-      +(guide.unavailable?'':'<section><h4>기록 전 확인</h4><ul class="if-checklist">'+guide.checks.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul></section>')+'</div>'
-      +'<div class="if-guide-actions"><a href="'+esc(guide.source)+'" target="_blank" rel="noopener noreferrer" title="'+esc(guide.title)+'">공식 지침 원문 ↗</a><button type="button" id="ifGuideStats">발생 통계 보기</button></div></div>';
+    detail.innerHTML='<div class="if-detail-card"><div class="if-disease-heading"><div><div class="if-disease-meta"><span class="if-badge">법정감염병 · '+disease.grade+'급'+(disease.group?' · '+esc(disease.group):'')+'</span><span class="if-report">신고 '+esc(guide.reportLabel)+'</span></div><h3>'+esc(disease.name)+'</h3><p class="if-code">KCD '+esc(disease.kcd || '원문 확인')+'</p></div></div>'
+      +'<div class="if-guide-sections'+(guide.unavailable?' is-unavailable':'')+'"><section><h4>간략 안내</h4><p class="if-guidance">'+esc(guide.brief)+'</p></section>'
+      +(guide.unavailable?'':'<section><h4>등교중지·복귀 참고 기준</h4><p class="if-guidance">'+esc(guide.summary)+'</p><h4 class="if-subhead">기록 전 확인</h4><ul class="if-checklist">'+guide.checks.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul></section>')+'</div>'
+      +'<p class="if-muted if-disclaimer">간략 안내는 보건 업무용 참고입니다. 학생의 진단·격리·등교는 공식 지침과 진료 결과를 확인합니다.</p>'
+      +'<div class="if-guide-actions"><a class="if-more" href="'+esc(guide.detailUrl)+'" target="_blank" rel="noopener noreferrer" title="질병관리청 통합검색">자세히 보기 ↗</a>'
+      +(guide.unavailable?'':'<a class="if-quiet" href="'+esc(guide.source)+'" target="_blank" rel="noopener noreferrer" title="'+esc(guide.title)+'">지침 원문 ↗</a>')
+      +'<button type="button" id="ifGuideStats">발생 통계 보기</button></div></div>';
     applyHost.innerHTML=options.onApply ? '<div class="if-apply"><h4>기록지 적용 미리보기</h4><p>현재 감염병명: <strong>'+esc(expected==null?'기록지 확인 필요':expected||'(비어 있음)')+'</strong><br>적용할 감염병명: <strong>'+esc(disease.name)+'</strong></p>'
         +(replacing?'<label class="if-replace"><input type="checkbox" id="ifAllowReplace"> 기존 감염병명을 위 이름으로 변경하겠습니다.</label>':'')
         +'<button type="button" id="ifApplyDisease" class="if-primary"'+(replacing||expected==null?' disabled':'')+'>감염병명 적용</button><p id="ifApplyStatus" role="status"></p></div>':'';
@@ -41,7 +44,8 @@ export function renderDiseaseGuide(body, state, options = {}) {
     const single=results.length===1&&!options.onApply;
     body.querySelector('.if-guide-grid').classList.toggle('is-single',single);
     body.querySelector('.if-guide-sidebar').hidden=single;
-    body.querySelector('#ifGuideCount').textContent=results.length+'개 검색 결과'+(results.length>1&&/^[a-z]\d/i.test(cleanDiseaseLabel(state.query))?' · 동일 코드의 진단명을 확인해 주세요.':'');
+    const codeNote=results.length>1&&/^[a-z]\d/i.test(cleanDiseaseLabel(state.query))?' · 동일 코드의 진단명을 확인해 주세요.':'';
+    body.querySelector('#ifGuideCount').textContent=single?'찾은 질병 1개':(results.length+'개 검색 결과'+codeNote);
     list.innerHTML=results.length ? results.map(d=>'<button type="button" data-disease="'+d.id+'" aria-pressed="false"><strong>'+esc(d.name)+'</strong><span>'+d.grade+'급 · '+esc(d.kcd || '코드 원문 확인')+'</span></button>').join('') : '<p>검색 결과 없음</p>';
     list.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>select(results.find(d=>d.id===b.dataset.disease))));
     const selected=results.find(d=>d.id===state.selected) || (results.length===1?results[0]:null);

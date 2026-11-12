@@ -2,10 +2,10 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const core=path.resolve(__dirname,'../src/renderer/core');
-const source=['infectious-labels.js','infectious-catalog-data.js','infectious-guide.js'].map(f=>fs.readFileSync(path.join(core,f),'utf8')
+const source=['infectious-labels.js','infectious-catalog-data.js','infectious-briefs.js','infectious-guide.js'].map(f=>fs.readFileSync(path.join(core,f),'utf8')
   .replace(/^import .*;\r?\n/gm,'').replace(/^export \{.*\};\r?\n/gm,'').replace(/^export /gm,'')).join('\n');
 const ctx=vm.createContext({});
-vm.runInContext(source+'\nthis.api={searchDiseases,matchesKcd,getDiseaseGuide,diseaseNameChange,INFECTIOUS_CATALOG};',ctx);
+vm.runInContext(source+'\nthis.api={searchDiseases,matchesKcd,getDiseaseGuide,diseaseNameChange,INFECTIOUS_CATALOG,diseaseDetailUrl};',ctx);
 const {searchDiseases:search,matchesKcd:matches,getDiseaseGuide:guide,diseaseNameChange:change,INFECTIOUS_CATALOG:catalog}=ctx.api;
 test('official snapshot has unique entries across all four grades',()=>{
   assert.equal(catalog.length,133);assert.equal(new Set(catalog.map(d=>d.name)).size,133);
@@ -34,6 +34,18 @@ test('reviewed common diseases have official guidance; unknown durations remain 
     assert(!g.unavailable,name);assert(new URL(g.source).hostname.endsWith('kdca.go.kr'));
   }
   assert(guide(catalog.find(d=>d.name==='탄저')).unavailable);
+});
+test('every disease shows a short brief and opens that disease in KDCA search',()=>{
+  for(const disease of catalog){
+    const item=guide(disease);
+    assert(item.brief.includes(disease.name.slice(0,2))||item.brief.length>24,disease.name);
+    assert(['즉시','24시간 이내','7일 이내'].includes(item.reportLabel),disease.name);
+    assert.equal(item.detailUrl,'https://www.kdca.go.kr/search.do?category=TOTAL&kwd='+encodeURIComponent(disease.name));
+  }
+  const smallpox=guide(catalog.find(d=>d.name==='두창'));
+  assert(smallpox.unavailable);
+  assert(smallpox.brief.includes('근절'));
+  assert(smallpox.reportLabel==='즉시');
 });
 test('blank values can be filled; nonempty differing values require explicit consent',()=>{
   assert.equal(change('','','수두').value,'수두');

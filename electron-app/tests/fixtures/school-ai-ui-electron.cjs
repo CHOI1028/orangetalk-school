@@ -104,9 +104,10 @@ app.whenReady().then(async () => {
   await run('document.querySelector(".school-ai-retry").click()');
   await until('requests.length===4 && !document.querySelector("[data-ai-send]").disabled');
   await check('document.querySelectorAll(".school-ai-message.is-user").length===3 && document.querySelector("[data-ai-input]").value==="보건교육 자료"');
-  await run('window.mode="pending";document.querySelector("[data-ai-send]").click()');
-  await until('window.release');
-  await check('!document.querySelector("[data-ai-stop]").hidden && document.querySelector("[data-ai-send]").hidden');
+  await run('window.mode="pending";document.querySelector("[data-ai-input]").value="생각 중 표시";document.querySelector("[data-ai-send]").click()');
+  await until('window.release && document.querySelectorAll(".school-ai-thinking i").length===3');
+  await check('!document.querySelector(".is-pending").textContent.includes("준비") && !document.querySelector("[data-ai-stop]").hidden && document.querySelector("[data-ai-send]").hidden');
+  await screenshot('thinking');
   await run('document.querySelector("[data-ai-stop]").click();window.release()');
   await until('!document.querySelector("[data-ai-send]").hidden');
   await check('!document.querySelector(".is-pending")');
@@ -127,5 +128,12 @@ app.whenReady().then(async () => {
   await until('window.ready && document.querySelector(".school-ai-launcher")'); await delay(100);
   await check(`Math.abs(document.querySelector('.school-ai-launcher').getBoundingClientRect().left-${stored.x})<2`);
   await check(`Math.abs(document.querySelector('.school-ai-launcher').getBoundingClientRect().top-${stored.y})<2`);
+  await run(`(()=>{const s=document.createElement('div');s.id='splash';s.style.cssText='position:fixed;inset:0;display:flex';document.body.append(s);return true})()`);
+  await until('document.querySelector(".school-ai-launcher").hidden===true && document.getElementById("schoolAiPanel").hidden');
+  await check('getComputedStyle(document.querySelector(".school-ai-launcher")).display==="none"');
+  await run('openSchoolAi()');
+  await check('document.getElementById("schoolAiPanel").hidden');
+  await run(`document.getElementById('splash').style.display='none'`);
+  await until('document.querySelector(".school-ai-launcher").hidden===false');
   assert.equal(externalRequests, 0); assert.deepEqual(errors, []); finish();
 }).catch(finish);

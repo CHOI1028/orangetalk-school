@@ -108,7 +108,11 @@ async function send(options = {}) {
   get('.school-ai-welcome')?.remove();
   if (!options.keep) message('user', text);
   input.value = ''; resizeInput();
-  const pending = message('assistant', '답변을 준비하고 있어요'); pending.classList.add('is-pending');
+  const pending = message('assistant', '');
+  pending.classList.add('is-pending');
+  const thinking = element('span', 'school-ai-thinking');
+  thinking.append(element('i'), element('i'), element('i'));
+  pending.querySelector('.school-ai-text').replaceChildren(thinking);
   const current = generation; setBusy(true); notice('');
   try {
     const result = await api().schoolAiChat({ message: text });
@@ -192,6 +196,25 @@ async function settingsAction(kind, root) {
   } catch (_) { if (current === generation) settingsNotice(root, 'AI 설정을 처리하지 못했습니다.', true); }
   finally { if (current === generation) { setBusy(false); refresh(); } }
 }
+function entryScreenOpen() {
+  const splash = document.getElementById('splash');
+  if (!splash || splash.style.display === 'none') return false;
+  return getComputedStyle(splash).display !== 'none';
+}
+function syncLauncher() {
+  if (!launcher) return;
+  const onEntry = entryScreenOpen();
+  launcher.hidden = onEntry;
+  if (onEntry && panel && !panel.hidden) close();
+}
+function watchEntryScreen() {
+  const splash = document.getElementById('splash');
+  if (splash && !splash.dataset.aiWatch) {
+    splash.dataset.aiWatch = '1';
+    new MutationObserver(syncLauncher).observe(splash, { attributes: true, attributeFilter: ['style', 'class'] });
+  }
+  syncLauncher();
+}
 function close() {
   panel.hidden = true; launcher?.classList.remove('is-open'); launcher?.setAttribute('aria-expanded', 'false');
   lastFocus?.focus();
@@ -203,6 +226,7 @@ function openApiSettings() {
 export function openSchoolAi() {
   if (!api()?.schoolAiChat) return;
   if (!panel) mount();
+  if (entryScreenOpen()) return;
   lastFocus = document.activeElement;
   panel.hidden = false; launcher?.classList.add('is-open'); launcher?.setAttribute('aria-expanded', 'true');
   positioning?.refresh();
@@ -288,7 +312,10 @@ function mount() {
   document.getElementById('headerLockBtn')?.addEventListener('click', () => {
     close(); clearChat();
     get('[data-ai-input]').value = '';
+    syncLauncher();
   });
+  watchEntryScreen();
+  new MutationObserver(watchEntryScreen).observe(document.body, { childList: true });
   // A reloaded window must not inherit invisible conversation turns from the main process.
   api().schoolAiReset().then(refresh).catch(() => notice('AI 대화를 초기화하지 못했습니다.', true));
 }

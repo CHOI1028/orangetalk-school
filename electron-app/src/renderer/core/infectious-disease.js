@@ -382,8 +382,8 @@ async function _runAge(force){
 function _formatCount(value){return value==null?'자료 없음':value.toLocaleString();}
 function _renderStatistics(body,rows,headers,context){
   const note='<div class="if-context"><div><span class="if-eyebrow">질병관리청 발생 통계</span><h3>'+_esc(context)+'</h3></div></div>';
-  body.innerHTML=note+'<div class="if-age-layout"><aside class="if-age-picker"><label>질병 찾기<input id="ifStatQuery" placeholder="질병명·별칭·KCD 코드" value="'+_esc(_statQuery)+'"></label>'
-    +'<button type="button" id="ifStatGuide">질병 안내 보기 ↗</button></aside><section id="ifStatResults" aria-label="질병별 발생수"></section></div>';
+  body.innerHTML=note+'<div class="if-age-layout"><aside class="if-age-picker"><label>목록에서 찾기<input id="ifStatQuery" placeholder="질병명·별칭·KCD 코드" value="'+_esc(_statQuery)+'"></label>'
+    +'<button type="button" id="ifStatGuide">질병 안내</button></aside><section id="ifStatResults" aria-label="질병별 발생수"></section></div>';
   const input=body.querySelector('#ifStatQuery'), results=body.querySelector('#ifStatResults');
   // Also supports text-only renderers used by the transport regression tests.
   if(!input||!results){body.innerHTML=note+_tableHtml(headers,rows.map(x=>x.cells));return;}
@@ -393,8 +393,10 @@ function _renderStatistics(body,rows,headers,context){
     const filtered=rows.filter(r=>!q||normalizeDiseaseText(r.name).includes(q)||names.has(normalizeDiseaseText(r.name)));
     const pages=Math.max(1,Math.ceil(filtered.length/15)); page=Math.min(page,pages-1);
     const visible=filtered.slice(page*15,(page+1)*15),max=Math.max(0,...filtered.map(r=>r.value??0));
+    const mixed=filtered.some(r=>r.value===0)&&filtered.some(r=>r.value==null);
     results.innerHTML='<div class="if-metrics" role="status"><div><span>조회 질병</span><strong>'+filtered.length+'<small>개</small></strong></div><div><span>발생 기록 있음</span><strong>'+filtered.filter(r=>r.value>0).length+'<small>개 질병</small></strong></div><div><span>자료 없음</span><strong>'+filtered.filter(r=>r.value==null).length+'<small>개</small></strong></div></div>'
-      +(visible.length?'<div class="if-chart-legend"><span>질병 · 발생수 많은 순</span><span>발생수(명)</span></div><div class="if-region-bars" role="list">'+visible.map((r,i)=>'<div class="if-bar-row'+(r.value===max&&max>0?' is-peak':'')+'" role="listitem"><button type="button" data-region-guide="'+i+'">'+_esc(cleanDiseaseLabel(r.name))+'</button><div class="if-bar-track" aria-hidden="true"><i style="width:'+(max&&r.value!=null?100*r.value/max:0)+'%"></i></div><span class="if-bar-value">'+_formatCount(r.value)+(r.value==null?'':'명')+'</span></div>').join('')+'</div>':'<p class="if-empty">일치하는 발생 자료가 없습니다.</p>')
+      +(mixed?'<p class="if-note">0명은 신고가 0건인 항목이고, 자료 없음은 수치가 오지 않은 항목입니다.</p>':'')
+      +(visible.length?'<div class="if-chart-legend"><span>질병 · 발생수 많은 순</span><span>발생수(명)</span></div><div class="if-region-bars" role="list">'+visible.map((r,i)=>'<div class="if-bar-row'+(r.value===max&&max>0?' is-peak':'')+'" role="listitem"><button type="button" data-region-guide="'+i+'">'+_esc(cleanDiseaseLabel(r.name))+'</button><div class="if-bar-track" aria-hidden="true"><i'+(r.value>0?' class="is-on"':'')+' style="width:'+(max&&r.value!=null?100*r.value/max:0)+'%"></i></div><span class="if-bar-value">'+_formatCount(r.value)+(r.value==null?'':'명')+'</span></div>').join('')+'</div>':'<p class="if-empty">일치하는 발생 자료가 없습니다.</p>')
       +(pages>1?'<div class="if-pager"><button type="button" data-page="-1"'+(page===0?' disabled':'')+'>이전</button><span>'+(page+1)+' / '+pages+'</span><button type="button" data-page="1"'+(page+1>=pages?' disabled':'')+'>다음</button></div>':'')
       +(visible.length?'<details class="if-source-note"><summary>표로 자세히 보기</summary><div class="if-table-wrap">'+_tableHtml(headers,visible.map(r=>r.cells))+'</div></details>':'');
     results.querySelectorAll('[data-region-guide]').forEach(button=>button.addEventListener('click',()=>{
