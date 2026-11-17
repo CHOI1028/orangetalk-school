@@ -283,7 +283,8 @@ function _openDateHistoryRecord(identity){
 function _showDateVisitors(dateStr,mode){
   const previousPanel=document.getElementById('dateVisitorsPanel');
   const previousList=previousPanel&&previousPanel.querySelector('.dv-list');
-  const previousScroll=previousPanel&&previousPanel.dataset.historyDate===dateStr&&previousList?previousList.scrollTop:0;
+  const previousScroll=previousPanel?.dataset.historyDate===dateStr&&previousList
+    ? (previousPanel._visitHistoryDisplay?.scrollTop??previousList.scrollTop) : 0;
   const keepHistoryPreview=!!(previousPanel&&previousPanel._visitHistoryDisplay);
   _closeDateVisitors(true);
   const isContext=mode==='context';
@@ -334,7 +335,7 @@ function _showDateVisitors(dateStr,mode){
       if(item&&list.contains(item))_openDateHistoryRecord(identities.get(item.dataset.recId));
     });
     bindDiaryPrivacy(list,{key:'history',scope:dateStr,before:list,rowSelector:'.dv-edit-item'});
-    list.scrollTop=previousScroll;
+    list.scrollTo({top:previousScroll,behavior:'instant'});
     if(keepHistoryPreview)_setDateVisitorsHistoryPreview(true);
     return;
   }
@@ -3073,11 +3074,13 @@ function _bindVisitHealthDetails(root){
 function _setDateVisitorsHistoryPreview(active){
   const panel=document.getElementById('dateVisitorsPanel');
   if(!panel||!panel.dataset.contextHistory)return false;
+  const list=panel.querySelector('.dv-list');
   if(active){
     if(!panel._visitHistoryDisplay){
       panel._visitHistoryDisplay={
         value:panel.style.getPropertyValue('display'),
-        priority:panel.style.getPropertyPriority('display')
+        priority:panel.style.getPropertyPriority('display'),
+        scrollTop:list?.scrollTop??0
       };
     }
     panel.style.setProperty('display','none','important');
@@ -3087,10 +3090,12 @@ function _setDateVisitorsHistoryPreview(active){
   if(!previous)return false;
   if(previous.value)panel.style.setProperty('display',previous.value,previous.priority);
   else panel.style.removeProperty('display');
+  list?.scrollTo({top:previous.scrollTop,behavior:'instant'});
   delete panel._visitHistoryDisplay;
   return true;
 }
 function _showVisitHistory(){
+  if(document.getElementById('symCatOverlay')&&document.getElementById('dateVisitorsPanel')?.dataset.contextHistory)return;
   const vh=document.getElementById('sideVisitHistory');if(!vh)return;
   clearTimeout(vh._historyHideTimer);
   const showId=(vh._historyDisplayId||0)+1;
@@ -3101,7 +3106,7 @@ function _showVisitHistory(){
     if(vh.isConnected&&vh._historyDisplayId===showId)vh.classList.add('vh-show');
   });});
 }
-export function _hideVisitHistory(){
+export function _hideVisitHistory(immediate=false){
   const restored=_setDateVisitorsHistoryPreview(false);
   _lastHoverStuId=null;
   const vh=document.getElementById('sideVisitHistory');if(!vh)return;
@@ -3109,7 +3114,7 @@ export function _hideVisitHistory(){
   const hideId=(vh._historyDisplayId||0)+1;
   vh._historyDisplayId=hideId;
   vh.classList.remove('vh-show');
-  if(restored){vh.style.display='none';return;}
+  if(restored||immediate){vh.style.display='none';return;}
   vh._historyHideTimer=setTimeout(function(){
     if(vh._historyDisplayId===hideId&&!vh.classList.contains('vh-show'))vh.style.display='none';
   },320);

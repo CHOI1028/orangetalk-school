@@ -152,6 +152,20 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
   };
   box.classList.add('sym-shared-workspace');body.classList.add('sym-workspace-body');
   Object.entries(sharedGeometry).forEach(([key,value]) => { box.style[key]=value; });
+  const dateSidebar = document.querySelector('#schoolSidebar:has(#dateVisitorsPanel[data-context-history])');
+  function syncDateSidebarInset() {
+    const rect = dateSidebar.getBoundingClientRect();
+    const zoom = Number.parseFloat(document.documentElement.style.zoom) || 1;
+    const edge = document.body.classList.contains('sidebar-right') ? window.innerWidth - rect.left : rect.right;
+    box.style.setProperty('--sym-date-sidebar-inset', rect.width ? Math.ceil(edge / zoom + 12) + 'px' : '16px');
+  }
+  const sidebarResize = dateSidebar ? new ResizeObserver(syncDateSidebarInset) : null;
+  if (sidebarResize) {
+    syncDateSidebarInset();
+    sidebarResize.observe(dateSidebar);
+    window.addEventListener('resize', syncDateSidebarInset);
+    window.addEventListener('ec:zoom-changed', syncDateSidebarInset);
+  }
   // Keep the same search and list nodes in the selection area in either layout.
   const splitLeft = document.createElement('section'); splitLeft.className = 'sym-split-selection'; splitLeft.setAttribute('aria-label','증상 선택');
   const splitHeading = document.createElement('div'); splitHeading.className = 'sym-focus-heading'; splitHeading.textContent = '증상 선택';
@@ -247,6 +261,11 @@ export function mountSymptomFocusLayout(overlay, closeMedication) {
   dockWatcher.observe(dock,{childList:true});
   const lifetime = new MutationObserver(() => {
     if (overlay.isConnected) return;
+    if (sidebarResize) {
+      sidebarResize.disconnect();
+      window.removeEventListener('resize', syncDateSidebarInset);
+      window.removeEventListener('ec:zoom-changed', syncDateSidebarInset);
+    }
     categoryPicker?.destroy(); categoryWatcher.disconnect(); dockWatcher.disconnect(); lifetime.disconnect();
   });
   lifetime.observe(document.body,{childList:true});

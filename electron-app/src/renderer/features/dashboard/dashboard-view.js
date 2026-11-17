@@ -371,7 +371,8 @@ document.addEventListener('wheel',_showScrollbars,{passive:true});
 
 export async function renderDashboard(){
   const epoch=++_dashRequestEpoch;
-  _closeDateVisitors();
+  /* 증상·처치 자동저장도 대시보드를 갱신하므로 공용 날짜 목록은 유지한다. */
+  if(!document.getElementById('dateVisitorsPanel')?.dataset.contextHistory)_closeDateVisitors();
   _dashShowFeedback('loading');
   try{await _dashRenderSubTabs();}catch(_){if(epoch===_dashRequestEpoch)_dashShowFeedback('error');return;}
   if(epoch!==_dashRequestEpoch)return;

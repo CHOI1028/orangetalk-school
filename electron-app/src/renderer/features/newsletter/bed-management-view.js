@@ -1966,10 +1966,17 @@ function _openBedTeacherMsg(stuId,durationMin){
   });
 }
 
-let _bedMinimized=false;   /* 침상 카드 최소화 상태 — DOM 밖 보관(1초 재렌더에도 유지) */
+let _bedMinimized=false;
+
+function _bedSetSidebarMarkup(element,html){
+  if(!element||element._bedSidebarMarkup===html)return false;
+  element.innerHTML=html;
+  element._bedSidebarMarkup=html;
+  return true;
+}
 
 /* ── 좌측 사이드바에 침상 이용 현황 카드 렌더 ── */
-function renderBedSidebarCard(){
+function renderBedSidebarCard(fitUnchanged=true){
   const card=document.getElementById('sideBedUsage');
   const body=document.getElementById('sideBedBody');
   const header=document.getElementById('sideBedHeader');
@@ -1977,7 +1984,8 @@ function renderBedSidebarCard(){
   const sidebar=document.querySelector('.sidebar');
   const beds=(S._bedConfig&&S._bedConfig.beds)||[];
   const usage=S._bedUsage||[];
-  const active=usage.filter(function(u){return u.endTime>Date.now();});
+  const now=Date.now();
+  const active=usage.filter(function(u){return u.endTime>now;});
   /* 침상 이용자가 없으면 카드 숨김 (기본) */
   if(beds.length===0||active.length===0){
     card.style.display='none';
@@ -1986,19 +1994,20 @@ function renderBedSidebarCard(){
     _bedMinimized=false;            /* 비면 다음 표시는 최대화 상태로 */
     return;
   }
-  card.style.display='';
-  if(sidebar)sidebar.classList.add('has-bed-card');
+  const wasHidden=card.style.display==='none';
+  if(wasHidden)card.style.display='';
+  if(sidebar&&!sidebar.classList.contains('has-bed-card'))sidebar.classList.add('has-bed-card');
   /* ── 최소화 상태 — 컴팩트 한 줄/침상 + 최대화 버튼 ── */
   if(_bedMinimized){
-    card.classList.add('bed-min');
-    if(header)header.innerHTML='';
-    body.innerHTML=_bedBuildMinimizedHTML(active,beds);
-    _bedFitSidebar(card,sidebar);
+    if(!card.classList.contains('bed-min'))card.classList.add('bed-min');
+    const headerChanged=_bedSetSidebarMarkup(header,'');
+    const bodyChanged=_bedSetSidebarMarkup(body,_bedBuildMinimizedHTML(active,beds));
+    if(fitUnchanged||wasHidden||headerChanged||bodyChanged)_bedFitSidebar(card,sidebar);
     return;
   }
   /* ── 최대화 상태 (기본) ── */
-  card.classList.remove('bed-min');
-  if(header)header.innerHTML=_bedBuildHeaderHTML(active.length,beds.length);
+  if(card.classList.contains('bed-min'))card.classList.remove('bed-min');
+  const headerChanged=_bedSetSidebarMarkup(header,_bedBuildHeaderHTML(active.length,beds.length));
   let h='';
   active.forEach(function(u){
     const bedIdx=beds.findIndex(function(b){return b.id===u.bedId;});
@@ -2010,9 +2019,6 @@ function renderBedSidebarCard(){
     let gradeCls='';
     if(stu&&!stuType&&stu.grade){gradeCls=stu.grade+'-'+(stu.cls||'')+(stu.num?' '+stu.num+'번':'');}
     else if(stuType){gradeCls=stu.position||'교직원';}
-    const diff=Math.max(0,u.endTime-Date.now());
-    const mm=String(Math.floor(diff/60000)).padStart(2,'0');
-    const ss=String(Math.floor((diff%60000)/1000)).padStart(2,'0');
     /* 종료 시각 (사용자 요청 2026-05-19) — HH:MM (24시간) */
     const _endD=new Date(u.endTime);
     const _endStr=String(_endD.getHours()).padStart(2,'0')+':'+String(_endD.getMinutes()).padStart(2,'0');
@@ -2026,13 +2032,18 @@ function renderBedSidebarCard(){
       /* 2층 표시 — 언제까지(종료시각) / 남은 시간(mm:ss) — 맑은 고딕 통일 (사용자 요청 2026-05-22) */
       +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0;font-family:\'Malgun Gothic\',\'맑은 고딕\',sans-serif;line-height:1.25">'
       +'<span style="font-size:9px;color:var(--t3);font-weight:600">종료 시각: <span style="color:#dc2626;font-weight:700">'+_endStr+'</span></span>'
-      +'<span style="font-size:9px;color:var(--t3);font-weight:600">남은 시간: <span style="color:#dc2626;font-weight:700">'+mm+':'+ss+'</span></span>'
+      +'<span style="font-size:9px;color:var(--t3);font-weight:600">남은 시간: <span data-bed-countdown="'+Number(u.endTime)+'" style="color:#dc2626;font-weight:700;font-variant-numeric:tabular-nums"></span></span>'
       +'</div>'
       +'<button data-action="sideBedRelease" data-bed-id="'+u.bedId+'" title="퇴실 처리" style="padding:3px 7px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.1);color:#dc2626;border:1px solid rgba(239,68,68,0.3);border-radius:5px;cursor:pointer;font-family:\'Malgun Gothic\',\'맑은 고딕\',sans-serif;flex-shrink:0">퇴실</button>'
       +'</div>';
   });
-  body.innerHTML=h;
-  _bedFitSidebar(card,sidebar);
+  const bodyChanged=_bedSetSidebarMarkup(body,h);
+  body.querySelectorAll('[data-bed-countdown]').forEach(function(countdown){
+    const seconds=Math.max(0,Math.floor((Number(countdown.dataset.bedCountdown)-now)/1000));
+    const text=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+    if(countdown.textContent!==text)countdown.textContent=text;
+  });
+  if(fitUnchanged||wasHidden||headerChanged||bodyChanged)_bedFitSidebar(card,sidebar);
 }
 
 /* 카드 위치를 사이드바와 동일한 좌측·너비로 맞추고, 가려지지 않도록 위 카드들의 max-height 계산 */
@@ -2186,12 +2197,12 @@ if(typeof document!=='undefined'){
     if(isNaN(bedId))return;
     _bedEditFromSidebar(bedId);
   });
-  /* 침상 행에 마우스 올리면 그 학생의 방문 이력 표시 */
+  /* 날짜별 목록을 열어 둔 경우에는 침상 호버로 목록을 바꾸지 않는다. */
   document.addEventListener('mouseover',function(e){
     const row=e.target.closest('[data-action="sideBedHover"]');
-    if(!row)return;
+    if(!row||(e.relatedTarget&&row.contains(e.relatedTarget)))return;
     const sid=row.dataset.stuId;
-    if(!sid||S._visitHistoryLocked)return;
+    if(!sid||S._visitHistoryLocked||document.getElementById('dateVisitorsPanel')?.dataset.contextHistory)return;
     try{showVisitHistory(sid);}catch(err){}
   });
   document.addEventListener('mouseout',function(e){
@@ -2200,16 +2211,16 @@ if(typeof document!=='undefined'){
     /* 다른 침상 행 또는 자식 요소로 이동한 경우는 무시 */
     if(e.relatedTarget&&row.contains(e.relatedTarget))return;
     if(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('[data-action="sideBedHover"]'))return;
-    if(S._visitHistoryLocked)return;
+    if(S._visitHistoryLocked||document.getElementById('dateVisitorsPanel')?.dataset.contextHistory)return;
     try{_hideVisitHistory();}catch(err){}
   });
 }
 
-/* 1초마다 사이드 카드의 카운트다운 갱신 */
+/* 일반적인 틱에는 숫자만 바꾸고, 이용자·종료 시각 등이 바뀌면 카드도 갱신한다. */
 setInterval(function(){
   try{
     const card=document.getElementById('sideBedUsage');
-    if(card&&card.style.display!=='none')renderBedSidebarCard();
+    if(card&&card.style.display!=='none')renderBedSidebarCard(false);
   }catch(e){}
 },1000);
 

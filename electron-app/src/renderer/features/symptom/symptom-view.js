@@ -12,7 +12,7 @@ import { getPublicDataApiKey } from '../../core/public-data-settings.js';
 import { bus } from '../../core/event-bus.js';
 import { renderSettingsPanel, openSettings, switchSettingsCat, openAccordion } from '../settings/settings-view.js';
 import { matchKorean, matchKoreanFromStart } from '../daily/daily-autocomplete.js';
-import { openVitalsEdit, openMemoPanel, showVisitHistory as _dvShowVisitHistory } from '../daily/daily-view.js';
+import { openVitalsEdit, openMemoPanel, showVisitHistory as _dvShowVisitHistory, _hideVisitHistory } from '../daily/daily-view.js';
 import { openTimePicker } from '../daily/diary-print-view.js';
 import { openBodyMap, showHeaderTooltip, hideHeaderTooltip } from '../emergency/emergency-view.js';
 import { S, monthNames, ensureHolidayYear } from '../../core/app-state.js';
@@ -863,11 +863,13 @@ export function openSymptomCategoryPopup(recId, opts){
   S._symSkipNameDupCheck = false;
   /* 실제 열기 도달 — 다음 "새 열기"가 잠금 재확인하도록 플래그 리셋 (이번 호출은 이미 확인 통과). */
   S._symLockChecked = false;
-  /* 사이드바 최근 방문 이력 자동 표시 (사용자 요청 2026-05-18) — 팝업 컨텍스트의 학생으로 잠금.
+  /* 날짜별 목록이 열린 경우 이를 복원하고, 그 밖에는 편집 중인 학생의 최근 방문 이력을 표시한다.
    *  state 변경 시 bus.emit('render:daily') 가 발화되고 daily-view 의 구독이 사이드바를 재렌더하므로
    *  입력 중인 값이 실시간 반영됨 (가장 최근 = 현 레코드가 항상 맨 위).
    *  A→B 학생 교체(popup replace) 케이스에서 prev 백업이 덮어쓰이지 않도록 첫 진입 시에만 저장. */
   try {
+    const hasDateHistory=!!document.getElementById('dateVisitorsPanel')?.dataset.contextHistory;
+    if(hasDateHistory)_hideVisitHistory(true);
     const _popupAlreadyOpen = !!document.getElementById('symCatOverlay');
     if(!_popupAlreadyOpen){
       S._symPrevLockedStuId = S.dailyLockedStudentId || null;
@@ -888,7 +890,7 @@ export function openSymptomCategoryPopup(recId, opts){
         && _vhPanel._lastStuId === _sid;
       S._visitHistoryLocked = false;
       S.dailyLockedStudentId = _sid;
-      if(!_sameStudentVisible && typeof _dvShowVisitHistory==='function'){
+      if(!hasDateHistory && !_sameStudentVisible && typeof _dvShowVisitHistory==='function'){
         _dvShowVisitHistory(_sid);
       }
       S._visitHistoryLocked = true;
@@ -1253,10 +1255,7 @@ export function openSymptomCategoryPopup(recId, opts){
   /* 증상 선택 및 처치 팝업 전역 미니 팝업 위임 — 카테고리 패널·처치 패널·헤더 칩 등 모든 자식 요소의
    * data-tooltip 호버를 통일된 GUI(showHeaderTooltip) 로 처리. (2026-05-20 통합) */
   _symBindTipDelegation(ov);
-  /* 사용자 요청 (2026-05-19) — 증상 팝업 열린 동안 좌측 사이드바를 ov(z:9500) 위로 끌어올려
-     "최근 보건실 방문 이력"에서 마우스 휠 스크롤로 과거 이력 열람 가능하게.
-     최근 방문 이력은 클릭·스크롤해도 유지하고, 다른 배경 클릭은 기존 완료 경로로 닫는다.
-     ov 가 DOM 에서 사라지면 자동으로 body 클래스 해제. */
+  /* 창 옆에서 날짜별 목록을 스크롤하거나 최근 방문 이력을 열람할 수 있게 한다. */
   document.body.classList.add('sym-popup-open');
   /* visitHistoryBody 영역 위에서 휠을 굴리면 그쪽 scrollTop 을 직접 변경 — 증상 팝업이 떠있는 동안
      z-index/stacking context 영향으로 휠이 카드까지 안 전달되는 케이스를 강제 우회.
@@ -5466,10 +5465,7 @@ function _symComplete(){
     }
   }
   const medPop=document.getElementById('symMedPopup');if(medPop){_symCleanupMedUnitMenus(medPop);medPop.remove();}
-  /* 사이드바 방문이력 정책 (사용자 요청 2026-05-19):
-   *  - 팝업이 닫혀도 그 학생의 최근 보건실 방문이력 카드는 사이드바에 그대로 유지 (hide 안 함).
-   *  - 잠금은 해제하여 사용자가 일반 일지의 다른 사람 이름에 호버 시 그 학생의 이력으로 즉시 교체되게.
-   *  - 따라서 팝업 진입 직전의 잠금 학생으로 되돌리지 않음 (이전 정책 폐기). */
+  /* 읽던 방문 목록은 유지하고, 편집 중인 학생으로 고정했던 잠금을 해제한다. */
   try {
     S._symPrevLockedStuId = null;
     S._symPrevVisitHistoryLocked = null;

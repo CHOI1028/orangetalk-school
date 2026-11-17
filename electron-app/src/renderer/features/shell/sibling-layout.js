@@ -33,6 +33,11 @@ function keepPopupsInView(zoom) {
   });
 }
 
+function isReadingDateHistory() {
+  return !!document.getElementById('symCatOverlay')
+    && !!document.querySelector('#schoolSidebar > #dateVisitorsPanel[data-context-history]');
+}
+
 function syncLayout() {
   frame = 0;
   if (!document.body.classList.contains('school-interface')) return;
@@ -51,11 +56,13 @@ function syncLayout() {
   // Start docked history open, but never cover a small window on startup.
   // Remember the user's desktop choice while temporarily using the drawer.
   if (contextLayout !== nextContextLayout) {
+    const wasOpen = document.body.classList.contains('school-context-open');
     if (contextLayout === 'docked') {
-      dockedContextOpen = document.body.classList.contains('school-context-open');
+      dockedContextOpen = wasOpen;
     }
+    const keepOpen = (wasOpen && isReadingDateHistory()) || (nextContextLayout === 'docked' && dockedContextOpen);
     document.body.classList.toggle('school-context-open',
-      nextContextLayout === 'docked' && dockedContextOpen && !document.body.classList.contains('sidebar-off'));
+      keepOpen && !document.body.classList.contains('sidebar-off'));
     contextLayout = nextContextLayout;
   }
   const view = document.body.dataset.activeView || '';
@@ -171,11 +178,11 @@ document.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   const sidebar = document.getElementById('schoolSidebar');
   if (!sidebar || !document.body.classList.contains('school-context-open')) return;
-  const inside = sidebar.contains(document.activeElement);
-  if (event.key === 'Escape' && inside) {
+  if (!sidebar.contains(document.activeElement) || isReadingDateHistory()) return;
+  if (event.key === 'Escape') {
     event.preventDefault();
     closeContext();
-  } else if (event.key === 'Tab' && inside && document.body.classList.contains('school-context-drawer')) {
+  } else if (event.key === 'Tab' && document.body.classList.contains('school-context-drawer')) {
     const focusable = Array.from(sidebar.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),a[href],[tabindex="0"]')).filter(el => el.offsetParent !== null);
     if (!focusable.length) { event.preventDefault(); sidebar.focus(); return; }
     const first = focusable[0], last = focusable[focusable.length - 1];

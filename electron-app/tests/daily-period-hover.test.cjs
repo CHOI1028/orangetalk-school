@@ -5,7 +5,8 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const daily=fs.readFileSync(path.join(__dirname,'../src/renderer/features/daily/daily-view.js'),'utf8');
-function named(name){const start=daily.indexOf('function '+name+'('),end=daily.indexOf('\n}',start);assert(start>=0&&end>start,name);return daily.slice(start,end+2);}
+const layout=fs.readFileSync(path.join(__dirname,'../src/renderer/features/shell/sibling-layout.js'),'utf8');
+function named(name,source=daily){const start=source.indexOf('function '+name+'('),end=source.indexOf('\n}',start);assert(start>=0&&end>start,name);return source.slice(start,end+2);}
 function node(){
  const classes=new Set(),listeners={},values=new Map();
  return {dataset:{},listeners,isConnected:true,scrollTop:37,
@@ -17,6 +18,8 @@ function node(){
 }
 function harness(){
  const history=node(),date=node(),normal=node(),emergency=node(),infection=node();date.dataset.contextHistory='true';
+ date.querySelector=()=>date;
+ date.scrollTo=({top})=>{date.scrollTop=top;};
  const visits=[],calls={actions:0,privacy:0};let period=null,popup=null;
  const ids={recBody:normal,ecListBody:emergency,infListBody:infection,sideVisitHistory:history,dateVisitorsPanel:date};
  const context=vm.createContext({S:{records:[{id:1,studentId:'alpha'}]},_lastHoverStuId:null,
@@ -69,6 +72,38 @@ test('증상·처치 작성 중 잠긴 인원의 이력을 다른 인원으로 �
 });
 test('증상·처치 창이 열려 있으면 커서를 떼도 이력을 유지한다',()=>{
  const h=harness();h.render();h.hover('alpha');h.setPopup({});h.period.dispatch('mouseleave',{relatedTarget:null});assert(h.history.classList.contains('vh-show'));
+});
+test('증상·처치 창을 열 때 이름 호버로 가려진 날짜 목록과 스크롤을 복원한다',()=>{
+ const h=harness();h.render();h.hover('alpha');
+ h.date.scrollTop=0;
+ h.context._hideVisitHistory(true);h.setPopup({});
+ assert.equal(h.date.style.display,'');assert.equal(h.date.scrollTop,37);assert.equal(h.history.style.display,'none');
+});
+test('증상·처치 저장으로 최근 이력이 갱신되어도 같은 날짜 목록을 유지한다',()=>{
+ const h=harness();h.setPopup({});
+ h.context._showVisitHistory();
+ assert.equal(h.date.style.display,'');assert.equal(h.date.scrollTop,37);assert(!h.history.classList.contains('vh-show'));
+ h.setPopup(null);h.context._showVisitHistory();assert(h.history.classList.contains('vh-show'));
+});
+test('날짜 목록이 없으면 증상·처치 창에서도 최근 이력이 표시된다',()=>{
+ const h=harness();delete h.date.dataset.contextHistory;h.setPopup({});h.context._showVisitHistory();
+ assert(h.history.classList.contains('vh-show'));
+});
+test('증상·처치와 날짜 목록을 함께 보는 중에는 작은 창으로 바꿔도 사이드바가 열린 상태를 유지한다',()=>{
+ for(const [editing,selectedDate] of [[true,true],[true,false],[false,true]]){
+  const classes=new Set(['school-interface','school-context-open']);
+  const classList={contains:key=>classes.has(key),toggle(key,on){if(on)classes.add(key);else classes.delete(key);}};
+  const document={body:{dataset:{activeView:'daily'},classList},
+   getElementById:id=>id==='symCatOverlay'&&editing?{}:null,
+   querySelector:()=>selectedDate?{}:null};
+  const noop=()=>{};
+  const context=vm.createContext({document,window:{innerWidth:1000,innerHeight:800},root:{style:{}},frame:0,
+   contextLayout:'docked',dockedContextOpen:true,lastView:'daily',setSize:noop,installShellControls:noop,
+   syncContextAccessibility:noop,keepPopupsInView:noop,refineSchoolActions:noop});
+  vm.runInContext(named('isReadingDateHistory',layout)+'\n'+named('syncLayout',layout)+'\nsyncLayout();',context);
+  assert(classes.has('school-context-drawer'));
+  assert.equal(classes.has('school-context-open'),editing&&selectedDate);
+ }
 });
 for(const id of ['', 'undefined', 'null'])test('연결할 인원 번호가 없으면 안전하게 건너뛴다: '+id,()=>{
  const h=harness();h.render();h.hover(id);assert.deepEqual(h.visits,[]);

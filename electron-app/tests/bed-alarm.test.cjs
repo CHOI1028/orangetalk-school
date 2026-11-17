@@ -94,6 +94,8 @@ function harness({ rejectOnPause = true, audioConstructorError = null } = {}) {
     get isConnected() { return this === document.body || !!this.parentNode?.isConnected; }
     get parentElement() { return this.parentNode; }
     get childElementCount() { return this.children.length; }
+    getBoundingClientRect() { return { height: 0 }; }
+    scrollIntoView(options) { this.scrollOptions = options; }
     appendChild(child) { child.parentNode = this; this.children.push(child); mutate(this, 'childList'); return child; }
     append(...children) { children.forEach(child => this.appendChild(child)); }
     removeChild(child) { this.children = this.children.filter(item => item !== child); child.parentNode = null; mutate(this, 'childList'); return child; }
@@ -115,6 +117,7 @@ function harness({ rejectOnPause = true, audioConstructorError = null } = {}) {
       if(attr) return Object.hasOwn(this.attributes, attr[1]) && (attr[2] === undefined || this.attributes[attr[1]] === attr[2]);
       return this.tagName.toLowerCase() === selector;
     }
+    closest(selector) { return this.matches(selector) ? this : this.parentNode?.closest(selector) || null; }
     querySelectorAll(selector) { return this.children.flatMap(child => [...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector)]); }
     querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
     get textContent() { return this._text + this.children.map(child => child.textContent).join(''); }
@@ -140,6 +143,7 @@ function harness({ rejectOnPause = true, audioConstructorError = null } = {}) {
   document.documentElement = document.body;
   document.createElement = tag => new Element(tag);
   document.getElementById = id => document.body.querySelector('#' + id);
+  document.querySelector = selector => document.body.querySelector(selector);
   document.querySelectorAll = selector => document.body.querySelectorAll(selector);
   const window = new Events();
   // The app's author .modal-overlay.show { display:flex } rule wins over the
@@ -197,6 +201,130 @@ function harness({ rejectOnPause = true, audioConstructorError = null } = {}) {
 }
 
 function usage(bedId = 1, studentName = '김하늘') { return { bedId, studentName, endTime: 1000 + bedId, alarm: true, alarmSound: '2' }; }
+
+function sidebarHarness() {
+  const h = harness();
+  const { context, document } = h;
+  let now = new Date(2026, 10, 17, 10, 46).getTime();
+  const intervals = [], visits = [], saves = [], messages = [], releases = [], storage = new Map();
+  const sidebar = document.createElement('div');
+  sidebar.className = 'sidebar';
+  sidebar.innerHTML = '<div id="dateVisitorsPanel" data-context-history="true"></div>' +
+    '<div id="sideBedUsage"><div id="sideBedHeader"></div><div id="sideBedBody"></div></div>';
+  document.body.appendChild(sidebar);
+  const card = document.getElementById('sideBedUsage');
+  const dateList = document.getElementById('dateVisitorsPanel');
+  const record = { id: 71, studentId: 'fixture', date: '2026-11-17', timeOut: '11:00' };
+  const user = { id: 'fixture', name: '가상 학생', type: 'student', grade: 1, cls: 1, num: 18 };
+  Object.assign(context, {
+    Date: class extends Date {
+      constructor(...args) { super(...(args.length ? args : [now])); }
+      static now() { return now; }
+    },
+    localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+    bus: { emit: (name, payload) => messages.push([name, payload]) },
+    setInterval(fn, delay) { intervals.push({ fn, delay }); },
+    getStu: () => user, getStuAutoLine: () => '1학년 1반 18번',
+    saveRecordNow: value => saves.push({ ...value }),
+    showVisitHistory: id => visits.push(id), _hideVisitHistory: () => visits.push(null),
+    _makeDraggable() {}, _bedFitSidebar() {}, _bedFlipClockHtml() { return ''; },
+    _bedUpdateEndTimePreview() {}, _bedAttachWheelEvents() {}, _bedDrawAnalogClock() {}, _bedAttachAnalogDrag() {},
+    _bedShowReleaseToast: student => releases.push(student.id)
+  });
+  context.S._bedConfig = { beds: [{ id: 1 }], placement: 'left' };
+  context.S._bedUsage = [{ bedId: 1, studentId: user.id, recordId: record.id, endTime: now + 120000 }];
+  context.S.records = [record];
+  vm.runInContext([
+    'let _bedCurrentStuId=null, _bedPreviewInitDone=false;',
+    section('function _loadBedConfig(){', '/* 기록 삭제 시'),
+    section('function _bedCleanExpired(){', '/* ── Alarm System'),
+    section('function openBedManager(stuId){', '/* 침상 이용 등록 팝업 닫기'),
+    section('function _bedFormatStuInfo(', 'function _bedFlipClockHtml('),
+    section('function _bedRenderBody(){', 'function _bedAssign(bedId){'),
+    section('function _bedBuildDurationPicker(', 'function _bedWheelClickToType('),
+    section('function _bedShowOccupied(', 'function _bedRelease('),
+    section('let _bedMinimized=false;', '/* 카드 위치를 사이드바와 동일한'),
+    section('function _bedBuildHeaderHTML(', '/* ── 특정 학생의 침상 사용을 해제')
+  ].join('\n'), context);
+  context.localStorage.setItem('ec_bed_config', JSON.stringify(context.S._bedConfig));
+  context._saveBedUsage();
+  return { ...h, card, dateList, record, visits, saves, messages, releases, storage,
+    node: action => card.querySelector('[data-action="' + action + '"]'),
+    sidebarEvent(type, target, relatedTarget) { document.dispatchEvent(event(type, { target, relatedTarget })); },
+    tick() { assert.equal(intervals[0].delay, 1000); now += 1000; intervals[0].fn(); },
+    runTimer(delay) {
+      const [id, timer] = [...h.timers].find(([, timer]) => timer.delay === delay);
+      h.timers.delete(id);
+      timer.callback();
+    }
+  };
+}
+
+test('침상 호버는 선택한 날짜의 목록을 전환하거나 닫지 않는다', () => {
+  const h = sidebarHarness();
+  const row = h.node('sideBedHover');
+  h.sidebarEvent('mouseover', row);
+  h.sidebarEvent('mouseout', row);
+  assert.deepEqual(h.visits, []);
+  assert.equal(h.document.getElementById('dateVisitorsPanel'), h.dateList);
+  h.dateList.remove();
+  h.sidebarEvent('mouseover', row);
+  h.sidebarEvent('mouseover', h.node('sideBedRelease'), row);
+  h.sidebarEvent('mouseout', row);
+  assert.deepEqual(h.visits, ['fixture', null]);
+});
+
+test('카운트다운은 숫자만 갱신하고 이용 만료 시 카드를 숨긴다', () => {
+  const h = sidebarHarness();
+  const row = h.node('sideBedHover'), release = h.node('sideBedRelease'), toggle = h.node('bedToggleMinimize');
+  const number = row.querySelector('[data-bed-countdown]');
+  assert.equal(number.textContent, '02:00');
+  h.tick();
+  assert.equal(h.node('sideBedHover'), row);
+  assert.equal(h.node('sideBedRelease'), release);
+  assert.equal(h.node('bedToggleMinimize'), toggle);
+  assert.equal(row.querySelector('[data-bed-countdown]'), number);
+  assert.equal(number.textContent, '01:59');
+  for(let i=0;i<119;i++)h.tick();
+  assert.equal(h.card.style.display, 'none');
+});
+
+test('날짜별 목록이 열린 상태에서 침상 행을 눌러 이용 시간 변경을 저장한다', () => {
+  const h = sidebarHarness();
+  const row = h.node('sideBedHover');
+  h.tick();
+  h.sidebarEvent('click', row);
+  h.runTimer(30);
+  const picker = h.document.getElementById('bedTimePicker');
+  assert.equal(picker.style.display, 'block');
+  assert.equal(picker.scrollOptions.block, 'nearest');
+  const confirm = picker.querySelector('[data-action="confirmEdit"]');
+  assert.equal(confirm.dataset.bedId, '1');
+  vm.runInContext('_bedPickerHour=0; _bedPickerMin=25;', h.context);
+  h.click(confirm);
+  assert.equal(JSON.parse(h.storage.get('ec_bed_usage'))[0].endTime, h.context.Date.now() + 25*60000);
+  assert.equal(h.node('sideBedHover').querySelector('[data-bed-countdown]').textContent, '25:00');
+  assert.equal(h.document.getElementById('dateVisitorsPanel'), h.dateList);
+});
+
+for(const minimize of [false, true])test('날짜별 목록에서 침상 퇴실 시 일지에 실제 퇴실 시각을 저장한다 (최소화: ' + minimize + ')', () => {
+  const h = sidebarHarness();
+  if(minimize)h.sidebarEvent('click', h.node('bedToggleMinimize'));
+  const button = h.node('sideBedRelease');
+  h.tick();
+  assert.equal(h.node('sideBedRelease'), button);
+  h.sidebarEvent('click', button);
+  assert.equal(h.record.timeOut, '10:46');
+  assert.equal(h.saves.length, 1);
+  assert.equal(h.saves[0].timeOut, '10:46');
+  assert.equal(h.messages.filter(([name]) => name==='render:daily').length, 1);
+  assert.deepEqual(JSON.parse(h.storage.get('ec_bed_usage')), []);
+  assert.deepEqual(h.releases, ['fixture']);
+  assert.equal(h.card.style.display, 'none');
+  assert.equal(h.document.getElementById('bedManagerOverlay'), null);
+  assert.equal(h.document.getElementById('dateVisitorsPanel'), h.dateList);
+});
+
 function assertClean(h) {
   assert.equal(h.overlay(), null, 'The alert must be removed');
   assert.equal(h.audio.some(item => item.playing), false, 'No file audio may remain playing');
