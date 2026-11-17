@@ -427,7 +427,8 @@ class PastHistoryService {
     }
 
     const wb = XLSX.readFile(filePath);
-    /* 🔍 데이터 시트 자동 탐지: "보건일지" 이름 우선, 없으면 헤더에 "방문일/날짜/일자"가 있는 첫 시트.
+    const cleanHeader = (key) => key.trim().replace(/\s*\(.*?\)\s*/g, '').trim();
+    /* 🔍 데이터 시트 자동 탐지: "보건일지" 이름 우선, 없으면 날짜 헤더가 있는 첫 시트.
      * 양식 파일의 1번째 시트가 "설명"(안내 문구)이어서 데이터가 비어 보이는 문제 방지. */
     let sheetName = wb.SheetNames.find(n => /보건일지|daily|record/i.test(n));
     if (!sheetName) {
@@ -436,7 +437,10 @@ class PastHistoryService {
         if (!s) return false;
         const raw = XLSX.utils.sheet_to_json(s, { header: 1, defval: '' });
         const first = raw[0] || [];
-        return first.some(h => /방문일|날짜|일자|date/i.test(String(h || '').trim()));
+        return first.some(h => {
+          const header = String(h || '').trim();
+          return /방문일|날짜|일자|date/i.test(header) || cleanHeader(header) === '일시';
+        });
       });
     }
     if (!sheetName) sheetName = wb.SheetNames[0];
@@ -452,7 +456,7 @@ class PastHistoryService {
 
     /* 헤더 매핑 (한글 → 컬럼) — 괄호 제거 후 매칭 */
     const colMap = {
-      '방문일': 'visit_date', '날짜': 'visit_date', '일자': 'visit_date',
+      '방문일': 'visit_date', '날짜': 'visit_date', '일자': 'visit_date', '일시': 'visit_date',
       '입실시간': 'time_in', '입실': 'time_in',
       '퇴실시간': 'time_out', '퇴실': 'time_out',
       '학년': 'grade',
@@ -512,7 +516,7 @@ class PastHistoryService {
     const headerToCol = {}; /* { rawHeader: 'treatment', ... } */
     let stdMatched = 0;
     headerKeys.forEach((k, idx) => {
-      const cleanKey = k.trim().replace(/\s*\(.*?\)\s*/g, '').trim();
+      const cleanKey = cleanHeader(k);
       let col = colMap[k.trim()] || colMap[cleanKey];
       if (!col) {
         for (const [field, regex] of Object.entries(headerPatterns)) {
@@ -534,6 +538,15 @@ class PastHistoryService {
           if (dup === -1) headerToCol[k] = STD_POS[idx];
         }
       });
+    }
+
+    /* 유사 헤더(예: 다음 방문 예정일)가 실제 방문일을 덮어쓰지 않도록 한다. */
+    const dateHeaders = headerKeys.filter(k => headerToCol[k] === 'visit_date');
+    const visitDateHeader = dateHeaders.find(k => /^(?:(?:방문|내원|내방|진료|발생|등교)일(?:자|시)?|visitdate)$/i.test(cleanHeader(k).replace(/\s+/g, '')))
+      || dateHeaders.find(k => /^(날짜|일자|일시|date)$/i.test(cleanHeader(k)))
+      || dateHeaders.at(-1);
+    for (const k of dateHeaders) {
+      if (k !== visitDateHeader) delete headerToCol[k];
     }
 
     const mapped = rows.map((row, idx) => {

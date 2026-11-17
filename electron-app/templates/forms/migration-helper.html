@@ -435,6 +435,13 @@ function extractSheet(grid,twoBlock){
   for(var hi=0; hi<headers.length; hi++){
     var headerRowIdx=headers[hi].rowIdx;
     var cols=pruneColumns(headers[hi].cols);
+    var blocks=twoBlock?(Array.isArray(cols.name)?cols.name.length:1):1;
+    if(blocks===1 && Array.isArray(cols.date)){
+      var dateHeader=function(c){return String(grid[headerRowIdx][c]).replace(/\([^)]*\)|\s+/g,'');};
+      var visitDateCol=cols.date.find(function(c){return /^(?:(?:방문|내원|내방|진료|발생|등교)일(?:자|시)?|visitdate)$/i.test(dateHeader(c));});
+      if(visitDateCol==null) visitDateCol=cols.date.find(function(c){return /^(날짜|일자|일시|date)$/i.test(dateHeader(c));});
+      if(visitDateCol!=null) cols.date=visitDateCol;
+    }
     var preambleStart = hi===0 ? 0 : headers[hi-1].rowIdx + 1;
     // 1) 이 페이지의 preamble 에서 날짜·범위·처치자 갱신 (없으면 직전 값 유지)
     var pageDate='', pageNurse='';
@@ -456,7 +463,6 @@ function extractSheet(grid,twoBlock){
     // 2) 이 페이지의 데이터 행 (현재 헤더 + 1 ~ 다음 헤더 직전)
     //    통계/일계/월계/누계/종류 같은 통계 매트릭스 행 만나면 즉시 break — 셀 누수 차단
     var endRow = (hi+1 < headers.length) ? headers[hi+1].rowIdx : grid.length;
-    var blocks=twoBlock?(Array.isArray(cols.name)?cols.name.length:1):1;
     var STATS_RE=/^(통계|일계|월계|누계|소계|합계|종류)$/;
     for(var dr=headerRowIdx+1; dr<endRow; dr++){
       var rawRow=grid[dr]||[];
@@ -817,6 +823,10 @@ async function exportPastHealthRecords(){
       var newRow=openTag+newCells+"</row>";
       xml=xml.replace("</sheetData>", newRow+"</sheetData>");
     }
+  });
+  // 템플릿의 675건을 넘는 기록도 XLSX 리더가 읽도록 실제 행 범위를 확장한다.
+  xml=xml.replace(/(<dimension\s+ref="[A-Z]+\d+:[A-Z]+)(\d+)("\s*\/>)/,function(_,prefix,lastRow,suffix){
+    return prefix+Math.max(Number(lastRow),PREVIEW.length+1)+suffix;
   });
   zip.file("xl/worksheets/sheet2.xml", xml);
   var blob=await zip.generateAsync({type:"blob"});
